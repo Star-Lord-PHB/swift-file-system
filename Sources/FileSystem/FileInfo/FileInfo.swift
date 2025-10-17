@@ -5,24 +5,42 @@ import CFileSystem
 
 
 
-public struct FileInfo {
+public struct FileInfo: Sendable, Equatable, Hashable {
 
     public let path: FilePath
     public let size: UInt64
 
     public let type: FileType
 
-    public let lastAccessDate: TimeSpec
-    public let lastModificationDate: TimeSpec
-    public let lastStatusChangeDate: TimeSpec
-    public let creationDate: TimeSpec?
+    public let lastAccessDate: PlatformTimeSpec
+    public let lastModificationDate: PlatformTimeSpec
+    public let lastStatusChangeDate: PlatformTimeSpec
+    public let creationDate: PlatformTimeSpec?
 
-    public let permissions: Permission
+    public let securityInfo: PlatformSecurityInfo
 
-    public let owner: User
+    public let attributes: PlatformAttributes
+    public let supportedAttributes: PlatformAttributes
 
-    public let attributes: Attributes
-    public let supportedAttributes: Attributes
+}
+
+
+
+extension FileInfo: CustomStringConvertible {
+
+    @inlinable
+    public var description: String {
+        """
+        File(\
+        path: \(path), type: \(type), size: \(size) bytes, \
+        last accessed: \(lastAccessDate), \
+        last modified: \(lastModificationDate), \
+        last status changed: \(lastStatusChangeDate), \
+        \(creationDate.map { "created: \($0), " } ?? "") \
+        security: \(securityInfo), \
+        attributes: \(attributes))
+        """
+    }
 
 }
 
@@ -32,9 +50,55 @@ extension FileInfo {
 
 #if canImport(WinSDK)
 
-    // TODO: implement on Windows
-    public init(fileAt path: FilePath, followSymLink: Bool = true) throws {
-        fatalError("Not implemented")
+    public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
+
+        let openFlags = DWORD(FILE_FLAG_BACKUP_SEMANTICS) | (followSymLink ? 0 : DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
+        
+        let handle = path.string.withCString(encodedAs: UTF16.self) { cPath in 
+            CreateFileW(cPath, DWORD(FILE_READ_ATTRIBUTES | READ_CONTROL), .init(FILE_SHARE_READ), nil, .init(OPEN_EXISTING), openFlags, nil)
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else {
+            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+        }
+
+        defer { CloseHandle(handle) }
+
+        var infoByHandle = _BY_HANDLE_FILE_INFORMATION()
+        guard GetFileInformationByHandle(handle, &infoByHandle) else {
+            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+        }
+
+        self.path = path
+        self.size = (UInt64(infoByHandle.nFileSizeHigh) << 32) | UInt64(infoByHandle.nFileSizeLow)
+        self.attributes = .init(rawValue: infoByHandle.dwFileAttributes)
+        self.supportedAttributes = .all
+        self.creationDate = .init(platformFileTime: infoByHandle.ftCreationTime)
+        self.lastAccessDate = .init(platformFileTime: infoByHandle.ftLastAccessTime)
+        self.lastModificationDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
+        self.lastStatusChangeDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
+
+        self.type = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try .init(unsafeFromFileHandle: handle, attributes: infoByHandle.dwFileAttributes)
+        }
+
+        var securityDescriptorPtr = nil as PSECURITY_DESCRIPTOR?
+        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+            GetSecurityInfo(
+                handle, SE_FILE_OBJECT, 
+                DWORD(OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION), 
+                nil, nil, nil, nil, 
+                &securityDescriptorPtr
+            )
+        }
+        guard let securityDescriptorPtr else {
+            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+        }
+        defer { LocalFree(securityDescriptorPtr) }
+
+        self.securityInfo = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in 
+            try .init(unsafeFromSecurityDescriptorPtr: securityDescriptorPtr)
+        }
+
     }
 
 #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
@@ -48,23 +112,23 @@ extension FileInfo {
         try execThrowingCFunction {
             fstatat(AT_FDCWD, path.string, &stat, openFlags)
         } onError: {
-            FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
+            throw FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
         }
 
         self.path = path
         self.size = UInt64(stat.st_size)
-        self.permissions = .init(rawValue: stat.st_mode)
 
-        self.lastAccessDate = .init(timespec: stat.st_atimespec)
-        self.lastModificationDate = .init(timespec: stat.st_mtimespec)
-        self.lastStatusChangeDate = .init(timespec: stat.st_ctimespec)
-        self.creationDate = .init(timespec: stat.st_birthtimespec)
+        self.lastAccessDate = .init(platformFileTime: stat.st_atimespec)
+        self.lastModificationDate = .init(platformFileTime: stat.st_mtimespec)
+        self.lastStatusChangeDate = .init(platformFileTime: stat.st_ctimespec)
+        self.creationDate = .init(platformFileTime: stat.st_birthtimespec)
 
         self.attributes = .init(rawValue: stat.st_flags)
         self.supportedAttributes = .all
 
-        self.owner = .init(uid: stat.st_uid, gid: stat.st_gid)
         self.type = .init(mode: stat.st_mode)
+
+        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode), uid: stat.st_uid, gid: stat.st_gid)
 
     }
 
@@ -84,27 +148,27 @@ extension FileInfo {
         try execThrowingCFunction {
             systemStatCompat(fd, &stat)
         } onError: {
-            FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
+            throw FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
         }
 
         self.path = path
         self.size = UInt64(stat.st_size)
-        self.permissions = .init(rawValue: stat.st_mode)
 
-        self.lastAccessDate = .init(timespec: stat.st_atim)
-        self.lastModificationDate = .init(timespec: stat.st_mtim)
-        self.lastStatusChangeDate = .init(timespec: stat.st_ctim)
+        self.lastAccessDate = .init(platformFileTime: stat.st_atim)
+        self.lastModificationDate = .init(platformFileTime: stat.st_mtim)
+        self.lastStatusChangeDate = .init(platformFileTime: stat.st_ctim)
         if (stat.has_btime != 0) {
-            self.creationDate = .init(timespec: stat.st_btim)
+            self.creationDate = .init(platformFileTime: stat.st_btim)
         } else {
             self.creationDate = nil
         }
 
-        self.owner = .init(uid: stat.st_uid, gid: stat.st_gid)
         self.type = .init(mode: stat.st_mode)
 
         self.attributes = .init(rawValue: stat.st_attributes)
         self.supportedAttributes = .init(rawValue: stat.st_attributes_mask)
+
+        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode), uid: stat.st_uid, gid: stat.st_gid)
 
         // TODO: on older linux kernels, try to use ioctl with FS_IOC_GETFLAGS to get file attributes
 

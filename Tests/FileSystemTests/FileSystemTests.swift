@@ -5,7 +5,7 @@ import Foundation
 
 
 @Suite
-final class FileSystemTest {
+class FileSystemTest {
 
     static let rootDir: FilePath = .init(URL.temporaryDirectory.path).appending("swift-file-system-tests")
 
@@ -72,62 +72,6 @@ final class FileSystemTest {
         try FileManager.default.createDirectory(at: .init(filePath: absPath.string), withIntermediateDirectories: true)
 
         return absPath
-
-    }
-
-
-    @Test
-    func test1() async throws {
-        
-        let path = try makeFile(at: "file.txt")
-
-        let info = try FileInfo(fileAt: path)
-        // print(info)
-
-        let attributes = try FileManager.default.attributesOfItem(atPath: path.string)
-        let urlAttributes = try URL(filePath: path.string).resourceValues(forKeys: [.creationDateKey, .contentAccessDateKey])
-        // print(attributes)
-
-        #expect(info.size == attributes[.size] as? UInt64)
-
-        if let date = info.creationDate?.date, let expectedCreationDate = urlAttributes.creationDate {
-            #expect(date.timeIntervalSince(expectedCreationDate) < 1e-6)
-        } else {
-            #expect(info.creationDate?.date == urlAttributes.creationDate)
-        }
-        #expect(info.lastModificationDate.date == attributes[.modificationDate] as? Date)
-        #expect(info.lastAccessDate.date == urlAttributes.contentAccessDate)
-
-        #expect(info.owner.uid == attributes[.ownerAccountID] as? UInt32)
-        #expect(info.owner.gid == attributes[.groupOwnerAccountID] as? UInt32)
-
-    }
-
-
-    @Test
-    func test2() async throws {
-        
-        let path = try makeFile(at: "file.txt")
-        let link = try makeSymlink(at: "link.txt", pointingTo: path)
-
-        let linkInfo = try FileInfo(fileAt: link, followSymLink: false)
-        print(linkInfo)
-        #expect(linkInfo.type == .symlink)
-
-        let targetInfo = try FileInfo(fileAt: link, followSymLink: true)
-        print(targetInfo)
-
-    }
-
-
-    @Test
-    func test3() async throws {
-        
-        let path = "not-exists.txt" as FilePath
-
-        #expect(throws: FileError.self) {
-            _ = try FileInfo(fileAt: path)
-        }
 
     }
 
