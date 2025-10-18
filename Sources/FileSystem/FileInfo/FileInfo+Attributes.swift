@@ -21,7 +21,7 @@ extension FileInfo {
 
 
         @_alwaysEmitIntoClient
-        public private(set) var rawValue: RawBitType
+        public var rawValue: RawBitType
 
 
         @inlinable
@@ -56,8 +56,27 @@ extension FileInfo.PlatformAttributes {
 
 
 
+extension FileInfo.PlatformAttributes: CustomStringConvertible {
+    @inlinable
+    public var description: String {
+        let componentString = Self._allWithNameAsArray?
+            .compactMap { (attr, name) in
+                self.contains(attr) ? name : nil
+            }
+            .joined(separator: ", ")
+        if let componentString {
+            return "0x\(String(rawValue, radix: 16)) [\(componentString)]"
+        } else {
+            return "0x\(String(rawValue, radix: 16))"
+        }
+    }
+}
+
+
+
 #if canImport(Darwin)
-extension FileInfo.Attributes {
+
+extension FileInfo.PlatformAttributes {
 
     @inlinable public static var bitNoDump: RawBitType { .init(UF_NODUMP) }
     @inlinable public static var bitIsUserImmutable: RawBitType { .init(UF_IMMUTABLE) }
@@ -79,6 +98,13 @@ extension FileInfo.Attributes {
     @inlinable public static var isSystemImmutable: Self { .init(rawValue: bitIsSystemImmutable) }
     @inlinable public static var isSystemAppendOnly: Self { .init(rawValue: bitIsSystemAppendOnly) }
 
+    @usableFromInline static var _allWithNameAsArray: [(Self, String)]? {
+        [
+            (.noDump, "noDump"), (.isUserImmutable, "isUserImmutable"), (.isUserAppendOnly, "isUserAppendOnly"),
+            (.isOpaque, "isOpaque"), (.isCompressed, "isCompressed"), (.isHidden, "isHidden"), (.isArchived, "isArchived"), 
+            (.isSystemImmutable, "isSystemImmutable"), (.isSystemAppendOnly, "isSystemAppendOnly")
+        ]
+    }
     @usableFromInline static let _all: Self = [
         .noDump, .isUserImmutable, .isUserAppendOnly, .isOpaque, .isCompressed, .isHidden, .isArchived,
         .isSystemImmutable, .isSystemAppendOnly
@@ -140,12 +166,10 @@ extension FileInfo.Attributes {
     }
 
 }
-#endif
 
+#elseif canImport(Glibc) || canImport(Musl)
 
-
-#if canImport(Glibc) || canImport(Musl)
-extension FileInfo.Attributes {
+extension FileInfo.PlatformAttributes {
 
     @inlinable public static var bitIsCompressed: RawBitType { .init(STATX_ATTR_COMPRESSED) }
     @inlinable public static var bitIsImmutable: RawBitType { .init(STATX_ATTR_IMMUTABLE) }
@@ -177,6 +201,14 @@ extension FileInfo.Attributes {
     @inlinable public static var isVerityProtected: Self { .init(rawValue: bitIsVerityProtected) }
     @inlinable public static var isDAX: Self { .init(rawValue: bitIsDAX) }
 
+    @usableFromInline
+    static var _allWithNameAsArray: [(Self, String)]? {
+        [
+            (.isCompressed, "isCompressed"), (.isImmutable, "isImmutable"), (.isAppendOnly, "isAppendOnly"), 
+            (.noDump, "noDump"), (.isEncrypted, "isEncrypted"), (.isAutoMount, "isAutoMount"), 
+            (.isMountRoot, "isMountRoot"), (.isVerityProtected, "isVerityProtected"), (.isDAX, "isDAX")
+        ]
+    }
     @usableFromInline static let _all: Self = [
         .isCompressed, .isImmutable, .isAppendOnly, .noDump, .isEncrypted,
         .isAutoMount, .isMountRoot, .isVerityProtected, .isDAX
@@ -238,11 +270,9 @@ extension FileInfo.Attributes {
     }
 
 }
-#endif
 
+#elseif canImport(WinSDK)
 
-
-#if canImport(WinSDK)
 extension FileInfo.PlatformAttributes {
 
     @inlinable public static var bitIsReadOnly: RawBitType { .init(FILE_ATTRIBUTE_READONLY) }
@@ -289,6 +319,17 @@ extension FileInfo.PlatformAttributes {
     @inlinable public static var recallOnOpen: Self { .init(rawValue: bitsRecallOnOpen) }
     @inlinable public static var recallOnDataAccess: Self { .init(rawValue: bitsRecallOnDataAccess) }
 
+    @usableFromInline
+    static var _allWithNameAsArray: [(Self, String)]? {
+        [
+            (.isReadOnly, "isReadOnly"), (.isHidden, "isHidden"), (.isSystem, "isSystem"), (.isDirectory, "isDirectory"), 
+            (.isArchive, "isArchive"), (.isDevice, "isDevice"), (.isNormal, "isNormal"), (.isTemporary, "isTemporary"),
+            (.isSparseFile, "isSparseFile"), (.isReparsePoint, "isReparsePoint"), (.isCompressed, "isCompressed"),
+            (.isOffline, "isOffline"), (.isNotContentIndexed, "isNotContentIndexed"), (.isEncrypted, "isEncrypted"),
+            (.isIntegrityStream, "isIntegrityStream"), (.isVirtual, "isVirtual"), (.isNoScrubData, "isNoScrubData"),
+            (.isPinned, "isPinned"), (.isUnpinned, "isUnpinned"), (.recallOnOpen, "recallOnOpen"), (.recallOnDataAccess, "recallOnDataAccess")
+        ]
+    }
     @usableFromInline static let _all: Self = [
         .isReadOnly, .isHidden, .isSystem, .isDirectory, .isArchive, .isDevice, .isNormal,
         .isTemporary, .isSparseFile, .isReparsePoint, .isCompressed, .isOffline,
@@ -425,4 +466,18 @@ extension FileInfo.PlatformAttributes {
     }
 
 }
+
+#else
+
+extension FileInfo.PlatformAttributes {
+
+    @usableFromInline
+    static var _allWithNameAsArray: [(Self, String)]? {
+        nil
+    }
+    @usableFromInline static let _all: Self = []
+    @inlinable public static var all: Self { _all }
+
+}
+
 #endif

@@ -30,7 +30,7 @@ extension FileInfo {
         #else
         @inlinable
         public init(platformFileTime: timespec) {
-            self.init(seconds: timespec.tv_sec, nanoseconds: timespec.tv_nsec)
+            self.init(seconds: platformFileTime.tv_sec, nanoseconds: platformFileTime.tv_nsec)
         }
         #endif
 

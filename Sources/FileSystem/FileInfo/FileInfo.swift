@@ -36,9 +36,9 @@ extension FileInfo: CustomStringConvertible {
         last accessed: \(lastAccessDate), \
         last modified: \(lastModificationDate), \
         last status changed: \(lastStatusChangeDate), \
-        \(creationDate.map { "created: \($0), " } ?? "") \
+        \(creationDate.map { "created: \($0)," } ?? "") \
         security: \(securityInfo), \
-        attributes: \(attributes))
+        attributes: \(attributes)
         """
     }
 
@@ -109,10 +109,8 @@ extension FileInfo {
 
         var stat = stat()
 
-        try execThrowingCFunction {
+        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
             fstatat(AT_FDCWD, path.string, &stat, openFlags)
-        } onError: {
-            throw FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
         }
 
         self.path = path
@@ -139,16 +137,14 @@ extension FileInfo {
         let openFlags = followSymLink ? O_RDONLY : (O_RDONLY | __O_PATH | O_NOFOLLOW)
         let fd = open(path.string, openFlags)
         guard fd >= 0 else {
-            throw FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
+            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
         }
         defer { close(fd) }
 
         var stat = StatCompat()
 
-        try execThrowingCFunction {
+        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
             systemStatCompat(fd, &stat)
-        } onError: {
-            throw FileError.fromErrno(operationDescription: .fetchingInfo(for: path))
         }
 
         self.path = path

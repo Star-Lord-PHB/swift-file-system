@@ -43,9 +43,10 @@ extension FileError.PlatformErrorCode {
     @inlinable public static var staleFileHandle: Self { .init(rawValue: ESTALE)! }
 
     #if canImport(Glibc) || canImport(Musl)
-    @inlinable public static var structureNeedsCleaning: Self { .init(rawValue: EFTYPE)! }
     @inlinable public static var noMediumFound: Self { .init(rawValue: ENOMEDIUM)! }
     @inlinable public static var wrongMediumType: Self { .init(rawValue: EMEDIUMTYPE)! }
+    #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+    @inlinable public static var fileTypeNotSupported: Self { .init(rawValue: EFTYPE)! }
     #endif
 
     @inlinable public static var wouldBlock: Self { .resourceTemporarilyUnavailable }

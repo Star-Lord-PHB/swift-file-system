@@ -1,7 +1,6 @@
 #ifdef __linux__
-#define _GNU_SOURCE
 
-#include "Statx.h"
+#include "LinuxStatx.h"
 #include <sys/stat.h>
 #include <fcntl.h> 
 

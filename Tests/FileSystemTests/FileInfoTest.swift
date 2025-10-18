@@ -17,8 +17,10 @@ extension FileSystemTest.FileInfoTest {
 
     #if canImport(WinSDK)
     static let fileTimeAccuracy: TimeInterval = 1e-4
+    var fileNotFoundErrorCode: FileError.PlatformErrorCode { .fileNotFound }
     #else
     static let fileTimeAccuracy: TimeInterval = 1e-6
+    var fileNotFoundErrorCode: FileError.PlatformErrorCode { .noSuchFileOrDirectory }
     #endif
 
     func dateEquals(_ date1: Date?, _ date2: Date?, accuracy: TimeInterval = fileTimeAccuracy) -> Bool {
@@ -45,6 +47,7 @@ extension FileSystemTest.FileInfoTest {
         let path = try makeFile(at: "test.txt", contents: content)
 
         let info = try FileInfo(fileAt: path)
+        print(info)
 
         let attributes = try FileManager.default.attributesOfItem(atPath: path.string)
         let urlAttributes = try URL(filePath: path.string).resourceValues(forKeys: [.creationDateKey, .contentAccessDateKey])
@@ -127,7 +130,7 @@ extension FileSystemTest.FileInfoTest {
         }
 
         let errorCode = try #require(error?.code)
-        #expect(errorCode == .fileNotFound)
+        #expect(errorCode == fileNotFoundErrorCode)
 
     }
 
@@ -145,7 +148,7 @@ extension FileSystemTest.FileInfoTest {
         }
 
         let errorCode = try #require(error?.code)
-        #expect(errorCode == .fileNotFound)
+        #expect(errorCode == fileNotFoundErrorCode)
 
     }
 

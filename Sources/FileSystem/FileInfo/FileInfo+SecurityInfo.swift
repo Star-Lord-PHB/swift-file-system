@@ -21,7 +21,7 @@ extension FileInfo {
 
         #else 
 
-        public let permission: PosixPermission
+        public let permission: FilePermissions
         public let uid: UInt32
         public let gid: UInt32
 
@@ -33,21 +33,25 @@ extension FileInfo {
 
 
 
-#if canImport(WinSDK)
-extension FileInfo.PlatformSecurityInfo: CustomStringConvertible {
+extension FileInfo.PlatformSecurityInfo {
+
+    #if canImport(WinSDK)
+
     @inlinable
     public var description: String {
         "SecurityInfo(revision: \(revision), owner: \(owner), group: \(group), control: \(control), dacl: \(String(describing: dacl)), sacl: \(String(describing: sacl)))"
     }
-}
-#else
-extension FileInfo.PlatformSecurityInfo: CustomStringConvertible {
+
+    #else 
+
     @inlinable
     public var description: String {
         "SecurityInfo(permission: \(permission), uid: \(uid), gid: \(gid))"
     }
+    
+    #endif
+
 }
-#endif 
 
 
 
@@ -270,6 +274,7 @@ extension FileInfo.PlatformSecurityInfo {
 
     public struct WindowsACEFlags: OptionSet, Sendable, Equatable, Hashable {
 
+        @_alwaysEmitIntoClient
         public let rawValue: BYTE
 
         @inlinable
@@ -290,6 +295,7 @@ extension FileInfo.PlatformSecurityInfo {
 
     public struct WindowsACEAccessMask: OptionSet, Sendable, Equatable, Hashable {
 
+        @_alwaysEmitIntoClient
         public let rawValue: ACCESS_MASK
 
         @inlinable
