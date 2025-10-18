@@ -61,7 +61,7 @@ extension FileInfo.PlatformAttributes: CustomStringConvertible {
     public var description: String {
         let componentString = Self._allWithNameAsArray?
             .compactMap { (attr, name) in
-                self.contains(attr) ? name : nil
+                self.contains(attr) ? name.description : nil
             }
             .joined(separator: ", ")
         if let componentString {
@@ -98,7 +98,7 @@ extension FileInfo.PlatformAttributes {
     @inlinable public static var isSystemImmutable: Self { .init(rawValue: bitIsSystemImmutable) }
     @inlinable public static var isSystemAppendOnly: Self { .init(rawValue: bitIsSystemAppendOnly) }
 
-    @usableFromInline static var _allWithNameAsArray: [(Self, String)]? {
+    @usableFromInline static var _allWithNameAsArray: [(Self, StaticString)]? {
         [
             (.noDump, "noDump"), (.isUserImmutable, "isUserImmutable"), (.isUserAppendOnly, "isUserAppendOnly"),
             (.isOpaque, "isOpaque"), (.isCompressed, "isCompressed"), (.isHidden, "isHidden"), (.isArchived, "isArchived"), 
@@ -202,7 +202,7 @@ extension FileInfo.PlatformAttributes {
     @inlinable public static var isDAX: Self { .init(rawValue: bitIsDAX) }
 
     @usableFromInline
-    static var _allWithNameAsArray: [(Self, String)]? {
+    static var _allWithNameAsArray: [(Self, StaticString)]? {
         [
             (.isCompressed, "isCompressed"), (.isImmutable, "isImmutable"), (.isAppendOnly, "isAppendOnly"), 
             (.noDump, "noDump"), (.isEncrypted, "isEncrypted"), (.isAutoMount, "isAutoMount"), 
@@ -320,7 +320,7 @@ extension FileInfo.PlatformAttributes {
     @inlinable public static var recallOnDataAccess: Self { .init(rawValue: bitsRecallOnDataAccess) }
 
     @usableFromInline
-    static var _allWithNameAsArray: [(Self, String)]? {
+    static var _allWithNameAsArray: [(Self, StaticString)]? {
         [
             (.isReadOnly, "isReadOnly"), (.isHidden, "isHidden"), (.isSystem, "isSystem"), (.isDirectory, "isDirectory"), 
             (.isArchive, "isArchive"), (.isDevice, "isDevice"), (.isNormal, "isNormal"), (.isTemporary, "isTemporary"),
@@ -472,7 +472,7 @@ extension FileInfo.PlatformAttributes {
 extension FileInfo.PlatformAttributes {
 
     @usableFromInline
-    static var _allWithNameAsArray: [(Self, String)]? {
+    static var _allWithNameAsArray: [(Self, StaticString)]? {
         nil
     }
     @usableFromInline static let _all: Self = []

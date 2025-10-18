@@ -38,7 +38,7 @@ extension FileInfo: CustomStringConvertible {
         last status changed: \(lastStatusChangeDate), \
         \(creationDate.map { "created: \($0)," } ?? "") \
         security: \(securityInfo), \
-        attributes: \(attributes)
+        attributes: \(attributes))
         """
     }
 

@@ -15,7 +15,7 @@ extension FileInfo {
         public let revision: BYTE
         public let owner: String 
         public let group: String
-        public let control: SECURITY_DESCRIPTOR_CONTROL
+        public let control: WindowsSecurityDescriptorControl
         public let dacl: WindowsACL?
         public let sacl: WindowsACL?
 
@@ -33,13 +33,21 @@ extension FileInfo {
 
 
 
-extension FileInfo.PlatformSecurityInfo {
+extension FileInfo.PlatformSecurityInfo: CustomStringConvertible {
 
     #if canImport(WinSDK)
 
     @inlinable
     public var description: String {
-        "SecurityInfo(revision: \(revision), owner: \(owner), group: \(group), control: \(control), dacl: \(String(describing: dacl)), sacl: \(String(describing: sacl)))"
+        """
+        SecurityInfo(\
+        revision: \(revision), \
+        owner: \(owner), \
+        group: \(group), \
+        control: \(control), \
+        dacl: \(dacl.map{ $0.description } ?? "nil"), \
+        sacl: \(sacl.map{ $0.description } ?? "nil"))
+        """
     }
 
     #else 
@@ -68,7 +76,7 @@ extension FileInfo.PlatformSecurityInfo {
         }
 
         self.revision = BYTE(revision)
-        self.control = control
+        self.control = .init(rawValue: control)
 
         var ownerSidPtr = nil as PSID?
         var ownerDefaulted = false as WindowsBool
@@ -101,6 +109,52 @@ extension FileInfo.PlatformSecurityInfo {
 
 
 extension FileInfo.PlatformSecurityInfo {
+
+    public struct WindowsSecurityDescriptorControl: Sendable, OptionSet, Hashable, CustomStringConvertible {
+
+        @_alwaysEmitIntoClient
+        public let rawValue: SECURITY_DESCRIPTOR_CONTROL
+
+        @inlinable
+        public var description: String {
+            let allWithNameAsArray = [
+                (.daclAutoInheritReq, "daclAutoInheritReq"), (.daclAutoInherited, "daclAutoInherited"), (.daclDefaulted, "daclDefaulted"), 
+                (.daclPresent, "daclPresent"), (.daclProtected, "daclProtected"), (.groupDefaulted, "groupDefaulted"), 
+                (.ownerDefaulted, "ownerDefaulted"), (.rmControlValid, "rmControlValid"), (.saclAutoInheritReq, "saclAutoInheritReq"), 
+                (.saclAutoInherited, "saclAutoInherited"), (.saclDefaulted, "saclDefaulted"), (.saclPresent, "saclPresent"), 
+                (.saclProtected, "saclProtected"), (.selfRelative, "selfRelative"),
+            ] as [(WindowsSecurityDescriptorControl, StaticString)]
+            let flagDescriptions = allWithNameAsArray
+                .compactMap { (flag, name) in
+                    self.contains(flag) ? name.description : nil
+                }
+                .joined(separator: ", ")
+            return "0x\(String(rawValue, radix: 16)) [\(flagDescriptions)]"
+        }
+
+        @inlinable
+        public init(rawValue: SECURITY_DESCRIPTOR_CONTROL) {
+            self.rawValue = rawValue
+        }
+
+
+        public static let daclAutoInheritReq: Self = .init(rawValue: .init(SE_DACL_AUTO_INHERIT_REQ))
+        public static let daclAutoInherited: Self = .init(rawValue: .init(SE_DACL_AUTO_INHERITED))
+        public static let daclDefaulted: Self = .init(rawValue: .init(SE_DACL_DEFAULTED))
+        public static let daclPresent: Self = .init(rawValue: .init(SE_DACL_PRESENT))
+        public static let daclProtected: Self = .init(rawValue: .init(SE_DACL_PROTECTED))
+        public static let groupDefaulted: Self = .init(rawValue: .init(SE_GROUP_DEFAULTED))
+        public static let ownerDefaulted: Self = .init(rawValue: .init(SE_OWNER_DEFAULTED))
+        public static let rmControlValid: Self = .init(rawValue: .init(SE_RM_CONTROL_VALID))
+        public static let saclAutoInheritReq: Self = .init(rawValue: .init(SE_SACL_AUTO_INHERIT_REQ))
+        public static let saclAutoInherited: Self = .init(rawValue: .init(SE_SACL_AUTO_INHERITED))
+        public static let saclDefaulted: Self = .init(rawValue: .init(SE_SACL_DEFAULTED))
+        public static let saclPresent: Self = .init(rawValue: .init(SE_SACL_PRESENT))
+        public static let saclProtected: Self = .init(rawValue: .init(SE_SACL_PROTECTED))
+        public static let selfRelative: Self = .init(rawValue: .init(SE_SELF_RELATIVE))
+
+    }
+
 
     public struct WindowsACL: Sendable, Equatable, Hashable, CustomStringConvertible {
 
@@ -272,10 +326,25 @@ extension FileInfo.PlatformSecurityInfo {
     }
 
 
-    public struct WindowsACEFlags: OptionSet, Sendable, Equatable, Hashable {
+    public struct WindowsACEFlags: OptionSet, Sendable, Equatable, Hashable, CustomStringConvertible {
 
         @_alwaysEmitIntoClient
         public let rawValue: BYTE
+
+        @inlinable
+        public var description: String {
+            let allWithNameAsArray = [
+                (.objectInherit, "objectInherit"), (.containerInherit, "containerInherit"),
+                (.noPropagateInherit, "noPropagateInherit"), (.inheritOnly, "inheritOnly"),
+                (.inherited, "inherited"), (.successfulAccess, "successfulAccess"), (.failedAccess, "failedAccess"),
+            ] as [(WindowsACEFlags, StaticString)]
+            let flagDescriptions = allWithNameAsArray
+                .compactMap { (flag, name) in
+                    self.contains(flag) ? name.description : nil
+                }
+                .joined(separator: ", ")
+            return "0x\(String(rawValue, radix: 16)) [\(flagDescriptions)]"
+        }
 
         @inlinable
         public init(rawValue: BYTE) {
@@ -293,10 +362,30 @@ extension FileInfo.PlatformSecurityInfo {
     }
 
 
-    public struct WindowsACEAccessMask: OptionSet, Sendable, Equatable, Hashable {
+    public struct WindowsACEAccessMask: OptionSet, Sendable, Equatable, Hashable, CustomStringConvertible {
 
         @_alwaysEmitIntoClient
         public let rawValue: ACCESS_MASK
+
+        @inlinable
+        public var description: String {
+            let allWithNameAsArray = [
+                (.readData, "readData"), (.listDirectory, "listDirectory"), (.writeData, "writeData"),
+                (.addFile, "addFile"), (.appendData, "appendData"), (.addSubdirectory, "addSubdirectory"),
+                (.readExtentedAttrs, "readExtendedAttrs"), (.writeExtendedAttrs, "writeExtendedAttrs"),
+                (.execute, "execute"), (.traverse, "traverse"), (.deleteChild, "deleteChild"),
+                (.readAttributes, "readAttributes"), (.writeAttributes, "writeAttributes"),
+                (.delete, "delete"), (.readControl, "readControl"), (.writeDAC, "writeDAC"),
+                (.writeOwner, "writeOwner"), (.synchronize, "synchronize"), (.genericRead, "genericRead"), 
+                (.genericWrite, "genericWrite"), (.genericExecute, "genericExecute"), (.genericAll, "genericAll"),
+            ] as [(WindowsACEAccessMask, StaticString)]
+            let flagDescriptions = allWithNameAsArray
+                .compactMap { (flag, name) in
+                    self.contains(flag) ? name.description : nil
+                }
+                .joined(separator: ", ")
+            return "0x\(String(rawValue, radix: 16)) [\(flagDescriptions)]"
+        }
 
         @inlinable
         public init(rawValue: ACCESS_MASK) {
