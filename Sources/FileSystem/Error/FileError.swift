@@ -53,6 +53,50 @@ extension FileError {
             "Fetching info for file at \(path)"
         }
 
+        public static func openingHandle(forFileAt path: FilePath) -> Self {
+            "Opening file handle for file at \(path)"
+        }
+
+        public static func seekingHandle(at path: FilePath, to offset: Int64, relativeTo whence: FileSeekWhence) -> Self {
+            "Seeking handle of file at \(path) to offset \(offset), relative to \(whence)"
+        }
+
+        public static func readingHandle(at path: FilePath, offset: Int64? = nil, length: Int64) -> Self {
+            if let offset {
+                "Reading \(length) bytes from file at \(path) at offset \(offset)"
+            } else {
+                "Reading \(length) bytes from file at \(path)"
+            }
+        }
+
+        public static func writingHandle(at path: FilePath, offset: Int64? = nil, length: Int64) -> Self {
+            if let offset {
+                "Writing \(length) bytes to file at \(path) from offset \(offset)"
+            } else {
+                "Writing \(length) bytes to file at \(path)"
+            }
+        }
+
+        public static func openingDirStream(forDirectoryAt path: FilePath) -> Self {
+            "Opening directory handle for directory at \(path)"
+        }
+
+        public static func readingDirEntries(at path: FilePath) -> Self {
+            "Reading directory entries at \(path)"
+        }
+
+        public static func resizingHandle(at path: FilePath, toSize size: Int64) -> Self {
+            "Resizing file at \(path) to size \(size)"
+        }
+
+        public static func synchronizingHandle(at path: FilePath) -> Self {
+            "Synchronizing file at \(path)"
+        }
+
+        public static func closingHandle(at path: FilePath) -> Self {
+            "Closing file at \(path)"
+        }
+
     }
 
 }

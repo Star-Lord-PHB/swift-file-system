@@ -66,9 +66,9 @@ extension FileError {
 
 
     @inlinable
-    public static func fromLastError(operationDescription: OperationDescription) -> FileError? {
+    public static func fromLastError(operationDescription: @autoclosure () -> OperationDescription) -> FileError? {
         guard let errorCode = PlatformErrorCode.fromLastError() else { return nil }
-        return .init(code: errorCode, operationDescription: operationDescription)
+        return .init(code: errorCode, operationDescription: operationDescription())
     }
 
 
@@ -80,8 +80,8 @@ extension FileError {
 
 
     @inlinable
-    public static func check(operationDescription: OperationDescription) throws(FileError) {
-        if let error = fromLastError(operationDescription: operationDescription) {
+    public static func check(operationDescription: @autoclosure () -> OperationDescription) throws(FileError) {
+        if let error = fromLastError(operationDescription: operationDescription()) {
             throw error
         }
     }

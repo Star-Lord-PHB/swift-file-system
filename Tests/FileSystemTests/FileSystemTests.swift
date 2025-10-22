@@ -30,6 +30,12 @@ class FileSystemTest {
     }
 
 
+    func makePath(at path: FilePath) -> FilePath {
+        precondition(path.isRelative, "Path must be relative")
+        return testDir.appending(path.components)
+    }
+
+
     func makeFile(at path: FilePath, contents: Data = .init()) throws -> FilePath {
 
         precondition(path.isRelative, "Path must be relative")

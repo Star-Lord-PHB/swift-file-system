@@ -97,5 +97,19 @@ extension FileInfo.FileType {
         }
     }
 
+
+    public init(d_type: UInt8) {
+        self = switch d_type {
+            case .init(DT_REG):     .regular
+            case .init(DT_DIR):     .directory
+            case .init(DT_LNK):     .symlink
+            case .init(DT_SOCK):    .socket
+            case .init(DT_BLK):     .block
+            case .init(DT_CHR):     .character
+            case .init(DT_FIFO):    .fifo
+            default:                .unknown
+        }
+    }
+
 }
 #endif

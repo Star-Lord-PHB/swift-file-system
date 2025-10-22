@@ -63,8 +63,15 @@ extension FileInfo {
 
         defer { CloseHandle(handle) }
 
+        try self.init(unsafeSystemHandle: handle, path: path)
+
+    }
+
+
+    init(unsafeSystemHandle: WinSDK.HANDLE, path: FilePath) throws(FileError) {
+
         var infoByHandle = _BY_HANDLE_FILE_INFORMATION()
-        guard GetFileInformationByHandle(handle, &infoByHandle) else {
+        guard GetFileInformationByHandle(unsafeSystemHandle, &infoByHandle) else {
             try FileError.assertError(operationDescription: .fetchingInfo(for: path))
         }
 
@@ -78,13 +85,13 @@ extension FileInfo {
         self.lastStatusChangeDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
 
         self.type = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try .init(unsafeFromFileHandle: handle, attributes: infoByHandle.dwFileAttributes)
+            try .init(unsafeFromFileHandle: unsafeSystemHandle, attributes: infoByHandle.dwFileAttributes)
         }
 
         var securityDescriptorPtr = nil as PSECURITY_DESCRIPTOR?
         try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
             GetSecurityInfo(
-                handle, SE_FILE_OBJECT, 
+                unsafeSystemHandle, SE_FILE_OBJECT, 
                 DWORD(OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION), 
                 nil, nil, nil, nil, 
                 &securityDescriptorPtr
@@ -130,6 +137,32 @@ extension FileInfo {
 
     }
 
+
+    init(unsafeSystemHandle: CInt, path: FilePath) throws(FileError) {
+
+        var stat = stat()
+
+        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+            fstat(unsafeSystemHandle, &stat)
+        }
+
+        self.path = path
+        self.size = UInt64(stat.st_size)
+
+        self.lastAccessDate = .init(platformFileTime: stat.st_atimespec)
+        self.lastModificationDate = .init(platformFileTime: stat.st_mtimespec)
+        self.lastStatusChangeDate = .init(platformFileTime: stat.st_ctimespec)
+        self.creationDate = .init(platformFileTime: stat.st_birthtimespec)
+
+        self.attributes = .init(rawValue: stat.st_flags)
+        self.supportedAttributes = .all
+
+        self.type = .init(mode: stat.st_mode)
+
+        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode), uid: stat.st_uid, gid: stat.st_gid)
+
+    }
+
 #elseif canImport(Glibc) || canImport(Musl)
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
@@ -141,10 +174,17 @@ extension FileInfo {
         }
         defer { close(fd) }
 
+        try self.init(unsafeSystemHandle: fd, path: path)
+
+    }
+
+
+    init(unsafeSystemHandle: CInt, path: FilePath) throws(FileError) {
+
         var stat = StatCompat()
 
         try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
-            systemStatCompat(fd, &stat)
+            systemStatCompat(unsafeSystemHandle, &stat)
         }
 
         self.path = path

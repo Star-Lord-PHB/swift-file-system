@@ -24,6 +24,11 @@ let package = Package(
             dependencies: [
                 .product(name: "SystemPackage", package: "swift-system"),
                 "CFileSystem"
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+                .enableExperimentalFeature("NonescapableTypes"),
+                .enableExperimentalFeature("NoncopyableGenerics")
             ]
         ),
         .target(

@@ -4,6 +4,7 @@ import WinSDK
 
 extension FileError.PlatformErrorCode {
 
+    @inlinable public static var invalidFunction: Self { .init(rawValue: .init(ERROR_INVALID_FUNCTION))! }
     @inlinable public static var fileNotFound: Self { .init(rawValue: .init(ERROR_FILE_NOT_FOUND))! }
     @inlinable public static var pathNotFound: Self { .init(rawValue: .init(ERROR_PATH_NOT_FOUND))! }
     @inlinable public static var accessDenied: Self { .init(rawValue: .init(ERROR_ACCESS_DENIED))! }
