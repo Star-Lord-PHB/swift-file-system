@@ -17,6 +17,12 @@ public struct FileError: Error, LocalizedError, CustomStringConvertible {
 
 
     @inlinable
+    public init(systemError: SystemError, operationDescription: OperationDescription) {
+        self.init(code: .init(rawValue: systemError.code), operationDescription: operationDescription)
+    }
+
+
+    @inlinable
     public var description: String {
         "\(operationDescription): \(code?.description ?? "Unknown error") (\(code?.rawValue ?? 0))"
     }

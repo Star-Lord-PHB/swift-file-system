@@ -1,8 +1,11 @@
 import Foundation
 
+#if canImport(WinSDK)
+import WinSDK
+#endif 
 
 
-func execThrowingCFunction<E: Error>(_ function: () -> SystemError.Code, onError: (SystemError.Code) throws(E) -> Void) throws(E) {
+func execThrowingCFunction<E: Error>(_ function: () -> CInt, onError: (CInt) throws(E) -> Void) throws(E) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
         try onError(errorCode)
@@ -11,7 +14,18 @@ func execThrowingCFunction<E: Error>(_ function: () -> SystemError.Code, onError
 }
 
 
-func execThrowingCFunction<E: Error>(_ function: () -> SystemError.Code, onError: () throws(E) -> Void) throws(E) {
+#if canImport(WinSDK)
+func execThrowingCFunction<E: Error>(_ function: () -> DWORD, onError: (DWORD) throws(E) -> Void) throws(E) {
+    let errorCode = function()
+    guard errorCode == SystemError.successCode else {
+        try onError(errorCode)
+        return
+    }
+}
+#endif 
+
+
+func execThrowingCFunction<E: Error>(_ function: () -> CInt, onError: () throws(E) -> Void) throws(E) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
         try onError()
@@ -29,7 +43,7 @@ func execThrowingCFunction<E: Error>(_ function: () -> Bool, onError: () throws(
 }
 
 
-func execThrowingCFunction(_ function: () -> SystemError.Code) throws(SystemError) {
+func execThrowingCFunction(_ function: () -> CInt) throws(SystemError) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
         throw .fromLastError()
@@ -45,7 +59,7 @@ func execThrowingCFunction(_ function: () -> Bool) throws(SystemError) {
 }
 
 
-func execThrowingCFunction(operationDescription: FileError.OperationDescription, _ function: () -> SystemError.Code) throws(FileError) {
+func execThrowingCFunction(operationDescription: FileError.OperationDescription, _ function: () -> CInt) throws(FileError) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
         try FileError.assertError(operationDescription: operationDescription)
@@ -61,7 +75,7 @@ func execThrowingCFunction(operationDescription: FileError.OperationDescription,
 }
 
 
-func catchSystemError<R>(
+func catchSystemError<R: ~Copyable>(
     operationDescription: FileError.OperationDescription, 
     _ function: () throws(SystemError) -> R
 ) throws(FileError) -> R {

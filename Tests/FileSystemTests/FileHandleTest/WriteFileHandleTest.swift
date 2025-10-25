@@ -21,35 +21,41 @@ extension FileSystemTest.WriteFileHandleTests {
         let content = Data("Hello, World!".utf8)
         let path = try makeFile(at: "test.txt")
 
-        let writeHandle = try WriteFileHandle(forFileAt: path, options: .editFile())
+        try await expectNoResHandleLeak {
 
-        let info = try writeHandle.fileInfo()
-        #expect(try FileInfo(fileAt: path) == info)
+            let writeHandle = try WriteFileHandle(forFileAt: path, options: .editFile())
 
-        let bytesWritten1 = try writeHandle.write(content.prefix(5))
-        #expect(bytesWritten1 == 5)
+            let info = try writeHandle.fileInfo()
+            #expect(try FileInfo(fileAt: path) == info)
 
-        #expect(try writeHandle.currentOffset == 5)
+            let bytesWritten1 = try writeHandle.write(content.prefix(5))
+            #expect(bytesWritten1 == 5)
 
-        let bytesWritten2 = try writeHandle.write(content.dropFirst(5))
-        #expect(bytesWritten2 == 8)
+            #expect(try writeHandle.currentOffset == 5)
 
-        #expect(try writeHandle.currentOffset == 13)
+            let bytesWritten2 = try writeHandle.write(content.dropFirst(5))
+            #expect(bytesWritten2 == 8)
 
-        #expect(try writeHandle.seek(to: 6, relativeTo: .beginning) == 6)
-        #expect(try writeHandle.currentOffset == 6)
+            #expect(try writeHandle.currentOffset == 13)
 
-        let bytesWritten3 = try writeHandle.write(Data("Swift".utf8), toOffset: 7)
-        #expect(bytesWritten3 == 5)
+            #expect(try writeHandle.seek(to: 6, relativeTo: .beginning) == 6)
+            #expect(try writeHandle.currentOffset == 6)
 
-        #expect(try writeHandle.currentOffset == 6)
+            let bytesWritten3 = try writeHandle.write(Data("Swift".utf8), toOffset: 7)
+            #expect(bytesWritten3 == 5)
 
-        try writeHandle.resize(to: 12)
+            #expect(try writeHandle.currentOffset == 6)
 
-        try writeHandle.synchronize()
-        try writeHandle.close()
+            try writeHandle.resize(to: 12)
 
-        let finalContent = try String(contentsOf: .init(fileURLWithPath: path.string))
+            try writeHandle.synchronize()
+            try writeHandle.close()
+
+        } preheat: {
+            _ = try FileInfo(fileAt: path)
+        }
+
+        let finalContent = try String(contentsOf: .init(fileURLWithPath: path.string), encoding: .utf8)
         #expect(finalContent == "Hello, Swift")
 
     }
@@ -61,15 +67,19 @@ extension FileSystemTest.WriteFileHandleTests {
         let content = Data("Hello, Swift!".utf8)
         let path = try makeFile(at: "test.txt", contents: Data("Hello, World!".utf8))
 
-        let writeHandle = try WriteFileHandle(forFileAt: path, options: .editFile(truncate: true))
+        try await expectNoResHandleLeak {
 
-        let bytesWritten = try writeHandle.write(content)
-        #expect(bytesWritten == content.count)
+            let writeHandle = try WriteFileHandle(forFileAt: path, options: .editFile(truncate: true))
 
-        try writeHandle.synchronize()
-        try writeHandle.close()
+            let bytesWritten = try writeHandle.write(content)
+            #expect(bytesWritten == content.count)
 
-        let finalContent = try String(contentsOf: .init(fileURLWithPath: path.string))
+            try writeHandle.synchronize()
+            try writeHandle.close()
+
+        }
+
+        let finalContent = try String(contentsOf: .init(fileURLWithPath: path.string), encoding: .utf8)
         #expect(finalContent == "Hello, Swift!")
 
     }
@@ -81,15 +91,19 @@ extension FileSystemTest.WriteFileHandleTests {
         let content = Data("Hello, Swift!".utf8)
         let path = makePath(at: "test.txt")
 
-        let writeHandle = try WriteFileHandle(forFileAt: path, options: .newFile())
+        try await expectNoResHandleLeak {
 
-        let bytesWritten = try writeHandle.write(content)
-        #expect(bytesWritten == content.count)
+            let writeHandle = try WriteFileHandle(forFileAt: path, options: .newFile())
 
-        try writeHandle.synchronize()
-        try writeHandle.close()
+            let bytesWritten = try writeHandle.write(content)
+            #expect(bytesWritten == content.count)
 
-        let finalContent = try String(contentsOf: .init(fileURLWithPath: path.string))
+            try writeHandle.synchronize()
+            try writeHandle.close()
+            
+        }
+
+        let finalContent = try String(contentsOf: .init(fileURLWithPath: path.string), encoding: .utf8)
         #expect(finalContent == "Hello, Swift!")
 
     }

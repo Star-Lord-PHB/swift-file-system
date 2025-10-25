@@ -53,17 +53,11 @@ public enum FileSeekWhence: CInt {
 
 public protocol FileHandleProtocol: ~Copyable {
 
-    #if canImport(WinSDK)
-    typealias SystemHandleType = WinSDK.HANDLE
-    #else 
-    typealias SystemHandleType = CInt
-    #endif 
-
     var path: FilePath { get }
 
     consuming func close() throws(FileError)
 
-    func withUnsafeSystemHandle<R, E: Error>(_ body: (SystemHandleType) throws(E) -> R) throws(E) -> R
+    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R
 
 }
 
@@ -72,8 +66,8 @@ public protocol FileHandleProtocol: ~Copyable {
 extension FileHandleProtocol where Self: ~Copyable {
 
     public func fileInfo() throws(FileError) -> FileInfo {
-        try withUnsafeSystemHandle { (handle) throws(FileError) in 
-            try .init(unsafeSystemHandle: handle, path: path)
+        try withUnsafeSystemHandle { (sysHandle) throws(FileError) in 
+            try .init(unsafeSystemHandle: sysHandle, path: path)
         }
     }
 

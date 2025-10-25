@@ -4,18 +4,19 @@ import Foundation
 @testable import FileSystem
 
 
+
 extension FileSystemTest {
 
-    final class DirectoryHandleTest: FileSystemTest {}
+    final class DirectoryTest: FileSystemTest {}
 
 }
 
 
 
-extension FileSystemTest.DirectoryHandleTest {
+extension FileSystemTest.DirectoryTest {
 
-    @Test("Direct Entries")
-    func directEntries() async throws {
+    @Test("Direct Traversal")
+    func directTraversal() async throws {
         
         let dirPath = try makeDir(at: "dir")
 
@@ -33,30 +34,25 @@ extension FileSystemTest.DirectoryHandleTest {
 
         try await expectNoResHandleLeak {
 
-            let dirHandle = try DirectoryHandle(forDirAt: dirPath)
+            let sequence = try DirectoryEntrySequence(dirAt: dirPath, recursive: false)
 
-            let info = try dirHandle.fileInfo()
-            #expect(try FileInfo(fileAt: dirPath) == info)
-
-            for entry in try dirHandle.directEntries() {
+            try sequence.forEach { result in 
+                let entry = try result.get()
                 // print(entry)
                 #expect(entries.remove(entry.path) != nil)
             }
 
             #expect(entries.isEmpty)
 
-            try dirHandle.close()
-
-        } preheat: {
-            _ = try FileInfo(fileAt: dirPath)
         }
 
     }
 
 
-    @Test("Recursive Entries")
-    func recursiveEntries() async throws {
 
+    @Test("Recursive Traversal")
+    func recursiveTraversal() async throws {
+        
         let dirPath = try makeDir(at: "dir")
 
         var entries = [
@@ -76,9 +72,9 @@ extension FileSystemTest.DirectoryHandleTest {
 
         try await expectNoResHandleLeak {
 
-            let dirHandle = try DirectoryHandle(forDirAt: dirPath)
+            let sequence = try DirectoryEntrySequence(dirAt: dirPath, recursive: true)
 
-            try dirHandle.entrySequence(recursive: true).forEach { result in
+            try sequence.forEach { result in
                 let entry = try result.get()
                 // print(entry)
                 #expect(entries.remove(entry.path) != nil)

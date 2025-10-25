@@ -16,7 +16,7 @@ public protocol DirectoryEntrySequenceProtocol: ~Copyable, ~Escapable {
     // TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
     // associatedtype Iterator: DirectoryEntryIteratorProtocol & ~Escapable & ~Copyable
     typealias Iterator = any (DirectoryEntryIteratorProtocol & ~Escapable & ~Copyable)
-    @_lifetime(copy self)
+    @_lifetime(borrow self)
     func makeIterator() -> Iterator
 }
 

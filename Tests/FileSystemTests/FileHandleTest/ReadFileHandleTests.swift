@@ -20,27 +20,36 @@ extension FileSystemTest.ReadFileHandleTests {
         let content = Data("Hello, World!".utf8)
         let path = try makeFile(at: "test.txt", contents: content)
 
-        let readHandle = try ReadFileHandle(forFileAt: path)
+        try await expectNoResHandleLeak {
 
-        let info = try readHandle.fileInfo()
-        #expect(try FileInfo(fileAt: path) == info)
+            let readHandle = try ReadFileHandle(forFileAt: path)
 
-        let buffer1 = try readHandle.read(length: 5)
-        #expect(buffer1.data == content.prefix(5))
+            let info = try readHandle.fileInfo()
+            #expect(try FileInfo(fileAt: path) == info)
 
-        let currentOffset = try readHandle.seek(to: -1, relativeTo: .current)
-        #expect(currentOffset == (5 - 1))
+            let buffer1 = try readHandle.read(length: 5)
+            #expect(buffer1.data == content.prefix(5))
 
-        let buffer2 = try readHandle.read(length: 5)
-        #expect(buffer2.data == content.dropFirst(4).prefix(5))
+            let currentOffset = try readHandle.seek(to: -1, relativeTo: .current)
+            #expect(currentOffset == (5 - 1))
 
-        var buffer3 = ByteBuffer(count: content.count - 1)
-        try readHandle.read(fromOffset: 1, into: &buffer3)
-        #expect(buffer3.data == content.dropFirst(1))
+            let buffer2 = try readHandle.read(length: 5)
+            #expect(buffer2.data == content.dropFirst(4).prefix(5))
 
-        try #expect(readHandle.currentOffset == (5 - 1 + 5))
+            var buffer3 = ByteBuffer(count: content.count - 1)
+            try readHandle.read(fromOffset: 1, into: &buffer3)
+            #expect(buffer3.data == content.dropFirst(1))
 
-        try readHandle.close()
+            try #expect(readHandle.currentOffset == (5 - 1 + 5))
+
+            try readHandle.seek(to: -1, relativeTo: .end)
+            #expect(try readHandle.currentOffset == Int64(content.count - 1))
+
+            try readHandle.close()
+
+        } preheat: {
+            _ = try FileInfo(fileAt: path)
+        }
 
     }
 

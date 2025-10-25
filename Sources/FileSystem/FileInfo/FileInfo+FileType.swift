@@ -50,6 +50,7 @@ extension FileInfo.FileType {
 
     init(unsafeFromFileHandle fileHandle: HANDLE, attributes: DWORD) throws(SystemError) {
 
+        SetLastError(DWORD(NO_ERROR))
         let fileTypeFlags = GetFileType(fileHandle)
         try SystemError.check()
 

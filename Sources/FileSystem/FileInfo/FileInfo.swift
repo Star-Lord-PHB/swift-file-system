@@ -63,15 +63,15 @@ extension FileInfo {
 
         defer { CloseHandle(handle) }
 
-        try self.init(unsafeSystemHandle: handle, path: path)
+        try self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
 
     }
 
 
-    init(unsafeSystemHandle: WinSDK.HANDLE, path: FilePath) throws(FileError) {
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
 
         var infoByHandle = _BY_HANDLE_FILE_INFORMATION()
-        guard GetFileInformationByHandle(unsafeSystemHandle, &infoByHandle) else {
+        guard GetFileInformationByHandle(handle.unsafeRawHandle, &infoByHandle) else {
             try FileError.assertError(operationDescription: .fetchingInfo(for: path))
         }
 
@@ -85,17 +85,19 @@ extension FileInfo {
         self.lastStatusChangeDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
 
         self.type = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try .init(unsafeFromFileHandle: unsafeSystemHandle, attributes: infoByHandle.dwFileAttributes)
+            try .init(unsafeFromFileHandle: handle.unsafeRawHandle, attributes: infoByHandle.dwFileAttributes)
         }
 
         var securityDescriptorPtr = nil as PSECURITY_DESCRIPTOR?
-        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+        try execThrowingCFunction {
             GetSecurityInfo(
-                unsafeSystemHandle, SE_FILE_OBJECT, 
+                handle.unsafeRawHandle, SE_FILE_OBJECT, 
                 DWORD(OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION), 
                 nil, nil, nil, nil, 
                 &securityDescriptorPtr
             )
+        } onError: { (code) throws(FileError) in
+            throw FileError.init(code: .init(rawValue: code), operationDescription: .fetchingInfo(for: path))
         }
         guard let securityDescriptorPtr else {
             try FileError.assertError(operationDescription: .fetchingInfo(for: path))
@@ -138,12 +140,12 @@ extension FileInfo {
     }
 
 
-    init(unsafeSystemHandle: CInt, path: FilePath) throws(FileError) {
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
 
         var stat = stat()
 
         try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
-            fstat(unsafeSystemHandle, &stat)
+            fstat(handle.unsafeRawHandle, &stat)
         }
 
         self.path = path
@@ -174,17 +176,17 @@ extension FileInfo {
         }
         defer { close(fd) }
 
-        try self.init(unsafeSystemHandle: fd, path: path)
+        try self.init(unsafeSystemHandle: .init(owningRawHandle: fd), path: path)
 
     }
 
 
-    init(unsafeSystemHandle: CInt, path: FilePath) throws(FileError) {
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
 
         var stat = StatCompat()
 
         try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
-            systemStatCompat(unsafeSystemHandle, &stat)
+            systemStatCompat(handle.unsafeRawHandle, &stat)
         }
 
         self.path = path

@@ -3,8 +3,14 @@ import SystemPackage
 import Foundation
 @testable import FileSystem
 
+#if canImport(WinSDK)
+import WinSDK
+#endif 
 
-@Suite
+
+// Tests of the FileSystem APIs will include resource handle leakage check, which does not work correctly
+// in parallel testing
+@Suite(.serialized)
 class FileSystemTest {
 
     static let rootDir: FilePath = .init(URL.temporaryDirectory.path).appending("swift-file-system-tests")
@@ -78,6 +84,76 @@ class FileSystemTest {
         try FileManager.default.createDirectory(at: .init(filePath: absPath.string), withIntermediateDirectories: true)
 
         return absPath
+
+    }
+
+
+    func currentOpenedHandleCount() -> Int64 {
+
+        #if canImport(WinSDK)
+
+        var count = 0 as DWORD
+        GetProcessHandleCount(GetCurrentProcess(), &count)
+        return Int64(count)
+
+        #elseif canImport(Darwin)
+
+        return Int(proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)) / MemoryLayout<proc_fdinfo>.size
+
+        #else
+
+        var count = 0 as Int64
+        let procFdDir = #require(opendir("/proc/self/fd"))
+        defer { closedir(procFdDir) }
+        while readdir(procFdDir) != nil {
+            count += 1
+        }
+        return count - 2
+
+        #endif
+
+    }
+
+
+    func expectNoResHandleLeak<R>(
+        sourceLocation: SourceLocation = #_sourceLocation,
+        operation: () async throws -> sending R
+    ) async throws -> sending R {
+
+        let openedHandleCountBefore = currentOpenedHandleCount()
+        let result = try await operation()
+        let openedHandleCountAfter = currentOpenedHandleCount()
+
+        #expect(
+            openedHandleCountBefore == openedHandleCountAfter, 
+            "The num of resource handle opened before and after running the operation should be identical", 
+            sourceLocation: sourceLocation
+        )
+
+        return result
+
+    }
+
+
+    func expectNoResHandleLeak<R>(
+        sourceLocation: SourceLocation = #_sourceLocation,
+        operation: () async throws -> sending R,
+        preheat: () async throws -> Void
+    ) async throws -> sending R {
+
+        try await preheat()
+
+        let openedHandleCountBefore = currentOpenedHandleCount()
+        let result = try await operation()
+        let openedHandleCountAfter = currentOpenedHandleCount()
+
+        #expect(
+            openedHandleCountBefore == openedHandleCountAfter, 
+            "The num of resource handle opened before and after running the operation should be identical", 
+            sourceLocation: sourceLocation
+        )
+
+        return result
 
     }
 

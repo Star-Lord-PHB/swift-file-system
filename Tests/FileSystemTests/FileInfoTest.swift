@@ -46,7 +46,12 @@ extension FileSystemTest.FileInfoTest {
         let content = Data("Hello, World!".utf8)
         let path = try makeFile(at: "test.txt", contents: content)
 
-        let info = try FileInfo(fileAt: path)
+        let info = try await expectNoResHandleLeak {
+            try FileInfo(fileAt: path)
+        } preheat: {
+            _ = try FileInfo(fileAt: path)
+        }
+
         print(info)
 
         let attributes = try FileManager.default.attributesOfItem(atPath: path.string)
@@ -71,7 +76,11 @@ extension FileSystemTest.FileInfoTest {
         
         let path = try makeDir(at: "dir")
 
-        let info = try FileInfo(fileAt: path)
+        let info = try await expectNoResHandleLeak {
+            try FileInfo(fileAt: path)
+        } preheat: {
+            _ = try FileInfo(fileAt: path)
+        }
         
         let attributes = try FileManager.default.attributesOfItem(atPath: path.string)
         let urlAttributes = try URL(filePath: path.string).resourceValues(forKeys: [.creationDateKey, .contentAccessDateKey])
@@ -97,7 +106,12 @@ extension FileSystemTest.FileInfoTest {
         let path = try makeFile(at: "file.txt")
         let link = try makeSymlink(at: "link.txt", pointingTo: path)
 
-        let linkInfo = try FileInfo(fileAt: link, followSymLink: false)
+        let linkInfo = try await expectNoResHandleLeak {
+            try FileInfo(fileAt: link, followSymLink: false)
+        } preheat: {
+            _ = try FileInfo(fileAt: link, followSymLink: false)
+        }
+
         #expect(linkInfo.type == .symlink)
 
         let targetInfo = try FileInfo(fileAt: link, followSymLink: true)
