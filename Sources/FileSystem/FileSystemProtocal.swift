@@ -33,8 +33,8 @@ public protocol FileSystemProtocal: Sendable {
 
     func withFileHandle<R>(forReadingAt path: FilePath, body: (consuming ReadFileHandle) throws -> R) throws(FileError)
 
-    func withFileHandle<R>(forWritingAt path: FilePath, option: FileOperationOptions.Write, body: (consuming WriteFileHandle) throws -> R) throws(FileError)
+    func withFileHandle<R>(forWritingAt path: FilePath, option: FileOperationOptions.OpenForWriting, body: (consuming WriteFileHandle) throws -> R) throws(FileError)
 
-    func withFileHandle<R>(forUpdatingAt path: FilePath, option: FileOperationOptions.Write, body: (consuming ReadWriteFileHandle) throws -> R) throws(FileError)
+    func withFileHandle<R>(forUpdatingAt path: FilePath, option: FileOperationOptions.OpenForWriting, body: (consuming ReadWriteFileHandle) throws -> R) throws(FileError)
 
 }

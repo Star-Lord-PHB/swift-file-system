@@ -21,16 +21,28 @@ public struct ByteBuffer {
     }
 
 
-    public mutating func withUnsafeMutableBytes<R>(_ body: (UnsafeMutableRawBufferPointer) throws -> R) rethrows -> R {
-        try storage.withUnsafeMutableBytes { rawBufferPointer in
-            try body(rawBufferPointer)
+    public mutating func withUnsafeMutableBytes<R, E: Error>(_ body: (UnsafeMutableRawBufferPointer) throws(E) -> R) throws(E) -> R {
+        do {
+            return try storage.withUnsafeMutableBytes { rawBufferPointer in
+                try body(rawBufferPointer)
+            }
+        } catch let error as E {
+            throw error
+        } catch {
+            fatalError("Expect error of type \(E.self), but got: \(error)")
         }
     }
 
 
-    public func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) throws -> R) rethrows -> R {
-        try storage.withUnsafeBytes { rawBufferPointer in
-            try body(rawBufferPointer)
+    public func withUnsafeBytes<R, E: Error>(_ body: (UnsafeRawBufferPointer) throws(E) -> R) throws(E) -> R {
+        do {
+            return try storage.withUnsafeBytes { rawBufferPointer in
+                try body(rawBufferPointer)
+            }
+        } catch let error as E {
+            throw error
+        } catch {
+            fatalError("Expect error of type \(E.self), but got: \(error)")
         }
     }
 

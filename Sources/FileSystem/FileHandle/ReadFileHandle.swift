@@ -35,37 +35,28 @@ public struct ReadFileHandle: ~Copyable, ReadFileHandleProtocol {
 
 extension ReadFileHandle {
 
-    public init(forFileAt path: FilePath) throws(FileError) {
+    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(FileError) {
 
         #if canImport(WinSDK)
-
-        let openFlags = DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_BACKUP_SEMANTICS)
-
-        let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
-            CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ), nil, DWORD(OPEN_EXISTING), openFlags, nil)
-        }
-        guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try FileError.assertError(operationDescription: .openingHandle(forFileAt: path))
-        }
-
-        self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
-
-        #else
-
-        let handle = open(path.string, O_RDONLY)
-        guard handle >= 0 else {
-            try FileError.assertError(operationDescription: .openingHandle(forFileAt: path))
-        }
-
-        self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
-
+        let noBlocking = true 
+        #else 
+        let noBlocking = false
         #endif
+
+        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: options.unsafeSystemFileOpenOptions(noBlocking: noBlocking)
+            )
+        }
+
+        self.init(unsafeSystemHandle: handle, path: path)
 
     }
 
 
     @discardableResult
-    public func seek(to offset: Int64, relativeTo whence: FileSeekWhence = .beginning) throws(FileError) -> Int64 {
+    public func seek(to offset: Int64, relativeTo whence: UnsafeSystemHandle.SeekWhence = .beginning) throws(FileError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -93,11 +84,9 @@ extension ReadFileHandle {
 
         #else 
 
-        let newOffset = lseek(handle.unsafeRawHandle, .init(offset), whence.rawValue)
-        guard newOffset >= 0 else {
-            try FileError.assertError(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence))
+        return try catchSystemError(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence)) { () throws(SystemError) in
+            try handle.seek(to: offset, from: whence)
         }
-        return Int64(newOffset)
         
         #endif
     }
@@ -158,18 +147,16 @@ extension ReadFileHandle {
 
     #else
 
-        let bytesRead = if let offset {
-            buffer.withUnsafeMutableBytes { bufferPtr in
-                pread(handle.unsafeRawHandle, bufferPtr.baseAddress, lengthToRead, .init(offset))
+        try catchSystemError(operationDescription: .readingHandle(at: path, offset: offset, length: Int64(lengthToRead))) { () throws(SystemError) in 
+            if let offset {
+                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                    _ = try handle.pread(into: bufferPtr, from: offset)
+                }
+            } else {
+                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                    _ = try handle.read(into: bufferPtr)
+                }
             }
-        } else {
-            buffer.withUnsafeMutableBytes { bufferPtr in
-                Foundation.read(handle.unsafeRawHandle, bufferPtr.baseAddress, lengthToRead)
-            }
-        }
-
-        if bytesRead < 0 {
-            try FileError.assertError(operationDescription: .readingHandle(at: path, offset: offset, length: Int64(lengthToRead)))
         }
 
     #endif

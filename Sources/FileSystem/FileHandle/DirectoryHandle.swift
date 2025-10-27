@@ -24,30 +24,22 @@ public struct DirectoryHandle: ~Copyable, DirectoryHandleProtocol {
 
 extension DirectoryHandle {
 
-    public init(forDirAt path: FilePath) throws(FileError) {
+    public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(FileError) {
 
         #if canImport(WinSDK)
+        let additionalFlags = 0 as UnsafeSystemHandle.OpenOptions.FlagType
+        #else 
+        let additionalFlags = O_DIRECTORY
+        #endif 
 
-        let openFlags = DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_BACKUP_SEMANTICS)
-
-        let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
-            CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ), nil, DWORD(OPEN_EXISTING), openFlags, nil)
+        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: options.unsafeSystemFileOpenOptions(platformAdditionalFlags: additionalFlags)
+            )
         }
-        guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try FileError.assertError(operationDescription: .openingHandle(forFileAt: path))
-        }
 
-        self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
-
-        #else
-
-        let handle = open(path.string, O_RDONLY | O_DIRECTORY)
-        guard handle >= 0 else {
-            try FileError.assertError(operationDescription: .openingHandle(forFileAt: path))
-        }
-        self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
-        
-        #endif
+        self.init(unsafeSystemHandle: handle, path: path)
 
     }
 

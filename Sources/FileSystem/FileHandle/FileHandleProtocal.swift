@@ -7,50 +7,6 @@ import WinSDK
 
 
 
-public enum FileSeekWhence: CInt {
-
-    case beginning
-    case current
-    case end
-
-    public var rawValue: CInt {
-        #if canImport(WinSDK)
-        switch self {
-            case .beginning: WinSDK.FILE_BEGIN
-            case .current: WinSDK.FILE_CURRENT
-            case .end: WinSDK.FILE_END
-        }
-        #else 
-        switch self {
-            case .beginning: SEEK_SET
-            case .current: SEEK_CUR
-            case .end: SEEK_END
-        }
-        #endif
-    }
-
-    public init?(rawValue: CInt) {
-        #if canImport(WinSDK)
-        switch rawValue {
-            case WinSDK.FILE_BEGIN: self = .beginning
-            case WinSDK.FILE_CURRENT: self = .current
-            case WinSDK.FILE_END: self = .end
-            default: return nil
-        }
-        #else 
-        switch rawValue {
-            case SEEK_SET: self = .beginning
-            case SEEK_CUR: self = .current
-            case SEEK_END: self = .end
-            default: return nil
-        }
-        #endif
-    }
-    
-}
-
-
-
 public protocol FileHandleProtocol: ~Copyable {
 
     var path: FilePath { get }
@@ -78,7 +34,7 @@ extension FileHandleProtocol where Self: ~Copyable {
 public protocol SeekableFileHandleProtocol: ~Copyable, FileHandleProtocol {
 
     @discardableResult
-    func seek(to offset: Int64, relativeTo whence: FileSeekWhence) throws(FileError) -> Int64
+    func seek(to offset: Int64, relativeTo whence: UnsafeSystemHandle.SeekWhence) throws(FileError) -> Int64
 
 }
 

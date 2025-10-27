@@ -88,7 +88,7 @@ class FileSystemTest {
     }
 
 
-    func currentOpenedHandleCount() -> Int64 {
+    func currentOpenedHandleCount() throws -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -98,12 +98,12 @@ class FileSystemTest {
 
         #elseif canImport(Darwin)
 
-        return Int(proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)) / MemoryLayout<proc_fdinfo>.size
+        return Int64(Int(proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)) / MemoryLayout<proc_fdinfo>.size)
 
         #else
 
         var count = 0 as Int64
-        let procFdDir = #require(opendir("/proc/self/fd"))
+        let procFdDir = try #require(opendir("/proc/self/fd"))
         defer { closedir(procFdDir) }
         while readdir(procFdDir) != nil {
             count += 1
@@ -120,9 +120,9 @@ class FileSystemTest {
         operation: () async throws -> sending R
     ) async throws -> sending R {
 
-        let openedHandleCountBefore = currentOpenedHandleCount()
+        let openedHandleCountBefore = try currentOpenedHandleCount()
         let result = try await operation()
-        let openedHandleCountAfter = currentOpenedHandleCount()
+        let openedHandleCountAfter = try currentOpenedHandleCount()
 
         #expect(
             openedHandleCountBefore == openedHandleCountAfter, 
@@ -143,9 +143,9 @@ class FileSystemTest {
 
         try await preheat()
 
-        let openedHandleCountBefore = currentOpenedHandleCount()
+        let openedHandleCountBefore = try currentOpenedHandleCount()
         let result = try await operation()
-        let openedHandleCountAfter = currentOpenedHandleCount()
+        let openedHandleCountAfter = try currentOpenedHandleCount()
 
         #expect(
             openedHandleCountBefore == openedHandleCountAfter, 

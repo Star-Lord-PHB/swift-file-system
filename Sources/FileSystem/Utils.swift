@@ -16,12 +16,12 @@ func currentOpenedHandleCount() -> Int64 {
 
     #elseif canImport(Darwin)
 
-    return Int(proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)) / MemoryLayout<proc_fdinfo>.size
+    return Int64(Int(proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)) / MemoryLayout<proc_fdinfo>.size)
 
     #else
 
     var count = 0 as Int64
-    let procFdDir = #require(opendir("/proc/self/fd"))
+    let procFdDir = opendir("/proc/self/fd")!
     defer { closedir(procFdDir) }
     while readdir(procFdDir) != nil {
         count += 1
@@ -29,5 +29,23 @@ func currentOpenedHandleCount() -> Int64 {
     return count - 2
 
     #endif
+
+}
+
+
+
+extension ContiguousBytes {
+
+    func withUnsafeBytesTypedThrow<R, E: Error>(_ body: (UnsafeRawBufferPointer) throws(E) -> R) throws(E) -> R {
+        do {
+            return try self.withUnsafeBytes { bufferPtr in
+                try body(bufferPtr) 
+            }
+        } catch let error as E {
+            throw error
+        } catch {
+            fatalError("Expect error of type \(E.self), but got: \(error)")
+        }
+    }
 
 }

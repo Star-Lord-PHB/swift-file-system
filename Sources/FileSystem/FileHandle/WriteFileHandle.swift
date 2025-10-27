@@ -35,58 +35,28 @@ public struct WriteFileHandle: ~Copyable, WriteFileHandleProtocol {
 
 extension WriteFileHandle {
 
-    public init(forFileAt path: FilePath, options: FileOperationOptions.Write = .editFile()) throws(FileError) {
+    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForWriting = .editFile()) throws(FileError) {
 
         #if canImport(WinSDK)
-
-        let creationDisposition = switch (options.createFile, options.openFile) {
-            case (.none, .direct):                      DWORD(OPEN_EXISTING)
-            case (.none, .truncate):                    DWORD(TRUNCATE_EXISTING)
-            case (.some(.createIfMissing), .direct):    DWORD(OPEN_ALWAYS)
-            case (.some(.createIfMissing), .truncate):  DWORD(CREATE_ALWAYS)
-            case (.some(.assertMissing), _):            DWORD(CREATE_NEW)
-        }
-
-        let openFlags = DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED | FILE_FLAG_BACKUP_SEMANTICS)
-
-        let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
-            CreateFileW(cStr, DWORD(GENERIC_WRITE), DWORD(FILE_SHARE_READ), nil, creationDisposition, openFlags, nil)
-        }
-        guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try FileError.assertError(operationDescription: .openingHandle(forFileAt: path))
-        }
-
-        self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
-
-        #else
-
-        var flags: CInt = O_WRONLY
-
-        switch options.openFile {
-            case .direct:   break
-            case .truncate: flags |= O_TRUNC
-        }
-
-        switch options.createFile {
-            case .none:                     break 
-            case .some(.createIfMissing):   flags |= O_CREAT
-            case .some(.assertMissing):     flags |= O_EXCL | O_CREAT
-        }
-
-        let handle = open(path.string, flags, S_IRUSR | S_IWUSR)
-        guard handle >= 0 else {
-            try FileError.assertError(operationDescription: .openingHandle(forFileAt: path))
-        }
-
-        self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
-
+        let noBlocking = true 
+        #else 
+        let noBlocking = false
         #endif
+
+        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: options.unsafeSystemFileOpenOptions(noBlocking: noBlocking)
+            )
+        }
+
+        self.init(unsafeSystemHandle: handle, path: path)
 
     }
 
 
     @discardableResult
-    public func seek(to offset: Int64, relativeTo whence: FileSeekWhence) throws(FileError) -> Int64 {
+    public func seek(to offset: Int64, relativeTo whence: UnsafeSystemHandle.SeekWhence) throws(FileError) -> Int64 {
 
         #if canImport(WinSDK)
         
@@ -114,11 +84,9 @@ extension WriteFileHandle {
 
         #else 
 
-        let newOffset = lseek(handle.unsafeRawHandle, .init(offset), whence.rawValue)
-        guard newOffset >= 0 else {
-            try FileError.assertError(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence))
+        try catchSystemError(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence)) { () throws(SystemError) in
+            try handle.seek(to: offset, from: whence)
         }
-        return Int64(newOffset)
 
         #endif
     }
@@ -181,21 +149,15 @@ extension WriteFileHandle {
 
     #else
 
-        let bytesWritten = if let offset {
-            data.withUnsafeBytes { bufferPtr in
-                pwrite(handle.unsafeRawHandle, bufferPtr.baseAddress, count, .init(offset))
-            }
-        } else {
-            data.withUnsafeBytes { bufferPtr in
-                Foundation.write(handle.unsafeRawHandle, bufferPtr.baseAddress, count)
+        return try data.withUnsafeBytesTypedThrow { bufferPtr throws(FileError) in
+            try catchSystemError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(bufferPtr.count))) { () throws(SystemError) in
+                if let offset {
+                    return try handle.pwrite(contentsOf: bufferPtr, to: offset)
+                } else {
+                    return try handle.write(contentsOf: bufferPtr)
+                }
             }
         }
-
-        if bytesWritten < 0 {
-            try FileError.assertError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(count)))
-        }
-
-        return Int64(bytesWritten)
 
     #endif 
 
@@ -204,52 +166,18 @@ extension WriteFileHandle {
 
     public func resize(to size: Int64) throws(FileError) {
         
-    #if canImport(WinSDK)
-
-        var currentGlobalFilePointer = LARGE_INTEGER(QuadPart: 0)
-        try execThrowingCFunction(operationDescription: .resizingHandle(at: path, toSize: size)) {
-            SetFilePointerEx(handle.unsafeRawHandle, LARGE_INTEGER(QuadPart: 0), &currentGlobalFilePointer, DWORD(FILE_CURRENT))
+        try catchSystemError(operationDescription: .resizingHandle(at: path, toSize: size)) { () throws(SystemError) in
+            try handle.truncate(to: size)
         }
-
-        try execThrowingCFunction(operationDescription: .resizingHandle(at: path, toSize: size)) {
-            SetFilePointerEx(handle.unsafeRawHandle, LARGE_INTEGER(QuadPart: size), nil, DWORD(FILE_BEGIN))
-        }
-
-        defer {
-            // always try to restore the global file pointer, any error in this stage is ignored
-            SetFilePointerEx(handle.unsafeRawHandle, currentGlobalFilePointer, nil, DWORD(FILE_BEGIN))
-        }
-
-        try execThrowingCFunction(operationDescription: .resizingHandle(at: path, toSize: size)) {
-            SetEndOfFile(handle.unsafeRawHandle)
-        }
-
-    #else
-
-        try execThrowingCFunction(operationDescription: .resizingHandle(at: path, toSize: size)) {
-            ftruncate(handle.unsafeRawHandle, .init(size))
-        }
-
-    #endif
 
     }
 
 
     public func synchronize() throws(FileError) {
         
-    #if canImport(WinSDK)
-
-        try execThrowingCFunction(operationDescription: .synchronizingHandle(at: path)) {
-            FlushFileBuffers(handle.unsafeRawHandle)
+        try catchSystemError(operationDescription: .synchronizingHandle(at: path)) { () throws(SystemError) in
+            try handle.fsync()
         }
-
-    #else
-
-        try execThrowingCFunction(operationDescription: .synchronizingHandle(at: path)) {
-            fsync(handle.unsafeRawHandle)
-        }
-
-    #endif
 
     }
 

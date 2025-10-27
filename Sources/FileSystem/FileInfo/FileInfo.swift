@@ -52,18 +52,14 @@ extension FileInfo {
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
 
-        let openFlags = DWORD(FILE_FLAG_BACKUP_SEMANTICS) | (followSymLink ? 0 : DWORD(FILE_FLAG_OPEN_REPARSE_POINT))
-        
-        let handle = path.string.withCString(encodedAs: UTF16.self) { cPath in 
-            CreateFileW(cPath, DWORD(FILE_READ_ATTRIBUTES | READ_CONTROL), .init(FILE_SHARE_READ), nil, .init(OPEN_EXISTING), openFlags, nil)
-        }
-        guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+        let handle = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymLink)
+            )
         }
 
-        defer { CloseHandle(handle) }
-
-        try self.init(unsafeSystemHandle: .init(owningRawHandle: handle), path: path)
+        try self.init(unsafeSystemHandle: handle, path: path)
 
     }
 
@@ -168,15 +164,15 @@ extension FileInfo {
 #elseif canImport(Glibc) || canImport(Musl)
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
-        
-        let openFlags = followSymLink ? O_RDONLY : (O_RDONLY | __O_PATH | O_NOFOLLOW)
-        let fd = open(path.string, openFlags)
-        guard fd >= 0 else {
-            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
-        }
-        defer { close(fd) }
 
-        try self.init(unsafeSystemHandle: .init(owningRawHandle: fd), path: path)
+        let handle = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymLink)
+            )
+        }
+
+        try self.init(unsafeSystemHandle: handle, path: path)
 
     }
 

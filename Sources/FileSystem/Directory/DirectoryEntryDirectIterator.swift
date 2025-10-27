@@ -39,7 +39,12 @@ extension DirectoryEntryIterator {
 
             #else
 
-            guard let dirStream = fdopendir(unsafeRawHandle) else {
+            let duplicatedFd = dup(unsafeRawHandle)
+            guard duplicatedFd >= 0 else {
+                try FileError.assertError(operationDescription: .openingDirStream(forDirectoryAt: path))
+            }
+
+            guard let dirStream = fdopendir(duplicatedFd) else {
                 try FileError.assertError(operationDescription: .openingDirStream(forDirectoryAt: path))
             }
 

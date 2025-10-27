@@ -19,6 +19,8 @@ extension FileSystemTest.DirectoryHandleTest {
         
         let dirPath = try makeDir(at: "dir")
 
+        print(dirPath)
+
         var entries = [
             try makeFile(at: "dir/file1.txt"),
             try makeFile(at: "dir/file2.txt"),
