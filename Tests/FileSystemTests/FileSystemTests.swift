@@ -22,7 +22,7 @@ class FileSystemTest {
 
     init() throws {
         let test = try #require(Test.current, "Must be run inside a test")
-        self.testId = "\(test.id)-\(UUID().uuidString)"
+        self.testId = "\(test.name)-\(UUID().uuidString)"
             .replacingOccurrences(of: ":", with: "_")
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: "(", with: "_")

@@ -16,10 +16,12 @@ public struct UnsafeSystemHandle: ~Copyable {
     #endif
 
     public let unsafeRawHandle: SystemHandleType
+    public let isNonBlocking: Bool
 
 
-    public init(owningRawHandle handle: SystemHandleType) {
-        self.unsafeRawHandle = handle 
+    public init(owningRawHandle handle: SystemHandleType, isNonBlocking: Bool = false) {
+        self.unsafeRawHandle = handle
+        self.isNonBlocking = isNonBlocking
     }
 
 
@@ -112,8 +114,8 @@ extension UnsafeSystemHandle {
                 case .readOnly:                        FlagType(GENERIC_READ)
                 case .writeOnly where append:          FlagType(FILE_APPEND_DATA)
                 case .writeOnly:                       FlagType(GENERIC_WRITE)
-                case .readWrite where append:          FlagType(GENERIC_READ | FILE_APPEND_DATA)
-                case .readWrite:                       FlagType(GENERIC_READ | GENERIC_WRITE)
+                case .readWrite where append:          FlagType(GENERIC_READ) | FlagType(FILE_APPEND_DATA)
+                case .readWrite:                       FlagType(GENERIC_READ) | FlagType(GENERIC_WRITE)
             }
 
             #else
@@ -211,7 +213,6 @@ extension UnsafeSystemHandle {
         }
         
     }
-
 
 
     public enum SeekWhence: CInt {

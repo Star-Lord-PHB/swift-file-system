@@ -112,40 +112,29 @@ extension WriteFileHandle {
 extension WriteFileHandle {
 
     public func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(FileError) -> Int64 {
-
-        let count = data.withUnsafeBytes { $0.count }
         
     #if canImport(WinSDK)
 
-        var bytesWritten = 0 as DWORD 
-
-        if let offset {
-            var overlapped = OVERLAPPED()
-            overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
-            overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
-            _ = data.withUnsafeBytes { bufferPtr in
-                WriteFile(handle.unsafeRawHandle, bufferPtr.baseAddress, DWORD(count), &bytesWritten, &overlapped)
+        return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(FileError) in 
+            try catchSystemError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(bufferPtr.count))) { () throws(SystemError) in
+                if let offset {
+                    return try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
+                        overlapped.offset = offset
+                        try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    }
+                } else {
+                    let currentOffset = _currentOffset.withLock(\.self)
+                    let bytesWritten = try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
+                        overlapped.offset = currentOffset
+                        try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    }
+                    _currentOffset.withLock {
+                        $0 = currentOffset + Int64(bytesWritten)
+                    }
+                    return Int64(bytesWritten)
+                }
             }
-            try execThrowingCFunction(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(count))) {
-                GetOverlappedResult(handle.unsafeRawHandle, &overlapped, &bytesWritten, true)
-            }
-        } else {
-            let currentOffset = _currentOffset.withLock(\.self)
-            var overlapped = OVERLAPPED()
-            overlapped.Offset = DWORD(currentOffset & 0xFFFFFFFF)
-            overlapped.OffsetHigh = DWORD((currentOffset >> 32) & 0xFFFFFFFF)
-            _ = data.withUnsafeBytes { bufferPtr in
-                WriteFile(handle.unsafeRawHandle, bufferPtr.baseAddress, DWORD(count), &bytesWritten, &overlapped)
-            }
-            try execThrowingCFunction(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(count))) {
-                GetOverlappedResult(handle.unsafeRawHandle, &overlapped, &bytesWritten, true)
-            }
-            _currentOffset.withLock {
-                $0 = currentOffset + Int64(bytesWritten)
-            }
-        }
-
-        return Int64(bytesWritten)
+        }   
 
     #else
 

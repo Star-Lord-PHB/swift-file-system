@@ -17,8 +17,22 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
+            CreateFileW(
+                cStr, 
+                openOptions.accessModeFlags, 
+                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), 
+                nil, 
+                openOptions.creationFlags,
+                openOptions.openFlags,
+                nil
+            )
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: handle, isNonBlocking: openOptions.noBlocking)
 
         #else 
 
@@ -29,7 +43,7 @@ extension UnsafeSystemHandle {
             try SystemError.assertError()
         }
 
-        return .init(owningRawHandle: handle)
+        return .init(owningRawHandle: handle, isNonBlocking: openOptions.noBlocking)
 
         #endif 
 
@@ -43,7 +57,7 @@ extension UnsafeSystemHandle {
         let openFlags = DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS)
 
         let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
-            CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ), nil, DWORD(OPEN_EXISTING), openFlags, nil)
+            CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), nil, DWORD(OPEN_EXISTING), openFlags, nil)
         }
         guard let handle, handle != INVALID_HANDLE_VALUE else {
             try SystemError.assertError()
@@ -70,8 +84,13 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        var newOffset: LARGE_INTEGER = LARGE_INTEGER()
+        
+        try execThrowingCFunction {
+            SetFilePointerEx(unsafeRawHandle, LARGE_INTEGER(QuadPart: offset), &newOffset, DWORD(whence.rawValue))
+        }
+
+        return newOffset.QuadPart
 
         #else 
 
@@ -93,16 +112,23 @@ extension UnsafeSystemHandle {
 
 
     @discardableResult
-    public func read(into buffer: UnsafeMutableRawBufferPointer) throws(SystemError) -> Int64 {
+    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil) throws(SystemError) -> Int64 {
+
+        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        var bytesRead = 0 as DWORD
+
+        try execThrowingCFunction {
+            ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, nil)
+        }
+
+        return Int64(bytesRead)
 
         #else 
 
-        let bytesRead = Foundation.read(self.unsafeRawHandle, buffer.baseAddress, buffer.count)
+        let bytesRead = Foundation.read(self.unsafeRawHandle, buffer.baseAddress, lengthToRead)
         guard bytesRead >= 0 else {
             try SystemError.assertError()
         }
@@ -114,19 +140,44 @@ extension UnsafeSystemHandle {
     }
 
 
-    #if !canImport(WinSDK)
     @discardableResult
-    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64) throws(SystemError) -> Int64 {
+    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64, length: Int64? = nil) throws(SystemError) -> Int64 {
 
-        let bytesRead = Foundation.pread(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
+        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+
+        #if canImport(WinSDK)
+
+        if isNonBlocking {
+            return try withWindowsOverlapped { (overlapped) throws(SystemError) in
+                overlapped.offset = offset
+                return try read(into: buffer, length: Int64(lengthToRead), overlapped: &overlapped)
+            }
+        } else {
+            var overlapped = OVERLAPPED()
+            overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
+            overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+
+            var bytesRead = 0 as DWORD
+
+            try execThrowingCFunction {
+                ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, &overlapped)
+            }
+
+            return Int64(bytesRead)
+        }
+
+        #else 
+
+        let bytesRead = Foundation.pread(self.unsafeRawHandle, buffer.baseAddress, lengthToRead, off_t(offset))
         guard bytesRead >= 0 else {
             try SystemError.assertError()
         }
 
         return Int64(bytesRead)
 
+        #endif 
+
     }
-    #endif 
 
 
     @discardableResult
@@ -134,8 +185,13 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        var bytesWritten = 0 as DWORD
+
+        try execThrowingCFunction {
+            WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, nil)
+        }
+
+        return Int64(bytesWritten)
 
         #else 
 
@@ -151,9 +207,28 @@ extension UnsafeSystemHandle {
     }
 
 
-    #if !canImport(WinSDK)
     @discardableResult
     public func pwrite(contentsOf buffer: UnsafeRawBufferPointer, to offset: Int64) throws(SystemError) -> Int64 {
+
+        #if canImport(WinSDK)
+
+        if isNonBlocking {
+            return try withWindowsOverlapped { (overlapped) throws(SystemError) in
+                overlapped.offset = offset
+                return try write(contentsOf: buffer, overlapped: &overlapped)
+            }
+        } else {
+            var overlapped = OVERLAPPED()
+            overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
+            overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+            var bytesWritten = 0 as DWORD
+            try execThrowingCFunction {
+                WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, &overlapped)
+            }
+            return Int64(bytesWritten)
+        }
+
+        #else
 
         let bytesWritten = Foundation.pwrite(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
         guard bytesWritten >= 0 else {
@@ -162,16 +237,18 @@ extension UnsafeSystemHandle {
 
         return Int64(bytesWritten)
 
+        #endif
+
     }
-    #endif
 
 
     public func fsync() throws(SystemError) {
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        try execThrowingCFunction {
+            FlushFileBuffers(self.unsafeRawHandle)
+        }
 
         #else 
 
@@ -188,8 +265,16 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        let currentFilePointerOffset = try self.tell()
+        defer {
+            _ = try? self.seek(to: currentFilePointerOffset, from: .beginning)
+        }
+
+        try self.seek(to: offset, from: .beginning)
+
+        try execThrowingCFunction {
+            SetEndOfFile(self.unsafeRawHandle)
+        }
 
         #else 
 
@@ -204,8 +289,9 @@ extension UnsafeSystemHandle {
 
     public func truncate() throws(SystemError) {
         #if canImport(WinSDK)
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        try execThrowingCFunction {
+            SetEndOfFile(self.unsafeRawHandle)
+        }
         #else 
         try truncate(to: tell())
         #endif
@@ -216,8 +302,24 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        fatalError("Not implemented")
-        #warning("Not implemented")
+        var newHandle: WinSDK.HANDLE? = nil
+
+        try execThrowingCFunction {
+            DuplicateHandle(
+                GetCurrentProcess(),
+                self.unsafeRawHandle,
+                GetCurrentProcess(),
+                &newHandle,
+                0,
+                false,
+                DWORD(DUPLICATE_SAME_ACCESS)
+            )
+        }
+        guard let newHandle else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
 
         #else 
 
@@ -233,3 +335,123 @@ extension UnsafeSystemHandle {
     }
 
 }
+
+
+
+#if canImport(WinSDK)
+extension UnsafeSystemHandle {
+
+    public struct WindowsOverlapped: ~Copyable {
+        private var systemOverlapped: OVERLAPPED
+        public init(offset: Int64 = 0, eventHandle: WinSDK.HANDLE? = nil) {
+            self.systemOverlapped = OVERLAPPED()
+            self.systemOverlapped.Offset = DWORD(offset & 0xFFFFFFFF)
+            self.systemOverlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+            self.systemOverlapped.hEvent = eventHandle
+        }
+        public var offset: Int64 {
+            get {
+                Int64(self.systemOverlapped.Offset) | (Int64(self.systemOverlapped.OffsetHigh) << 32)
+            }
+            set {
+                self.systemOverlapped.Offset = DWORD(newValue & 0xFFFFFFFF)
+                self.systemOverlapped.OffsetHigh = DWORD((newValue >> 32) & 0xFFFFFFFF)
+            }
+        }
+        public var eventHandle: WinSDK.HANDLE? {
+            get {
+                self.systemOverlapped.hEvent
+            }
+            set {
+                self.systemOverlapped.hEvent = newValue
+            }
+        }
+        public func withSystemOverlapped<T: ~Copyable, E: Error>(_ body: (OVERLAPPED) throws(E) -> T) throws(E) -> T {
+            return try body(self.systemOverlapped)
+        }
+        public mutating func withMutableSystemOverlapped<T: ~Copyable, E: Error>(_ body: (inout OVERLAPPED) throws(E) -> T) throws(E) -> T {
+            return try body(&self.systemOverlapped)
+        }
+    }
+
+
+    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil, overlapped: inout WindowsOverlapped) throws(SystemError) {
+
+        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+
+        var bytesRead = 0 as DWORD
+
+        let result = overlapped.withMutableSystemOverlapped { systemOverlapped in
+            ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, &systemOverlapped)
+        }
+
+        if result == false {
+            let errorCode = GetLastError()
+            guard errorCode == ERROR_IO_PENDING else {
+                throw SystemError(code: errorCode)
+            }
+        }
+
+    }
+
+
+    public func write(contentsOf buffer: UnsafeRawBufferPointer, overlapped: inout WindowsOverlapped) throws(SystemError) {
+
+        var bytesWritten = 0 as DWORD
+
+        let result = overlapped.withMutableSystemOverlapped { systemOverlapped in
+            WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, &systemOverlapped)
+        }
+
+        guard result || GetLastError() == ERROR_IO_PENDING else {
+            throw SystemError(code: GetLastError())
+        }
+
+        if result == false {
+            let errorCode = GetLastError()
+            guard errorCode == ERROR_IO_PENDING else {
+                throw SystemError(code: errorCode)
+            }
+        }
+
+    }
+
+
+    public func waitForOverlappedResult(_ overlapped: inout WindowsOverlapped) throws(SystemError) -> Int64 {
+
+        var bytesTransferred = 0 as DWORD
+
+        try execThrowingCFunction {
+            overlapped.withMutableSystemOverlapped { systemOverlapped in
+                GetOverlappedResult(unsafeRawHandle, &systemOverlapped, &bytesTransferred, true)
+            }
+        }
+
+        return Int64(bytesTransferred)
+
+    }
+
+
+    public func withWindowsOverlapped<T: ~Copyable>(
+        _ body: (inout WindowsOverlapped) throws -> Void, 
+        onComplete: (_ overlapped: inout WindowsOverlapped, _ bytesTransferred: Int64) throws -> T = { _, bytesTransferred in bytesTransferred }
+    ) throws -> T {
+        var overlapped = WindowsOverlapped()
+        try body(&overlapped)
+        let bytesTransferred = try waitForOverlappedResult(&overlapped)
+        return try onComplete(&overlapped, bytesTransferred)
+    }
+
+
+    public func withWindowsOverlapped<T: ~Copyable>(
+        _ body: (inout WindowsOverlapped) throws(SystemError) -> Void, 
+        onComplete: (_ overlapped: inout WindowsOverlapped, _ bytesTransferred: Int64) throws(SystemError) -> T = { _, bytesTransferred in bytesTransferred }
+    ) throws(SystemError) -> T {
+        var overlapped = WindowsOverlapped()
+        try body(&overlapped)
+        let bytesTransferred = try waitForOverlappedResult(&overlapped)
+        return try onComplete(&overlapped, bytesTransferred)
+    }
+
+}
+#endif
