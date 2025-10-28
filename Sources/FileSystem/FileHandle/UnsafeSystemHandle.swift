@@ -16,7 +16,7 @@ public struct UnsafeSystemHandle: ~Copyable {
     #endif
 
     public let unsafeRawHandle: SystemHandleType
-    public let isNonBlocking: Bool
+    public fileprivate(set) var isNonBlocking: Bool
 
 
     public init(owningRawHandle handle: SystemHandleType, isNonBlocking: Bool = false) {
@@ -55,6 +55,30 @@ public struct UnsafeSystemHandle: ~Copyable {
         #endif
 
     }
+
+
+    #if !canImport(WinSDK)
+    public mutating func setNonBlocking(_ value: Bool) throws(SystemError) {
+
+        var flags = fcntl(unsafeRawHandle, F_GETFL)
+        guard flags >= 0 else {
+            try SystemError.assertError()
+        }
+
+        if value {
+            flags |= O_NONBLOCK
+        } else {
+            flags &= ~O_NONBLOCK
+        }
+        
+        try execThrowingCFunction {
+            fcntl(unsafeRawHandle, F_SETFL, flags)
+        }
+
+        self.isNonBlocking = value
+
+    }
+    #endif
 
 }
 

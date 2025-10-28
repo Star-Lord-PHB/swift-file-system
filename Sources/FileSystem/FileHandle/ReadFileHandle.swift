@@ -144,7 +144,7 @@ extension ReadFileHandle {
         try catchSystemError(operationDescription: .readingHandle(at: path, offset: offset, length: lengthToRead)) { () throws(SystemError) in 
             if let offset {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    _ = try handle.pread(into: bufferPtr, length: lengthToRead, from: offset)
+                    _ = try handle.pread(into: bufferPtr, from: offset, length: lengthToRead)
                 }
             } else {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in

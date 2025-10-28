@@ -41,6 +41,26 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
             }
 
             do {
+                var buffer1 = Data(count: 5)
+                var buffer2 = Data(count: 5)
+
+                let bytesRead1 = try buffer1.withUnsafeMutableBytes { bufferPtr in 
+                    try handle.read(into: bufferPtr)
+                }
+
+                let bytesRead2 = try buffer2.withUnsafeMutableBytes { bufferPtr in 
+                    try handle.read(into: bufferPtr, length: 3)
+                }
+
+                #expect(bytesRead1 == 5)
+                #expect(bytesRead2 == 3)
+                #expect(try handle.tell() == 0)
+                #expect(buffer1 == Data("Hello".utf8))
+                #expect(buffer2[..<3] == Data(" Sw".utf8))
+                #expect(buffer2[3...] == Data([0, 0]))
+            }
+
+            do {
                 var buffer = Data(count: 5)
 
                 let bytesRead = try buffer.withUnsafeMutableBytes { bufferPtr in 
@@ -55,30 +75,6 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
                 #expect(buffer[..<3] == Data(" Sw".utf8))
                 #expect(buffer[3...] == Data([0, 0]))
             }
-            
-        }
-
-    }
-
-
-    @Test("Open for Reading (Unsupported Read)")
-    func openForReadingUnsupportedRead() async throws {
-        
-        let path = try self.makeFile(at: "test.txt", contents: .init("Hello Swift!".utf8))
-
-        try await expectNoResHandleLeak {
-
-            let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noBlocking: true))
-
-            var buffer = Data(count: 5)
-
-            let error = try #require(throws: SystemError.self) {
-                try buffer.withUnsafeMutableBytes { bufferPtr in 
-                    _ = try handle.read(into: bufferPtr)
-                }
-            }
-
-            #expect(error.code == ERROR_INVALID_PARAMETER)
             
         }
 
@@ -109,47 +105,44 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
             }
 
             do {
-                let dataToWrite = Data(" cat".utf8)
+                let dataToWrite1 = Data("Serika".utf8)
+                let dataToWrite2 = Data("Hoshino".utf8)
+
+                let bytesWritten1 = try dataToWrite1.withUnsafeBytes { bufferPtr in 
+                    try handle.write(contentsOf: bufferPtr)
+                }
+
+                #expect(bytesWritten1 == 6)
+                #expect(try handle.tell() == 0)
+                #expect(try Data(contentsOf: URL(fileURLWithPath: path.string)) == Data("SerikaSerika!".utf8))
+
+                let bytesWritten2 = try dataToWrite2.withUnsafeBytes { bufferPtr in 
+                    try handle.write(contentsOf: bufferPtr)
+                }
+
+                #expect(bytesWritten2 == 7)
+                #expect(try handle.tell() == 0)
+                #expect(try Data(contentsOf: URL(fileURLWithPath: path.string)) == Data("Hoshinoerika!".utf8))
+            }
+
+            do {
+                let dataToWrite = Data(" is cute".utf8)
 
                 let bytesWritten = try dataToWrite.withUnsafeBytes { bufferPtr in 
                     try handle.withWindowsOverlapped { overlapped in
-                        overlapped.offset = 12
+                        overlapped.offset = 7
                         return try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
                     }
                 }
 
-                #expect(bytesWritten == 4)
+                #expect(bytesWritten == 8)
                 #expect(try handle.tell() == 0)
 
                 let finalContents = try Data(contentsOf: URL(fileURLWithPath: path.string))
-                #expect(finalContents == Data("Hello Serika cat".utf8))
+                #expect(finalContents == Data("Hoshino is cute".utf8))
             }
             
         }
-
-    }
-
-
-    @Test("Open for Writing (Unsupported Write)")
-    func openForWritingUnsupportedWrite() async throws {
-        
-        let path = try self.makeFile(at: "test.txt", contents: .init("Hello Swift!".utf8))
-
-        try await expectNoResHandleLeak {
-
-            let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly, noBlocking: true))
-
-            let dataToWrite = Data("Serika!".utf8)
-
-            let error = try #require(throws: SystemError.self) {
-                try dataToWrite.withUnsafeBytes { bufferPtr in 
-                    _ = try handle.write(contentsOf: bufferPtr)
-                }
-            }
-
-            #expect(error.code == ERROR_INVALID_PARAMETER)
-            
-        }   
 
     }
 

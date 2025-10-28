@@ -118,13 +118,19 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        var bytesRead = 0 as DWORD
+        if isNonBlocking {
+            return try withWindowsOverlapped { (overlapped) throws(SystemError) in
+                return try read(into: buffer, length: Int64(lengthToRead), overlapped: &overlapped)
+            }
+        } else {
+            var bytesRead = 0 as DWORD
 
-        try execThrowingCFunction {
-            ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, nil)
+            try execThrowingCFunction {
+                ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, nil)
+            }
+
+            return Int64(bytesRead)
         }
-
-        return Int64(bytesRead)
 
         #else 
 
@@ -185,13 +191,19 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        var bytesWritten = 0 as DWORD
+        if isNonBlocking {
+            return try withWindowsOverlapped { (overlapped) throws(SystemError) in
+                return try write(contentsOf: buffer, overlapped: &overlapped)
+            }
+        } else {
+            var bytesWritten = 0 as DWORD
 
-        try execThrowingCFunction {
-            WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, nil)
+            try execThrowingCFunction {
+                WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, nil)
+            }
+
+            return Int64(bytesWritten)
         }
-
-        return Int64(bytesWritten)
 
         #else 
 
@@ -335,6 +347,119 @@ extension UnsafeSystemHandle {
     }
 
 }
+
+
+
+extension UnsafeSystemHandle {
+
+    public struct PipeHandles: ~Copyable {
+        public let readHandle: UnsafeSystemHandle
+        public let writeHandle: UnsafeSystemHandle
+    }
+
+
+    public static func pipe(nonBlockingRead: Bool = false, nonBlockingWrite: Bool = false) throws(SystemError) -> PipeHandles {
+
+        #if canImport(WinSDK)
+
+        #warning("Not implemented")
+        fatalError("Not implemented")
+
+        #else 
+
+        var fds = [0, 0] as [CInt]
+
+        try execThrowingCFunction {
+            Foundation.pipe(&fds)
+        }
+
+        var readHandle = UnsafeSystemHandle(owningRawHandle: fds[0])
+        var writeHandle = UnsafeSystemHandle(owningRawHandle: fds[1])
+
+        if nonBlockingRead {
+            try readHandle.setNonBlocking(true)
+        }
+        if nonBlockingWrite {
+            try writeHandle.setNonBlocking(true)
+        }
+
+        return .init(readHandle: readHandle, writeHandle: writeHandle)
+
+        #endif 
+
+    }
+
+}
+
+
+
+#if !canImport(WinSDK)
+extension UnsafeSystemHandle {
+
+    public enum PollEventToMonitor: Int16, Sendable {
+        case read
+        case write
+        case readWrite
+        public var rawValue: Int16 {
+            switch self {
+                case .read:         .init(POLLIN)
+                case .write:        .init(POLLOUT)
+                case .readWrite:    .init(POLLIN | POLLOUT)
+            }
+        }
+        public init?(rawValue: Int16) {
+            switch CInt(rawValue) {
+                case POLLIN:            self = .read
+                case POLLOUT:           self = .write
+                case POLLIN | POLLOUT:  self = .readWrite
+                default:                return nil
+            }
+        }
+    }
+
+
+    public struct PollEvent: OptionSet, Sendable {
+        public let rawValue: Int16
+        public init(rawValue: Int16) {
+            self.rawValue = rawValue
+        }
+        public static let pollIn: PollEvent = .init(rawValue: .init(POLLIN))
+        public static let pollOut: PollEvent = .init(rawValue: .init(POLLOUT))
+        public static let pollErr: PollEvent = .init(rawValue: .init(POLLERR))
+        public static let pollHup: PollEvent = .init(rawValue: .init(POLLHUP))
+        public static let pollNVal: PollEvent = .init(rawValue: .init(POLLNVAL))
+        public static let pollRdNorm: PollEvent = .init(rawValue: .init(POLLRDNORM))
+        public static let pollRdBand: PollEvent = .init(rawValue: .init(POLLRDBAND))
+        public static let pollWrNorm: PollEvent = .init(rawValue: .init(POLLWRNORM))
+        public static let pollWrBand: PollEvent = .init(rawValue: .init(POLLWRBAND))
+    }
+
+
+    public func poll(listening: PollEventToMonitor, waitMilliseconds: CInt? = nil) throws(SystemError) -> PollEvent? {
+
+        var pollDescriptor = pollfd(
+            fd: self.unsafeRawHandle,
+            events: listening.rawValue,
+            revents: 0
+        )
+
+        let timeout = waitMilliseconds.map { CInt($0) } ?? -1
+
+        let result = Foundation.poll(&pollDescriptor, 1, timeout)
+        guard result == 0 else { 
+            // timeout
+            return nil 
+        }
+        guard result > 0 else {
+            try SystemError.assertError()
+        }
+
+        return .init(rawValue: pollDescriptor.revents)
+
+    }
+
+}
+#endif 
 
 
 
