@@ -157,4 +157,36 @@ class FileSystemTest {
 
     }
 
+
+    func preheatWindowsSecurityDescriptor(forFileAt path: FilePath) {
+        #if canImport(WinSDK)
+        let handle = path.string.withCString(encodedAs: UTF16.self) { pathPtr in 
+            CreateFileW(
+                pathPtr, 
+                DWORD(READ_ATTRIBUTES | READ_CONTROL), 
+                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), 
+                nil, 
+                DWORD(OPEN_EXISTING), 
+                DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS), 
+                nil
+            )
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else {
+            return
+        }
+        defer { CloseHandle(handle) }
+
+        var securityDescriptorPtr = nil as PSECURITY_DESCRIPTOR?
+        GetSecurityInfo(
+            handle, 
+            SE_FILE_OBJECT, 
+            DWORD(OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION), 
+            nil, nil, nil, nil, 
+            &securityDescriptorPtr
+        )
+        guard let securityDescriptorPtr else { return }
+        LocalFree(securityDescriptorPtr)
+        #endif
+    }
+
 }

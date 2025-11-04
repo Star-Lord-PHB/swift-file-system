@@ -52,14 +52,74 @@ extension FileInfo {
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
 
-        let handle = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try UnsafeSystemHandle.open(
-                at: path, 
-                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymLink)
-            )
-        }
+        if let GetFileInformationByNameFuncPtr = getGetFileInformationByNameFuncPtr() {
 
-        try self.init(unsafeSystemHandle: handle, path: path)
+            // A faster path for getting information of files without opening a handle
+
+            var fileInformationByName = FILE_STAT_INFORMATION()
+
+            try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+                path.string.withCString(encodedAs: UTF16.self) { pathPtr in 
+                    GetFileInformationByNameFuncPtr(pathPtr, FileStatByNameInfo, &fileInformationByName, DWORD(MemoryLayout<FILE_STAT_INFORMATION>.size)).boolValue
+                }
+            }
+
+            if followSymLink && fileInformationByName.ReparseTag == IO_REPARSE_TAG_SYMLINK {
+                let destPathPtr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+                    try WindowsAPI.destinationPathOfSymbolicLink(at: path)
+                }
+                try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+                    GetFileInformationByNameFuncPtr(destPathPtr.unsafeRawPtr, FileStatByNameInfo, &fileInformationByName, DWORD(MemoryLayout<FILE_STAT_INFORMATION>.size)).boolValue
+                }
+            }
+
+            let type = if fileInformationByName.ReparseTag == IO_REPARSE_TAG_SYMLINK {
+                .symlink
+            } else if (fileInformationByName.FileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY)) != 0 {
+                .directory
+            } else {
+                .regular
+            } as FileType
+
+            let securityDescriptorPtr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+                try WindowsAPI.getFileSecurity(at: path, requesting: DWORD(OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
+            }
+
+            let ownerSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+                let (ownerSidPtr, _) = try WindowsAPI.getOwnerSid(from: securityDescriptorPtr.unownedView())
+                return try WindowsAPI.pSidToString(sidPtr: ownerSidPtr)
+            }
+
+            let groupSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+                let (groupSidPtr, _) = try WindowsAPI.getGroupSid(from: securityDescriptorPtr.unownedView())
+                return try WindowsAPI.pSidToString(sidPtr: groupSidPtr)
+            }
+
+            self.init(
+                path: path, 
+                size: UInt64(fileInformationByName.EndOfFile.QuadPart), 
+                type: type, 
+                lastAccessDate: .init(platformFileTime: fileInformationByName.LastAccessTime), 
+                lastModificationDate: .init(platformFileTime: fileInformationByName.LastWriteTime), 
+                lastStatusChangeDate: .init(platformFileTime: fileInformationByName.ChangeTime), 
+                creationDate: .init(platformFileTime: fileInformationByName.CreationTime), 
+                securityInfo: .init(effectiveAccess: .init(rawValue: fileInformationByName.EffectiveAccess), owner: ownerSidStr, group: groupSidStr), 
+                attributes: .init(rawValue: fileInformationByName.FileAttributes), 
+                supportedAttributes: .all
+            )
+
+        } else {
+
+            let handle = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+                try UnsafeSystemHandle.open(
+                    at: path, 
+                    openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymLink)
+                )
+            }
+
+            try self.init(unsafeSystemHandle: handle, path: path)
+
+        }
 
     }
 
@@ -85,11 +145,13 @@ extension FileInfo {
         }
 
         var securityDescriptorPtr = nil as PSECURITY_DESCRIPTOR?
+        var ownerSidPtr = nil as PSID?
+        var groupSidPtr = nil as PSID?
         try execThrowingCFunction {
             GetSecurityInfo(
                 handle.unsafeRawHandle, SE_FILE_OBJECT, 
                 DWORD(OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION), 
-                nil, nil, nil, nil, 
+                &ownerSidPtr, &groupSidPtr, nil, nil, 
                 &securityDescriptorPtr
             )
         } onError: { (code) throws(FileError) in
@@ -99,10 +161,22 @@ extension FileInfo {
             try FileError.assertError(operationDescription: .fetchingInfo(for: path))
         }
         defer { LocalFree(securityDescriptorPtr) }
-
-        self.securityInfo = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in 
-            try .init(unsafeFromSecurityDescriptorPtr: securityDescriptorPtr)
+        guard let ownerSidPtr, let groupSidPtr else {
+            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
         }
+
+        let ownerSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ownerSidPtr))
+        }
+        let groupSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: groupSidPtr))
+        }
+
+        let effectiveAccessMask = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try WindowsAPI.effectiveAccessMaskForCurrentProcess(from: .init(unownedPointer: securityDescriptorPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self)))
+        }
+
+        self.securityInfo = .init(effectiveAccess: .init(rawValue: effectiveAccessMask), owner: ownerSidStr, group: groupSidStr)
 
     }
 

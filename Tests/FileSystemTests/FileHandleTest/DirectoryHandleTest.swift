@@ -50,7 +50,7 @@ extension FileSystemTest.DirectoryHandleTest {
             try dirHandle.close()
 
         } preheat: {
-            _ = try FileInfo(fileAt: dirPath)
+            preheatWindowsSecurityDescriptor(forFileAt: dirPath)
         }
 
     }

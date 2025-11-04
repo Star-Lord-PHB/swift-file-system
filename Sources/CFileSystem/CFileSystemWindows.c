@@ -2,8 +2,37 @@
 
 #include "CFileSystemWindows.h"
 
-DWORD makeLanguageIdentifier(USHORT primary, USHORT sub) {
-    return MAKELANGID(primary, sub);
+
+static int GetFileInformationByNameFuncPtrInitialized = FALSE;
+static GetFileInformationByNameFuncPtrType GetFileInformationByNameFuncPtrCache = NULL;
+
+
+GetFileInformationByNameFuncPtrType getGetFileInformationByNameFuncPtr() {
+
+    if (GetFileInformationByNameFuncPtrCache != NULL) {
+        return GetFileInformationByNameFuncPtrCache;
+    }
+    if (GetFileInformationByNameFuncPtrInitialized) { return NULL; }
+
+    HMODULE hModule = LoadLibraryW(L"kernel32.dll");
+    if (hModule == NULL) { 
+        GetFileInformationByNameFuncPtrInitialized = TRUE;
+        return NULL; 
+    }
+
+    GetFileInformationByNameFuncPtrType funcPtr = (GetFileInformationByNameFuncPtrType)GetProcAddress(hModule,"GetFileInformationByName");
+
+    if (funcPtr == NULL) {
+        GetFileInformationByNameFuncPtrInitialized = TRUE;
+        FreeLibrary(hModule);
+        return NULL;
+    }
+
+    GetFileInformationByNameFuncPtrCache = funcPtr;
+    GetFileInformationByNameFuncPtrInitialized = TRUE;
+
+    return GetFileInformationByNameFuncPtrCache;
+
 }
 
-#endif
+#endif 

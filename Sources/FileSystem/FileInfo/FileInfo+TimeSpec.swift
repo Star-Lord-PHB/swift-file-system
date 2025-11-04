@@ -31,6 +31,12 @@ extension FileInfo {
             let nanoseconds = (hundredNanoSeconds % 10_000_000) * 100
             self.init(seconds: Int(seconds), nanoseconds: Int(nanoseconds))
         }
+        public init(platformFileTime: LARGE_INTEGER) {
+            let hundredNanoSeconds = UINT64(platformFileTime.QuadPart)
+            let seconds = hundredNanoSeconds / 10_000_000
+            let nanoseconds = (hundredNanoSeconds % 10_000_000) * 100
+            self.init(seconds: Int(seconds), nanoseconds: Int(nanoseconds))
+        }
         #else
         @inlinable
         public init(platformFileTime: timespec) {

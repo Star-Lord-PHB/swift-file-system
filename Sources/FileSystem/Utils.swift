@@ -1,4 +1,5 @@
 import Foundation
+import SystemPackage
 
 #if canImport(WinSDK)
 import WinSDK
@@ -36,11 +37,53 @@ func currentOpenedHandleCount() -> Int64 {
 
 extension ContiguousBytes {
 
-    func withUnsafeBytesTypedThrow<R, E: Error>(_ body: (UnsafeRawBufferPointer) throws(E) -> R) throws(E) -> R {
+    func withUnsafeBytesTypedThrow<R: ~Copyable, E: Error>(_ body: (UnsafeRawBufferPointer) throws(E) -> R) throws(E) -> R {
         do {
-            return try self.withUnsafeBytes { bufferPtr in
-                try body(bufferPtr) 
+            var result: R?
+            try self.withUnsafeBytes { bufferPtr in
+                result = try body(bufferPtr)
             }
+            return result!
+        } catch let error as E {
+            throw error
+        } catch {
+            fatalError("Expect error of type \(E.self), but got: \(error)")
+        }
+    }
+
+}
+
+
+
+extension String {
+
+    func withCStringTypedThrow<R: ~Copyable, Encoding: _UnicodeEncoding, E: Error>(encodedAs encoding: Encoding.Type, _ body: (UnsafePointer<Encoding.CodeUnit>) throws(E) -> R) throws(E) -> R {
+        do {
+            var result: R?
+            try self.withCString(encodedAs: encoding) { ptr in 
+                result = try body(ptr)
+            }
+            return result!
+        } catch let error as E {
+            throw error
+        } catch {
+            fatalError("Expect error of type \(E.self), but got: \(error)")
+        }
+    }
+
+}
+
+
+
+extension FilePath {
+
+    func withPlatformStringTypedThrow<R: ~Copyable, E: Error>(_ body: (UnsafePointer<CInterop.PlatformChar>) throws(E) -> R) throws(E) -> R {
+        do {
+            var result: R?
+            try self.withPlatformString { ptr in 
+                result = try body(ptr)
+            }
+            return result!
         } catch let error as E {
             throw error
         } catch {

@@ -5,7 +5,7 @@ import WinSDK
 #endif
 
 
-public struct SystemError: Error, Equatable {
+public struct SystemError: Error, Equatable, CustomStringConvertible {
 
     #if canImport(WinSDK)
     public typealias Code = DWORD
@@ -16,6 +16,19 @@ public struct SystemError: Error, Equatable {
     #endif
 
     public let code: Code
+
+    @inlinable
+    public var description: String {
+        #if canImport(WinSDK)
+        return errorCodeDescription(for: code) ?? "Unknown error"
+        #else
+        guard let message = strerror(code) else { return "Unknown error" }
+        return String(cString: message)
+        #endif
+    }
+
+    @inlinable
+    public var errorDescription: String { description }
 
     public static let success: SystemError = .init(code: successCode)
 

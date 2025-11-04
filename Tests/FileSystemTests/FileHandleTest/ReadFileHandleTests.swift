@@ -3,6 +3,10 @@ import SystemPackage
 import Foundation
 @testable import FileSystem
 
+#if canImport(WinSDK)
+import WinSDK
+#endif 
+
 
 extension FileSystemTest {
 
@@ -48,7 +52,7 @@ extension FileSystemTest.ReadFileHandleTests {
             try readHandle.close()
 
         } preheat: {
-            _ = try FileInfo(fileAt: path)
+            preheatWindowsSecurityDescriptor(forFileAt: path)
         }
 
     }
@@ -73,7 +77,22 @@ extension FileSystemTest.ReadFileHandleTests {
     }
 
 
-    @Test("Read Handle (Error: Unsupported)")
+    #if canImport(WinSDK)
+    @Test("Read Handle (Error: No access rights for directory)")
+    func readHandleErrorUnsupported() async throws {
+
+        let path = try makeDir(at: "dir")
+
+        let error = try #require(throws: FileError.self) {
+            _ = try ReadFileHandle(forFileAt: path)
+        }
+        let errorCode = try #require(error.code)
+
+        #expect(errorCode == .accessDenied)
+
+    }
+    #else
+    @Test("Read Handle (Error: Reading Dir Unsupported)")
     func readHandleErrorUnsupported() async throws {
 
         let path = try makeDir(at: "dir")
@@ -85,12 +104,9 @@ extension FileSystemTest.ReadFileHandleTests {
         }
         let errorCode = try #require(error.code)
 
-        #if canImport(WinSDK)
-        #expect(errorCode == .invalidFunction)
-        #else
         #expect(errorCode == .isADirectory)
-        #endif
 
     }
+    #endif 
 
 }

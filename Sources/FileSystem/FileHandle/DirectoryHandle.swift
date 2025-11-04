@@ -24,18 +24,12 @@ public struct DirectoryHandle: ~Copyable, DirectoryHandleProtocol {
 
 extension DirectoryHandle {
 
-    public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(FileError) {
-
-        #if canImport(WinSDK)
-        let additionalFlags = 0 as UnsafeSystemHandle.OpenOptions.FlagType
-        #else 
-        let additionalFlags = O_DIRECTORY
-        #endif 
+    public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(FileError) { 
 
         let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: options.unsafeSystemFileOpenOptions(platformAdditionalFlags: additionalFlags)
+                openOptions: options.unsafeSystemFileOpenOptions()
             )
         }
 

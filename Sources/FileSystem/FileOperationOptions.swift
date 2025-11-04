@@ -36,14 +36,14 @@ public enum FileOperationOptions {
 
         func unsafeSystemFileOpenOptions(
             noBlocking: Bool = false, 
-            platformAdditionalFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
+            platformAdditionalRawFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
         ) -> UnsafeSystemHandle.OpenOptions {
             .init(
                 access: .readOnly(), 
                 noFollow: noFollow, 
                 closeOnExec: closeOnExec, 
                 noBlocking: noBlocking, 
-                platformAdditionalFlags: platformAdditionalFlags
+                platformAdditionalRawFlags: platformAdditionalRawFlags
             )
         }
 
@@ -69,7 +69,8 @@ public enum FileOperationOptions {
                 access: .readOnly(), 
                 noFollow: noFollow, 
                 closeOnExec: closeOnExec, 
-                platformAdditionalFlags: platformAdditionalFlags
+                platformSpecificOptions: [.posix.directoryOnly, .windows.backupSemantics],
+                platformAdditionalRawFlags: platformAdditionalFlags
             )
         }
 
@@ -106,7 +107,7 @@ public enum FileOperationOptions {
                 noFollow: noFollow, 
                 closeOnExec: closeOnExec, 
                 noBlocking: noBlocking, 
-                platformAdditionalFlags: platformAdditionalFlags
+                platformAdditionalRawFlags: platformAdditionalFlags
             )
         }
 

@@ -16,12 +16,10 @@ public struct UnsafeSystemHandle: ~Copyable {
     #endif
 
     public let unsafeRawHandle: SystemHandleType
-    public fileprivate(set) var isNonBlocking: Bool
 
 
-    public init(owningRawHandle handle: SystemHandleType, isNonBlocking: Bool = false) {
+    public init(owningRawHandle handle: SystemHandleType) {
         self.unsafeRawHandle = handle
-        self.isNonBlocking = isNonBlocking
     }
 
 
@@ -75,8 +73,6 @@ public struct UnsafeSystemHandle: ~Copyable {
             fcntl(unsafeRawHandle, F_SETFL, flags)
         }
 
-        self.isNonBlocking = value
-
     }
     #endif
 
@@ -107,6 +103,22 @@ extension UnsafeSystemHandle {
         public typealias FlagType = CInt
         #endif
 
+        public struct PlatformSpecificOptions: OptionSet, Sendable {
+            public var rawValue: UInt64
+            public init(rawValue: UInt64) {
+                self.rawValue = rawValue
+            }
+            public enum Posix {
+                public static let directoryOnly: PlatformSpecificOptions = .init(rawValue: 1 << 0)
+            }
+            public enum Windows {
+                public static let backupSemantics: PlatformSpecificOptions = .init(rawValue: 1 << 32)
+            }
+            public static var windows: Windows.Type { Windows.self }
+            public static var posix: Posix.Type { Posix.self }
+        }
+
+
         public enum CreationOptions {
             case never
             case createIfMissing 
@@ -120,6 +132,7 @@ extension UnsafeSystemHandle {
             case readWrite
         }
 
+
         public var access: AccessMode
         public var creation: CreationOptions
         public var truncate: Bool
@@ -127,30 +140,32 @@ extension UnsafeSystemHandle {
         public var noFollow: Bool 
         public var closeOnExec: Bool
         public var noBlocking: Bool 
-        public var platformAdditionalFlags: FlagType
+
+        public var platformSpecificOptions: PlatformSpecificOptions
+        public var platformAdditionalRawFlags: FlagType
 
         public var accessModeFlags: FlagType {
 
             #if canImport(WinSDK)
 
             return switch access {
-                case .readOnly(metadataOnly: true):    FlagType(FILE_READ_ATTRIBUTES | READ_CONTROL)
-                case .readOnly:                        FlagType(GENERIC_READ)
-                case .writeOnly where append:          FlagType(FILE_APPEND_DATA)
-                case .writeOnly:                       FlagType(GENERIC_WRITE)
-                case .readWrite where append:          FlagType(GENERIC_READ) | FlagType(FILE_APPEND_DATA)
-                case .readWrite:                       FlagType(GENERIC_READ) | FlagType(GENERIC_WRITE)
+                case .readOnly(metadataOnly: true):    FlagType(bitPattern: FILE_READ_ATTRIBUTES | READ_CONTROL)
+                case .readOnly:                        GENERIC_READ
+                case .writeOnly where append:          FlagType(bitPattern: FILE_APPEND_DATA)
+                case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE)
+                case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA)
+                case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE)
             }
 
             #else
 
             return switch access {
                 #if !(canImport(Darwin) || os(FreeBSD) || os(OpenBSD))      // O_PATH is not available on BSD or macOS
-                case .readOnly(metadataOnly: true): FlagType(O_RDONLY | __O_PATH)
+                case .readOnly(metadataOnly: true): O_RDONLY | __O_PATH
                 #endif
-                case .readOnly:                     FlagType(O_RDONLY)
-                case .writeOnly:                    FlagType(O_WRONLY)
-                case .readWrite:                    FlagType(O_RDWR)
+                case .readOnly:                     O_RDONLY
+                case .writeOnly:                    O_WRONLY
+                case .readWrite:                    O_RDWR
             }
 
             #endif
@@ -162,11 +177,11 @@ extension UnsafeSystemHandle {
             #if canImport(WinSDK)
 
             return switch (creation, truncate) {
-                case (.never, false):           FlagType(OPEN_EXISTING)
-                case (.never, true):            FlagType(TRUNCATE_EXISTING)
-                case (.createIfMissing, false): FlagType(OPEN_ALWAYS)
-                case (.createIfMissing, true):  FlagType(CREATE_ALWAYS)
-                case (.assertMissing, _):       FlagType(CREATE_NEW)
+                case (.never, false):           FlagType(bitPattern: OPEN_EXISTING)
+                case (.never, true):            FlagType(bitPattern: TRUNCATE_EXISTING)
+                case (.createIfMissing, false): FlagType(bitPattern: OPEN_ALWAYS)
+                case (.createIfMissing, true):  FlagType(bitPattern: CREATE_ALWAYS)
+                case (.assertMissing, _):       FlagType(bitPattern: CREATE_NEW)
             }
 
             #else 
@@ -187,9 +202,10 @@ extension UnsafeSystemHandle {
 
             #if canImport(WinSDK)
 
-            flags |= FlagType(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS)
-            if noFollow { flags |= FlagType(FILE_FLAG_OPEN_REPARSE_POINT) }
-            if noBlocking { flags |= FlagType(FILE_FLAG_OVERLAPPED) }
+            flags |= FlagType(bitPattern: FILE_ATTRIBUTE_NORMAL)
+            if noFollow { flags |= FlagType(bitPattern: FILE_FLAG_OPEN_REPARSE_POINT) }
+            if noBlocking { flags |= FlagType(bitPattern: FILE_FLAG_OVERLAPPED) }
+            if platformSpecificOptions.contains(.windows.backupSemantics) { flags |= FlagType(bitPattern: FILE_FLAG_BACKUP_SEMANTICS) }
 
             #else 
 
@@ -198,10 +214,11 @@ extension UnsafeSystemHandle {
             if noFollow { flags |= O_NOFOLLOW }
             if closeOnExec { flags |= O_CLOEXEC }
             if noBlocking { flags |= O_NONBLOCK }
+            if platformSpecificOptions.contains(.posix.directoryOnly) { flags |= O_DIRECTORY }
 
             #endif 
 
-            return flags | platformAdditionalFlags
+            return flags | platformAdditionalRawFlags
 
         }
 
@@ -224,7 +241,8 @@ extension UnsafeSystemHandle {
             noFollow: Bool = false, 
             closeOnExec: Bool = true, 
             noBlocking: Bool = false, 
-            platformAdditionalFlags: FlagType = 0
+            platformSpecificOptions: PlatformSpecificOptions = [],
+            platformAdditionalRawFlags: FlagType = 0
         ) {
             self.access = access
             self.creation = creation
@@ -233,7 +251,8 @@ extension UnsafeSystemHandle {
             self.noFollow = noFollow
             self.closeOnExec = closeOnExec
             self.noBlocking = noBlocking
-            self.platformAdditionalFlags = platformAdditionalFlags
+            self.platformSpecificOptions = platformSpecificOptions
+            self.platformAdditionalRawFlags = platformAdditionalRawFlags
         }
         
     }
