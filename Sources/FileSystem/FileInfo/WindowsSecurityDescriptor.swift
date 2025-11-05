@@ -1,6 +1,5 @@
 #if canImport(WinSDK)
 
-import Foundation
 import SystemPackage
 
 import WinSDK

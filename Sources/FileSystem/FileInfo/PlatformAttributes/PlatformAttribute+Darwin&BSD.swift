@@ -1,6 +1,6 @@
 #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
-import Foundation
+import PlatformCLib
 
 
 extension FileInfo.PlatformAttributes {

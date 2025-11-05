@@ -23,7 +23,8 @@ let package = Package(
             name: "FileSystem",
             dependencies: [
                 .product(name: "SystemPackage", package: "swift-system"),
-                "CFileSystem"
+                "CFileSystem",
+                "PlatformCLib"
             ],
             swiftSettings: [
                 .enableExperimentalFeature("Lifetimes"),
@@ -34,6 +35,9 @@ let package = Package(
         .target(
             name: "CFileSystem",
             publicHeadersPath: ""
+        ),
+        .target(
+            name: "PlatformCLib"
         ),
         .testTarget(
             name: "FileSystemTests",

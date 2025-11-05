@@ -1,10 +1,6 @@
 import SystemPackage
 import Foundation
 
-#if canImport(WinSDK)
-import WinSDK
-#endif
-
 
 
 public protocol FileHandleProtocol: ~Copyable {

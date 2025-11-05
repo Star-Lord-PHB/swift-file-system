@@ -1,7 +1,7 @@
 #if !canImport(WinSDK)
 
 import SystemPackage
-import Foundation
+import PlatformCLib
 
 
 
@@ -56,7 +56,7 @@ extension UnsafeSystemHandle {
 
         let timeout = waitMilliseconds.map { CInt($0) } ?? -1
 
-        let result = Foundation.poll(&pollDescriptor, 1, timeout)
+        let result = PlatformCLib.poll(&pollDescriptor, 1, timeout)
         guard result == 0 else { 
             // timeout
             return nil 

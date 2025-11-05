@@ -1,6 +1,6 @@
 import SystemPackage
 
-import Foundation
+import PlatformCLib
 import CFileSystem
 
 

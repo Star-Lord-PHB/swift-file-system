@@ -1,6 +1,4 @@
-#if canImport(WinSDK)
-import WinSDK
-#endif 
+import PlatformCLib
 
 
 enum MemoryAllocatorType {
@@ -162,6 +160,12 @@ struct UnsafeOwnedRawAutoPointer: ~Copyable {
         return UnsafeOwnedRawAutoPointer(owningPointer: ptr, allocator: .swift)
     }
 
+    static func mallocAllocate(byteCount: Int) -> UnsafeOwnedRawAutoPointer {
+        let ptr = malloc(byteCount)!
+        return UnsafeOwnedRawAutoPointer(owningPointer: ptr, allocator: .malloc)
+    }
+
+    #if canImport(WinSDK)
     static func globalAllocAllocate(byteCount: Int) -> UnsafeOwnedRawAutoPointer {
         let ptr = GlobalAlloc(UINT(GMEM_FIXED), SIZE_T(byteCount))
         return UnsafeOwnedRawAutoPointer(owningPointer: ptr!, allocator: .globalAlloc)  
@@ -171,6 +175,7 @@ struct UnsafeOwnedRawAutoPointer: ~Copyable {
         let ptr = LocalAlloc(UINT(LMEM_FIXED), SIZE_T(byteCount))
         return UnsafeOwnedRawAutoPointer(owningPointer: ptr!, allocator: .localAlloc)  
     }
+    #endif
 
     @_lifetime(borrow self)
     func unownedView() -> UnsafeUnownedRawPointer {

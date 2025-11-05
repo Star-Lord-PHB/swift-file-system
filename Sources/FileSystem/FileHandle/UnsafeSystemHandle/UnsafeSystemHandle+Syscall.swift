@@ -1,9 +1,5 @@
 import SystemPackage
-import Foundation
-
-#if canImport(WinSDK)
-import WinSDK
-#endif
+import PlatformCLib
 
 
 
@@ -55,9 +51,9 @@ extension UnsafeSystemHandle {
         let flags = openOptions.accessModeFlags | openOptions.creationFlags | openOptions.openFlags
 
         let handle = if let creationPermissions {
-            Foundation.open(path.string, flags, creationPermissions.rawValue)
+            PlatformCLib.open(path.string, flags, creationPermissions.rawValue)
         } else {
-            Foundation.open(path.string, flags)
+            PlatformCLib.open(path.string, flags)
         }
         guard handle >= 0 else {
             try SystemError.assertError()
@@ -87,7 +83,7 @@ extension UnsafeSystemHandle {
 
         #else
 
-        let handle = Foundation.open(path.string, O_RDONLY | O_DIRECTORY)
+        let handle = PlatformCLib.open(path.string, O_RDONLY | O_DIRECTORY)
         guard handle >= 0 else {
             try SystemError.assertError()
         }
@@ -148,7 +144,7 @@ extension UnsafeSystemHandle {
 
         #else 
 
-        let bytesRead = Foundation.read(self.unsafeRawHandle, buffer.baseAddress, lengthToRead)
+        let bytesRead = PlatformCLib.read(self.unsafeRawHandle, buffer.baseAddress, lengthToRead)
         guard bytesRead >= 0 else {
             try SystemError.assertError()
         }
@@ -181,7 +177,7 @@ extension UnsafeSystemHandle {
 
         #else 
 
-        let bytesRead = Foundation.pread(self.unsafeRawHandle, buffer.baseAddress, lengthToRead, off_t(offset))
+        let bytesRead = PlatformCLib.pread(self.unsafeRawHandle, buffer.baseAddress, lengthToRead, off_t(offset))
         guard bytesRead >= 0 else {
             try SystemError.assertError()
         }
@@ -208,7 +204,7 @@ extension UnsafeSystemHandle {
 
         #else 
 
-        let bytesWritten = Foundation.write(self.unsafeRawHandle, buffer.baseAddress, buffer.count)
+        let bytesWritten = PlatformCLib.write(self.unsafeRawHandle, buffer.baseAddress, buffer.count)
         guard bytesWritten >= 0 else {
             try SystemError.assertError()
         }
@@ -236,7 +232,7 @@ extension UnsafeSystemHandle {
 
         #else
 
-        let bytesWritten = Foundation.pwrite(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
+        let bytesWritten = PlatformCLib.pwrite(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
         guard bytesWritten >= 0 else {
             try SystemError.assertError()
         }
@@ -259,7 +255,7 @@ extension UnsafeSystemHandle {
         #else 
 
         try execThrowingCFunction {
-            Foundation.fsync(self.unsafeRawHandle)
+            PlatformCLib.fsync(self.unsafeRawHandle)
         }
 
         #endif
@@ -378,7 +374,7 @@ extension UnsafeSystemHandle {
         var fds = [0, 0] as [CInt]
 
         try execThrowingCFunction {
-            Foundation.pipe(&fds)
+            PlatformCLib.pipe(&fds)
         }
 
         var readHandle = UnsafeSystemHandle(owningRawHandle: fds[0])

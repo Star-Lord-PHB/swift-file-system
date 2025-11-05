@@ -1,9 +1,3 @@
-import Foundation
-
-#if canImport(WinSDK)
-import WinSDK
-#endif
-
 
 public enum FileOperationOptions {
 

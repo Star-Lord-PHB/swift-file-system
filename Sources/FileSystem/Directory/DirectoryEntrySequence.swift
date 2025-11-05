@@ -1,8 +1,5 @@
 import SystemPackage
 
-import Foundation
-import CFileSystem
-
 
 
 public struct DirectoryEntrySequence: DirectoryEntrySequenceProtocol, ~Copyable {

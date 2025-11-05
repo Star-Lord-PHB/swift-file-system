@@ -1,9 +1,5 @@
 import SystemPackage
-import Foundation
-
-#if canImport(WinSDK)
-import WinSDK
-#endif
+import PlatformCLib
 
 
 
@@ -48,7 +44,7 @@ public struct UnsafeSystemHandle: ~Copyable {
         }
         #else 
         try execThrowingCFunction {
-            Foundation.close(handle)
+            PlatformCLib.close(handle)
         }
         #endif
 

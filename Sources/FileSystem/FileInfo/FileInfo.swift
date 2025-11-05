@@ -1,5 +1,4 @@
-
-import Foundation
+import PlatformCLib
 import SystemPackage
 import CFileSystem
 

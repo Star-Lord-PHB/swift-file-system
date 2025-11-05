@@ -1,12 +1,9 @@
 import Foundation 
+import PlatformCLib
 import SystemPackage
 
 #if canImport(Glibc) || canImport(Musl)
 import CDispatch
-#endif
-
-#if canImport(WinSDK)
-import WinSDK
 #endif
 
 

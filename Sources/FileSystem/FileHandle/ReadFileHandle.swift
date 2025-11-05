@@ -1,8 +1,7 @@
-import Foundation
+import PlatformCLib
 import SystemPackage
 
 #if canImport(WinSDK)
-import WinSDK
 import Synchronization
 #endif
 

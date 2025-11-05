@@ -1,9 +1,6 @@
 import Foundation
+import PlatformCLib
 import SystemPackage
-
-#if canImport(WinSDK)
-import WinSDK
-#endif 
 
 
 /// Used for checking potential resource leak

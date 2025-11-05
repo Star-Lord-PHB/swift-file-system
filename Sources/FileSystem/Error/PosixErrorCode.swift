@@ -1,6 +1,6 @@
 #if !canImport(WinSDK)
 
-import Foundation
+import PlatformCLib
 
 
 extension FileError.PlatformErrorCode {

@@ -385,11 +385,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 )
             }
 
-            #if canImport(WinSDK)
             #expect(error.code == ERROR_ACCESS_DENIED)
-            #else
-            #expect(error.code == EACCES)
-            #endif
 
         }
         #else 
@@ -413,22 +409,23 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 }
             }
 
-            // Now, try to open it again 
-            let error = try #require(throws: SystemError.self) {
-                let _ = try UnsafeSystemHandle.open(
-                    at: path, 
-                    openOptions: .init(
-                        access: .writeOnly, 
-                        creation: .createIfMissing
-                    )
-                )
-            }
-
-            #if canImport(WinSDK)
-            #expect(error.code == ERROR_ACCESS_DENIED)
-            #else
-            #expect(error.code == EACCES)
-            #endif
+            try withKnownIssue(
+                "When the current user is root, this test is meaningless", 
+                {
+                    // Now, try to open it again 
+                    let error = try #require(throws: SystemError.self) {
+                        let _ = try UnsafeSystemHandle.open(
+                            at: path, 
+                            openOptions: .init(
+                                access: .writeOnly, 
+                                creation: .createIfMissing
+                            )
+                        )
+                    }
+                    #expect(error.code == EACCES)
+                }, 
+                when: { getuid() == 0 }
+            )
 
         }
         #endif
@@ -508,7 +505,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                     at: filePath, 
                     openOptions: .init(
                         access: .readOnly(), 
-                        platformSpecificOptions: [.posixDirectoryOnly]
+                        platformSpecificOptions: [.posix.directoryOnly]
                     )
                 )
             }

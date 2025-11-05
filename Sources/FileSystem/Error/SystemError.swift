@@ -1,8 +1,4 @@
-import Foundation
-
-#if canImport(WinSDK)
-import WinSDK
-#endif
+import PlatformCLib
 
 
 public struct SystemError: Error, Equatable, CustomStringConvertible {

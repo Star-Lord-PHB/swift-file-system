@@ -46,7 +46,8 @@ extension WriteFileHandle {
         let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: options.unsafeSystemFileOpenOptions(noBlocking: noBlocking)
+                openOptions: options.unsafeSystemFileOpenOptions(noBlocking: noBlocking),
+                creationPermissions: [.ownerReadWrite, .groupRead, .otherRead]
             )
         }
 

@@ -1,9 +1,4 @@
-import Foundation
 import SystemPackage
-
-#if canImport(WinSDK)
-import WinSDK
-#endif
 
 
 

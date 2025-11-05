@@ -1,7 +1,3 @@
-import SystemPackage
-
-import Foundation
-import CFileSystem
 
 
 // TODO: Make it conform to IteratorProtocol when non-copyable sequences in Swift are supported
