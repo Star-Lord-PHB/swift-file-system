@@ -70,4 +70,19 @@ extension UnsafeSystemHandle {
     }
 
 }
+
+
+
+extension UnsafeSystemHandle {
+
+    public static func makeFifo(
+        at path: FilePath, 
+        permission: FilePermissions = [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
+    ) throws(SystemError) {
+        try execThrowingCFunction {
+            mkfifo(path.string, permission.rawValue)
+        }
+    }
+
+}
 #endif 
