@@ -37,16 +37,19 @@ extension ReadWriteFileHandle {
 
     public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForWriting = .editFile()) throws(FileError) {
 
+        var openOptions = options.unsafeSystemFileOpenOptions()
+
         #if canImport(WinSDK)
-        let noBlocking = true 
+        openOptions.noBlocking = true
         #else 
-        let noBlocking = false
+        openOptions.noBlocking = false
         #endif
 
         let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: options.unsafeSystemFileOpenOptions(noBlocking: noBlocking)
+                openOptions: openOptions,
+                creationPermissions: options.creationPermissions
             )
         }
 

@@ -5,6 +5,51 @@ import PlatformCLib
 
 extension UnsafeSystemHandle {
 
+    /// Opens a system file handle at the specified path using the given open options
+    /// 
+    /// - Parameter path: The path to the file to open.
+    /// - Parameter openOptions: The options to use when opening the file.
+    /// - Parameter creationPermissions: The permissions to use when creating the file. 
+    ///             Ignored if file creation is not requested.
+    /// 
+    /// - Returns: An ``UnsafeSystemHandle`` representing the opened file handle.
+    /// 
+    /// ### Creation Permissions Behavior
+    /// 
+    /// On both Windows and Posix platforms, the [`FilePermissions`] from swift-system is used to specify 
+    /// the permissions when creating a new file, but it behaves differently on the two platforms.
+    /// 
+    /// On Posix, it is mapped directly to the standard file mode bits. If specified as `nil` while creation
+    /// is requested, it will be defaulted to `0o644` (rw-r--r--).
+    /// 
+    /// On Windows, the permissions will be mapped to a DACL with the best effect with the following rules:
+    /// 
+    /// | Posix Permission Identity | Mapped Win ACE Identity |
+    /// | -- | -- |
+    /// | Owner | Current User |
+    /// | Group | Primary Group of Current User |
+    /// | Other | "Everyone" Group |
+    /// 
+    /// | Posix Permission | Mapped Win Permission |
+    /// | -- | -- |
+    /// | Read | FILE_READ_ATTRIBUTES | FILE_READ_EA | FILE_READ_DATA | STANDARD_RIGHTS_READ | SYNCHRONIZE |
+    /// | Write | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_WRITE_DATA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE |
+    /// | Execute | FILE_EXECUTE | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE |
+    /// 
+    /// Such mapping is not exactly the same as the semantics of Posix file mode. For example, 0o044 means that 
+    /// anyone can read the file except the owner. However, on Windows, the owner will also have read access.
+    /// 
+    /// Beside the difference in permission semantics, the default value behavior (when `creationPermissions` 
+    /// paramater is set to `nil`) is also different, as described in the table below:
+    /// 
+    /// | Platform | Default Creation Permissions |
+    /// | -- | -- |
+    /// | Posix | 0o644 (rw-r--r--) |
+    /// | Windows | Inherited from Parent Directory |
+    /// 
+    /// - SeeAlso: ``UnsafeSystemHandle/OpenOptions``
+    /// 
+    /// [`FilePermissions`]: https://swiftpackageindex.com/apple/swift-system/documentation/systempackage/filepermissions
     public static func open(
         at path: FilePath, 
         openOptions: OpenOptions = .init(),
@@ -50,8 +95,10 @@ extension UnsafeSystemHandle {
 
         let flags = openOptions.accessModeFlags | openOptions.creationFlags | openOptions.openFlags
 
-        let handle = if let creationPermissions {
-            PlatformCLib.open(path.string, flags, creationPermissions.rawValue)
+        let handle = if openOptions.creation != .never {
+            // on Posix, when creating file is requested, there must be a creation permission specified,
+            // if not, use default permission 0o644 (rw-r--r--)
+            PlatformCLib.open(path.string, flags, (creationPermissions ?? [.ownerReadWrite, .groupRead, .otherRead]).rawValue)
         } else {
             PlatformCLib.open(path.string, flags)
         }

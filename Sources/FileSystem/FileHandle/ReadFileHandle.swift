@@ -36,16 +36,18 @@ extension ReadFileHandle {
 
     public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(FileError) {
 
+        var openOptions = options.unsafeSystemFileOpenOptions()
+
         #if canImport(WinSDK)
-        let noBlocking = true 
+        openOptions.noBlocking = true
         #else 
-        let noBlocking = false
+        openOptions.noBlocking = false
         #endif
 
         let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: options.unsafeSystemFileOpenOptions(noBlocking: noBlocking)
+                openOptions: openOptions
             )
         }
 
