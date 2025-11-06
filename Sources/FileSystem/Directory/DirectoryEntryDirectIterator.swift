@@ -29,7 +29,7 @@ extension DirectoryEntryIterator {
 
         init(unsafeUnownedSystemHandle handle: UnsafeUnownedSystemHandle, path: FilePath) throws(FileError) {
             #if canImport(WinSDK)
-            self.init(unsafeRawHandle: handle.unsafeRawHandle, path: path)
+            try self.init(unsafeRawHandle: handle.unsafeRawHandle, path: path)
             #else
             let duplicatedFd = dup(handle.unsafeRawHandle)
             guard duplicatedFd >= 0 else {
