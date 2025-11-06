@@ -76,7 +76,7 @@ extension DirectoryHandle {
         public let recursive: Bool
 
 
-        @_lifetime(immortal)
+        @_lifetime(borrow unsafeSystemHandle)
         init(unsafeSystemHandle: borrowing UnsafeSystemHandle, path: FilePath, recursive: Bool) {
             self.handle = unsafeSystemHandle.unownedHandle()
             self.path = path
@@ -84,7 +84,6 @@ extension DirectoryHandle {
         }
 
 
-        @_lifetime(borrow self)
         public func makeIterator() -> Iterator {
             do {
                 if recursive {

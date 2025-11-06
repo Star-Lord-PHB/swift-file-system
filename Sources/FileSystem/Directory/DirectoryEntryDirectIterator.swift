@@ -7,7 +7,7 @@ import CFileSystem
 
 extension DirectoryEntryIterator {
 
-    public struct DirectoryEntryDirectIterator: DirectoryEntryIteratorProtocol, ~Escapable, ~Copyable {
+    public struct DirectoryEntryDirectIterator: DirectoryEntryIteratorProtocol, ~Copyable {
 
         #if canImport(WinSDK)
         typealias SystemEntryDataType = WIN32_FIND_DATAW
@@ -22,13 +22,24 @@ extension DirectoryEntryIterator {
         public private(set) var ended: Bool = false
 
 
-        @_lifetime(immortal)
-        init(unsafeUnownedSystemHandle handle: UnsafeUnownedSystemHandle, path: FilePath) throws(FileError) {
-            try self.init(unsafeRawHandle: handle.unsafeRawHandle, path: path)
+        init(unsafeSystemHandle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
+            try self.init(unsafeUnownedSystemHandle: unsafeSystemHandle.unownedHandle(), path: path)
         }
 
 
-        @_lifetime(immortal)
+        init(unsafeUnownedSystemHandle handle: UnsafeUnownedSystemHandle, path: FilePath) throws(FileError) {
+            #if canImport(WinSDK)
+            self.init(unsafeRawHandle: handle.unsafeRawHandle, path: path)
+            #else
+            let duplicatedFd = dup(handle.unsafeRawHandle)
+            guard duplicatedFd >= 0 else {
+                try FileError.assertError(operationDescription: .openingDirStream(forDirectoryAt: path))
+            }
+            try self.init(unsafeRawHandle: duplicatedFd, path: path)
+            #endif 
+        }
+
+
         private init(unsafeRawHandle: UnsafeSystemHandle.SystemHandleType, path: FilePath) throws(FileError) {
 
             #if canImport(WinSDK)
@@ -39,12 +50,7 @@ extension DirectoryEntryIterator {
 
             #else
 
-            let duplicatedFd = dup(unsafeRawHandle)
-            guard duplicatedFd >= 0 else {
-                try FileError.assertError(operationDescription: .openingDirStream(forDirectoryAt: path))
-            }
-
-            guard let dirStream = fdopendir(duplicatedFd) else {
+            guard let dirStream = fdopendir(unsafeRawHandle) else {
                 try FileError.assertError(operationDescription: .openingDirStream(forDirectoryAt: path))
             }
 

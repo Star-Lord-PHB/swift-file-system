@@ -1,7 +1,7 @@
 
 
 // TODO: Make it conform to IteratorProtocol when non-copyable sequences in Swift are supported
-public protocol DirectoryEntryIteratorProtocol: ~Copyable, ~Escapable {
+public protocol DirectoryEntryIteratorProtocol: ~Copyable {
     mutating func next() -> Result<DirectoryEntry, FileError>?
 }
 
@@ -11,7 +11,7 @@ public protocol DirectoryEntryIteratorProtocol: ~Copyable, ~Escapable {
 public protocol DirectoryEntrySequenceProtocol: ~Copyable, ~Escapable {
     // TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
     // associatedtype Iterator: DirectoryEntryIteratorProtocol & ~Escapable & ~Copyable
-    typealias Iterator = any (DirectoryEntryIteratorProtocol & ~Escapable & ~Copyable)
+    typealias Iterator = any (DirectoryEntryIteratorProtocol & ~Copyable)
     @_lifetime(borrow self)
     func makeIterator() -> Iterator
 }

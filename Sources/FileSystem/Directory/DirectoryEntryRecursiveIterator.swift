@@ -7,7 +7,7 @@ import CFileSystem
 
 extension DirectoryEntryIterator {
 
-    public struct DirectoryEntryRecursiveIterator: DirectoryEntryIteratorProtocol, ~Escapable, ~Copyable {
+    public struct DirectoryEntryRecursiveIterator: DirectoryEntryIteratorProtocol, ~Copyable {
 
         #if canImport(WinSDK)
 
@@ -27,7 +27,6 @@ extension DirectoryEntryIterator {
         public private(set) var ended: Bool = false
 
 
-        @_lifetime(immortal)
         public init(path: FilePath) throws(FileError) {
 
             #if canImport(WinSDK)

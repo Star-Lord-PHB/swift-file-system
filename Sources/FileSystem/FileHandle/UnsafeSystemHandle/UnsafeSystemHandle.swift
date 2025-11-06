@@ -75,7 +75,7 @@ public struct UnsafeSystemHandle: ~Copyable {
 }
 
 
-struct UnsafeUnownedSystemHandle {
+struct UnsafeUnownedSystemHandle: ~Escapable {
 
     #if canImport(WinSDK)
     public typealias SystemHandleType = WinSDK.HANDLE

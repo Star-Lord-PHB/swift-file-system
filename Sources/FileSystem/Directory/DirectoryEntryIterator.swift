@@ -2,14 +2,13 @@ import SystemPackage
 
 
 
-public enum DirectoryEntryIterator: DirectoryEntryIteratorProtocol, ~Escapable, ~Copyable {
+public enum DirectoryEntryIterator: DirectoryEntryIteratorProtocol, ~Copyable {
 
     case direct(DirectoryEntryDirectIterator)
     case recursive(DirectoryEntryRecursiveIterator)
     case openError(DirectoryEntryErrorIterator)
 
 
-    @_lifetime(immortal)
     static func direct(
         unsafeUnownedSystemHandle: UnsafeUnownedSystemHandle, 
         path: FilePath
@@ -18,13 +17,19 @@ public enum DirectoryEntryIterator: DirectoryEntryIteratorProtocol, ~Escapable, 
     }
 
 
-    @_lifetime(immortal)
+    static func direct(
+        unsafeSystemHandle: borrowing UnsafeSystemHandle, 
+        path: FilePath
+    ) throws(FileError) -> DirectoryEntryIterator {
+        try .direct(.init(unsafeSystemHandle: unsafeSystemHandle, path: path))
+    }
+
+
     static func recursive(path: FilePath) throws(FileError) -> DirectoryEntryIterator {
         try .recursive(.init(path: path))
     }
 
 
-    @_lifetime(immortal)
     static func openError(error: FileError) -> DirectoryEntryIterator {
         .openError(.init(error: error))
     }
