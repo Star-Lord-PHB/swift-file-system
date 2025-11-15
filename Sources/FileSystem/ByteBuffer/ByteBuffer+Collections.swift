@@ -12,12 +12,12 @@ extension ByteBuffer: RandomAccessCollection, MutableCollection {
     public subscript(index: Int) -> UInt8 {
         get { 
             preconditionValidIndex(index)
-            return storage[index] 
+            return storage[indexInStorage(for: index)] 
         }
         set { 
             preconditionValidIndex(index)
             _assessForWrite()
-            storage[index] = newValue
+            storage[indexInStorage(for: index)] = newValue
         }
     }
 
@@ -49,6 +49,7 @@ extension ByteBuffer: RangeReplaceableCollection {
         
         _assessForWrite()
 
+        let subrange = rangeInStorage(for: subrange)
         let newElementsCount = newElements.count
 
         if newElementsCount != subrange.count {
@@ -137,8 +138,8 @@ extension ByteBuffer: RangeReplaceableCollection {
         _assessForWrite()
 
         let contiguousStorageAvailable = newElements.withContiguousStorageIfAvailable { buffer in
-            storage.allocateEnoughCapacityIfNeeded(for: count + buffer.count)
-            storage.copyBytes(from: .init(buffer), toOffset: count)
+            storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
+            storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
             count += buffer.count
             return true
         } ?? false
@@ -147,8 +148,8 @@ extension ByteBuffer: RangeReplaceableCollection {
 
         if S.self is any ContiguousBytes {
             (newElements as! any ContiguousBytes).withUnsafeBytes { buffer in
-                storage.allocateEnoughCapacityIfNeeded(for: count + buffer.count)
-                storage.copyBytes(from: .init(buffer), toOffset: count)
+                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
+                storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
                 count += buffer.count
             }
             return
@@ -158,7 +159,7 @@ extension ByteBuffer: RangeReplaceableCollection {
         switch S.self {
             case is any RandomAccessCollection.Type: do {
                 let newElementsCount = (newElements as! any RandomAccessCollection).count
-                storage.allocateEnoughCapacityIfNeeded(for: count + newElementsCount)
+                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + newElementsCount)
             }
             // MARK: TODO: Compare the performance of this case with the default case
             // case is any Collection.Type: do {
@@ -168,7 +169,7 @@ extension ByteBuffer: RangeReplaceableCollection {
             //     newElements = collectionNewElements as! S
             // }
             default: do {
-                storage.allocateEnoughCapacityIfNeeded(for: count + newElements.underestimatedCount)
+                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + newElements.underestimatedCount)
             }
         }
 
@@ -183,8 +184,8 @@ extension ByteBuffer: RangeReplaceableCollection {
         for byte in newElements {
             if inlineBufferWrittenCount == MemoryLayout<InlineBuffer>.size {
                 Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
-                    storage.allocateEnoughCapacityIfNeeded(for: count + buffer.count)
-                    storage.copyBytes(from: .init(buffer), toOffset: count)
+                    storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
+                    storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
                     count += buffer.count
                 }
                 inlineBufferWrittenCount = 0
@@ -197,8 +198,8 @@ extension ByteBuffer: RangeReplaceableCollection {
 
         if inlineBufferWrittenCount > 0 {
             Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
-                storage.allocateEnoughCapacityIfNeeded(for: count + inlineBufferWrittenCount)
-                storage.copyBytes(from: .init(rebasing: buffer.prefix(inlineBufferWrittenCount)), toOffset: count)
+                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + inlineBufferWrittenCount)
+                storage.copyBytes(from: .init(rebasing: buffer.prefix(inlineBufferWrittenCount)), toOffset: endOffsetInStorage)
                 count += inlineBufferWrittenCount
             }
         }
@@ -209,8 +210,8 @@ extension ByteBuffer: RangeReplaceableCollection {
     @inlinable
     public mutating func append(_ newElement: UInt8) {
         _assessForWrite()
-        storage.allocateEnoughCapacityIfNeeded(for: count + 1)
-        storage[count] = newElement
+        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + 1)
+        storage[endOffsetInStorage] = newElement
         count += 1
     }
 
@@ -238,7 +239,7 @@ extension ByteBuffer {
 
     @inlinable
     public func withUnsafeBufferPointer<R: ~Copyable, E: Error>(_ body: (UnsafeBufferPointer<UInt8>) throws(E) -> R) throws(E) -> R {
-        return try body(.init(storage.buffer.assumingMemoryBound(to: UInt8.self)))
+        return try body(.init(rebasing: storage.buffer.assumingMemoryBound(to: UInt8.self)[rangeInStorage]))
     }
 
 
@@ -247,7 +248,7 @@ extension ByteBuffer {
         _ body: (inout UnsafeMutableBufferPointer<UInt8>
     ) throws(E) -> R) throws(E) -> R {
         _assessForWrite()
-        var buffer = storage.buffer.assumingMemoryBound(to: UInt8.self)
+        var buffer = UnsafeMutableBufferPointer<UInt8>(rebasing: storage.buffer.assumingMemoryBound(to: UInt8.self)[rangeInStorage])
         let result = try body(&buffer)
         precondition(UnsafeMutableRawPointer(buffer.baseAddress) == storage.buffer.baseAddress, "replacing the buffer is not allowed")
         precondition(buffer.count == count, "replacing the buffer is not allowed")

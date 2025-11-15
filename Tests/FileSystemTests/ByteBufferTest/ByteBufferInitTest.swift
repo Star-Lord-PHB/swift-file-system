@@ -65,4 +65,46 @@ extension FileSystemTest.ByteBufferTest {
 
     }
 
+
+    @Test("Initialization with ByteBuffer")
+    func initializationWithByteBuffer() async throws {
+        
+        var data = Data([UInt8](repeating: 0xCD, count: 50))
+        let sourceBuffer = ByteBuffer(data)
+        var buffer = ByteBuffer(sourceBuffer)
+
+        #expect(sourceBuffer.storage === buffer.storage)
+        #expect(sourceBuffer.count == buffer.count)
+        #expect(sourceBuffer.startOffsetInStorage == buffer.startOffsetInStorage)
+
+        buffer[0] = 0xAB
+        data[0] = 0xAB
+
+        #expect(sourceBuffer.storage !== buffer.storage)
+        expectEqual(buffer, data)
+
+    }
+
+
+    @Test("Initialization with Slice of ByteBuffer")
+    func initializationWithSliceOfByteBuffer() async throws {
+
+        var data = Data([UInt8](repeating: 0xCD, count: 50))
+        let sliceRange = 10..<25
+        let sourceBuffer = ByteBuffer(data)
+        let slice = sourceBuffer[sliceRange]
+        var buffer = ByteBuffer(slice)
+
+        #expect(sourceBuffer.storage === buffer.storage)
+        #expect(slice.count == buffer.count)
+        #expect(sourceBuffer.startOffsetInStorage + slice.startIndex == buffer.startOffsetInStorage)
+
+        buffer[0] = 0xAB
+        data[10] = 0xAB
+
+        #expect(sourceBuffer.storage !== buffer.storage)
+        expectEqual(buffer, data[sliceRange])
+
+    }
+
 }

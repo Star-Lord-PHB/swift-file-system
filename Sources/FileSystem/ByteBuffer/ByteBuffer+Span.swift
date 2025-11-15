@@ -7,7 +7,10 @@ extension ByteBuffer {
         @_lifetime(borrow self)
         get {
             return _overrideLifetime(
-                Span<Byte>(_unsafeElements: .init(start: storage.baseAddress?.assumingMemoryBound(to: Byte.self), count: count)), 
+                Span<Byte>(_unsafeElements: .init(
+                    start: storage.baseAddress?.advanced(by: startOffsetInStorage).assumingMemoryBound(to: Byte.self), 
+                    count: count
+                )), 
                 borrowing: self
             )
         }
@@ -19,7 +22,7 @@ extension ByteBuffer {
         @_lifetime(borrow self)
         get {
             return _overrideLifetime(
-                RawSpan(_unsafeBytes: .init(start: storage.baseAddress, count: count)), 
+                RawSpan(_unsafeBytes: .init(start: storage.baseAddress?.advanced(by: startOffsetInStorage), count: count)), 
                 borrowing: self
             )
         }
@@ -32,7 +35,10 @@ extension ByteBuffer {
         mutating get {
             _assessForWrite()
             return _overrideLifetime(
-                MutableSpan<Byte>(_unsafeElements: .init(start: storage.baseAddress?.assumingMemoryBound(to: Byte.self), count: count)),
+                MutableSpan<Byte>(_unsafeElements: .init(
+                    start: storage.baseAddress?.advanced(by: startOffsetInStorage).assumingMemoryBound(to: Byte.self), 
+                    count: count
+                )),
                 mutating: &self
             )
         }
@@ -45,7 +51,7 @@ extension ByteBuffer {
         mutating get {
             _assessForWrite()
             return _overrideLifetime(
-                MutableRawSpan(_unsafeBytes: .init(start: storage.baseAddress, count: count)),
+                MutableRawSpan(_unsafeBytes: .init(start: storage.baseAddress?.advanced(by: startOffsetInStorage), count: count)),
                 mutating: &self
             )
         }
@@ -64,6 +70,7 @@ extension ByteBuffer {
         var outputSpan = OutputRawSpan(buffer: buffer, initializedCount: 0)
         try outputSpanInitializer(&outputSpan)
         self.count = outputSpan.finalize(for: buffer)
+        self.startOffsetInStorage = 0
     }
 
 
@@ -74,6 +81,7 @@ extension ByteBuffer {
         var outputSpan = OutputSpan<Byte>(buffer: buffer, initializedCount: 0)
         try outputSpanInitializer(&outputSpan)
         self.count = outputSpan.finalize(for: buffer)
+        self.startOffsetInStorage = 0
     }
 
 
@@ -85,9 +93,9 @@ extension ByteBuffer {
 
         _assessForWrite()
 
-        storage.allocateEnoughCapacityIfNeeded(for: count + additionalRawCapacity)
+        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + additionalRawCapacity)
 
-        let buffer = storage.buffer[count...]
+        let buffer = storage.buffer[endOffsetInStorage...]
         var outputSpan = OutputRawSpan(buffer: buffer, initializedCount: 0)
         try outputSpanInitializer(&outputSpan)
 
@@ -104,9 +112,9 @@ extension ByteBuffer {
 
         _assessForWrite()
 
-        storage.allocateEnoughCapacityIfNeeded(for: count + additionalCapacity)
+        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + additionalCapacity)
 
-        let buffer = storage.buffer.assumingMemoryBound(to: Byte.self)[count...]
+        let buffer = storage.buffer.assumingMemoryBound(to: Byte.self)[endOffsetInStorage...]
         var outputSpan = OutputSpan<Byte>(buffer: buffer, initializedCount: 0)
         try outputSpanInitializer(&outputSpan)
 

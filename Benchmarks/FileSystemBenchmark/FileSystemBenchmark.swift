@@ -302,6 +302,58 @@ let benchmarks = {
 
     do {
 
+        Benchmark("Data Self Copy", configuration: .init(metrics: metrics, skip: !target.testData)) { benchmark, data in
+
+            for _ in benchmark.scaledIterations {
+                blackHole(Data(data))
+            }
+
+        } setup: {
+            return Data(count: 1_000_000)
+        }
+
+        Benchmark("ByteBuffer Self Copy", configuration: .init(metrics: metrics, skip: !target.testByteBuffer)) { benchmark, byteBuffer in
+
+            for _ in benchmark.scaledIterations {
+                blackHole(ByteBuffer(byteBuffer))
+            }
+
+        } setup: {
+            return ByteBuffer(count: 1_000_000)
+        }
+
+    }
+
+
+    do {
+
+        Benchmark("Data Slice Copy", configuration: .init(metrics: metrics, skip: !target.testData)) { benchmark, data in
+
+            for _ in benchmark.scaledIterations {
+                let slice = data[100_000 ..< 900_000]
+                blackHole(Data(slice))
+            }
+
+        } setup: {
+            return Data(count: 1_000_000)
+        }
+
+        Benchmark("ByteBuffer Slice Copy", configuration: .init(metrics: metrics, skip: !target.testByteBuffer)) { benchmark, byteBuffer in
+
+            for _ in benchmark.scaledIterations {
+                let slice = byteBuffer[100_000 ..< 900_000]
+                blackHole(ByteBuffer(slice))
+            }
+
+        } setup: {
+            return ByteBuffer(count: 1_000_000)
+        }
+
+    }
+
+
+    do {
+
         Benchmark("Lab Benchmark", configuration: .init(metrics: metrics, skip: !target.lab)) { benchmark in
             
         }
