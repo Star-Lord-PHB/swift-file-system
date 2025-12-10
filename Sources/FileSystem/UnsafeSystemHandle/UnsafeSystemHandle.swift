@@ -24,6 +24,14 @@ public struct UnsafeSystemHandle: ~Copyable {
     }
 
 
+    @inlinable
+    public consuming func take() -> SystemHandleType {
+        let handle = self.unsafeRawHandle
+        discard self
+        return handle
+    }
+
+
     func unownedHandle() -> UnsafeUnownedSystemHandle {
         return .init(unsafeRawHandle: unsafeRawHandle)
     }
@@ -124,8 +132,8 @@ extension UnsafeSystemHandle {
 
         public enum AccessMode {
             case readOnly(metadataOnly: Bool = false)
-            case writeOnly
-            case readWrite
+            case writeOnly(metadataOnly: Bool = false)
+            case readWrite(metadataOnly: Bool = false)
         }
 
 
@@ -156,8 +164,10 @@ extension UnsafeSystemHandle {
             #else
 
             return switch access {
-                #if !(canImport(Darwin) || os(FreeBSD) || os(OpenBSD))      // O_PATH is not available on BSD or macOS
+                #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
                 case .readOnly(metadataOnly: true): O_RDONLY | __O_PATH
+                case .writeOnly(metadataOnly: true): O_WRONLY | __O_PATH
+                case .readWrite(metadataOnly: true): O_RDWR | __O_PATH
                 #endif
                 case .readOnly:                     O_RDONLY
                 case .writeOnly:                    O_WRONLY
@@ -207,7 +217,11 @@ extension UnsafeSystemHandle {
 
             if truncate { flags |= O_TRUNC }
             if append { flags |= O_APPEND }
+            #if canImport(Darwin)       // on Darwin, O_SYMLINK is used to avoid following symlinks
+            if noFollow { flags |= O_SYMLINK }
+            #else                       // on other POSIX systems, O_NOFOLLOW is used, but will fail if not used with O_PATH
             if noFollow { flags |= O_NOFOLLOW }
+            #endif 
             if closeOnExec { flags |= O_CLOEXEC }
             if noBlocking { flags |= O_NONBLOCK }
             if platformSpecificOptions.contains(.posix.directoryOnly) { flags |= O_DIRECTORY }

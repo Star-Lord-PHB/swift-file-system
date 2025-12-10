@@ -35,10 +35,11 @@ extension DirectoryHandle {
 
     public func directEntries() throws(FileError) -> [DirectoryEntry] {
         try ScopedEntrySequence(unsafeSystemHandle: handle, path: path, recursive: false)
-            .map { entry throws(FileError) in
+            .compactMap { entry throws(FileError) in
                 switch entry {
-                    case .success(let dirEntry):    return dirEntry
-                    case .failure(let error):       throw error
+                    case .success(.entry(let dirEntry)):    return dirEntry
+                    case .success(.entryError):             return nil
+                    case .failure(let error):               throw error
                 }
             }
     }

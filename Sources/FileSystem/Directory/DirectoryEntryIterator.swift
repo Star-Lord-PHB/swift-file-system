@@ -35,7 +35,7 @@ public enum DirectoryEntryIterator: DirectoryEntryIteratorProtocol, ~Copyable {
     }
 
 
-    public mutating func next() -> Result<DirectoryEntry, FileError>? {
+    public mutating func next() -> DirectoryEntrySequenceResult? {
         switch consume self {
             case .direct(var iterator):
                 let result = iterator.next()

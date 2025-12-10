@@ -116,18 +116,20 @@ extension FileInfo {
                 )
             }
 
-            try self.init(unsafeSystemHandle: handle, path: path)
+            self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+                try .init(unsafeSystemHandle: handle, path: path)
+            }
 
         }
 
     }
 
 
-    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
         var infoByHandle = _BY_HANDLE_FILE_INFORMATION()
         guard GetFileInformationByHandle(handle.unsafeRawHandle, &infoByHandle) else {
-            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+            try SystemError.assertError()
         }
 
         self.path = path
@@ -139,7 +141,7 @@ extension FileInfo {
         self.lastModificationDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
         self.lastStatusChangeDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
 
-        self.type = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+        self.type = try catchSystemError { () throws(SystemError) in
             try .init(unsafeFromFileHandle: handle.unsafeRawHandle, attributes: infoByHandle.dwFileAttributes)
         }
 
@@ -154,24 +156,24 @@ extension FileInfo {
                 &securityDescriptorPtr
             )
         } onError: { (code) throws(FileError) in
-            throw FileError.init(code: .init(rawValue: code), operationDescription: .fetchingInfo(for: path))
+            throw SystemError(code: code)
         }
         guard let securityDescriptorPtr else {
-            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+            try SystemError.assertError()
         }
         defer { LocalFree(securityDescriptorPtr) }
         guard let ownerSidPtr, let groupSidPtr else {
-            try FileError.assertError(operationDescription: .fetchingInfo(for: path))
+            try SystemError.assertError()
         }
 
-        let ownerSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+        let ownerSidStr = try catchSystemError { () throws(SystemError) in
             try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ownerSidPtr))
         }
-        let groupSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+        let groupSidStr = try catchSystemError { () throws(SystemError) in
             try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: groupSidPtr))
         }
 
-        let effectiveAccessMask = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+        let effectiveAccessMask = try catchSystemError { () throws(SystemError) in
             try WindowsAPI.effectiveAccessMaskForCurrentProcess(from: .init(unownedPointer: securityDescriptorPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self)))
         }
 
@@ -182,38 +184,43 @@ extension FileInfo {
 #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
+        self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try .make(forItemAt: path, followSymLink: followSymLink)
+        }
+    }
 
+
+    static func make(forItemAt path: FilePath, followSymLink: Bool) throws(SystemError) -> FileInfo {
+        
         let openFlags = followSymLink ? 0 : AT_SYMLINK_NOFOLLOW
 
         var stat = stat()
 
-        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+        try execThrowingCFunction {
             fstatat(AT_FDCWD, path.string, &stat, openFlags)
         }
 
-        self.path = path
-        self.size = UInt64(stat.st_size)
-
-        self.lastAccessDate = .init(platformFileTime: stat.st_atimespec)
-        self.lastModificationDate = .init(platformFileTime: stat.st_mtimespec)
-        self.lastStatusChangeDate = .init(platformFileTime: stat.st_ctimespec)
-        self.creationDate = .init(platformFileTime: stat.st_birthtimespec)
-
-        self.attributes = .init(rawValue: stat.st_flags)
-        self.supportedAttributes = .all
-
-        self.type = .init(mode: stat.st_mode)
-
-        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode), uid: stat.st_uid, gid: stat.st_gid)
+        return .init(
+            path: path, 
+            size: UInt64(stat.st_size), 
+            type: .init(mode: stat.st_mode), 
+            lastAccessDate: .init(platformFileTime: stat.st_atimespec), 
+            lastModificationDate: .init(platformFileTime: stat.st_mtimespec), 
+            lastStatusChangeDate: .init(platformFileTime: stat.st_ctimespec), 
+            creationDate: .init(platformFileTime: stat.st_birthtimespec), 
+            securityInfo: .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid), 
+            attributes: .init(rawValue: stat.st_flags), 
+            supportedAttributes: .all
+        )
 
     }
 
 
-    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
         var stat = stat()
 
-        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
+        try execThrowingCFunction {
             fstat(handle.unsafeRawHandle, &stat)
         }
 
@@ -230,32 +237,50 @@ extension FileInfo {
 
         self.type = .init(mode: stat.st_mode)
 
-        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode), uid: stat.st_uid, gid: stat.st_gid)
+        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid)
 
     }
 
 #elseif canImport(Glibc) || canImport(Musl)
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
+        self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try .make(forItemAt: path, followSymLink: followSymLink)
+        }
+    }
 
-        let handle = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try UnsafeSystemHandle.open(
-                at: path, 
-                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymLink)
-            )
+
+    static func make(forItemAt path: FilePath, followSymLink: Bool) throws(SystemError) -> FileInfo {
+
+        var stat = StatCompat()
+        let flags = followSymLink ? 0 : AT_SYMLINK_NOFOLLOW
+
+        try execThrowingCFunction {
+            systemStatCompat(path.string, flags, &stat)
         }
 
-        try self.init(unsafeSystemHandle: handle, path: path)
+        return .init(
+            path: path,
+            size: UInt64(stat.st_size),
+            type: .init(mode: stat.st_mode),
+            lastAccessDate: .init(platformFileTime: stat.st_atim),
+            lastModificationDate: .init(platformFileTime: stat.st_mtim),
+            lastStatusChangeDate: .init(platformFileTime: stat.st_ctim),
+            creationDate: (stat.has_btime != 0) ? .init(platformFileTime: stat.st_btim) : nil,
+            securityInfo: .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid),
+            attributes: .init(rawValue: stat.st_attributes),
+            supportedAttributes: .init(rawValue: stat.st_attributes_mask)
+        )
 
     }
 
 
-    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
         var stat = StatCompat()
 
-        try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
-            systemStatCompat(handle.unsafeRawHandle, &stat)
+        try execThrowingCFunction {
+            systemFStatCompat(handle.unsafeRawHandle, &stat)
         }
 
         self.path = path
@@ -275,7 +300,7 @@ extension FileInfo {
         self.attributes = .init(rawValue: stat.st_attributes)
         self.supportedAttributes = .init(rawValue: stat.st_attributes_mask)
 
-        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode), uid: stat.st_uid, gid: stat.st_gid)
+        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid)
 
         // TODO: on older linux kernels, try to use ioctl with FS_IOC_GETFLAGS to get file attributes
 

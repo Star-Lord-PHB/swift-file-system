@@ -13,6 +13,10 @@ public struct SystemError: Error, Equatable, CustomStringConvertible {
 
     public let code: Code
 
+    public init(code: Code) {
+        self.code = code
+    }
+
     @inlinable
     public var description: String {
         #if canImport(WinSDK)

@@ -22,7 +22,8 @@ struct StatCompat {
 };
 
 
-int systemStatCompat(int32_t fd, struct StatCompat* outStat);
+int systemFStatCompat(int32_t fd, struct StatCompat* outStat);
+int systemStatCompat(const char* path, int flags, struct StatCompat*const outStat);
 
 
 #ifndef STATX_ATTR_COMPRESSED

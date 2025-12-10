@@ -97,7 +97,7 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
 
         try await expectNoResHandleLeak {
 
-            let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly, noBlocking: true))
+            let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly(), noBlocking: true))
 
             do {
                 let dataToWrite = Data("Serika!".utf8)

@@ -13,3 +13,11 @@
 #else
 #error("Unsupported Platform")
 #endif
+
+internal import CFileSystem
+
+
+
+package var SUPPORT_SYMLINK_DESCRIPTOR: Bool {
+    _SUPPORT_SYMLINK_DESCRIPTOR == 1
+}

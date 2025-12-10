@@ -88,6 +88,45 @@ class FileSystemTest {
     }
 
 
+    enum FileStructure: ExpressibleByDictionaryLiteral {
+        case file(contents: Data? = nil)
+        case symlink(target: FilePath)
+        case directory([FilePath.Component: FileStructure])
+
+        init(dictionaryLiteral elements: (FilePath.Component, FileStructure)...) {
+            self = .directory(.init(uniqueKeysWithValues: elements))
+        }
+
+        static func file(contents: String) -> FileStructure {
+            return .file(contents: Data(contents.utf8))
+        }
+    }
+
+
+    private func _makeFileStructure(at path: FilePath, structure: FileStructure) throws {
+        switch structure {
+            case .file(let contents):
+                _ = try makeFile(at: path, contents: contents ?? .init())
+            case .symlink(let target):
+                _ = try makeSymlink(at: path, pointingTo: target)
+            case .directory(let entries):
+                _ = try makeDir(at: path)
+                for (name, entryStructure) in entries {
+                    let entryPath = path.appending(name)
+                    try _makeFileStructure(at: entryPath, structure: entryStructure)
+                }
+        }
+    }
+
+
+    func makeFileStructure(at path: FilePath, structure: FileStructure) throws -> FilePath {
+        precondition(path.isRelative, "Path must be relative")
+        try _makeFileStructure(at: path, structure: structure)
+        let absPath = testDir.appending(path.components)
+        return absPath
+    }
+
+
     func currentOpenedHandleCount() throws -> Int64 {
 
         #if canImport(WinSDK)
@@ -187,6 +226,202 @@ class FileSystemTest {
         guard let securityDescriptorPtr else { return }
         LocalFree(securityDescriptorPtr)
         #endif
+    }
+
+}
+
+
+
+
+extension FileSystemTest {
+
+    struct ExpectationCriterias: OptionSet {
+            
+        let rawValue: UInt64
+
+        static let type: Self = .init(rawValue: 1 << 0)
+        static let accessTime: Self = .init(rawValue: 1 << 1)
+        static let modificationTime: Self = .init(rawValue: 1 << 2)
+        static let creationTime: Self = .init(rawValue: 1 << 3)
+        static let permission: Self = .init(rawValue: 1 << 4)
+        static let attributes: Self = .init(rawValue: 1 << 5)
+        static let size: Self = .init(rawValue: 1 << 6)
+        static let contents: Self = .init(rawValue: 1 << 7)
+
+        static let fileTimes: Self = [.accessTime, .modificationTime, .creationTime]
+
+    }
+
+
+    enum ItemExpectation {
+        case file(info: FileInfo, contents: Data?, excludedCriteria: ExpectationCriterias = [])
+        case symlink(info: FileInfo, target: FilePath, excludedCriteria: ExpectationCriterias = [])
+        case directory(info: FileInfo, excludedCriteria: ExpectationCriterias = [])
+
+        var info: FileInfo {
+            switch self {
+                case .file(let info, _, _): return info
+                case .symlink(let info, _, _): return info
+                case .directory(let info, _): return info
+            }
+        }
+
+        var excludedCriteria: ExpectationCriterias {
+            switch self {
+                case .file(_, _, let excludedCriteria): return excludedCriteria
+                case .symlink(_, _, let excludedCriteria): return excludedCriteria
+                case .directory(_, let excludedCriteria): return excludedCriteria
+            }
+        }
+
+        func preconditionSelfValid() {
+            switch self {
+                case .file(let info, _, _): precondition(info.type == .regular)
+                case .symlink(let info, _, _): precondition(info.type == .symlink)
+                case .directory(let info, _): precondition(info.type == .directory)
+            }
+        }
+
+        static func from(itemAt path: FilePath, followSymlink: Bool = false, excluding excludedCriteria: ExpectationCriterias = []) throws -> Self {
+            let type = try FileInfo(fileAt: path, followSymLink: followSymlink).type
+            switch type {
+                case .regular:
+                    let contents = try Data(contentsOf: .init(filePath: path.string))
+                    return .file(info: try FileInfo(fileAt: path, followSymLink: true), contents: contents, excludedCriteria: excludedCriteria)
+                case .symlink:
+                    let targetPath = FilePath(stringLiteral: try FileManager.default.destinationOfSymbolicLink(atPath: path.string))
+                    return .symlink(info: try FileInfo(fileAt: path, followSymLink: false), target: targetPath, excludedCriteria: excludedCriteria)
+                case .directory:
+                    return .directory(info: try FileInfo(fileAt: path, followSymLink: true), excludedCriteria: excludedCriteria)
+                default:
+                    fatalError("Unsupported file type \(type) at path \(path)")
+            }
+        }
+    }
+
+
+    enum FileStructureExpectation {
+        case item(expectation: ItemExpectation, sourceLocation: SourceLocation = #_sourceLocation)
+        case dir(expectation: ItemExpectation, contents: [FilePath.Component: FileStructureExpectation], sourceLocation: SourceLocation = #_sourceLocation)
+
+        var expectation: ItemExpectation {
+            switch self {
+                case .item(let expectation, _): return expectation
+                case .dir(let expectation, _, _): return expectation
+            }
+        }
+
+        subscript(_ name: FilePath.Component) -> FileStructureExpectation {
+            switch self {
+                case .dir(_, let contents, _):
+                    guard let subExpectation = contents[name] else {
+                        fatalError("No such entry \(name) in expectation")
+                    }
+                    return subExpectation
+                case .item:
+                    fatalError("Cannot get sub-entry from a non-dir expectation")
+            }
+        }
+    }
+
+
+    func expectItemEquals(path1: FilePath, path2: FilePath, sourceLocation: SourceLocation = #_sourceLocation) throws {
+        try expectItem(
+            at: path1, 
+            toMatch: try .from(itemAt: path2), 
+            sourceLocation: sourceLocation
+        )
+    }
+
+
+    func expectItem(
+        at path: FilePath, 
+        toMatch expectation: ItemExpectation, 
+        followSymlink: Bool = false,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+
+        expectation.preconditionSelfValid()
+
+        let excludedCriteria = expectation.excludedCriteria
+
+        let info = try FileInfo(fileAt: path, followSymLink: followSymlink)
+
+        let comment = "when matching item at \(try testRelativePath(of: path)) to item at \(try testRelativePath(of: expectation.info.path))" as Comment
+
+        if !excludedCriteria.contains(.type) {
+            #expect(info.type == expectation.info.type, comment, sourceLocation: sourceLocation)
+        }
+        if !excludedCriteria.contains(.accessTime) {
+            #expect(info.lastAccessDate == expectation.info.lastAccessDate, comment, sourceLocation: sourceLocation)
+        }
+        if !excludedCriteria.contains(.modificationTime) {
+            #expect(info.lastModificationDate == expectation.info.lastModificationDate, comment, sourceLocation: sourceLocation)
+        }
+        if !excludedCriteria.contains(.creationTime) {
+            #expect(info.creationDate == expectation.info.creationDate, comment, sourceLocation: sourceLocation)
+        }
+        if !excludedCriteria.contains(.permission) {
+            #expect(info.securityInfo.permission == expectation.info.securityInfo.permission, comment, sourceLocation: sourceLocation)
+        }
+        if !excludedCriteria.contains(.attributes) {
+            #expect(info.attributes == expectation.info.attributes, comment, sourceLocation: sourceLocation)
+            #expect(info.supportedAttributes == expectation.info.supportedAttributes, comment, sourceLocation: sourceLocation)
+        }
+
+        if info.type != .directory && !excludedCriteria.contains(.size) {   // size of directory will never be compared
+            #expect(info.size == expectation.info.size, comment, sourceLocation: sourceLocation)
+        }
+
+        if !excludedCriteria.contains(.contents) {
+            switch (info.type, expectation) {
+                case (.regular, .file(_, let expectedContents, _)): 
+                    let content1 = try Data(contentsOf: .init(fileURLWithPath: path.string))
+                    #expect(content1 == expectedContents, comment, sourceLocation: sourceLocation)
+                case (.symlink, .symlink(_, let expectedTarget, _)):
+                    let target = try FileManager.default.destinationOfSymbolicLink(atPath: path.string)
+                    #expect(target == expectedTarget.string, comment, sourceLocation: sourceLocation)
+                default: 
+                    break
+            }
+        }
+
+    }
+
+    
+    func expectFileStructure(
+        at path: FilePath, 
+        toMatch structureExpectation: FileStructureExpectation
+    ) throws {
+
+        switch structureExpectation {
+            case .item(let itemExpectation, let sourceLocation):
+                try expectItem(at: path, toMatch: itemExpectation, sourceLocation: sourceLocation)
+            case .dir(let itemExpectation, let expectedContents, let sourceLocation):
+                try expectItem(at: path, toMatch: itemExpectation, sourceLocation: sourceLocation)
+                let dirEntryCount = try FileManager.default.contentsOfDirectory(at: .init(filePath: path.string), includingPropertiesForKeys: nil).count
+                #expect(dirEntryCount == expectedContents.count, sourceLocation: sourceLocation)
+                for (name, subExpectation) in expectedContents {
+                    let entryPath = path.appending(name)
+                    try expectFileStructure(at: entryPath, toMatch: subExpectation)
+                }
+        }
+
+    }
+
+
+    private func testRelativePath(of path: FilePath, sourceLocation: SourceLocation = #_sourceLocation) throws -> FilePath {
+
+        if path.isRelative { return path }
+
+        try #require(
+            path.starts(with: testDir), 
+            "The path \(path) is not under the test directory, which can be unsafe", 
+            sourceLocation: sourceLocation
+        )
+
+        return .init(root: nil, path.components.dropFirst(testDir.components.count))
+
     }
 
 }

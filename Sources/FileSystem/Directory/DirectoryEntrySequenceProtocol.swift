@@ -1,8 +1,30 @@
+import SystemPackage
+
+
+public enum DirectoryEntrySequenceElement: Sendable {
+    case entry(DirectoryEntry)
+    case entryError(FilePath, FileError)
+
+    public var path: FilePath {
+        switch self {
+            case .entry(let entry):         entry.path
+            case .entryError(let path, _):  path
+        }
+    }
+
+    public var name: String {
+        path.lastComponent!.string
+    }
+}
+
+
+public typealias DirectoryEntrySequenceResult = Result<DirectoryEntrySequenceElement, FileError>
+
 
 
 // TODO: Make it conform to IteratorProtocol when non-copyable sequences in Swift are supported
 public protocol DirectoryEntryIteratorProtocol: ~Copyable {
-    mutating func next() -> Result<DirectoryEntry, FileError>?
+    mutating func next() -> DirectoryEntrySequenceResult?
 }
 
 
@@ -20,7 +42,7 @@ public protocol DirectoryEntrySequenceProtocol: ~Copyable, ~Escapable {
 
 extension DirectoryEntrySequenceProtocol where Self: ~Copyable & ~Escapable {
 
-    public func forEach<E: Error>(_ body: (Result<DirectoryEntry, FileError>) throws(E) -> Void) throws(E) {
+    public func forEach<E: Error>(_ body: (DirectoryEntrySequenceResult) throws(E) -> Void) throws(E) {
 
         var iterator = makeIterator()
         while let entryResult = iterator.next() {
@@ -30,7 +52,7 @@ extension DirectoryEntrySequenceProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
-    public func map<T, E: Error>(_ transform: (Result<DirectoryEntry, FileError>) throws(E) -> T) throws(E) -> [T] {
+    public func map<T, E: Error>(_ transform: (DirectoryEntrySequenceResult) throws(E) -> T) throws(E) -> [T] {
 
         var results = [T]()
         var iterator = makeIterator()
@@ -44,7 +66,7 @@ extension DirectoryEntrySequenceProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
-    public func compactMap<T, E: Error>(_ transform: (Result<DirectoryEntry, FileError>) throws(E) -> T?) throws(E) -> [T] {
+    public func compactMap<T, E: Error>(_ transform: (DirectoryEntrySequenceResult) throws(E) -> T?) throws(E) -> [T] {
 
         var results = [T]()
         var iterator = makeIterator()
@@ -62,7 +84,7 @@ extension DirectoryEntrySequenceProtocol where Self: ~Copyable & ~Escapable {
 
     public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, Result<DirectoryEntry, FileError>) throws(E) -> T
+        _ nextPartialResult: (consuming T, DirectoryEntrySequenceResult) throws(E) -> T
     ) throws(E) -> T {
 
         var result = initialResult
@@ -79,7 +101,7 @@ extension DirectoryEntrySequenceProtocol where Self: ~Copyable & ~Escapable {
 
     public func reduce<T: ~Copyable, E: Error>(
         into initialResult: inout T, 
-        _ nextPartialResult: (inout T, Result<DirectoryEntry, FileError>) throws(E) -> Void
+        _ nextPartialResult: (inout T, DirectoryEntrySequenceResult) throws(E) -> Void
     ) throws(E) {
 
         var iterator = makeIterator()

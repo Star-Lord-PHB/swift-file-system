@@ -98,9 +98,13 @@ extension UnsafeSystemHandle {
         let handle = if openOptions.creation != .never {
             // on Posix, when creating file is requested, there must be a creation permission specified,
             // if not, use default permission 0o644 (rw-r--r--)
-            PlatformCLib.open(path.string, flags, (creationPermissions ?? [.ownerReadWrite, .groupRead, .otherRead]).rawValue)
+            path.withPlatformString { strPtr in 
+                PlatformCLib.open(strPtr, flags, (creationPermissions ?? [.ownerReadWrite, .groupRead, .otherRead]).rawValue)
+            }
         } else {
-            PlatformCLib.open(path.string, flags)
+            path.withPlatformString { strPtr in 
+                PlatformCLib.open(strPtr, flags)
+            }
         }
         guard handle >= 0 else {
             try SystemError.assertError()

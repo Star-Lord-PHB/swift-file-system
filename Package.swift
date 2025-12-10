@@ -38,7 +38,8 @@ let package = Package(
             publicHeadersPath: ""
         ),
         .target(
-            name: "PlatformCLib"
+            name: "PlatformCLib",
+            dependencies: ["CFileSystem"]
         ),
         .testTarget(
             name: "FileSystemTests",
@@ -59,9 +60,13 @@ if #available(macOS 13, iOS 16, watchOS 9, tvOS 16, *) {
                 "FileSystem"
             ],
             path: "Benchmarks/FileSystemBenchmark",
+            swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+                .enableExperimentalFeature("NonescapableTypes"),
+            ],
             plugins: [
                 .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
-            ]
+            ],
         ),
     ]
 }

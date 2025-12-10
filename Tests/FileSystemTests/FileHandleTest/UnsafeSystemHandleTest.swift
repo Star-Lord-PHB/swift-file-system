@@ -95,7 +95,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .writeOnly)
+                openOptions: .init(access: .writeOnly())
             )
 
             do {
@@ -170,7 +170,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .writeOnly, truncate: true)
+                openOptions: .init(access: .writeOnly(), truncate: true)
             )
 
             do {
@@ -202,7 +202,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .writeOnly, append: true)
+                openOptions: .init(access: .writeOnly(), append: true)
             )
 
             do {
@@ -235,7 +235,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 _ = try UnsafeSystemHandle.open(
                     at: path, 
                     openOptions: .init(
-                        access: .writeOnly, 
+                        access: .writeOnly(), 
                         creation: .assertMissing
                     )
                 )
@@ -264,7 +264,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(
-                    access: .writeOnly, 
+                    access: .writeOnly(), 
                     creation: .createIfMissing
                 ),
                 creationPermissions: [.ownerReadWrite, .otherRead]
@@ -286,7 +286,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(
-                    access: .writeOnly, 
+                    access: .writeOnly(), 
                     creation: .createIfMissing
                 ),
                 creationPermissions: [.ownerReadWrite, .otherRead]
@@ -322,7 +322,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(
-                    access: .writeOnly, 
+                    access: .writeOnly(), 
                     creation: .createIfMissing
                 )
             )
@@ -361,7 +361,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 let handle = try UnsafeSystemHandle.open(
                     at: path, 
                     openOptions: .init(
-                        access: .writeOnly, 
+                        access: .writeOnly(), 
                         creation: .createIfMissing
                     ),
                     creationPermissions: []
@@ -379,7 +379,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 let _ = try UnsafeSystemHandle.open(
                     at: path, 
                     openOptions: .init(
-                        access: .writeOnly, 
+                        access: .writeOnly(), 
                         creation: .createIfMissing
                     )
                 )
@@ -396,7 +396,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 let handle = try UnsafeSystemHandle.open(
                     at: path, 
                     openOptions: .init(
-                        access: .writeOnly, 
+                        access: .writeOnly(), 
                         creation: .createIfMissing
                     ),
                     creationPermissions: []
@@ -417,7 +417,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                         let _ = try UnsafeSystemHandle.open(
                             at: path, 
                             openOptions: .init(
-                                access: .writeOnly, 
+                                access: .writeOnly(), 
                                 creation: .createIfMissing
                             )
                         )

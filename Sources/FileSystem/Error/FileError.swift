@@ -103,6 +103,38 @@ extension FileError {
             "Closing file at \(path)"
         }
 
+        public static func creatingFile(at path: FilePath, replaceExisting: Bool, permission: FilePermissions? = nil) -> Self {
+            "Creating file at \(path) (replaceExisting: \(replaceExisting), permission: \(permission?.description ?? "nil"))"
+        }
+
+        public static func createDir(at path: FilePath, withIntermediateDirectories: Bool) -> Self {
+            "Creating directory at \(path) \(withIntermediateDirectories ? "with intermediate directories" : "")"
+        }
+
+        public static func removingItem(at path: FilePath) -> Self {
+            "Removing item at \(path)"
+        }
+
+        public static func copyingItem(from srcPath: FilePath, to dstPath: FilePath) -> Self {
+            "Copying item from \(srcPath) to \(dstPath)"
+        }
+
+        public static func movingItem(from srcPath: FilePath, to dstPath: FilePath) -> Self {
+            "Moving item from \(srcPath) to \(dstPath)"
+        }
+
+        public static func creatingSymlink(at path: FilePath, pointingTo destPath: FilePath) -> Self {
+            "Creating symbolic link at \(path) pointing to \(destPath)"
+        }
+
+        public static func creatingHardlink(at path: FilePath, for existingPath: FilePath) -> Self {
+            "Creating hard link at \(path) for existing file at \(existingPath)"
+        }
+
+        public static func readingSymlink(at path: FilePath) -> Self {
+            "Reading symbolic link at \(path)"
+        }
+
     }
 
 }

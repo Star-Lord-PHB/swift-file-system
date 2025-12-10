@@ -26,6 +26,10 @@ extension FileError {
 
 
 
+extension FileError.PlatformErrorCode: Equatable, Hashable { }
+
+
+
 extension FileError.PlatformErrorCode {
 
     @inlinable

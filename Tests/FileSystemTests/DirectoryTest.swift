@@ -38,8 +38,8 @@ extension FileSystemTest.DirectoryTest {
 
             try sequence.forEach { result in 
                 let entry = try result.get()
-                // print(entry)
-                #expect(entries.remove(entry.path) != nil)
+                // print(entry.path)
+                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
             }
 
             #expect(entries.isEmpty)
@@ -76,8 +76,82 @@ extension FileSystemTest.DirectoryTest {
 
             try sequence.forEach { result in
                 let entry = try result.get()
-                // print(entry)
-                #expect(entries.remove(entry.path) != nil)
+                // print(entry.path)
+                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
+            }
+
+            #expect(entries.isEmpty)
+
+        }
+
+    }
+
+
+    @Test("Symlink Direct Traversal")
+    func symlinkDirectTraversal() async throws {
+        
+        let dirPath = try makeDir(at: "dir")
+
+        var entries = [
+            try makeFile(at: "dir/file1.txt"),
+            try makeFile(at: "dir/file2.txt"),
+            try makeFile(at: "dir/file3.txt"),
+            try makeSymlink(at: "dir/file4.txt", pointingTo: "./file1.txt"),
+            try makeDir(at: "dir/subdir"),
+            makePath(at: "dir/."),
+            makePath(at: "dir/..")
+        ] as Set<FilePath>
+
+        _ = try makeFile(at: "dir/subdir/file4.txt")
+
+        let symlinkPath = try makeSymlink(at: "link", pointingTo: "dir") 
+
+        try await expectNoResHandleLeak {
+
+            let sequence = try DirectoryEntrySequence(dirAt: symlinkPath, recursive: false)
+
+            try sequence.forEach { result in 
+                let entry = try result.get()
+                // print(entry.path)
+                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
+            }
+
+            #expect(entries.isEmpty)
+
+        }
+
+    }
+
+
+    @Test("Symlink Recursive Traveral")
+    func symlinkRecursiveTraversal() async throws {
+        
+        let dirPath = try makeDir(at: "dir")
+
+        var entries = [
+            makePath(at: "dir/."),
+            makePath(at: "dir/.."),
+            try makeFile(at: "dir/file1.txt"),
+            try makeFile(at: "dir/file2.txt"),
+            try makeFile(at: "dir/file3.txt"),
+            try makeSymlink(at: "dir/file4.txt", pointingTo: "./file1.txt"),
+            try makeDir(at: "dir/subdir"),
+            makePath(at: "dir/subdir/."),
+            makePath(at: "dir/subdir/.."),
+            try makeFile(at: "dir/subdir/file4.txt"),
+            try makeFile(at: "dir/subdir/file5.txt"),
+        ] as Set<FilePath>
+
+        let symlinkPath = try makeSymlink(at: "link", pointingTo: "dir")
+
+        try await expectNoResHandleLeak {
+
+            let sequence = try DirectoryEntrySequence(dirAt: symlinkPath, recursive: true)
+
+            try sequence.forEach { result in
+                let entry = try result.get()
+                // print(entry.path)
+                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
             }
 
             #expect(entries.isEmpty)

@@ -13,7 +13,7 @@ extension DirectoryEntryIterator {
         }
 
 
-        public mutating func next() -> Result<DirectoryEntry, FileError>? {
+        public mutating func next() -> DirectoryEntrySequenceResult? {
             guard !ended else { return nil }
             ended = true
             return .failure(error)

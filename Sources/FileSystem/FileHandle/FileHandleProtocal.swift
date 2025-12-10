@@ -18,8 +18,10 @@ public protocol FileHandleProtocol: ~Copyable {
 extension FileHandleProtocol where Self: ~Copyable {
 
     public func fileInfo() throws(FileError) -> FileInfo {
-        try withUnsafeSystemHandle { (sysHandle) throws(FileError) in 
-            try .init(unsafeSystemHandle: sysHandle, path: path)
+        try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+                try .init(unsafeSystemHandle: sysHandle, path: path)
+            }
         }
     }
 

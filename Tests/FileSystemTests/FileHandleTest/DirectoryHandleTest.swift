@@ -42,7 +42,7 @@ extension FileSystemTest.DirectoryHandleTest {
 
             for entry in try dirHandle.directEntries() {
                 // print(entry)
-                #expect(entries.remove(entry.path) != nil)
+                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
             }
 
             #expect(entries.isEmpty)
@@ -83,7 +83,7 @@ extension FileSystemTest.DirectoryHandleTest {
             try dirHandle.entrySequence(recursive: true).forEach { result in
                 let entry = try result.get()
                 // print(entry)
-                #expect(entries.remove(entry.path) != nil)
+                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
             }
 
             #expect(entries.isEmpty)

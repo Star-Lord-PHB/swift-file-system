@@ -118,7 +118,7 @@ public enum FileOperationOptions {
             platformAdditionalFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
         ) -> UnsafeSystemHandle.OpenOptions {
             .init(
-                access: .writeOnly, 
+                access: .writeOnly(), 
                 creation: createFile.unsafeSystemCreationOptions, 
                 truncate: truncate, 
                 append: append, 
@@ -161,6 +161,30 @@ public enum FileOperationOptions {
             )
         }
 
+    }
+
+
+    public enum CopyItemSymlinkOption {
+        case copyLink
+        case copyTarget
+    }
+
+
+    public enum CopyTargetExistOption {
+        case error
+        case overwrite
+        case skip
+    }
+
+
+    public struct DirectoryTraversalOption: OptionSet, Sendable {
+        public let rawValue: Int32
+        public init(rawValue: Int32) {
+            self.rawValue = rawValue
+        }
+        public static let skipDotEntries: DirectoryTraversalOption = .init(rawValue: 1 << 0)
+        public static let skipDir: DirectoryTraversalOption = .init(rawValue: 1 << 1)
+        // TODO: Add more options if needed
     }
 
 }

@@ -41,6 +41,7 @@ func execThrowingCFunction<E: Error>(_ function: () -> Bool, onError: () throws(
 }
 
 
+@inlinable
 func execThrowingCFunction(_ function: () -> CInt) throws(SystemError) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
@@ -73,6 +74,7 @@ func execThrowingCFunction(operationDescription: FileError.OperationDescription,
 }
 
 
+@inlinable
 func catchSystemError<R: ~Copyable>(
     operationDescription: FileError.OperationDescription, 
     _ function: () throws(SystemError) -> R

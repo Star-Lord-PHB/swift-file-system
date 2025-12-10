@@ -34,11 +34,12 @@ let benchmarks = {
 
     let metrics = [
         .instructions, .cpuTotal, .wallClock, .mallocCountTotal, .peakMemoryResident, 
-        .retainCount, .releaseCount,
+        // .retainCount, .releaseCount,
+        .syscalls, .readSyscalls,
         // .memoryLeaked,
     ] as [BenchmarkMetric]
 
-    let target: Target = .both
+    let target: Target = .lab
 
     do {
 
@@ -354,7 +355,7 @@ let benchmarks = {
 
     do {
 
-        Benchmark("Lab Benchmark", configuration: .init(metrics: metrics, skip: !target.lab)) { benchmark in
+        Benchmark("Lab Benchmark 1", configuration: .init(metrics: metrics, skip: !target.lab)) { benchmark in
             
         }
 
