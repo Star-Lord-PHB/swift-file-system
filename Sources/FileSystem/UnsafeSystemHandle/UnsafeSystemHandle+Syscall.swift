@@ -438,3 +438,45 @@ extension UnsafeSystemHandle {
     }
 
 }
+
+
+
+extension UnsafeUnownedSystemHandle {
+
+    func duplicate() throws(SystemError) -> UnsafeSystemHandle {
+
+        #if canImport(WinSDK)
+
+        var newHandle: WinSDK.HANDLE? = nil
+
+        try execThrowingCFunction {
+            DuplicateHandle(
+                GetCurrentProcess(),
+                self.unsafeRawHandle,
+                GetCurrentProcess(),
+                &newHandle,
+                0,
+                false,
+                DWORD(DUPLICATE_SAME_ACCESS)
+            )
+        }
+        guard let newHandle else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
+
+        #else 
+
+        let newHandle = dup(self.unsafeRawHandle)
+        guard newHandle >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
+
+        #endif
+
+    }
+
+}

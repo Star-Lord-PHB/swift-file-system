@@ -21,3 +21,10 @@ internal import CFileSystem
 package var SUPPORT_SYMLINK_DESCRIPTOR: Bool {
     _SUPPORT_SYMLINK_DESCRIPTOR == 1
 }
+
+
+#if canImport(Glibc) || canImport(Musl)
+package var UTIME_OMIT: Int32 {
+    Int32(_UTIME_OMIT)
+}
+#endif 

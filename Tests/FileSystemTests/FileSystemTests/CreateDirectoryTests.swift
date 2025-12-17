@@ -38,11 +38,7 @@ extension FileSystemTest.CreateDirectoryTest {
             try FileSystem().createDirectory(at: path, withIntermediateDirectories: false)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.reason == .fileNotFound)
-        #else
-        #expect(error?.code == .noSuchFileOrDirectory)
-        #endif
+        #expect(error?.code == .fileNotFound)
 
     }
 
@@ -56,11 +52,7 @@ extension FileSystemTest.CreateDirectoryTest {
             try FileSystem().createDirectory(at: path, withIntermediateDirectories: false)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.reason == .alreadyExists)
-        #else
         #expect(error?.code == .fileExists)
-        #endif
 
     }
 

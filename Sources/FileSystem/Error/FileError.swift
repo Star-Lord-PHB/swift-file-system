@@ -5,12 +5,15 @@ import SystemPackage
 
 public struct FileError: Error, LocalizedError, CustomStringConvertible {
 
-    public let code: PlatformErrorCode?
+    public let code: ErrorCode
     public let operationDescription: OperationDescription
+
+    public var kind: ErrorCode.Kind { .init(mapping: code) }
 
 
     @inlinable
-    public init(code: PlatformErrorCode?, operationDescription: OperationDescription) {
+    public init?(code: ErrorCode, operationDescription: OperationDescription) {
+        guard code != .success else { return nil }
         self.code = code
         self.operationDescription = operationDescription
     }
@@ -18,13 +21,13 @@ public struct FileError: Error, LocalizedError, CustomStringConvertible {
 
     @inlinable
     public init(systemError: SystemError, operationDescription: OperationDescription) {
-        self.init(code: .init(rawValue: systemError.code), operationDescription: operationDescription)
+        self.init(code: systemError.code, operationDescription: operationDescription)!
     }
 
 
     @inlinable
     public var description: String {
-        "\(operationDescription): \(code?.description ?? "Unknown error") (\(code?.rawValue ?? 0))"
+        "\(operationDescription): \(code.description)\(code.rawValue.map { " (\($0))" } ?? "")"
     }
 
 
@@ -34,7 +37,48 @@ public struct FileError: Error, LocalizedError, CustomStringConvertible {
 
     @inlinable
     public static func unknown(operationDescription: OperationDescription) -> FileError {
-        .init(code: nil, operationDescription: operationDescription)
+        .init(code: .extended(.unknown), operationDescription: operationDescription)!
+    }
+
+}
+
+
+
+extension FileError {
+
+    @inlinable
+    public init?(code: PlatformErrorCode.RawBitType, operationDescription: OperationDescription) {
+        let errorCode = PlatformErrorCode(rawValue: code)
+        guard errorCode != .success else { return nil }
+        self.init(code: .platform(errorCode), operationDescription: operationDescription)
+    }
+
+
+    @inlinable
+    public static func fromLastError(operationDescription: @autoclosure () -> OperationDescription) -> FileError? {
+        let errorCode = PlatformErrorCode.fromLastError()
+        guard errorCode != .success else { return nil }
+        return .init(code: .platform(errorCode), operationDescription: operationDescription())
+    }
+
+
+    @inlinable
+    public static func assertError(fallbackToUnknownError: Bool = false, operationDescription: OperationDescription) throws(FileError) -> Never {
+        if let error = FileError(code: .platform(.fromLastError()), operationDescription: operationDescription) {
+            throw error
+        }
+        if fallbackToUnknownError {
+            throw .unknown(operationDescription: operationDescription)
+        }
+        fatalError("Expect to catch an error, but none was thrown")
+    }
+
+
+    @inlinable
+    public static func check(operationDescription: @autoclosure () -> OperationDescription) throws(FileError) {
+        if let error = fromLastError(operationDescription: operationDescription()) {
+            throw error
+        }
     }
 
 }

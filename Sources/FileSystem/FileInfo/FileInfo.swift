@@ -192,24 +192,18 @@ extension FileInfo {
 
     static func make(forItemAt path: FilePath, followSymLink: Bool) throws(SystemError) -> FileInfo {
         
-        let openFlags = followSymLink ? 0 : AT_SYMLINK_NOFOLLOW
-
-        var stat = stat()
-
-        try execThrowingCFunction {
-            fstatat(AT_FDCWD, path.string, &stat, openFlags)
-        }
+        let rawInfo = try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
 
         return .init(
             path: path, 
-            size: UInt64(stat.st_size), 
-            type: .init(mode: stat.st_mode), 
-            lastAccessDate: .init(platformFileTime: stat.st_atimespec), 
-            lastModificationDate: .init(platformFileTime: stat.st_mtimespec), 
-            lastStatusChangeDate: .init(platformFileTime: stat.st_ctimespec), 
-            creationDate: .init(platformFileTime: stat.st_birthtimespec), 
-            securityInfo: .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid), 
-            attributes: .init(rawValue: stat.st_flags), 
+            size: rawInfo.size, 
+            type: rawInfo.type, 
+            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
+            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
+            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
+            creationDate: .init(platformFileTime: rawInfo.creationTime), 
+            securityInfo: .init(permission: rawInfo.permissions, uid: rawInfo.uid, gid: rawInfo.gid), 
+            attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )
 
@@ -218,26 +212,20 @@ extension FileInfo {
 
     init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
-        var stat = stat()
+        let rawInfo = try InternalFS.getRawFileInfo(from: handle)
 
-        try execThrowingCFunction {
-            fstat(handle.unsafeRawHandle, &stat)
-        }
-
-        self.path = path
-        self.size = UInt64(stat.st_size)
-
-        self.lastAccessDate = .init(platformFileTime: stat.st_atimespec)
-        self.lastModificationDate = .init(platformFileTime: stat.st_mtimespec)
-        self.lastStatusChangeDate = .init(platformFileTime: stat.st_ctimespec)
-        self.creationDate = .init(platformFileTime: stat.st_birthtimespec)
-
-        self.attributes = .init(rawValue: stat.st_flags)
-        self.supportedAttributes = .all
-
-        self.type = .init(mode: stat.st_mode)
-
-        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid)
+        self = .init(
+            path: path, 
+            size: rawInfo.size, 
+            type: rawInfo.type, 
+            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
+            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
+            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
+            creationDate: .init(platformFileTime: rawInfo.creationTime), 
+            securityInfo: .init(permission: rawInfo.permissions, uid: rawInfo.uid, gid: rawInfo.gid), 
+            attributes: .init(rawValue: rawInfo.attributes), 
+            supportedAttributes: .all
+        )
 
     }
 

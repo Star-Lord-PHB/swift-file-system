@@ -2,6 +2,10 @@ import PlatformCLib
 import CFileSystem
 import SystemPackage
 
+#if canImport(WinSDK)
+import BasicContainers
+#endif 
+
 
 
 struct DirectoryEntryRecursiveEnumerator: ~Copyable {
@@ -23,13 +27,14 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     #if canImport(WinSDK)
 
     typealias SystemEntryDataType = WIN32_FIND_DATAW
-    private var findHandleStack: [WinSDK.HANDLE] = []
+    private var findHandleStack: [WindowsFindHandle] = []
     private var relativePathStack: FilePath = .init("")
 
     #else
 
-    typealias SystemEntryDataType = UnsafeMutablePointer<FTSENT>
-    private var entryStream: UnsafeMutablePointer<FTS>
+    typealias SystemEntryDataType = FTSENT
+    // private var entryStream: UnsafeMutablePointer<FTS>
+    private var ftsStream: InternalFS.PosixFTSStream?
 
     #endif
 
@@ -41,6 +46,9 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     init(path: FilePath, doStat: Bool = true) throws(SystemError) {
 
+        self.rootPath = path
+        self.doStat = doStat
+
         #if canImport(WinSDK)
 
         // The find handle will not be initialized here, and will only be initialized on the first call to next()
@@ -48,30 +56,15 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
         #else
 
-        var ftsFlags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT | FTS_COMFOLLOW
-        if doStat == false {
-            ftsFlags |= FTS_NOSTAT
-        }
-
-        let entryStream = path.withPlatformString { cStr in
-            fts_open([UnsafeMutablePointer<CChar>(mutating: cStr), nil], ftsFlags, nil)
-        }
-        guard let entryStream else {
-            try SystemError.assertError()
-        }
-
-        self.entryStream = entryStream
+        self.ftsStream = try .init(path: path, doStat: doStat)
 
         #endif
-
-        self.rootPath = path
-        self.doStat = doStat
 
     }
 
 
     deinit {
-        try? _clean()
+        try? ftsStream?.close()
     }
 
 
@@ -115,21 +108,15 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
             guard let findHandle = findHandleStack.last else { return nil }
 
-            if FindNextFileW(findHandle, &findData) == false {
-
-                let errorCode = GetLastError()
-
-                if errorCode == ERROR_NO_MORE_FILES {
-                    // Return back to the parent directory
-                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
-                    findHandleStack.removeLast()
-                    relativePathStack.removeLastComponent()
-                    FindClose(findHandle)
-                    return .leavingDir(leavingDirPath)
-                } else {
-                    throw .init(code: errorCode)
-                }
-
+            if let data = try findHandle.next() {
+                findData = data
+            } else {
+                // Return back to the parent directory
+                let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                findHandleStack.removeLast()
+                relativePathStack.removeLastComponent()
+                try? findHandle.close()
+                return .leavingDir(leavingDirPath)
             }
 
         } else {
@@ -139,16 +126,9 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
             // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
 
             let pathToOpen = rootPath.appending(relativePathStack.components).appending("*")
-
-            let newFindHandle = pathToOpen.string.withCString(encodedAs: UTF16.self) { cStr in
-                FindFirstFileExW(cStr, FindExInfoBasic, &findData, FindExSearchNameMatch, nil, DWORD(FIND_FIRST_EX_LARGE_FETCH))
-            }
-
-            guard let newFindHandle, newFindHandle != INVALID_HANDLE_VALUE else {
-                try SystemError.assertError()
-            }
-
-            findHandleStack.append(newFindHandle)
+            let handle = try InternalFS.WindowsFindHandle(path: pathToOpen)
+            findData = try handle.next()!
+            findHandleStack.append(handle)
 
         }
 
@@ -167,17 +147,15 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
         #else
 
-        errno = 0
+        while let entry = try ftsStream?.next() {
 
-        while let entry = fts_read(entryStream) {
-
-            if entry.pointee.fts_level == FTS_ROOTLEVEL { continue }
+            if entry.fts_level == FTS_ROOTLEVEL { continue }
 
             lazy var path = extractPath(from: entry)
 
-            switch Int32(entry.pointee.fts_info) {
+            switch Int32(entry.fts_info) {
                 case FTS_ERR, FTS_NS, FTS_DNR:
-                    return .entryError(path, .init(code: entry.pointee.fts_errno))
+                    return .entryError(path, .init(code: entry.fts_errno)!)
                 case FTS_DP:
                     return .leavingDir(path)
                 case FTS_DC:
@@ -186,13 +164,11 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                     break
             }
 
-            let type = extractEntryType(from: entry, hasStat: entry.pointee.fts_info == FTS_NSOK)
+            let type = extractEntryType(from: entry, hasStat: entry.fts_info == FTS_NSOK)
 
             return DirectoryEntry(path: path, type: type).map { .entry($0) }
 
         }
-
-        try SystemError.check()
 
         return nil
 
@@ -210,7 +186,7 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
             }
             return FilePath(root: nil, relativePathStack.components + CollectionOfOne(name))
         #else
-            var path = FilePath(platformString: systemEntry.pointee.fts_path)
+            var path = FilePath(platformString: systemEntry.fts_path)
             _ = path.removePrefix(rootPath)
             return path
         #endif 
@@ -237,13 +213,13 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     #else
 
     private func extractEntryType(from systemEntry: borrowing SystemEntryDataType, hasStat: Bool) -> FileInfo.FileType {
-        return switch Int32(systemEntry.pointee.fts_info) {
+        return switch Int32(systemEntry.fts_info) {
             case FTS_F:         .regular
             case FTS_D:         .directory
             case FTS_DOT:       .directory
             case FTS_SL:        .symlink
             case FTS_SLNONE:    .symlink
-            case FTS_DEFAULT:   hasStat ? .init(mode: systemEntry.pointee.fts_statp.pointee.st_mode) : .unknown
+            case FTS_DEFAULT:   hasStat ? .init(mode: systemEntry.fts_statp.pointee.st_mode) : .unknown
             default:            .unknown
         }
     }
@@ -251,23 +227,21 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     #endif 
 
 
-    private func _clean() throws(SystemError) {
+    private mutating func _clean() throws(SystemError) {
 
         guard !ended else { return }
 
         #if canImport(WinSDK)
         
-        SetLastError(DWORD(NO_ERROR))
+        // SetLastError(DWORD(NO_ERROR))
         for handle in findHandleStack {
-            FindClose(handle)
+            try? handle.close()
         }
-        try SystemError.check()
+        // try SystemError.check()
 
         #else
 
-        try execThrowingCFunction() {
-            fts_close(entryStream)
-        }
+        try ftsStream.take()?.close()
 
         #endif
 

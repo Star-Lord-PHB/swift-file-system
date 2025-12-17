@@ -11,7 +11,8 @@ extension FileSystemTest.CopyFileTest {
     @Test("Symlink -> Empty Dst")
     func copySymlinkToEmptyDst() async throws {
         
-        let targetPath = try makeFile(at: "target.txt")
+        // let targetPath = try makeFile(at: "target.txt")
+        let targetPath = makePath(at: "target.txt")
         let linkPath = try makeSymlink(at: "link.lnk", pointingTo: targetPath)
 
         let dstPath = makePath(at: "dst.lnk")
@@ -70,11 +71,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -132,11 +129,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: targetPath2, toMatch: expectation2)
@@ -157,11 +150,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyLink)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .accessDenied)
-        #else
         #expect(error.code == .isADirectory)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -196,11 +185,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -275,11 +260,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -337,11 +318,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: targetPath2, toMatch: expectation2)
@@ -362,11 +339,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyTarget)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .accessDenied)
-        #else
         #expect(error.code == .isADirectory)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -402,11 +375,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 

@@ -15,29 +15,27 @@ extension FileSystem {
 
     fileprivate struct CachedCopySrcItemAttrs {
 
-        let type: FileInfo.FileType
+        let info: InternalFS.InternalRawFileInfo
 
-        #if canImport(WinSDK)
-        typealias PlatformTimeType = FILETIME
-        #else
-        typealias PlatformTimeType = timespec
-        #endif
+        var type: FileInfo.FileType { info.type }
 
-        let accessTime: PlatformTimeType
-        let modificationTime: PlatformTimeType
-        let statusChangeTime: PlatformTimeType
-        let creationTime: PlatformTimeType?
+        var accessTime: CInterop.PlatformFileTime { info.accessTime }
+        var modificationTime: CInterop.PlatformFileTime { info.modificationTime }
+        var statusChangeTime: CInterop.PlatformFileTime { info.changeTime }
+        var creationTime: CInterop.PlatformFileTime? { info.creationTime }
 
         #if canImport(Glibc) || canImport(Musl)
-        let attributes: CInt?       // on Linux, inode flags are not available for symlinks
+        // on Linux, inode flags are not available for symlinks
+        let attributes: CInt?
         #else
-        let attributes: FileInfo.PlatformAttributes.RawValue        // on other platforms, file flags should always be available
+        // on other platforms, file flags should always be available
+        var attributes: CInterop.PlatformFileAttribute { info.attributes }
         #endif 
 
         #if canImport(Windows)
         #warning("Windows permission not implemented")
         #else 
-        let permission: FilePermissions
+        var permission: FilePermissions { info.permissions }
         #endif
 
         // MARK: TODO: add platform specific extended attributes if necessary
@@ -53,36 +51,16 @@ extension FileSystem {
 
         #else 
 
-        var st = stat()
-        try execThrowingCFunction {
-            fstat(handle.unsafeRawHandle, &st)
-        }
+        let info = try InternalFS.getRawFileInfo(from: handle)
 
         #if canImport(Glibc) || canImport(Musl)
 
-        let flags = try _readFileInodeFlags(for: handle.unsafeRawHandle)
-
-        return .init(
-            type: .init(mode: st.st_mode),
-            accessTime: st.st_atim, 
-            modificationTime: st.st_mtim, 
-            statusChangeTime: st.st_ctim, 
-            creationTime: nil, 
-            attributes: flags,
-            permission: .init(rawValue: st.st_mode & 0o7777)
-        )
+        let flags = try InternalFS.readFileInodeFlags(for: handle)
+        return .init(info: info, attributes: flags)
 
         #else
 
-        return .init(
-            type: .init(mode: st.st_mode),
-            accessTime: st.st_atimespec, 
-            modificationTime: st.st_mtimespec, 
-            statusChangeTime: st.st_ctimespec, 
-            creationTime: st.st_birthtimespec, 
-            attributes: st.st_flags, 
-            permission: .init(rawValue: st.st_mode & 0o7777)
-        )
+        return .init(info: info)
 
         #endif 
 
@@ -100,40 +78,21 @@ extension FileSystem {
 
         #else 
 
-        var st = stat()
-        try execThrowingCFunction {
-            lstat(path.string, &st)
-        }
+        let info = try InternalFS.getRawFileInfo(forItemAt: path)
 
         #if canImport(Glibc) || canImport(Musl)
 
-        let flags = if FileInfo.FileType(mode: st.st_mode) != .symlink {
-            try _readFileInodeFlags(forItemAt: path)
+        let flags = if info.type != .symlink {
+            try InternalFS.readFileInodeFlags(forItemAt: path)
         } else {
-            nil as PlatformFlagType?
+            nil as CInterop.PosixInodeFlags?
         }
 
-        return .init(
-            type: .init(mode: st.st_mode),
-            accessTime: st.st_atim, 
-            modificationTime: st.st_mtim, 
-            statusChangeTime: st.st_ctim, 
-            creationTime: nil, 
-            attributes: flags,
-            permission: .init(rawValue: st.st_mode & 0o7777)
-        )
+        return .init(info: info, attributes: flags)
 
         #else
 
-        return .init(
-            type: .init(mode: st.st_mode),
-            accessTime: st.st_atimespec, 
-            modificationTime: st.st_mtimespec, 
-            statusChangeTime: st.st_ctimespec, 
-            creationTime: st.st_birthtimespec, 
-            attributes: st.st_flags, 
-            permission: .init(rawValue: st.st_mode & 0o7777)
-        )
+        return .init(info: info)
 
         #endif 
 
@@ -154,22 +113,21 @@ extension FileSystem {
 
         #else 
 
-        try _writeFileTime(
+        try InternalFS.setFileTimes(
             for: handle, 
             access: cachedAttrs.accessTime, 
-            modification: cachedAttrs.modificationTime, 
-            statusChange: cachedAttrs.statusChangeTime, 
+            modification: cachedAttrs.modificationTime,
             creation: cachedAttrs.creationTime
         )
 
-        try _writeFilePermission(for: handle, permission: cachedAttrs.permission)
+        try InternalFS.setFilePermissions(for: handle, permissions: cachedAttrs.permission)
 
         #if canImport(Glibc) || canImport(Musl)
         if let flags = cachedAttrs.attributes {
-            try _writeFileFlags(for: handle, flags: flags)
+            try InternalFS.setFileInodeFlags(for: handle, flags: flags)
         }
         #else
-        try _writeFileFlags(for: handle, flags: cachedAttrs.attributes)
+        try InternalFS.setFileAttributes(for: handle, attributes: cachedAttrs.attributes)
         #endif
 
         #endif 
@@ -186,75 +144,34 @@ extension FileSystem {
 
         #else
 
-        try _writeFileTime(
+        try InternalFS.setFileTimes(
             forItemAt: path,
             access: cachedAttrs.accessTime, 
             modification: cachedAttrs.modificationTime, 
-            statusChange: cachedAttrs.statusChangeTime, 
             creation: cachedAttrs.creationTime
         )
 
-        try _writeFilePermission(forItemAt: path, permission: cachedAttrs.permission)
+        do {
+            try InternalFS.setFilePermissions(forItemAt: path, permissions: cachedAttrs.permission)
+        } catch let error where error.kind == .unsupported {
+            // ignore unsupported error on setting permission
+        }
+        
         #if canImport(Glibc) || canImport(Musl)
         if let flags = cachedAttrs.attributes {
-            try _writeFileFlags(forItemAt: path, flags: flags)
+            do {
+                try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags)
+            } catch let error where error.kind == .unsupported || error.kind == .isADirectory {
+                // ignore unsupported error and is a dir error on setting inode flags
+            }
         }
         #else
-        try _writeFileFlags(forItemAt: path, flags: cachedAttrs.attributes)
+        try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes)
         #endif
 
         #endif 
 
     }
-
-
-    fileprivate func _writeAccessTime(for handle: borrowing UnsafeSystemHandle, cachedAttrs: CachedCopySrcItemAttrs) throws(SystemError) {
-
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else 
-
-        var currentTimes = (cachedAttrs.accessTime, cachedAttrs.modificationTime)
-
-        try execThrowingCFunction {
-            withUnsafePointer(to: &currentTimes) { ptr in 
-                ptr.withMemoryRebound(to: timespec.self, capacity: 2) { reboundPtr in 
-                    futimens(handle.unsafeRawHandle, reboundPtr)
-                }
-            }
-        }
-
-        #endif
-
-    }
-
-
-    fileprivate func _writeAccessTime(forItemAt path: FilePath, cachedAttrs: CachedCopySrcItemAttrs) throws(SystemError) {
-
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else 
-
-        var currentTimes = (cachedAttrs.accessTime, cachedAttrs.modificationTime)
-
-        try execThrowingCFunction {
-            withUnsafePointer(to: &currentTimes) { ptr in 
-                ptr.withMemoryRebound(to: timespec.self, capacity: 2) { reboundPtr in 
-                    utimensat(AT_FDCWD, path.string, reboundPtr, AT_SYMLINK_NOFOLLOW)
-                }
-            }
-        }
-
-        #endif
-
-    }
-
 
 }
 
@@ -274,7 +191,7 @@ extension FileSystem {
             case .directory:
                 try _copyDirectoryRecursive(from: srcPath, to: dstPath, overwrite: overwrite, srcAttrs: srcAttrs)
             default:
-                throw .init(code: EOPNOTSUPP)
+                throw .init(code: .notSupported)!
         }
 
     }
@@ -321,16 +238,11 @@ extension FileSystem {
         let tmpDstPath: FilePath
         let shouldRename: Bool
 
-        var dstStat = stat()
-        let dstFileType = if lstat(dstPath.string, &dstStat) == 0 {
-            FileInfo.FileType(mode: dstStat.st_mode)
-        } else {
-            nil as FileInfo.FileType?
-        }
+        let dstFileType = try? FileInfo.FileType(mode: InternalFS.ulstat(dstPath).st_mode)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
-                throw SystemError(code: EEXIST)
+                throw SystemError(code: .fileExists)!
             case (.none, .none): 
                 tmpDstPath = dstPath
                 shouldRename = false
@@ -348,120 +260,37 @@ extension FileSystem {
                         at: dstPath,
                         openOptions: .init(access: .writeOnly(), creation: .assertMissing, noFollow: true)
                     )
-                } catch let error where error.code == EEXIST && overwrite == .skip {
+                } catch let error where error.kind == .alreadyExists && overwrite == .skip {
                     return
-                } catch let error where error.code == EEXIST && overwrite == .replace {
-                    fallthrough
+                } catch let error where error.kind == .alreadyExists && overwrite == .replace {
+                    fallthrough     // if fail, fallthrough to copy to temp file 
                 }
                 tmpDstPath = dstPath
                 shouldRename = false
                 dstHandle = handle
             case (.some(.symlink), .replace), (.some(.regular), .replace):
-                var tmpPathBuffer = (dstPath.string + ".tmp.XXXXXX").utf8CString
-                let fd = tmpPathBuffer.withUnsafeMutableBufferPointer { ptr in
-                    mkstemp(ptr.baseAddress!)
-                }
-                guard fd >= 0 else {
-                    try SystemError.assertError()
-                }
-                tmpDstPath = tmpPathBuffer.withUnsafeBufferPointer { .init(platformString: $0.baseAddress!) }
+                let tmpFileResult = try InternalFS.makeTmpFile(baseOn: dstPath)
+                tmpDstPath = tmpFileResult.path
+                dstHandle = tmpFileResult.takeHandle()
                 shouldRename = true
-                dstHandle = .init(owningRawHandle: fd)
             case (.some(.directory), .replace): 
-                throw SystemError(code: EISDIR)
+                throw SystemError(code: .isADirectory)!
             case (.some(_), .replace): 
-                throw SystemError(code: EOPNOTSUPP)
+                throw SystemError(code: .notSupported)!
         }
 
-        #if canImport(Darwin)
-
-        // on Darwin, attributes of file will be copied by fcopyfile, no need to do it manually
-
         do {
-            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ALL))
+            try InternalFS.copyRegularFile(from: srcHandle, to: dstHandle)
             try _writeCachedItemAttrs(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
-            try? _writeAccessTime(for: srcHandle, cachedAttrs: srcFileAttrs)
+            try? InternalFS.setFileTimes(for: srcHandle, access: srcFileAttrs.accessTime, modification: nil)
             if shouldRename {
-                try execThrowingCFunction {
-                    rename(tmpDstPath.string, dstPath.string)
-                }
+                try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
         } catch {
-            unlink(tmpDstPath.string)
-            errno = error.code
+            try? InternalFS.unlink(fileAt: tmpDstPath)  // error of this operation is ignored
+            error.code.rawValue.map { errno = $0 }      // restore errno
             throw error
         }
-
-        try dstHandle.close()
-
-        #else
-
-        // some weird compiler bug here, need to move the dstHandle to a new local constant
-        let dstHandleMoved = consume dstHandle
-
-        do {
-
-            var srcOffset: off_t = 0
-            var dstOffset: off_t = 0
-            var fallbackToManualCopy = false
-
-            while true {
-                // faster path using copy_file_range if available
-
-                let byteCopied = copy_file_range(srcHandle.unsafeRawHandle, &srcOffset, dstHandleMoved.unsafeRawHandle, &dstOffset, Int(srcFileSize ?? 0x7ffff000), 0)
-                if byteCopied < 0 && errno == ENOSYS {
-                    // copy_file_range not available, fallback to manual copy
-                    fallbackToManualCopy = true
-                    break
-                }
-                // EINTR (interrupted) can be ignored and simply retry
-                guard byteCopied >= 0 || errno != EINTR else {
-                    try SystemError.assertError()
-                }
-                guard byteCopied > 0 else { break }
-
-            }
-
-            if fallbackToManualCopy {
-
-                var buffer = ByteBuffer(count: 64 * 1024)
-
-                while true {
-                    // manual copy, only used when copy_file_range is not available
-
-                    let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
-                        try srcHandle.read(into: ptr)
-                    }
-                    guard bytesRead > 0 else { break }
-
-                    try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
-                        _ = try dstHandleMoved.write(contentsOf: ptr)
-                    }
-
-                    if bytesRead < buffer.count { break }
-
-                }
-
-            }
-
-            try _writeCachedItemAttrs(forHandle: dstHandleMoved, cachedAttrs: srcFileAttrs)
-            try? _writeAccessTime(for: srcHandle, cachedAttrs: srcFileAttrs)
-
-            if shouldRename {
-                try execThrowingCFunction {
-                    rename(tmpDstPath.string, dstPath.string)
-                }
-            }
-
-        } catch {
-            unlink(tmpDstPath.string)
-            errno = error.code
-            throw error
-        }
-
-        try dstHandleMoved.close()
-
-        #endif  // canImport(Darwin)
 
         #endif  // canImport(WinSDK)
 
@@ -484,55 +313,48 @@ extension FileSystem {
 
         // TODO: copy symlink attributes if necessary
 
-        var dstStat = stat()
-        let dstFileType = if lstat(dstPath.string, &dstStat) == 0 {
-            FileInfo.FileType(mode: dstStat.st_mode)
-        } else {
-            nil as FileInfo.FileType?
-        }
+        let dstFileType = try? FileInfo.FileType(mode: InternalFS.ulstat(dstPath).st_mode)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
-                throw SystemError(code: EEXIST)
+                throw SystemError(code: .fileExists)!
             case (.none, .none):
-                let targetPath = try _symlinkDirectDestination(of: srcPath)
-                try execThrowingCFunction {
-                    symlink(targetPath.string, dstPath.string)
-                }
+                let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
+                try InternalFS.symlink(dstPath: targetPath, linkPath: dstPath)
                 try _writeCachedItemAttrs(forItemAt: dstPath, cachedAttrs: srcAttrs)
-                try? _writeAccessTime(forItemAt: srcPath, cachedAttrs: srcAttrs)
+                try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
             case (.some(_), .skip):
                 return
             case (.some(.symlink), .replace), (.some(.regular), .replace), (.none, .replace), (.none, .skip):
-                let targetPath = try _symlinkDirectDestination(of: srcPath)
-                var dstTmpPath: FilePath = _tmpFileName(basedOn: dstPath)
+                let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
+                var dstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 var created = false
                 for _ in 0 ..< 24 {
-                    if symlink(targetPath.string, dstTmpPath.string) == 0 { 
+                    do {
+                        try InternalFS.symlink(dstPath: targetPath, linkPath: dstTmpPath)
                         created = true
-                        break 
+                        break
+                    } catch let error where error.kind == .alreadyExists {
+                        dstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                     }
-                    if errno != EEXIST {
-                        try SystemError.assertError()
-                    }
-                    dstTmpPath = _tmpFileName(basedOn: dstPath)
                 }
                 guard created else {
-                    errno = EAGAIN
-                    throw SystemError(code: EAGAIN)
+                    errno = PlatformErrorCode.fileExists.rawValue
+                    throw SystemError(code: .fileExists)!
                 }
-                try _writeCachedItemAttrs(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
-                try? _writeAccessTime(forItemAt: srcPath, cachedAttrs: srcAttrs)
-                if rename(dstTmpPath.string, dstPath.string) != 0 {
-                    let errorCode = errno
-                    unlink(dstTmpPath.string)
-                    errno = errorCode
-                    throw SystemError(code: errorCode)
+                do {
+                    try _writeCachedItemAttrs(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
+                    try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
+                    try InternalFS.rename(itemAt: dstTmpPath, to: dstPath)
+                } catch {
+                    try? InternalFS.unlink(fileAt: dstTmpPath)
+                    error.code.rawValue.map { errno = $0 }
+                    throw error
                 }
             case (.some(.directory), .replace):
-                throw SystemError(code: EISDIR)
+                throw SystemError(code: .isADirectory)!
             case (.some(_), .replace):
-                throw SystemError(code: EOPNOTSUPP)
+                throw SystemError(code: .notSupported)!
         }
 
         #endif 
@@ -543,9 +365,9 @@ extension FileSystem {
     // return whether a new directory is actually created
     func _makeEmptyDirectoryForCopy(at dstPath: FilePath, overwrite: CopyOverwriteOption) throws(SystemError) -> Bool {
         do {
-            try _createDirectoryNoIntermediate(at: dstPath)
+            try InternalFS.mkdir(at: dstPath, permissions: nil)
             return true
-        } catch let error where error.code == platformItemAlreadyExistsErrorCode.rawValue {
+        } catch let error where error.kind == .alreadyExists {
             switch overwrite{
                 case .none:     throw error
                 case .skip:     return false
@@ -561,20 +383,15 @@ extension FileSystem {
 
         assert(srcAttrs.type == .directory, "srcAttrs must represent a directory")
 
-        var dstStat = stat()
-        let dstFileType = if lstat(dstPath.string, &dstStat) == 0 {
-            FileInfo.FileType(mode: dstStat.st_mode)
-        } else {
-            nil as FileInfo.FileType?
-        }
+        let dstFileType = try? FileInfo.FileType(mode: InternalFS.ulstat(dstPath).st_mode)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
-                throw SystemError(code: EEXIST)
+                throw SystemError(code: .fileExists)!
             case (.some(let type), .skip) where type != .directory:
                 return
             case (.some(let type), _) where type != .directory:
-                throw SystemError(code: ENOTDIR)
+                throw SystemError(code: .notADirectory)!
             case (_, _): 
                 break
         }
@@ -589,12 +406,14 @@ extension FileSystem {
 
         while let enumerationElement = try enumerator.next() {
 
+            print(enumerationElement)
+
             if case .leavingDir(let path) = enumerationElement {
                 guard let (cachedAttr, dirCreated) = dirCachedAttrStack.popLast() else { continue }
                 if dirCreated {
                     try _writeCachedItemAttrs(forItemAt: dstPath.appending(path.components), cachedAttrs: cachedAttr)
                 }
-                try _writeAccessTime(forItemAt: srcPath.appending(path.components), cachedAttrs: cachedAttr)
+                try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: cachedAttr.accessTime, modification: nil)
                 continue
             }
 
@@ -627,21 +446,9 @@ extension FileSystem {
             if dirCreated {
                 try _writeCachedItemAttrs(forItemAt: dstPath, cachedAttrs: cachedAttr)
             }
-            try _writeAccessTime(forItemAt: srcPath, cachedAttrs: cachedAttr)
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: cachedAttr.accessTime, modification: nil)
         }
 
-    }
-
-
-    func _tmpFileName(basedOn path: FilePath) -> FilePath {
-        #if canImport(WinSDK)
-        let pid = GetCurrentProcessId()
-        #else 
-        let pid = getpid()
-        #endif
-        assert(path.lastComponent != nil, "base path for temp file name must not be empty")
-        let lastComponent = FilePath.Component("\(path.lastComponent!).tmp-\(pid)-\(String(UInt64.random(in: 0 ... .max), radix: 16))")!
-        return path.removingLastComponent().appending(lastComponent)
     }
 
 }

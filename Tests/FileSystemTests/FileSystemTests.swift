@@ -342,8 +342,12 @@ extension FileSystemTest {
     ) throws {
 
         expectation.preconditionSelfValid()
-
+        
+        #if canImport(Musl) || canImport(Glibc)
+        let excludedCriteria = expectation.excludedCriteria.union(.creationTime)
+        #else
         let excludedCriteria = expectation.excludedCriteria
+        #endif 
 
         let info = try FileInfo(fileAt: path, followSymLink: followSymlink)
 

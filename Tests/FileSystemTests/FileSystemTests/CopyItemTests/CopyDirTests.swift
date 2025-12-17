@@ -183,11 +183,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstDirPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif 
 
         try expectFileStructure(at: dstDirPath, toMatch: expectation)
 
@@ -210,11 +206,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .accessDenied)
-        #else
         #expect(error.code == .notADirectory)
-        #endif 
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -256,11 +248,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif 
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -285,11 +273,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .accessDenied)
-        #else
         #expect(error.code == .notADirectory)
-        #endif 
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: linkTargetPath, toMatch: expectation2)
@@ -337,11 +321,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif 
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: linkTargetPath, toMatch: expectation2)

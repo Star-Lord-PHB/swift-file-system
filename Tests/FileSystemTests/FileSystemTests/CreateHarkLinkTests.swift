@@ -77,7 +77,7 @@ extension FileSystemTest.CreateHardLinkTest {
         #if canImport(WinSDK)
         // TODO: Add error expectation
         #else
-        #expect(error?.code == .operationNotPermitted)
+        #expect(error?.code == .platform(.operationNotPermitted))
         #endif
 
     }
@@ -93,11 +93,7 @@ extension FileSystemTest.CreateHardLinkTest {
             try FileSystem().createHardLink(at: hardLinkParh, for: existingPath)
         }
 
-        #if canImport(WinSDK)
         #expect(error?.code == .fileNotFound)
-        #else
-        #expect(error?.code == .noSuchFileOrDirectory)
-        #endif
 
     }
 
@@ -112,11 +108,7 @@ extension FileSystemTest.CreateHardLinkTest {
             try FileSystem().createHardLink(at: hardLinkParh, for: existingPath)
         }
 
-        #if canImport(WinSDK)
-        #expect(error?.code == .alreadyExists)
-        #else
         #expect(error?.code == .fileExists)
-        #endif
 
     }
 

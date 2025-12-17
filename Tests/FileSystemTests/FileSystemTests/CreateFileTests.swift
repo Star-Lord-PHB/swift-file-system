@@ -129,11 +129,7 @@ extension FileSystemTest.CreateFileTest {
             try FileSystem().createFile(at: path, replaceExisting: false)
         }
 
-        #if canImport(WinSDK)
-        #expect(error?.code == .alreadyExists)
-        #else 
         #expect(error?.code == .fileExists)
-        #endif
 
         let info = try FileInfo(fileAt: path)
 

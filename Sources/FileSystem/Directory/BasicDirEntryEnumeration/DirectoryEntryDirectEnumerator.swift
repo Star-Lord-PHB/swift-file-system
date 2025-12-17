@@ -19,60 +19,41 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
 
     #if canImport(WinSDK)
     typealias SystemEntryDataType = WIN32_FIND_DATAW
-    private var findHandle: WinSDK.HANDLE?
+    private var findHandle: InternalFS.WindowsFindHandle?
+    var rootPath: FilePath { findHandle.rootPath }
     #else
-    typealias SystemEntryDataType = UnsafeMutablePointer<dirent>
-    private var dirStream: OpaquePointer
+    typealias SystemEntryDataType = dirent
+    private var dirStream: InternalFS.PosixDirectoryStream?
+    let rootPath: FilePath
     #endif
 
-    let rootPath: FilePath
 
     private(set) var ended: Bool = false
 
 
-    init(unsafeSystemHandle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
-        try self.init(unsafeUnownedSystemHandle: unsafeSystemHandle.unownedHandle(), path: path)
-    }
-
-
-    init(unsafeUnownedSystemHandle handle: UnsafeUnownedSystemHandle, path: FilePath) throws(SystemError) {
-        #if canImport(WinSDK)
-        try self.init(unsafeRawHandle: handle.unsafeRawHandle, path: path)
-        #else
-        let duplicatedFd = dup(handle.unsafeRawHandle)
-        guard duplicatedFd >= 0 else {
-            try SystemError.assertError()
-        }
-        try self.init(unsafeRawHandle: duplicatedFd, path: path)
-        #endif 
-    }
-
-
-    private init(unsafeRawHandle: UnsafeSystemHandle.SystemHandleType, path: FilePath) throws(SystemError) {
+    init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
         #if canImport(WinSDK)
 
         // The find handle will not be initialized here, and will only be initialized on the first call to next()
         // This is because on Windows, we need to use FindFirstFileExW to open the handle, which will give us the first result directly.
-        self.findHandle = nil
+        self.findHandle = .init(path: path)
 
         #else
 
-        guard let dirStream = fdopendir(unsafeRawHandle) else {
-            try SystemError.assertError()
-        }
-
-        self.dirStream = .init(UnsafeRawPointer(dirStream))
+        self.rootPath = path
+        self.dirStream = try .init(unsafeSystemHandle: unsafeSystemHandle)
 
         #endif
-
-        self.rootPath = path
-
     }
 
 
     deinit {
-        try? _clean()
+        #if canImport(WinSDK)
+        try? findHandle?.close()
+        #else
+        try? dirStream?.close()
+        #endif
     }
 
 
@@ -96,48 +77,7 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
 
 
     mutating func _next() throws(SystemError) -> Element? {
-
-        #if canImport(WinSDK)
-
-        var findData = WIN32_FIND_DATAW()
-
-        if let findHandle {
-
-            guard FindNextFileW(findHandle, &findData) else {
-                let errorCode = GetLastError()
-                if errorCode == ERROR_NO_MORE_FILES {
-                    return nil
-                } else {
-                    throw SystemError(code: errorCode)
-                }
-            }
-
-        } else {
-
-            findHandle = rootPath.appending("*").string.withCString(encodedAs: UTF16.self) { cStr in 
-                FindFirstFileExW(cStr, FindExInfoBasic, &findData, FindExSearchNameMatch, nil, DWORD(FIND_FIRST_EX_LARGE_FETCH))
-            }
-            guard let findHandle, findHandle != INVALID_HANDLE_VALUE else {
-                try SystemError.assertError()
-            }
-
-        }
-
-        return extractEntryInfo(from: findData)
-
-        #else
-
-        errno = 0
-
-        guard let dirEntryPtr = readdir(.init(dirStream)) else {
-            try SystemError.check()
-            return nil
-        }
-
-        return extractEntryInfo(from: dirEntryPtr)
-
-        #endif 
-
+        return try dirStream?.next().flatMap { extractEntryInfo(from: $0) }
     }
 
 
@@ -169,13 +109,15 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
 
         #else
 
-            let nameLen = withUnsafeBytes(of: &systemEntry.pointee.d_name) { $0.count }
+            let nameLen = withUnsafeBytes(of: systemEntry.d_name) { $0.count }
 
-            let name = systemEntry.pointer(to: \.d_name)!.withMemoryRebound(to: CChar.self, capacity: nameLen) { pointer in
-                String(cString: pointer)
+            let name = withUnsafePointer(to: systemEntry.d_name) { originalPtr in 
+                originalPtr.withMemoryRebound(to: CChar.self, capacity: nameLen) { pointer in
+                    String(cString: pointer)
+                }
             }
 
-            let type = FileInfo.FileType(d_type: systemEntry.pointee.d_type)
+            let type = FileInfo.FileType(d_type: systemEntry.d_type)
 
             return DirectoryEntry(path: .init(name), type: type).map { .entry($0) }
 
@@ -184,24 +126,17 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private func _clean() throws(SystemError) {
+    private mutating func _clean() throws(SystemError) {
 
         guard !ended else { return }
 
         #if canImport(WinSDK)
         
-        SetLastError(DWORD(NO_ERROR))
-        if let findHandle {
-            try execThrowingCFunction {
-                FindClose(findHandle)
-            }
-        }
+        try findHandle.take()?.close()
 
         #else
 
-        try execThrowingCFunction {
-            closedir(.init(dirStream))
-        }
+        try dirStream.take()?.close()
 
         #endif
 
@@ -215,12 +150,4 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
         try _clean()
     }
 
-}
-
-
-
-extension OpaquePointer {
-    fileprivate init(_ ptr: OpaquePointer) {
-        self = ptr
-    }
 }

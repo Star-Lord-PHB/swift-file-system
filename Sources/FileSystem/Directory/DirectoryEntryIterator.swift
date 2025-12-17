@@ -10,15 +10,7 @@ public enum DirectoryEntryIterator: DirectoryEntryIteratorProtocol, ~Copyable {
 
 
     static func direct(
-        unsafeUnownedSystemHandle: UnsafeUnownedSystemHandle, 
-        path: FilePath
-    ) throws(FileError) -> DirectoryEntryIterator {
-        try .direct(.init(unsafeUnownedSystemHandle: unsafeUnownedSystemHandle, path: path))
-    }
-
-
-    static func direct(
-        unsafeSystemHandle: borrowing UnsafeSystemHandle, 
+        unsafeSystemHandle: consuming UnsafeSystemHandle, 
         path: FilePath
     ) throws(FileError) -> DirectoryEntryIterator {
         try .direct(.init(unsafeSystemHandle: unsafeSystemHandle, path: path))

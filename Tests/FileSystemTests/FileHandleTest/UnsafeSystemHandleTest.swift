@@ -244,7 +244,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
         } preheat: {
             // Preheat for Windows, where the #expect macro itself will open a handle when an error is captured for some reason
             #expect(throws: SystemError.self) {
-                throw SystemError(code: 1)
+                throw SystemError(code: 1)!
             }
         }
 
@@ -422,7 +422,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                             )
                         )
                     }
-                    #expect(error.code == EACCES)
+                    #expect(error.code == .permissionDenied)
                 }, 
                 when: { getuid() == 0 }
             )
@@ -456,9 +456,9 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             }
 
             #if canImport(WinSDK)
-            #expect(error.code == ERROR_INVALID_FUNCTION)
+            #expect(error.code == .platform(.invalidFunction))
             #else
-            #expect(error.code == EISDIR)
+            #expect(error.code == .isADirectory)
             #endif
 
         }
@@ -510,7 +510,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 )
             }
 
-            #expect(error.code == ENOTDIR)
+            #expect(error.code == .notADirectory)
 
         }
 

@@ -80,11 +80,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error?.code == .alreadyExists)
-        #else
         #expect(error?.code == .fileExists)
-        #endif
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -147,11 +143,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error?.code == .alreadyExists)
-        #else
         #expect(error?.code == .fileExists)
-        #endif
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -174,11 +166,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #if canImport(WinSDK)
-        #expect(error?.code == .accessDenied)
-        #else
         #expect(error?.code == .isADirectory)
-        #endif
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -220,11 +208,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error?.code == .alreadyExists)
-        #else
         #expect(error?.code == .fileExists)
-        #endif
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)

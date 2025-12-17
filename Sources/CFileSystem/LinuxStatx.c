@@ -3,6 +3,7 @@
 #include "LinuxStatx.h"
 #include <sys/stat.h>
 #include <fcntl.h> 
+#include <sys/sysmacros.h>
 
 int systemFStatCompat(const int32_t fd, struct StatCompat*const outStat) {
 
@@ -20,6 +21,10 @@ int systemFStatCompat(const int32_t fd, struct StatCompat*const outStat) {
     outStat->st_uid = stx.stx_uid;
     outStat->st_gid = stx.stx_gid;
     outStat->st_mode = stx.stx_mode;
+    outStat->st_nlink = stx.stx_nlink;
+    outStat->st_dev = makedev(stx.stx_dev_major, stx.stx_dev_minor);
+    outStat->st_rdev = makedev(stx.stx_rdev_major, stx.stx_rdev_minor);
+    outStat->st_ino = stx.stx_ino;
     outStat->st_atim.tv_sec = stx.stx_atime.tv_sec;
     outStat->st_atim.tv_nsec = stx.stx_atime.tv_nsec;
     outStat->st_mtim.tv_sec = stx.stx_mtime.tv_sec;
@@ -52,6 +57,10 @@ int systemFStatCompat(const int32_t fd, struct StatCompat*const outStat) {
     outStat->st_uid = st.st_uid;
     outStat->st_gid = st.st_gid;
     outStat->st_mode = st.st_mode;
+    outStat->st_nlink = st.st_nlink;
+    outStat->st_dev = st.st_dev;
+    outStat->st_rdev = st.st_rdev;
+    outStat->st_ino = st.st_ino;
     outStat->st_atim = st.st_atim;
     outStat->st_mtim = st.st_mtim;
     outStat->st_ctim = st.st_ctim;
@@ -81,6 +90,10 @@ int systemStatCompat(const char* path, int flags, struct StatCompat*const outSta
     outStat->st_uid = stx.stx_uid;
     outStat->st_gid = stx.stx_gid;
     outStat->st_mode = stx.stx_mode;
+    outStat->st_nlink = stx.stx_nlink;
+    outStat->st_dev = makedev(stx.stx_dev_major, stx.stx_dev_minor);
+    outStat->st_rdev = makedev(stx.stx_rdev_major, stx.stx_rdev_minor);
+    outStat->st_ino = stx.stx_ino;
     outStat->st_atim.tv_sec = stx.stx_atime.tv_sec;
     outStat->st_atim.tv_nsec = stx.stx_atime.tv_nsec;
     outStat->st_mtim.tv_sec = stx.stx_mtime.tv_sec;
@@ -113,6 +126,10 @@ int systemStatCompat(const char* path, int flags, struct StatCompat*const outSta
     outStat->st_uid = st.st_uid;
     outStat->st_gid = st.st_gid;
     outStat->st_mode = st.st_mode;
+    outStat->st_nlink = st.st_nlink;
+    outStat->st_dev = st.st_dev;
+    outStat->st_rdev = st.st_rdev;
+    outStat->st_ino = st.st_ino;
     outStat->st_atim = st.st_atim;
     outStat->st_mtim = st.st_mtim;
     outStat->st_ctim = st.st_ctim;

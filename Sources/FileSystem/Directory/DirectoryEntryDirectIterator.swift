@@ -15,15 +15,13 @@ extension DirectoryEntryIterator {
         public var ended: Bool { enumerator.ended }
 
 
-        init(unsafeSystemHandle: borrowing UnsafeSystemHandle, path: FilePath) throws(FileError) {
-            try self.init(unsafeUnownedSystemHandle: unsafeSystemHandle.unownedHandle(), path: path)
-        }
-
-
-        init(unsafeUnownedSystemHandle handle: UnsafeUnownedSystemHandle, path: FilePath) throws(FileError) {
-            self.enumerator = try catchSystemError(operationDescription: .readingDirEntries(at: path)) { () throws(SystemError) in
-                try .init(unsafeUnownedSystemHandle: handle, path: path)
+        init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) throws(FileError) {
+            do {
+                self.enumerator = try .init(unsafeSystemHandle: unsafeSystemHandle, path: path)
+            } catch {
+                throw FileError(systemError: error, operationDescription: .readingDirEntries(at: path))
             }
+            
         }
 
 

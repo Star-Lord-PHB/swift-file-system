@@ -45,7 +45,7 @@ func execThrowingCFunction<E: Error>(_ function: () -> Bool, onError: () throws(
 func execThrowingCFunction(_ function: () -> CInt) throws(SystemError) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
-        throw .fromLastError()
+        try SystemError.assertError()
     }
 }
 
@@ -53,7 +53,7 @@ func execThrowingCFunction(_ function: () -> CInt) throws(SystemError) {
 func execThrowingCFunction(_ function: () -> Bool) throws(SystemError) {
     let success = function()
     guard success else {
-        throw .fromLastError()
+        try SystemError.assertError()
     }
 }
 
@@ -83,7 +83,7 @@ func catchSystemError<R: ~Copyable>(
     do {
         return try function()
     } catch {
-        throw .init(code: .init(rawValue: error.code), operationDescription: operationDescription)
+        throw .init(systemError: error, operationDescription: operationDescription)
     }
 
 }

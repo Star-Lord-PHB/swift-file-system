@@ -66,13 +66,8 @@ extension FileSystemTest.ReadFileHandleTests {
         let error = try #require(throws: FileError.self) {
             _ = try ReadFileHandle(forFileAt: path)
         }
-        let errorCode = try #require(error.code)
 
-        #if canImport(WinSDK)
-        #expect(errorCode == .fileNotFound)
-        #else
-        #expect(errorCode == .noSuchFileOrDirectory)
-        #endif
+        #expect(error.code == .fileNotFound)
 
     }
 
@@ -102,9 +97,8 @@ extension FileSystemTest.ReadFileHandleTests {
         let error = try #require(throws: FileError.self) {
             try handle.read(length: 10)
         }
-        let errorCode = try #require(error.code)
 
-        #expect(errorCode == .isADirectory)
+        #expect(error.code == .isADirectory)
 
     }
     #endif 

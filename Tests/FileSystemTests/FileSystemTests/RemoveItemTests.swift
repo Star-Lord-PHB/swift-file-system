@@ -86,11 +86,7 @@ extension FileSystemTest.RemoveItemTest {
             try FileSystem().removeItem(at: path)
         }
 
-        #if canImport(WinSDK)
         #expect(error?.code == .fileNotFound)
-        #else
-        #expect(error?.code == .noSuchFileOrDirectory)
-        #endif
 
     }
 

@@ -12,6 +12,10 @@ struct StatCompat {
     uid_t st_uid;
     gid_t st_gid;
     mode_t st_mode;
+    nlink_t st_nlink;
+    dev_t st_dev;
+    dev_t st_rdev;
+    ino_t st_ino;
     struct timespec st_atim;
     struct timespec st_mtim;
     struct timespec st_ctim;

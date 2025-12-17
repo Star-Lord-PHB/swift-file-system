@@ -12,12 +12,6 @@ extension FileInfo {
 
     public struct PlatformTimeSpec: Sendable, Equatable, Hashable {
 
-        #if canImport(WinSDK)
-        public typealias PlatformFileTime = FILETIME
-        #else
-        public typealias PlatformFileTime = timespec
-        #endif
-
         public let seconds: Int
         public let nanoseconds: Int
 
@@ -35,6 +29,7 @@ extension FileInfo {
             let nanoseconds = (hundredNanoSeconds % 10_000_000) * 100
             self.init(seconds: Int(seconds), nanoseconds: Int(nanoseconds))
         }
+        @inlinable
         public init(platformFileTime: LARGE_INTEGER) {
             let hundredNanoSeconds = UInt64(platformFileTime.QuadPart)
             let seconds = hundredNanoSeconds / 10_000_000
@@ -58,7 +53,7 @@ extension FileInfo {
         }
 
         @inlinable
-        public var platformFileTime: PlatformFileTime {
+        public var platformFileTime: CInterop.PlatformFileTime {
             #if canImport(WinSDK)
             var filetime = FILETIME()
             let hundredNanoSeconds = UInt64(seconds) * 10_000_000 + UInt64(nanoseconds) / 100

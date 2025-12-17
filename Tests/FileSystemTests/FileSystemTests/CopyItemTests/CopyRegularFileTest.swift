@@ -59,11 +59,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif 
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -103,11 +99,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .accessDenied)
-        #else
         #expect(error.code == .isADirectory)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -141,11 +133,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -187,11 +175,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #if canImport(WinSDK)
-        #expect(error.code == .alreadyExists)
-        #else
         #expect(error.code == .fileExists)
-        #endif
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: dstTargetPath, toMatch: expectation2)

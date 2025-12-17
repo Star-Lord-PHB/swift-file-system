@@ -117,9 +117,8 @@ extension FileSystemTest.WriteFileHandleTests {
         let error = try #require(throws: FileError.self) {
             _ = try WriteFileHandle(forFileAt: path, options: .newFile(replaceExisting: false))
         }
-        let errorCode = try #require(error.code)
 
-        #expect(errorCode == .fileExists)
+        #expect(error.code == .fileExists)
 
     }
 
@@ -132,13 +131,8 @@ extension FileSystemTest.WriteFileHandleTests {
         let error = try #require(throws: FileError.self) {
             _ = try WriteFileHandle(forFileAt: path, options: .editFile(createIfMissing: false))
         }
-        let errorCode = try #require(error.code)
 
-        #if canImport(WinSDK)
-        #expect(errorCode == .fileNotFound)
-        #else
-        #expect(errorCode == .noSuchFileOrDirectory)
-        #endif
+        #expect(error.code == .fileNotFound)
     }
 
 }

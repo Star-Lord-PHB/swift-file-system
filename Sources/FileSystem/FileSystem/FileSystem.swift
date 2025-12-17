@@ -1,5 +1,5 @@
 import SystemPackage
-import PlatformCLib
+// import PlatformCLib
 import CFileSystem
 
 
@@ -18,21 +18,17 @@ public final class FileSystem: FileSystemProtocal {
         #if canImport(WinSDK)
 
         if followSymlinks {
-            var st = stat()
-            return path.withPlatformString { platformStr in
-                stat(platformStr, &st) == 0
-            }
+            return (try? InternalFS.ustat(path)) != nil
         } else {
             return GetFileAttributesW(path.string.wideCString) != INVALID_FILE_ATTRIBUTES
         }
 
         #else
         
-        var st = stat()
         if followSymlinks {
-            return stat(path.string, &st) == 0
+            return (try? InternalFS.ustat(path)) != nil
         } else {
-            return lstat(path.string, &st) == 0
+            return (try? InternalFS.ulstat(path)) != nil
         }
 
         #endif 
@@ -67,7 +63,7 @@ public final class FileSystem: FileSystemProtocal {
             try catchSystemError(
                 operationDescription: .createDir(at: path, withIntermediateDirectories: withIntermediateDirectories)
             ) { () throws(SystemError) in
-                try _createDirectoryNoIntermediate(at: path)
+                try InternalFS.mkdir(at: path, permissions: nil)
             }
             return
         }
@@ -85,7 +81,7 @@ public final class FileSystem: FileSystemProtocal {
             try catchSystemError(
                 operationDescription: .createDir(at: path, withIntermediateDirectories: withIntermediateDirectories)
             ) { () throws(SystemError) in
-                try _createDirectoryNoIntermediate(at: path)
+                try InternalFS.mkdir(at: path, permissions: nil)
             }
         }
 
@@ -94,21 +90,17 @@ public final class FileSystem: FileSystemProtocal {
 
     public func removeItem(at path: FilePath) throws(FileError) {
 
-        #if canImport(WinSDK)
-        try execThrowingCFunction(operationDescription: .removingItem(at: path)) {
-            path.withPlatformString { platformStr in 
-                DeleteFileW(platformStr)
-            }
-        }
-        #else 
-        if remove(path.string) == 0 { return }
-        guard errno == ENOTEMPTY else {
-            try FileError.assertError(operationDescription: .removingItem(at: path))
+        do {
+            try InternalFS.remove(itemAt: path)
+            return 
+        } catch let error where error.kind != .notEmptyDirectory {
+            throw FileError(systemError: error, operationDescription: .removingItem(at: path))
+        } catch {
+            // do nothing
         }
         try catchSystemError(operationDescription: .removingItem(at: path)) { () throws(SystemError) in
             try _removeDirectoryRecursive(at: path)
         }
-        #endif 
 
     }
 
@@ -130,12 +122,12 @@ public final class FileSystem: FileSystemProtocal {
 
         #warning("Not implemented")
         fatalError("Not implemented")
-
+      
         #else
 
         let srcPath = try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
             // resolve symlink first if needed
-            symlinkOption == .copyTarget ? try _symlinkRecursiveDestination(of: srcPath) : srcPath
+            symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
         }
 
         try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
@@ -167,13 +159,13 @@ public final class FileSystem: FileSystemProtocal {
             let itemExists = itemExists(at: dstPath)
             switch (itemExists, targetExistOption) {
                 case (true, .skip): return 
-                case (true, .error): throw FileError(code: .fileExists, operationDescription: .movingItem(from: srcPath, to: dstPath))
+                case (true, .error): throw FileError(code: .fileExists, operationDescription: .movingItem(from: srcPath, to: dstPath))!
                 case (_, _): break
             }
         }
 
-        try execThrowingCFunction(operationDescription: .movingItem(from: srcPath, to: dstPath)) {
-            rename(srcPath.string, dstPath.string)
+        try catchSystemError(operationDescription: .movingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
+            try InternalFS.rename(itemAt: srcPath, to: dstPath)
         }
 
         #endif 
@@ -204,8 +196,8 @@ public final class FileSystem: FileSystemProtocal {
 
         #else
 
-        try execThrowingCFunction(operationDescription: .creatingSymlink(at: path, pointingTo: destPath)) {
-            symlink(destPath.string, path.string)
+        try catchSystemError(operationDescription: .creatingSymlink(at: path, pointingTo: destPath)) { () throws(SystemError) in
+            try InternalFS.symlink(dstPath: destPath, linkPath: path)
         }
 
         #endif 
@@ -222,8 +214,8 @@ public final class FileSystem: FileSystemProtocal {
 
         #else 
 
-        try execThrowingCFunction(operationDescription: .creatingHardlink(at: path, for: existingPath)) {
-            linkat(AT_FDCWD, existingPath.string, AT_FDCWD, path.string, 0)
+        try catchSystemError(operationDescription: .creatingHardlink(at: path, for: existingPath)) { () throws(SystemError) in
+            try InternalFS.link(existingPath: existingPath, newPath: path)
         }
 
         #endif 
@@ -242,9 +234,9 @@ public final class FileSystem: FileSystemProtocal {
 
         try catchSystemError(operationDescription: .readingSymlink(at: path)) { () throws(SystemError) in
             if recursive {
-                try _symlinkRecursiveDestination(of: path)
+                try InternalFS.realpath(of: path)
             } else {
-                try _symlinkDirectDestination(of: path)
+                try InternalFS.readlink(fromSymlinkAt: path)
             }
         }
 

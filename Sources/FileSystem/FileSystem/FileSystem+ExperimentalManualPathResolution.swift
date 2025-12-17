@@ -269,17 +269,17 @@ extension FileSystem {
                 let len: Int
                 do {
                     len = try __symlinkDestination(fromDirHandle: dirFdStack.top!, component: component, buffer: &buffer)
-                } catch let error where error.code == EINVAL {
+                } catch let error where error.kind == .invalidInput {
                     if pendingComponents.isEmpty {
                         finalPath.append(component)
                         break
                     } else {
-                        throw SystemError(code: ENOTDIR)
+                        throw SystemError(code: .notADirectory)!
                     }
                 }
 
                 if remainingSymlinkAllowed == 0 {
-                    throw SystemError(code: ELOOP)
+                    throw SystemError(code: .platform(.tooManyLinks))!
                 }
                 remainingSymlinkAllowed -= 1
 

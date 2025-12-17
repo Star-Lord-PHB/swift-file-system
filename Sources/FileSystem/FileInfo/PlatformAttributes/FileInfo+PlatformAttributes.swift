@@ -49,13 +49,7 @@ extension FileInfo {
 
     public struct PlatformAttributes: PlatformAttributesProtocol {
 
-    #if canImport(Glibc) || canImport(Musl)
-        public typealias RawBitType = UInt64
-    #elseif canImport(WinSDK)
-        public typealias RawBitType = DWORD
-    #else 
-        public typealias RawBitType = UInt32
-    #endif
+        public typealias RawBitType = CInterop.PlatformFileAttribute
 
 
         @_alwaysEmitIntoClient

@@ -17,10 +17,10 @@ extension FileSystemTest.FileInfoTest {
 
     #if canImport(WinSDK)
     static let fileTimeAccuracy: TimeInterval = 1e-4
-    var fileNotFoundErrorCode: FileError.PlatformErrorCode { .fileNotFound }
+    // var fileNotFoundErrorCode: FileError.PlatformErrorCode { .fileNotFound }
     #else
     static let fileTimeAccuracy: TimeInterval = 1e-6
-    var fileNotFoundErrorCode: FileError.PlatformErrorCode { .noSuchFileOrDirectory }
+    // var fileNotFoundErrorCode: FileError.PlatformErrorCode { .noSuchFileOrDirectory }
     #endif
 
     func dateEquals(_ date1: Date?, _ date2: Date?, accuracy: TimeInterval = fileTimeAccuracy) -> Bool {
@@ -144,7 +144,7 @@ extension FileSystemTest.FileInfoTest {
         }
 
         let errorCode = try #require(error?.code)
-        #expect(errorCode == fileNotFoundErrorCode)
+        #expect(errorCode == .fileNotFound)
 
     }
 
@@ -162,7 +162,7 @@ extension FileSystemTest.FileInfoTest {
         }
 
         let errorCode = try #require(error?.code)
-        #expect(errorCode == fileNotFoundErrorCode)
+        #expect(errorCode == .fileNotFound)
 
     }
 

@@ -33,7 +33,12 @@ public struct DirectoryEntrySequence: DirectoryEntrySequenceProtocol, ~Copyable 
             if recursive {
                 return try DirectoryEntryIterator.recursive(path: path)
             } else {
-                return try DirectoryEntryIterator.direct(unsafeSystemHandle: handle, path: path)
+                let duplicatedHandle = try catchSystemError(
+                    operationDescription: .openingDirStream(forDirectoryAt: path)
+                ) { () throws(SystemError) in
+                    try handle.duplicate()
+                }
+                return try DirectoryEntryIterator.direct(unsafeSystemHandle: duplicatedHandle, path: path)
             }
         } catch {
             return DirectoryEntryIterator.openError(error: error)

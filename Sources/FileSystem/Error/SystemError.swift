@@ -3,36 +3,29 @@ import PlatformCLib
 
 public struct SystemError: Error, Equatable, CustomStringConvertible {
 
-    #if canImport(WinSDK)
-    public typealias Code = DWORD
-    public static let successCode: Code = .init(ERROR_SUCCESS)
-    #else
-    public typealias Code = CInt
-    public static let successCode: Code = 0
-    #endif
+    public typealias Code = PlatformErrorCode.RawBitType
+    public static let successCode: Code = PlatformErrorCode.success.rawValue
 
-    public let code: Code
+    public let code: ErrorCode
 
-    public init(code: Code) {
+    public var kind: ErrorCode.Kind { code.mappedErrorKind }
+
+    public init?(code: Code) {
+        self.init(code: .platform(.init(rawValue: code)))
+    }
+
+    public init?(code: ErrorCode) {
+        guard code != .success else { return nil }
         self.code = code
     }
 
     @inlinable
-    public var description: String {
-        #if canImport(WinSDK)
-        return errorCodeDescription(for: code) ?? "Unknown error"
-        #else
-        guard let message = strerror(code) else { return "Unknown error" }
-        return String(cString: message)
-        #endif
-    }
+    public var description: String { code.description }
 
     @inlinable
     public var errorDescription: String { description }
 
-    public static let success: SystemError = .init(code: successCode)
-
-    public static func fromLastError() -> SystemError {
+    public static func fromLastError() -> SystemError? {
         #if canImport(WinSDK)
         return .init(code: GetLastError())
         #else
@@ -41,13 +34,15 @@ public struct SystemError: Error, Equatable, CustomStringConvertible {
     }
 
     public static func check() throws(SystemError) {
-        let error = fromLastError()
-        guard error != success else { return }
+        guard let error = fromLastError() else { return }
         throw error
     }
 
-    public static func assertError() throws(SystemError) -> Never {
+    public static func assertError(fallbackToUnknownError: Bool = false) throws(SystemError) -> Never {
         try check()
+        if fallbackToUnknownError {
+            throw .init(code: .extended(.unknown))!
+        }
         fatalError("Expect to catch an error, but none was thrown")
     }
 
