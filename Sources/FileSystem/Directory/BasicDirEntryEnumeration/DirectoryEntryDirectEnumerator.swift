@@ -20,7 +20,7 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
     #if canImport(WinSDK)
     typealias SystemEntryDataType = WIN32_FIND_DATAW
     private var findHandle: InternalFS.WindowsFindHandle?
-    var rootPath: FilePath { findHandle.rootPath }
+    let rootPath: FilePath
     #else
     typealias SystemEntryDataType = dirent
     private var dirStream: InternalFS.PosixDirectoryStream?
@@ -35,9 +35,8 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
 
         #if canImport(WinSDK)
 
-        // The find handle will not be initialized here, and will only be initialized on the first call to next()
-        // This is because on Windows, we need to use FindFirstFileExW to open the handle, which will give us the first result directly.
-        self.findHandle = .init(path: path)
+        self.rootPath = path
+        self.findHandle = try .init(path: path)
 
         #else
 
@@ -77,7 +76,11 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
 
 
     mutating func _next() throws(SystemError) -> Element? {
+        #if canImport(WinSDK)
+        return try findHandle?.next().flatMap { extractEntryInfo(from: $0) }
+        #else
         return try dirStream?.next().flatMap { extractEntryInfo(from: $0) }
+        #endif 
     }
 
 
@@ -103,7 +106,7 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
                 .unknown
             } else {
                 .regular
-            } as FileInfo.FileType
+            } as FileType
 
             return DirectoryEntry(path: .init(name), type: type).map { .entry($0) }
 
@@ -117,7 +120,16 @@ struct DirectoryEntryDirectEnumerator: ~Copyable {
                 }
             }
 
-            let type = FileInfo.FileType(d_type: systemEntry.d_type)
+            let type = switch systemEntry.d_type {
+                case .init(DT_REG):     .regular
+                case .init(DT_DIR):     .directory
+                case .init(DT_LNK):     .symlink
+                case .init(DT_SOCK):    .socket
+                case .init(DT_BLK):     .block
+                case .init(DT_CHR):     .character
+                case .init(DT_FIFO):    .fifo
+                default:                .unknown
+            } as FileType
 
             return DirectoryEntry(path: .init(name), type: type).map { .entry($0) }
 

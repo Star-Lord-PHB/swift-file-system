@@ -16,7 +16,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-system.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
-        .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")),
+        // .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -32,7 +32,8 @@ let package = Package(
             swiftSettings: [
                 .enableExperimentalFeature("Lifetimes"),
                 .enableExperimentalFeature("NonescapableTypes"),
-                .enableExperimentalFeature("NoncopyableGenerics")
+                .enableExperimentalFeature("NoncopyableGenerics"),
+                .enableExperimentalFeature("BorrowingSwitch")
             ]
         ),
         .target(
@@ -53,6 +54,7 @@ let package = Package(
 
 #if canImport(Darwin)
 if #available(macOS 13, iOS 16, watchOS 9, tvOS 16, *) {
+    package.dependencies.append(.package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")),)
     package.platforms = [.macOS(.v13), .iOS(.v16), .watchOS(.v9), .tvOS(.v16)]
     // Benchmark of FileSystemBenchmark
     package.targets += [

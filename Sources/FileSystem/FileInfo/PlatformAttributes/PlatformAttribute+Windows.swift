@@ -3,7 +3,7 @@
 import WinSDK
 
 
-extension FileInfo.PlatformAttributes {
+extension PlatformFileAttributes {
 
     @inlinable public static var bitIsReadOnly: RawBitType { .init(FILE_ATTRIBUTE_READONLY) }
     @inlinable public static var bitIsHidden: RawBitType { .init(FILE_ATTRIBUTE_HIDDEN) }

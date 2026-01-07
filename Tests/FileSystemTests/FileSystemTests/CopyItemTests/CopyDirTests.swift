@@ -63,7 +63,7 @@ extension FileSystemTest.CopyFileTest {
                 "file2.txt": .file(contents: "Old Content"),                    // overwritten
                 "link2": .symlink(target: "../oldFile.txt"),                    // overwritten
             ],
-            "b": [
+            "b": [                                                              // remain (on Windows, its access time and permission may be changed)
                 "extra.txt": .file(contents: "This directory should remain."),
             ]
         ] as FileStructure
@@ -71,6 +71,12 @@ extension FileSystemTest.CopyFileTest {
         let srcDirPath = try makeFileStructure(at: "srcDir", structure: srcStructure)
         try await Task.sleep(nanoseconds: 100_000_000)
         let dstDirPath = try makeFileStructure(at: "dstDir", structure: dstStructure)
+
+        #if canImport(WinSDK)
+        let dirBExpectationExcludingSetting = [.fileTimes] as ExpectationCriterias
+        #else
+        let dirBExpectationExcludingSetting = [] as ExpectationCriterias
+        #endif
 
         let expectation = try FileStructureExpectation.dir(
             expectation: .from(itemAt: srcDirPath),
@@ -86,7 +92,7 @@ extension FileSystemTest.CopyFileTest {
                     ]
                 ),
                 "b": .dir(
-                    expectation: .from(itemAt: dstDirPath.appending("b")), 
+                    expectation: .from(itemAt: dstDirPath.appending("b"), excluding: dirBExpectationExcludingSetting), 
                     contents: [
                         "extra.txt": .item(expectation: .from(itemAt: dstDirPath.appending("b/extra.txt"))),
                     ]
@@ -110,6 +116,7 @@ extension FileSystemTest.CopyFileTest {
             "a": [
                 "file2.txt": .file(contents: "Hoshino is Cute!"),
                 "link2": .symlink(target: "../file1.txt"),
+                "file3.txt": .file(contents: "This file should not be copied."),
             ],
         ] as FileStructure
 
@@ -130,20 +137,21 @@ extension FileSystemTest.CopyFileTest {
         let dstDirPath = try makeFileStructure(at: "dstDir", structure: dstStructure)
 
         let expectation = try FileStructureExpectation.dir(
-            expectation: .from(itemAt: dstDirPath, excluding: .modificationTime),
+            expectation: .from(itemAt: dstDirPath, excluding: [.modificationTime, .accessTime]),
             contents: [
                 "file1.txt": .item(expectation: .from(itemAt: dstDirPath.appending("file1.txt"))),
                 "link1": .item(expectation: .from(itemAt: srcDirPath.appending("link1"))),
                 "oldFile.txt": .item(expectation: .from(itemAt: dstDirPath.appending("oldFile.txt"))),
                 "a": .dir(
-                    expectation: .from(itemAt: dstDirPath.appending("a"), excluding: .modificationTime),
+                    expectation: .from(itemAt: dstDirPath.appending("a"), excluding: [.modificationTime, .accessTime]),
                     contents: [
                         "file2.txt": .item(expectation: .from(itemAt: dstDirPath.appending("a/file2.txt"))),
+                        "file3.txt": .item(expectation: .from(itemAt: srcDirPath.appending("a/file3.txt"))),
                         "link2": .item(expectation: .from(itemAt: dstDirPath.appending("a/link2"))),
                     ]
                 ),
                 "b": .dir(
-                    expectation: .from(itemAt: dstDirPath.appending("b"), excluding: .modificationTime), 
+                    expectation: .from(itemAt: dstDirPath.appending("b")), 
                     contents: [
                         "extra.txt": .item(expectation: .from(itemAt: dstDirPath.appending("b/extra.txt"))),
                     ]

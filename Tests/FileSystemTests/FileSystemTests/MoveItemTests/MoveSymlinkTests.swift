@@ -80,7 +80,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error?.kind == .alreadyExists)
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -143,7 +143,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error?.kind == .alreadyExists)
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -208,7 +208,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error?.kind == .alreadyExists)
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)

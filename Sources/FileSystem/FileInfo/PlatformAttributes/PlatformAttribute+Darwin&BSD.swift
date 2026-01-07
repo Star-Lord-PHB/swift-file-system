@@ -3,7 +3,7 @@
 import PlatformCLib
 
 
-extension FileInfo.PlatformAttributes {
+extension PlatformFileAttributes {
 
     @inlinable public static var bitNoDump: RawBitType { .init(UF_NODUMP) }
     @inlinable public static var bitIsUserImmutable: RawBitType { .init(UF_IMMUTABLE) }

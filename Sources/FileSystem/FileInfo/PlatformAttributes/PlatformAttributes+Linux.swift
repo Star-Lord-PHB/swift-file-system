@@ -4,7 +4,7 @@ import PlatformCLib
 import CFileSystem
 
 
-extension FileInfo.PlatformAttributes {
+extension PlatformFileAttributes {
 
     @inlinable public static var bitIsCompressed: RawBitType { .init(STATX_ATTR_COMPRESSED) }
     @inlinable public static var bitIsImmutable: RawBitType { .init(STATX_ATTR_IMMUTABLE) }

@@ -74,13 +74,14 @@ extension FileSystemTest.MoveItemTest {
                 )
             ]
         )
+        print(dstPath)
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error?.code == .notADirectory)
+        #expect(error.kind == .notADirectory)
 
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -140,11 +141,11 @@ extension FileSystemTest.MoveItemTest {
         )
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -175,11 +176,11 @@ extension FileSystemTest.MoveItemTest {
         )
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error?.code == .notADirectory)
+        #expect(error.kind == .notADirectory)
 
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -240,11 +241,11 @@ extension FileSystemTest.MoveItemTest {
         )
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)
@@ -336,11 +337,11 @@ extension FileSystemTest.MoveItemTest {
             contents: [:]
         )
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectFileStructure(at: dstPath, toMatch: dstExpectation)
@@ -375,12 +376,12 @@ extension FileSystemTest.MoveItemTest {
             ]
         )
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error?.code == .directoryNotEmpty)
-
+        #expect(error.kind == .notEmptyDirectory)
+        
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectFileStructure(at: dstPath, toMatch: dstExpectation)
 
@@ -449,12 +450,12 @@ extension FileSystemTest.MoveItemTest {
             ]
         )
 
-        let error = #expect(throws: FileError.self) {
+        let error = try #require(throws: FileError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error?.code == .fileExists)
-
+        #expect(error.kind == .alreadyExists)
+        
         try expectFileStructure(at: srcPath, toMatch: srcExpectation)
         try expectFileStructure(at: dstPath, toMatch: dstExpectation)
 

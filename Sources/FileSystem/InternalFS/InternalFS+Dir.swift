@@ -154,7 +154,9 @@ extension InternalFS {
 
         deinit {
             guard closed == false else { return }
-            try? close()
+            if let findHandle {
+                FindClose(findHandle)
+            }
         }
 
         mutating func next() throws(SystemError) -> WIN32_FIND_DATAW? {
@@ -168,7 +170,7 @@ extension InternalFS {
                     if errorCode == ERROR_NO_MORE_FILES {
                         return nil
                     } else {
-                        throw SystemError(code: errorCode)
+                        throw SystemError(code: errorCode)!
                     }
                 }
 

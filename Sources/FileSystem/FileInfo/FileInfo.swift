@@ -11,15 +11,21 @@ public struct FileInfo: Sendable, Equatable, Hashable {
 
     public let type: FileType
 
-    public let lastAccessDate: PlatformTimeSpec
-    public let lastModificationDate: PlatformTimeSpec
-    public let lastStatusChangeDate: PlatformTimeSpec
-    public let creationDate: PlatformTimeSpec?
+    public let lastAccessDate: FileTimeSpec
+    public let lastModificationDate: FileTimeSpec
+    public let lastStatusChangeDate: FileTimeSpec
+    public let creationDate: FileTimeSpec?
 
-    public let securityInfo: PlatformSecurityInfo
+    public let fileIdentifier: FileIdentifier
 
-    public let attributes: PlatformAttributes
-    public let supportedAttributes: PlatformAttributes
+    #if !canImport(WinSDK)
+    public let permissions: FilePermissions
+    public let uid: UInt32
+    public let gid: UInt32
+    #endif
+
+    public let attributes: PlatformFileAttributes
+    public let supportedAttributes: PlatformFileAttributes
 
 }
 
@@ -29,16 +35,19 @@ extension FileInfo: CustomStringConvertible {
 
     @inlinable
     public var description: String {
-        """
-        File(\
-        path: \(path), type: \(type), size: \(size) bytes, \
-        last accessed: \(lastAccessDate), \
-        last modified: \(lastModificationDate), \
-        last status changed: \(lastStatusChangeDate), \
-        \(creationDate.map { "created: \($0)," } ?? "") \
-        security: \(securityInfo), \
-        attributes: \(attributes))
-        """
+        var str = """
+            File(\
+            path: \(path), type: \(type), size: \(size) bytes, \
+            last accessed: \(lastAccessDate), \
+            last modified: \(lastModificationDate), \
+            last status changed: \(lastStatusChangeDate), \
+            \(creationDate.map { "created: \($0)," } ?? "") \
+            attributes: \(attributes))
+            """
+        #if !canImport(WinSDK)
+        str += ", permissions: \(permissions), uid: \(uid), gid: \(gid)"
+        #endif
+        return str
     }
 
 }
@@ -51,133 +60,42 @@ extension FileInfo {
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
 
-        if let GetFileInformationByNameFuncPtr = getGetFileInformationByNameFuncPtr() {
-
-            // A faster path for getting information of files without opening a handle
-
-            var fileInformationByName = FILE_STAT_INFORMATION()
-
-            try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
-                path.string.withCString(encodedAs: UTF16.self) { pathPtr in 
-                    GetFileInformationByNameFuncPtr(pathPtr, FileStatByNameInfo, &fileInformationByName, DWORD(MemoryLayout<FILE_STAT_INFORMATION>.size)).boolValue
-                }
-            }
-
-            if followSymLink && fileInformationByName.ReparseTag == IO_REPARSE_TAG_SYMLINK {
-                let destPathPtr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-                    try WindowsAPI.destinationPathOfSymbolicLink(at: path)
-                }
-                try execThrowingCFunction(operationDescription: .fetchingInfo(for: path)) {
-                    GetFileInformationByNameFuncPtr(destPathPtr.unsafeRawPtr, FileStatByNameInfo, &fileInformationByName, DWORD(MemoryLayout<FILE_STAT_INFORMATION>.size)).boolValue
-                }
-            }
-
-            let type = if fileInformationByName.ReparseTag == IO_REPARSE_TAG_SYMLINK {
-                .symlink
-            } else if (fileInformationByName.FileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY)) != 0 {
-                .directory
-            } else {
-                .regular
-            } as FileType
-
-            let securityDescriptorPtr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-                try WindowsAPI.getFileSecurity(at: path, requesting: DWORD(OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION))
-            }
-
-            let ownerSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-                let (ownerSidPtr, _) = try WindowsAPI.getOwnerSid(from: securityDescriptorPtr.unownedView())
-                return try WindowsAPI.pSidToString(sidPtr: ownerSidPtr)
-            }
-
-            let groupSidStr = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-                let (groupSidPtr, _) = try WindowsAPI.getGroupSid(from: securityDescriptorPtr.unownedView())
-                return try WindowsAPI.pSidToString(sidPtr: groupSidPtr)
-            }
-
-            self.init(
-                path: path, 
-                size: UInt64(fileInformationByName.EndOfFile.QuadPart), 
-                type: type, 
-                lastAccessDate: .init(platformFileTime: fileInformationByName.LastAccessTime), 
-                lastModificationDate: .init(platformFileTime: fileInformationByName.LastWriteTime), 
-                lastStatusChangeDate: .init(platformFileTime: fileInformationByName.ChangeTime), 
-                creationDate: .init(platformFileTime: fileInformationByName.CreationTime), 
-                securityInfo: .init(effectiveAccess: .init(rawValue: fileInformationByName.EffectiveAccess), owner: ownerSidStr, group: groupSidStr), 
-                attributes: .init(rawValue: fileInformationByName.FileAttributes), 
-                supportedAttributes: .all
-            )
-
-        } else {
-
-            let handle = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-                try UnsafeSystemHandle.open(
-                    at: path, 
-                    openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymLink)
-                )
-            }
-
-            self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-                try .init(unsafeSystemHandle: handle, path: path)
-            }
-
+        let info = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
         }
+
+        self.init(
+            path: path, 
+            size: info.size, 
+            type: info.type, 
+            lastAccessDate: .init(platformFileTime: info.accessTime), 
+            lastModificationDate: .init(platformFileTime: info.modificationTime), 
+            lastStatusChangeDate: .init(platformFileTime: info.changeTime), 
+            creationDate: .init(platformFileTime: info.creationTime), 
+            fileIdentifier: .init(fileId: info.fileId, deviceId: info.deviceId),
+            attributes: .init(rawValue: info.attributes), 
+            supportedAttributes: .all
+        )
 
     }
 
 
     init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
-        var infoByHandle = _BY_HANDLE_FILE_INFORMATION()
-        guard GetFileInformationByHandle(handle.unsafeRawHandle, &infoByHandle) else {
-            try SystemError.assertError()
-        }
+        let info = try InternalFS.getRawFileInfo(from: handle)
 
-        self.path = path
-        self.size = (UInt64(infoByHandle.nFileSizeHigh) << 32) | UInt64(infoByHandle.nFileSizeLow)
-        self.attributes = .init(rawValue: infoByHandle.dwFileAttributes)
-        self.supportedAttributes = .all
-        self.creationDate = .init(platformFileTime: infoByHandle.ftCreationTime)
-        self.lastAccessDate = .init(platformFileTime: infoByHandle.ftLastAccessTime)
-        self.lastModificationDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
-        self.lastStatusChangeDate = .init(platformFileTime: infoByHandle.ftLastWriteTime)
-
-        self.type = try catchSystemError { () throws(SystemError) in
-            try .init(unsafeFromFileHandle: handle.unsafeRawHandle, attributes: infoByHandle.dwFileAttributes)
-        }
-
-        var securityDescriptorPtr = nil as PSECURITY_DESCRIPTOR?
-        var ownerSidPtr = nil as PSID?
-        var groupSidPtr = nil as PSID?
-        try execThrowingCFunction {
-            GetSecurityInfo(
-                handle.unsafeRawHandle, SE_FILE_OBJECT, 
-                DWORD(OWNER_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION), 
-                &ownerSidPtr, &groupSidPtr, nil, nil, 
-                &securityDescriptorPtr
-            )
-        } onError: { (code) throws(FileError) in
-            throw SystemError(code: code)
-        }
-        guard let securityDescriptorPtr else {
-            try SystemError.assertError()
-        }
-        defer { LocalFree(securityDescriptorPtr) }
-        guard let ownerSidPtr, let groupSidPtr else {
-            try SystemError.assertError()
-        }
-
-        let ownerSidStr = try catchSystemError { () throws(SystemError) in
-            try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ownerSidPtr))
-        }
-        let groupSidStr = try catchSystemError { () throws(SystemError) in
-            try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: groupSidPtr))
-        }
-
-        let effectiveAccessMask = try catchSystemError { () throws(SystemError) in
-            try WindowsAPI.effectiveAccessMaskForCurrentProcess(from: .init(unownedPointer: securityDescriptorPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self)))
-        }
-
-        self.securityInfo = .init(effectiveAccess: .init(rawValue: effectiveAccessMask), owner: ownerSidStr, group: groupSidStr)
+        self.init(
+            path: path, 
+            size: info.size, 
+            type: info.type, 
+            lastAccessDate: .init(platformFileTime: info.accessTime), 
+            lastModificationDate: .init(platformFileTime: info.modificationTime), 
+            lastStatusChangeDate: .init(platformFileTime: info.changeTime), 
+            creationDate: .init(platformFileTime: info.creationTime), 
+            fileIdentifier: .init(fileId: info.fileId, deviceId: info.deviceId),
+            attributes: .init(rawValue: info.attributes), 
+            supportedAttributes: .all
+        )
 
     }
 

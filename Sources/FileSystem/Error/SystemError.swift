@@ -1,20 +1,21 @@
 import PlatformCLib
+import SystemPackage
 
 
 public struct SystemError: Error, Equatable, CustomStringConvertible {
 
-    public typealias Code = PlatformErrorCode.RawBitType
-    public static let successCode: Code = PlatformErrorCode.success.rawValue
+    public typealias Code = CInterop.ErrorCode
+    public static let successCode: Code = FsErrorCode.PlatformErrorCode.success.rawValue
 
-    public let code: ErrorCode
+    public let code: FsErrorCode
 
-    public var kind: ErrorCode.Kind { code.mappedErrorKind }
+    public var kind: FsErrorCode.Kind { code.mappedErrorKind }
 
     public init?(code: Code) {
         self.init(code: .platform(.init(rawValue: code)))
     }
 
-    public init?(code: ErrorCode) {
+    public init?(code: FsErrorCode) {
         guard code != .success else { return nil }
         self.code = code
     }

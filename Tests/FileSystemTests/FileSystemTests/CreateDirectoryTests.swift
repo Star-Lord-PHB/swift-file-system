@@ -38,7 +38,7 @@ extension FileSystemTest.CreateDirectoryTest {
             try FileSystem().createDirectory(at: path, withIntermediateDirectories: false)
         }
 
-        #expect(error?.code == .fileNotFound)
+        #expect(error?.kind == .notFound)
 
     }
 
@@ -52,7 +52,7 @@ extension FileSystemTest.CreateDirectoryTest {
             try FileSystem().createDirectory(at: path, withIntermediateDirectories: false)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error?.kind == .alreadyExists)
 
     }
 

@@ -3,7 +3,7 @@
 import PlatformCLib
 
 
-extension PlatformErrorCode {
+extension FsErrorCode.PlatformErrorCode {
 
     @inlinable public static var operationNotPermitted: Self { .init(rawValue: EPERM) }
     @inlinable public static var noSuchFileOrDirectory: Self { .init(rawValue: ENOENT) }

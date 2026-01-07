@@ -4,14 +4,14 @@ import SystemPackage
 public struct DirectoryEntry: Sendable, Equatable, Hashable {
 
     public var path: FilePath
-    public var type: FileInfo.FileType
+    public var type: FileType
 
     public var name: String {
         assert(path.lastComponent != nil, "Path of a directory entry must not be empty")
         return path.lastComponent!.string
     }
 
-    public init?(path: FilePath, type: FileInfo.FileType) {
+    public init?(path: FilePath, type: FileType) {
         guard path.lastComponent != nil else {
             return nil
         }

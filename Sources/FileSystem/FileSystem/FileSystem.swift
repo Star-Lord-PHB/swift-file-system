@@ -1,5 +1,4 @@
 import SystemPackage
-// import PlatformCLib
 import CFileSystem
 
 
@@ -18,9 +17,14 @@ public final class FileSystem: FileSystemProtocal {
         #if canImport(WinSDK)
 
         if followSymlinks {
-            return (try? InternalFS.ustat(path)) != nil
+            return (try? UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: .init(access: .none, noFollow: false, platformSpecificOptions: .windows.backupSemantics)
+            )) != nil
         } else {
-            return GetFileAttributesW(path.string.wideCString) != INVALID_FILE_ATTRIBUTES
+            return path.withPlatformString {
+                GetFileAttributesW($0) != INVALID_FILE_ATTRIBUTES
+            }
         }
 
         #else
@@ -118,13 +122,6 @@ public final class FileSystem: FileSystemProtocal {
             case .skip:      .skip
         } as CopyOverwriteOption
 
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-      
-        #else
-
         let srcPath = try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
             // resolve symlink first if needed
             symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
@@ -133,8 +130,6 @@ public final class FileSystem: FileSystemProtocal {
         try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
             try _copyItemNoFollow(from: srcPath, to: dstPath, overwrite: copyOption)
         }
-
-        #endif
 
     }
 
@@ -145,30 +140,17 @@ public final class FileSystem: FileSystemProtocal {
         to dstPath: FilePath, 
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite
     ) throws(FileError) {
-        
-        #if canImport(WinSDK)
 
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else 
-
-        // MARK: TODO: On platforms that support renameat2, use that with RENAME_NOREPLACE flag instead of this manual check
-
-        if targetExistOption != .overwrite {
-            let itemExists = itemExists(at: dstPath)
-            switch (itemExists, targetExistOption) {
-                case (true, .skip): return 
-                case (true, .error): throw FileError(code: .fileExists, operationDescription: .movingItem(from: srcPath, to: dstPath))!
-                case (_, _): break
-            }
-        }
-
-        try catchSystemError(operationDescription: .movingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
-            try InternalFS.rename(itemAt: srcPath, to: dstPath)
-        }
-
-        #endif 
+        do {
+            try InternalFS.rename(itemAt: srcPath, to: dstPath, replace: targetExistOption == .overwrite)
+        } catch let error where error.kind == .alreadyExists && targetExistOption == .skip {
+            return 
+        } catch {
+            throw FileError(
+                systemError: error, 
+                operationDescription: .movingItem(from: srcPath, to: dstPath)
+            )
+        } 
 
     }
 
@@ -189,49 +171,24 @@ public final class FileSystem: FileSystemProtocal {
 
     public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(FileError) {
 
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else
-
         try catchSystemError(operationDescription: .creatingSymlink(at: path, pointingTo: destPath)) { () throws(SystemError) in
             try InternalFS.symlink(dstPath: destPath, linkPath: path)
         }
-
-        #endif 
 
     }
 
 
     public func createHardLink(at path: FilePath, for existingPath: FilePath) throws(FileError) {
 
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else 
-
         try catchSystemError(operationDescription: .creatingHardlink(at: path, for: existingPath)) { () throws(SystemError) in
             try InternalFS.link(existingPath: existingPath, newPath: path)
         }
-
-        #endif 
 
     }
 
 
     public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(FileError) -> FilePath {
         
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else
-
         try catchSystemError(operationDescription: .readingSymlink(at: path)) { () throws(SystemError) in
             if recursive {
                 try InternalFS.realpath(of: path)
@@ -239,8 +196,6 @@ public final class FileSystem: FileSystemProtocal {
                 try InternalFS.readlink(fromSymlinkAt: path)
             }
         }
-
-        #endif 
 
     }
 

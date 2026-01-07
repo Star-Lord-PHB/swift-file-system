@@ -81,9 +81,8 @@ extension FileSystemTest.ReadFileHandleTests {
         let error = try #require(throws: FileError.self) {
             _ = try ReadFileHandle(forFileAt: path)
         }
-        let errorCode = try #require(error.code)
 
-        #expect(errorCode == .accessDenied)
+        #expect(error.kind == .permissionDenied)
 
     }
     #else

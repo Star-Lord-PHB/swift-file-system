@@ -365,9 +365,12 @@ extension FileSystemTest {
         if !excludedCriteria.contains(.creationTime) {
             #expect(info.creationDate == expectation.info.creationDate, comment, sourceLocation: sourceLocation)
         }
+        // TODO: add permission comparison for Windows
+        #if !canImport(WinSDK)
         if !excludedCriteria.contains(.permission) {
-            #expect(info.securityInfo.permission == expectation.info.securityInfo.permission, comment, sourceLocation: sourceLocation)
+            #expect(info.permission == expectation.info.permission, comment, sourceLocation: sourceLocation)
         }
+        #endif 
         if !excludedCriteria.contains(.attributes) {
             #expect(info.attributes == expectation.info.attributes, comment, sourceLocation: sourceLocation)
             #expect(info.supportedAttributes == expectation.info.supportedAttributes, comment, sourceLocation: sourceLocation)

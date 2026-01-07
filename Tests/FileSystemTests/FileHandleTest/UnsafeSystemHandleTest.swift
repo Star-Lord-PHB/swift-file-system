@@ -81,6 +81,11 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 }
             }
 
+        } preheat: {
+            // Preheat for Windows, where the #expect macro itself will open a handle when an error is captured for some reason
+            #expect(throws: SystemError.self) {
+                throw SystemError(code: 1)!
+            }
         }
 
     }
@@ -385,7 +390,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 )
             }
 
-            #expect(error.code == ERROR_ACCESS_DENIED)
+            #expect(error.kind == .permissionDenied)
 
         }
         #else 
@@ -485,7 +490,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 )
             }
 
-            #expect(error.code == ERROR_ACCESS_DENIED)
+            #expect(error.kind == .permissionDenied)
 
         }
 

@@ -1,6 +1,7 @@
 import SystemPackage
 import PlatformCLib
 import CFileSystem
+import BasicContainers
 
 
 
@@ -13,11 +14,11 @@ extension FileSystem {
     }
 
 
-    fileprivate struct CachedCopySrcItemAttrs {
+    fileprivate struct CachedCopySrcItemAttrs: ~Copyable {
 
         let info: InternalFS.InternalRawFileInfo
 
-        var type: FileInfo.FileType { info.type }
+        var type: FileType { info.type }
 
         var accessTime: CInterop.PlatformFileTime { info.accessTime }
         var modificationTime: CInterop.PlatformFileTime { info.modificationTime }
@@ -32,8 +33,8 @@ extension FileSystem {
         var attributes: CInterop.PlatformFileAttribute { info.attributes }
         #endif 
 
-        #if canImport(Windows)
-        #warning("Windows permission not implemented")
+        #if canImport(WinSDK)
+        let securityDescriptor: WindowsSelfRelativeSecurityDescriptor
         #else 
         var permission: FilePermissions { info.permissions }
         #endif
@@ -46,8 +47,10 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        #warning("Not implemented")
-        fatalError("Not implemented")
+        let info = try InternalFS.getRawFileInfo(from: handle)
+        let sd = try InternalFS.getSecurityInfo(for: handle, members: .dacl)
+
+        return .init(info: info, securityDescriptor: sd)
 
         #else 
 
@@ -73,8 +76,10 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        #warning("Not implemented")
-        fatalError("Not implemented")
+        let info = try InternalFS.getRawFileInfo(forItemAt: path)
+        let sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl)
+
+        return .init(info: info, securityDescriptor: sd)
 
         #else 
 
@@ -101,24 +106,57 @@ extension FileSystem {
     }
 
 
-    fileprivate func _writeCachedItemAttrs(
+    fileprivate func _writeCachedFileTime(
         forHandle handle: borrowing UnsafeSystemHandle, 
-        cachedAttrs: CachedCopySrcItemAttrs
+        cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(SystemError) {
-
-        #if canImport(WinSDK)
-
-        #warning("Not implemented")
-        fatalError("Not implemented")
-
-        #else 
 
         try InternalFS.setFileTimes(
             for: handle, 
             access: cachedAttrs.accessTime, 
-            modification: cachedAttrs.modificationTime,
+            modification: cachedAttrs.modificationTime, 
             creation: cachedAttrs.creationTime
         )
+
+    }
+
+
+    fileprivate func _writeCachedFileTime(
+        forItemAt path: FilePath, 
+        cachedAttrs: borrowing CachedCopySrcItemAttrs
+    ) throws(SystemError) {
+
+        try InternalFS.setFileTimes(
+            forItemAt: path, 
+            access: cachedAttrs.accessTime, 
+            modification: cachedAttrs.modificationTime, 
+            creation: cachedAttrs.creationTime
+        ) 
+
+    }
+
+
+    fileprivate func _writeCachedItemAttrsWithoutFileTime(
+        forHandle handle: borrowing UnsafeSystemHandle, 
+        cachedAttrs: borrowing CachedCopySrcItemAttrs
+    ) throws(SystemError) {
+
+        #if canImport(WinSDK)
+
+        try InternalFS.setFileAttributes(for: handle, attributes: cachedAttrs.attributes)
+
+        let absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
+
+        try InternalFS.setFileSecurityInfo(
+            for: handle, 
+            settring: .dacl, 
+            dacl: absoluteSd._dacl, 
+            sacl: nil, 
+            owner: nil, 
+            group: nil
+        )
+
+        #else 
 
         try InternalFS.setFilePermissions(for: handle, permissions: cachedAttrs.permission)
 
@@ -135,21 +173,27 @@ extension FileSystem {
     }
 
 
-    fileprivate func _writeCachedItemAttrs(forItemAt path: FilePath, cachedAttrs: CachedCopySrcItemAttrs) throws(SystemError) {
+    fileprivate func _writeCachedItemAttrsWithoutFileTime(
+        forItemAt path: FilePath, 
+        cachedAttrs: borrowing CachedCopySrcItemAttrs
+    ) throws(SystemError) {
         
         #if canImport(WinSDK)
 
-        #warning("Not implemented")
-        fatalError("Not implemented")
+        try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes)
+
+        let absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
+
+        try InternalFS.setFileSecurityInfo(
+            forItemAt: path, 
+            settring: .dacl, 
+            dacl: absoluteSd._dacl, 
+            sacl: nil, 
+            owner: nil, 
+            group: nil
+        )
 
         #else
-
-        try InternalFS.setFileTimes(
-            forItemAt: path,
-            access: cachedAttrs.accessTime, 
-            modification: cachedAttrs.modificationTime, 
-            creation: cachedAttrs.creationTime
-        )
 
         do {
             try InternalFS.setFilePermissions(forItemAt: path, permissions: cachedAttrs.permission)
@@ -182,8 +226,9 @@ extension FileSystem {
     func _copyItemNoFollow(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption) throws(SystemError) {
         
         let srcAttrs = try _cacheItemAttrsForCopy(forItemAt: srcPath)
+        let type = srcAttrs.type
 
-        switch srcAttrs.type {
+        switch type {
             case .regular:
                 try _copyFile(from: srcPath, to: dstPath, overwrite: overwrite, srcAttrs: srcAttrs)
             case .symlink:
@@ -198,12 +243,15 @@ extension FileSystem {
 
 
     // assume that the srcPath directly points to a regular file (not a directory or symlink)
-    fileprivate func _copyFile(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: CachedCopySrcItemAttrs? = nil) throws(SystemError) {
+    fileprivate func _copyFile(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: consuming CachedCopySrcItemAttrs? = nil) throws(SystemError) {
 
         #if canImport(WinSDK)
-  
-        #warning("Not implemented")
-        fatalError("Not implemented")
+
+        let srcCachedAttrs = if let srcAttrs { srcAttrs } else { try _cacheItemAttrsForCopy(forItemAt: srcPath) }
+
+        assert(srcCachedAttrs.type == .regular, "srcCachedAttrs must represent a regular file")
+
+        try _copyFileOrSymlink(from: srcPath, to: dstPath, overwrite: overwrite, srcAttrs: srcCachedAttrs)
         
         #else
 
@@ -217,20 +265,22 @@ extension FileSystem {
     }
 
 
+    #if canImport(WinSDK)
+    @available(*, unavailable, message: "Not meaningful on Windows")
+    #endif 
     fileprivate func _copyFile(
         from srcHandle: borrowing UnsafeSystemHandle, 
         to dstPath: FilePath, 
         overwrite: CopyOverwriteOption, 
         srcPath: FilePath, 
-        srcFileAttrs: CachedCopySrcItemAttrs,
+        srcFileAttrs: consuming CachedCopySrcItemAttrs,
     ) throws(SystemError) {
 
         assert(srcFileAttrs.type == .regular, "srcFileAttrs must represent a regular file")
 
         #if canImport(WinSDK)
-  
-        #warning("Not implemented")
-        fatalError("Not implemented")
+
+        throw SystemError(code: .extended(.notImplemented))!
         
         #else
 
@@ -238,7 +288,7 @@ extension FileSystem {
         let tmpDstPath: FilePath
         let shouldRename: Bool
 
-        let dstFileType = try? FileInfo.FileType(mode: InternalFS.ulstat(dstPath).st_mode)
+        let dstFileType = try? FileType(mode: InternalFS.ulstat(dstPath).st_mode)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
@@ -281,8 +331,9 @@ extension FileSystem {
 
         do {
             try InternalFS.copyRegularFile(from: srcHandle, to: dstHandle)
-            try _writeCachedItemAttrs(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
             try? InternalFS.setFileTimes(for: srcHandle, access: srcFileAttrs.accessTime, modification: nil)
+            try _writeCachedItemAttrsWithoutFileTime(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
+            try _writeCachedFileTime(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
             if shouldRename {
                 try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
@@ -298,7 +349,7 @@ extension FileSystem {
 
 
     // assume that the srcPath directly points to a symlink (not a regular file or directory)
-    fileprivate func _copySymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: CachedCopySrcItemAttrs? = nil) throws(SystemError) {
+    fileprivate func _copySymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: consuming CachedCopySrcItemAttrs? = nil) throws(SystemError) {
 
         let srcAttrs = if let srcAttrs { srcAttrs } else { try _cacheItemAttrsForCopy(forItemAt: srcPath) }
 
@@ -306,22 +357,21 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        #warning("Not implemented")
-        fatalError("Not implemented")
+        try _copyFileOrSymlink(from: srcPath, to: dstPath, overwrite: overwrite, srcAttrs: srcAttrs)
 
         #else 
 
-        // TODO: copy symlink attributes if necessary
-
-        let dstFileType = try? FileInfo.FileType(mode: InternalFS.ulstat(dstPath).st_mode)
+        let dstFileType = try? FileType(mode: InternalFS.ulstat(dstPath).st_mode)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
                 throw SystemError(code: .fileExists)!
             case (.none, .none):
+                // TODO: remove the copied symlink if fail to write the cached attributes
                 let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
                 try InternalFS.symlink(dstPath: targetPath, linkPath: dstPath)
-                try _writeCachedItemAttrs(forItemAt: dstPath, cachedAttrs: srcAttrs)
+                try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
+                try _writeCachedFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
                 try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
             case (.some(_), .skip):
                 return
@@ -343,7 +393,8 @@ extension FileSystem {
                     throw SystemError(code: .fileExists)!
                 }
                 do {
-                    try _writeCachedItemAttrs(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
+                    try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
+                    try _writeCachedFileTime(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
                     try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
                     try InternalFS.rename(itemAt: dstTmpPath, to: dstPath)
                 } catch {
@@ -362,8 +413,74 @@ extension FileSystem {
     }
 
 
+    #if canImport(WinSDK)
+    fileprivate func _copyFileOrSymlink(
+        from srcPath: FilePath,
+        to dstPath: FilePath,
+        overwrite: CopyOverwriteOption,
+        srcAttrs: consuming CachedCopySrcItemAttrs
+    ) throws(SystemError) {
+
+        assert(
+            srcAttrs.type == .regular || srcAttrs.type == .symlink, 
+            "srcAttrs must represent a regular file or a symlink"
+        )
+
+        let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
+
+        let tmpDstPath: FilePath
+        let shouldRename: Bool
+
+        switch (overwrite, dstFileType) {
+            case (.none, .some(_)): throw SystemError(code: .fileExists)!
+            case (.skip, .some(_)): return
+            case (.none, .none), (.skip, .none): 
+                tmpDstPath = dstPath
+                shouldRename = false
+                do {
+                    try InternalFS.copyRegularFileOrSymlink(from: srcPath, to: tmpDstPath, overwrite: false)
+                } catch let error where error.kind == .alreadyExists && overwrite == .skip {
+                    return
+                }
+            case (.replace, .directory) : throw SystemError(code: .isADirectory)!
+            case (.replace, _):
+                var tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
+                shouldRename = true
+                var copied = false
+                for _ in 0 ..< 24 {
+                    do {
+                        try InternalFS.copyRegularFileOrSymlink(from: srcPath, to: tmpPath, overwrite: false)
+                        copied = true
+                        break
+                    } catch let error where error.kind == .alreadyExists { /* ignore */ }
+                    tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
+                }
+                guard copied else {
+                    SetLastError(FsErrorCode.PlatformErrorCode.fileExists.rawValue)
+                    throw SystemError(code: .fileExists)! 
+                }
+                tmpDstPath = tmpPath
+        }
+
+        do {
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
+            try _writeCachedItemAttrsWithoutFileTime(forItemAt: tmpDstPath, cachedAttrs: srcAttrs)
+            try _writeCachedFileTime(forItemAt: tmpDstPath, cachedAttrs: srcAttrs)
+            if shouldRename {
+                try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
+            }
+        } catch {
+            try? InternalFS.unlink(fileAt: tmpDstPath)      // error of this operation is ignored
+            error.code.rawValue.map { SetLastError($0) }    // restore errno
+            throw error
+        }
+
+    }
+    #endif 
+
+
     // return whether a new directory is actually created
-    func _makeEmptyDirectoryForCopy(at dstPath: FilePath, overwrite: CopyOverwriteOption) throws(SystemError) -> Bool {
+    fileprivate func _makeEmptyDirectoryForCopy(at dstPath: FilePath, overwrite: CopyOverwriteOption) throws(SystemError) -> Bool {
         do {
             try InternalFS.mkdir(at: dstPath, permissions: nil)
             return true
@@ -377,43 +494,55 @@ extension FileSystem {
     }
 
 
-    fileprivate func _copyDirectoryRecursive(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: CachedCopySrcItemAttrs? = nil) throws(SystemError) {
+    fileprivate func _copyDirectoryRecursive(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: consuming CachedCopySrcItemAttrs? = nil) throws(SystemError) {
 
         let srcAttrs = if let srcAttrs { srcAttrs } else { try _cacheItemAttrsForCopy(forItemAt: srcPath) }
 
         assert(srcAttrs.type == .directory, "srcAttrs must represent a directory")
 
-        let dstFileType = try? FileInfo.FileType(mode: InternalFS.ulstat(dstPath).st_mode)
+        let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
 
         switch (dstFileType, overwrite) {
-            case (.some(_), .none): 
-                throw SystemError(code: .fileExists)!
-            case (.some(let type), .skip) where type != .directory:
-                return
-            case (.some(let type), _) where type != .directory:
-                throw SystemError(code: .notADirectory)!
-            case (_, _): 
-                break
+            case (.some(_), .none):                                 throw SystemError(code: .fileExists)!
+            case (.some(let type), .skip) where type != .directory: return
+            case (.some(let type), _) where type != .directory:     throw SystemError(code: .notADirectory)!
+            case (_, _):                                            break
         }
 
-        var dirCachedAttrStack = [(cachedAttr: CachedCopySrcItemAttrs, created: Bool)]()
+        struct DirCachedAttrItem: ~Copyable {
+            let attr: CachedCopySrcItemAttrs?
+            let srcAccessTime: CInterop.PlatformFileTime
+            init(attr: consuming CachedCopySrcItemAttrs? = nil, srcAccessTime: CInterop.PlatformFileTime) {
+                self.attr = attr
+                self.srcAccessTime = srcAccessTime
+            }
+            init(attr: consuming CachedCopySrcItemAttrs) {
+                self.srcAccessTime = attr.accessTime
+                self.attr = .some(attr)
+            }
+        }
 
-        dirCachedAttrStack.append(
-            (srcAttrs, try _makeEmptyDirectoryForCopy(at: dstPath, overwrite: overwrite))
-        )
+        var dirCachedAttrStack = UniqueArray<DirCachedAttrItem>()
+
+        if try _makeEmptyDirectoryForCopy(at: dstPath, overwrite: overwrite) {
+            try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
+            dirCachedAttrStack.append(.init(attr: srcAttrs))
+        } else {
+            let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath).accessTime
+            dirCachedAttrStack.append(.init(srcAccessTime: srcAccessTime))
+        }
 
         var enumerator = try DirectoryEntryRecursiveEnumerator(path: srcPath, doStat: true)
 
         while let enumerationElement = try enumerator.next() {
 
-            print(enumerationElement)
-
             if case .leavingDir(let path) = enumerationElement {
-                guard let (cachedAttr, dirCreated) = dirCachedAttrStack.popLast() else { continue }
-                if dirCreated {
-                    try _writeCachedItemAttrs(forItemAt: dstPath.appending(path.components), cachedAttrs: cachedAttr)
+                guard let item = dirCachedAttrStack.popLast() else { continue }
+                let accessTime = item.srcAccessTime
+                if let cachedAttr = item.attr {
+                    try _writeCachedFileTime(forItemAt: dstPath.appending(path.components), cachedAttrs: cachedAttr)
                 }
-                try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: cachedAttr.accessTime, modification: nil)
+                try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: accessTime, modification: nil)
                 continue
             }
 
@@ -421,32 +550,38 @@ extension FileSystem {
             guard entry.path.lastComponent?.kind == .regular else { continue }
 
             switch entry.type {
-                case .regular: try _copyFile(
-                    from: srcPath.appending(entry.path.components), 
-                    to: dstPath.appending(entry.path.components), 
-                    overwrite: overwrite
-                )
-                case .symlink: try _copySymlink(
-                    from: srcPath.appending(entry.path.components), 
-                    to: dstPath.appending(entry.path.components), 
-                    overwrite: overwrite
-                )
-                case .directory: dirCachedAttrStack.append(
-                    (
-                        try _cacheItemAttrsForCopy(forItemAt: srcPath.appending(entry.path.components)), 
-                        try _makeEmptyDirectoryForCopy(at: dstPath.appending(entry.path.components), overwrite: overwrite)
+                case .regular: 
+                    try _copyFile(
+                        from: srcPath.appending(entry.path.components), 
+                        to: dstPath.appending(entry.path.components), 
+                        overwrite: overwrite
                     )
-                )
+                case .symlink: 
+                    try _copySymlink(
+                        from: srcPath.appending(entry.path.components), 
+                        to: dstPath.appending(entry.path.components), 
+                        overwrite: overwrite
+                    )
+                case .directory: 
+                    if try _makeEmptyDirectoryForCopy(at: dstPath.appending(entry.path.components), overwrite: overwrite) {
+                        let cachedAttr = try _cacheItemAttrsForCopy(forItemAt: srcPath.appending(entry.path.components))
+                        try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath.appending(entry.path.components), cachedAttrs: cachedAttr)
+                        dirCachedAttrStack.append(.init(attr: cachedAttr))
+                    } else {
+                        let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath.appending(entry.path.components)).accessTime
+                        dirCachedAttrStack.append(.init(srcAccessTime: srcAccessTime))
+                    }
                 default: break
             }
 
         }
 
-        if let (cachedAttr, dirCreated) = dirCachedAttrStack.popLast() {
-            if dirCreated {
-                try _writeCachedItemAttrs(forItemAt: dstPath, cachedAttrs: cachedAttr)
+        if let item = dirCachedAttrStack.popLast() {
+            let accessTime = item.srcAccessTime
+            if let cachedAttr = item.attr {
+                try _writeCachedFileTime(forItemAt: dstPath, cachedAttrs: cachedAttr)
             }
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: cachedAttr.accessTime, modification: nil)
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: accessTime, modification: nil)
         }
 
     }

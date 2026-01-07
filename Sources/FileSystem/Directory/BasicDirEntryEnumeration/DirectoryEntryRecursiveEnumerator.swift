@@ -27,7 +27,7 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     #if canImport(WinSDK)
 
     typealias SystemEntryDataType = WIN32_FIND_DATAW
-    private var findHandleStack: [WindowsFindHandle] = []
+    private var findHandleStack: UniqueArray<InternalFS.WindowsFindHandle> = .init()
     private var relativePathStack: FilePath = .init("")
 
     #else
@@ -64,7 +64,14 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
 
     deinit {
+        #if canImport(WinSDK)
+        var findHandleStack = findHandleStack
+        while let handle = findHandleStack.popLast() {
+            try? handle.close()
+        }
+        #else 
         try? ftsStream?.close()
+        #endif 
     }
 
 
@@ -106,14 +113,16 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
             // by the `rootPath`. So ideally, the num of opened dir handles should be 1 larger than the num of file names in `relativePathStack`.
             // In this case, the top handle in `findHandleStack` is the current dir we are traversing. 
 
-            guard let findHandle = findHandleStack.last else { return nil }
+            // temporarily pop the handle on stack top for reading the next entry
+            guard var findHandle = findHandleStack.popLast() else { return nil }
 
             if let data = try findHandle.next() {
                 findData = data
+                findHandleStack.append(findHandle)      // Push it back
             } else {
+                if findHandleStack.isEmpty { return nil }
                 // Return back to the parent directory
                 let leavingDirPath = FilePath(root: nil, relativePathStack.components)
-                findHandleStack.removeLast()
                 relativePathStack.removeLastComponent()
                 try? findHandle.close()
                 return .leavingDir(leavingDirPath)
@@ -125,18 +134,18 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
             // enter a new subdir, whose file name is the top file name in `relativePathStack`, but the corresponding dir handle has not been 
             // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
 
-            let pathToOpen = rootPath.appending(relativePathStack.components).appending("*")
-            let handle = try InternalFS.WindowsFindHandle(path: pathToOpen)
+            let pathToOpen = rootPath.appending(relativePathStack.components)
+            var handle = try InternalFS.WindowsFindHandle(path: pathToOpen)
             findData = try handle.next()!
             findHandleStack.append(handle)
 
         }
 
         let path = extractPath(from: findData)
-        let name = path.lastComponent!.string
+        let name = path.lastComponent!
         let type = extractEntryType(of: findData)
 
-        if type == .directory && (name != "." && name != "..") {
+        if type == .directory && (name.kind == .regular) {
             // Entering a subdirectory. 
             // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir 
             // handle will be opened 
@@ -184,7 +193,7 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                     String(decodingCString: wcharPtr, as: UTF16.self)
                 }
             }
-            return FilePath(root: nil, relativePathStack.components + CollectionOfOne(name))
+            return FilePath(root: nil, relativePathStack.components + CollectionOfOne(.init(name)!))
         #else
             var path = FilePath(platformString: systemEntry.fts_path)
             _ = path.removePrefix(rootPath)
@@ -195,7 +204,7 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     #if canImport(WinSDK)
 
-    private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileInfo.FileType {
+    private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileType {
         let fileAttributes = systemEntry.dwFileAttributes
         let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
 
@@ -212,7 +221,7 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     #else
 
-    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType, hasStat: Bool) -> FileInfo.FileType {
+    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType, hasStat: Bool) -> FileType {
         return switch Int32(systemEntry.fts_info) {
             case FTS_F:         .regular
             case FTS_D:         .directory
@@ -233,9 +242,15 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
         #if canImport(WinSDK)
         
-        // SetLastError(DWORD(NO_ERROR))
-        for handle in findHandleStack {
-            try? handle.close()
+        defer {
+            // if any error occurs during closing the dir handles, we still need to continue closing the remaining ones,
+            // and in this case, we ignore any further errors
+            while let handle = findHandleStack.popLast() {
+                try? handle.close()
+            }    
+        }
+        while let handle = findHandleStack.popLast() {
+            try handle.close()
         }
         // try SystemError.check()
 

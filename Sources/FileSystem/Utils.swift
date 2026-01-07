@@ -89,3 +89,19 @@ extension FilePath {
     }
 
 }
+
+
+
+func withUnsafeOptionalPointer<V: ~Copyable, R: ~Copyable, E: Error>(
+    to value: borrowing V?, 
+    _ body: (UnsafePointer<V>?) throws(E) -> R
+) throws(E) -> R {
+    switch value {
+        case .some(let v):
+            return try withUnsafePointer(to: v) { (ptr) throws(E) in 
+                try body(ptr)
+            }
+        case .none:
+            return try body(nil)
+    }
+}

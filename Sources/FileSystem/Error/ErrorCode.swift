@@ -1,82 +1,9 @@
 import PlatformCLib
-
-
-public struct PlatformErrorCode: Sendable, RawRepresentable, CustomStringConvertible {
-
-    #if canImport(WinSDK)
-    public typealias RawBitType = DWORD
-    public static var success: PlatformErrorCode { .init(rawValue: ERROR_SUCCESS) }
-    #else
-    public typealias RawBitType = CInt
-    public static var success: PlatformErrorCode { .init(rawValue: 0) }
-    #endif
-
-
-    public let rawValue: RawBitType
-
-
-    public init(rawValue: RawBitType) {
-        self.rawValue = rawValue
-    }
-
-}
+import SystemPackage
 
 
 
-extension PlatformErrorCode: Equatable, Hashable { }
-
-
-
-extension PlatformErrorCode {
-
-    @inlinable
-    public var description: String {
-        #if canImport(WinSDK)
-        return errorCodeDescription(for: rawValue) ?? "Unknown error"
-        #else
-        guard let message = strerror(rawValue) else { return "Unknown error" }
-        return String(cString: message)
-        #endif
-    }
-
-
-    @inlinable
-    public static func fromLastError() -> PlatformErrorCode {
-        #if canImport(WinSDK)
-        return .init(rawValue: GetLastError())
-        #else
-        return .init(rawValue: errno)
-        #endif
-    }
-
-}
-
-
-
-public enum ExtendedErrorCode: Sendable, Equatable, Hashable {
-
-    // TODO: Add extended error codes here
-    case unknown
-
-
-    public var mappedErrorKind: ErrorCode.Kind {
-        switch self {
-            case .unknown: .unknown
-        }
-    }
-
-
-    public var description: String {
-        switch self {
-            case .unknown: "Unknown error"
-        }
-    }
-
-}
-
-
-
-public enum ErrorCode: Sendable, Equatable, Hashable {
+public enum FsErrorCode: Sendable, Equatable, Hashable {
     case platform(PlatformErrorCode)
     case extended(ExtendedErrorCode)
 
@@ -94,21 +21,105 @@ public enum ErrorCode: Sendable, Equatable, Hashable {
         }
     }
 
-    public var rawValue: PlatformErrorCode.RawBitType? {
+    public var rawValue: CInterop.ErrorCode? {
         switch self {
             case .platform(let platformErrorCode): platformErrorCode.rawValue
             case .extended: nil
         }
     }
 
-    public static var success: ErrorCode { .platform(.success) }
+    public static var success: FsErrorCode { .platform(.success) }
 }
 
 
 
-extension ErrorCode {
+extension FsErrorCode {
 
-    public static var fileNotFound: ErrorCode {
+    public struct PlatformErrorCode: Sendable, RawRepresentable, CustomStringConvertible {
+
+        #if canImport(WinSDK)
+        public static var success: PlatformErrorCode { .init(rawValue: DWORD(ERROR_SUCCESS)) }
+        #else
+        public static var success: PlatformErrorCode { .init(rawValue: 0) }
+        #endif
+
+
+        public let rawValue: CInterop.ErrorCode
+
+
+        public init(rawValue: CInterop.ErrorCode) {
+            self.rawValue = rawValue
+        }
+
+    }
+
+}
+
+
+
+extension FsErrorCode.PlatformErrorCode: Equatable, Hashable { }
+
+
+
+extension FsErrorCode.PlatformErrorCode {
+
+    @inlinable
+    public var description: String {
+        #if canImport(WinSDK)
+        return errorCodeDescription(for: rawValue) ?? "Unknown error"
+        #else
+        guard let message = strerror(rawValue) else { return "Unknown error" }
+        return String(cString: message)
+        #endif
+    }
+
+
+    @inlinable
+    public static func fromLastError() -> Self {
+        #if canImport(WinSDK)
+        return .init(rawValue: GetLastError())
+        #else
+        return .init(rawValue: errno)
+        #endif
+    }
+
+}
+
+
+
+extension FsErrorCode {
+
+    public enum ExtendedErrorCode: Sendable, Equatable, Hashable {
+
+        // TODO: Add extended error codes here
+        case unknown
+        case notImplemented
+
+
+        public var mappedErrorKind: FsErrorCode.Kind {
+            switch self {
+                case .unknown: .unknown
+                case .notImplemented: .unsupported
+            }
+        }
+
+
+        public var description: String {
+            switch self {
+                case .unknown: "Unknown error"
+                case .notImplemented: "Functionality not implemented by Swift FileSystem at library level"
+            }
+        }
+
+    }
+
+}
+
+
+
+extension FsErrorCode {
+
+    public static var fileNotFound: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.fileNotFound)
         #else
@@ -116,7 +127,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var permissionDenied: ErrorCode {
+    public static var permissionDenied: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.accessDenied)
         #else
@@ -124,7 +135,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var fileExists: ErrorCode {
+    public static var fileExists: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.fileExists)
         #else
@@ -132,15 +143,15 @@ extension ErrorCode {
         #endif
     }
 
-    public static var notADirectory: ErrorCode {
+    public static var notADirectory: FsErrorCode {
         #if canImport(WinSDK)
-        return .platform(.directory)
+        return .platform(.invalidDirectoryName)
         #else
         return .platform(.notADirectory)
         #endif
     }
 
-    public static var isADirectory: ErrorCode {
+    public static var isADirectory: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.accessDenied)
         #else
@@ -148,7 +159,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var directoryNotEmpty: ErrorCode {
+    public static var directoryNotEmpty: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.directoryNotEmpty)
         #else
@@ -156,7 +167,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var invalidHandle: ErrorCode {
+    public static var invalidHandle: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.invalidHandle)
         #else
@@ -164,7 +175,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var noEnoughSpace: ErrorCode {
+    public static var noEnoughSpace: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.diskFull)
         #else
@@ -172,7 +183,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var notSupported: ErrorCode {
+    public static var notSupported: FsErrorCode {
         #if canImport(WinSDK)
         return .platform(.notSupported)
         #else
@@ -180,7 +191,7 @@ extension ErrorCode {
         #endif
     }
 
-    public static var unknown: ErrorCode {
+    public static var unknown: FsErrorCode {
         .extended(.unknown)
     }
 
@@ -188,7 +199,7 @@ extension ErrorCode {
 
 
 
-extension ErrorCode {
+extension FsErrorCode {
 
     public enum Kind: Sendable, Equatable, Hashable {
 
@@ -212,19 +223,19 @@ extension ErrorCode {
 
 
 
-extension ErrorCode.Kind {
+extension FsErrorCode.Kind {
 
-    public init(mapping extendedErrorCode: ExtendedErrorCode) {
+    public init(mapping extendedErrorCode: FsErrorCode.ExtendedErrorCode) {
         self = extendedErrorCode.mappedErrorKind
     }
 
 
-    public init(mapping platformErrorCode: PlatformErrorCode) {
+    public init(mapping platformErrorCode: FsErrorCode.PlatformErrorCode) {
         self = platformErrorCode.mappedErrorKind
     }
 
 
-    public init(mapping errorCode: ErrorCode) {
+    public init(mapping errorCode: FsErrorCode) {
         self = errorCode.mappedErrorKind
     }
 

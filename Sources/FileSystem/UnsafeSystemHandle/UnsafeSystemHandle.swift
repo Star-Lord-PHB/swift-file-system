@@ -134,6 +134,7 @@ extension UnsafeSystemHandle {
             case readOnly(metadataOnly: Bool = false)
             case writeOnly(metadataOnly: Bool = false)
             case readWrite(metadataOnly: Bool = false)
+            case none
         }
 
 
@@ -159,6 +160,7 @@ extension UnsafeSystemHandle {
                 case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE)
                 case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA)
                 case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE)
+                case .none:                            0
             }
 
             #else
@@ -172,6 +174,11 @@ extension UnsafeSystemHandle {
                 case .readOnly:                     O_RDONLY
                 case .writeOnly:                    O_WRONLY
                 case .readWrite:                    O_RDWR
+                #if !(canImport(Darwin) || os(OpenBSD))
+                case .none:                         O_RDONLY | __O_PATH
+                #else
+                case .none:                         0
+                #endif
             }
 
             #endif

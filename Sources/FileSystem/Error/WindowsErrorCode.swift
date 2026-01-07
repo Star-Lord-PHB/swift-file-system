@@ -2,7 +2,7 @@
 import WinSDK
 
 
-extension PlatformErrorCode {
+extension FsErrorCode.PlatformErrorCode {
 
     @inlinable public static var invalidFunction: Self { .init(rawValue: .init(ERROR_INVALID_FUNCTION)) }
     @inlinable public static var fileNotFound: Self { .init(rawValue: .init(ERROR_FILE_NOT_FOUND)) }
@@ -32,15 +32,15 @@ extension PlatformErrorCode {
     @inlinable public static var negativeSeek: Self { .init(rawValue: .init(ERROR_NEGATIVE_SEEK)) }
     @inlinable public static var badArguments: Self { .init(rawValue: .init(ERROR_BAD_ARGUMENTS)) }
     @inlinable public static var notSupported: Self { .init(rawValue: .init(ERROR_NOT_SUPPORTED)) }
-    @inlinable public static var directory: Self { .init(rawValue: .init(ERROR_DIRECTORY)) }
 
 
-    public var mappedErrorKind: ErrorKind {
+    public var mappedErrorKind: FsErrorCode.Kind {
         switch self {
             case .fileNotFound, .pathNotFound: .notFound
             case .accessDenied: .permissionDenied
             case .alreadyExists, .fileExists: .alreadyExists
             case .badArguments: .invalidInput
+            case .invalidDirectoryName: .notADirectory
             case .directoryNotEmpty: .notEmptyDirectory
             case .invalidHandle: .invalidHandle 
             case .diskFull: .noEnoughSpace

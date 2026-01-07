@@ -27,6 +27,24 @@ enum WindowsAPI {
     }
 
 
+    static func stringToPsid(sidStr: String) throws(SystemError) -> UnsafeOwnedAutoResource {
+
+        var sidPtr = nil as PSID?
+        try execThrowingCFunction {
+            sidStr.withCString(encodedAs: UTF16.self) { sidStrPtr in 
+                ConvertStringSidToSidW(sidStrPtr, &sidPtr)
+            }
+        }
+
+        guard let sidPtr else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningResource: sidPtr, freeingFunc: { LocalFree($0) })
+
+    }
+
+
     static func name(ofSid sidStr: String) throws(SystemError) -> String {
 
         var sidPtr = nil as PSID?
@@ -189,7 +207,7 @@ enum WindowsAPI {
                 SetEntriesInAclW(ULONG(aclEntriesBuffer.count), UnsafeMutablePointer(mutating: aclEntriesBuffer.baseAddress), aclPtr.unsafeRawPtr, &newAclPtr)
             }
         } onError: { (code) throws(SystemError) in
-            throw SystemError(code: code)
+            throw SystemError(code: code)!
         }
         guard let newAclPtr else {
             try SystemError.assertError()
@@ -200,18 +218,28 @@ enum WindowsAPI {
 
 
     static func makeAcl(from aclEntries: borrowing [EXPLICIT_ACCESSW]) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
+        return try setEntriesInAcl(for: nil, entires: aclEntries)
+    }
+
+
+    static func setEntriesInAcl(
+        for acl: consuming UnsafeOwnedAutoPointer<ACL>?, 
+        entires aclEntries: [EXPLICIT_ACCESSW]
+    ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
+
         var newAclPtr = nil as PACL?
         try execThrowingCFunction {
             aclEntries.withUnsafeBufferPointer { aclEntriesBuffer in 
-                SetEntriesInAclW(ULONG(aclEntriesBuffer.count), UnsafeMutablePointer(mutating: aclEntriesBuffer.baseAddress), nil, &newAclPtr)
+                SetEntriesInAclW(ULONG(aclEntriesBuffer.count), UnsafeMutablePointer(mutating: aclEntriesBuffer.baseAddress), acl?.unsafeRawPtr, &newAclPtr)
             }
         } onError: { (code) throws(SystemError) in
-            throw SystemError(code: code)
+            throw SystemError(code: code)!
         }
         guard let newAclPtr else {
             try SystemError.assertError()
         }
         return .init(owningPointer: newAclPtr, allocator: .localAlloc)
+
     }
 
 
@@ -241,22 +269,16 @@ enum WindowsAPI {
     }
 
 
-    static func securityDescriptor(
+    static func dacl(
         fromPosixPermissions permissions: FilePermissions, 
+        ownerSidPtr: UnsafeUnownedResource?,
+        groupSidPtr: UnsafeUnownedResource?,
         forDir: Bool = false
-    ) throws(SystemError) -> UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR> {
+    ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
 
         let ownerPermissions = windowsPermissionBits(fromPosixPermissionBits: permissions.rawValue >> 6, forDir: forDir)
         let groupPermissions = windowsPermissionBits(fromPosixPermissionBits: (permissions.rawValue >> 3) & 0b111, forDir: forDir)
         let othersPermissions = windowsPermissionBits(fromPosixPermissionBits: permissions.rawValue & 0b111, forDir: forDir)
-
-        let processToken = try getCurrentProcessTokenHandle()
-
-        let tokenUserPtr = try getTokenInformation(of: TokenUser, from: processToken, as: TOKEN_USER.self)
-        let userSidPtr = tokenUserPtr.pointee.User.Sid
-
-        let groupSidPtr = try getTokenInformation(of: TokenPrimaryGroup, from: processToken, as: TOKEN_PRIMARY_GROUP.self)
-        let primaryGroupSid = groupSidPtr.pointee.PrimaryGroup
 
         var worldAuth = getSecurityWorldSidAuthority()
         let everyoneSidPtr = try allocateSid(identifierAuthorityPtr: &worldAuth, subAuthorityCount: 1, DWORD(SECURITY_WORLD_RID), 0, 0, 0, 0, 0, 0, 0)
@@ -273,7 +295,7 @@ enum WindowsAPI {
             }
             entry.Trustee.TrusteeForm = TRUSTEE_IS_SID
             entry.Trustee.TrusteeType = TRUSTEE_IS_USER
-            entry.Trustee.ptstrName = userSidPtr?.assumingMemoryBound(to: WCHAR.self)
+            entry.Trustee.ptstrName = ownerSidPtr?.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
             daclEntries.append(entry)
         }
 
@@ -286,7 +308,7 @@ enum WindowsAPI {
             }
             entry.Trustee.TrusteeForm = TRUSTEE_IS_SID
             entry.Trustee.TrusteeType = TRUSTEE_IS_GROUP
-            entry.Trustee.ptstrName = primaryGroupSid?.assumingMemoryBound(to: WCHAR.self)
+            entry.Trustee.ptstrName = groupSidPtr?.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
             daclEntries.append(entry)
         }
 
@@ -303,7 +325,53 @@ enum WindowsAPI {
             daclEntries.append(entry)
         }
 
-        let daclPtr = try makeAcl(from: daclEntries)
+        return try makeAcl(from: daclEntries)
+
+    }
+
+
+    static func dacl(
+        fromPosixPermissions permissions: FilePermissions, 
+        forDir: Bool = false
+    ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
+
+        let processToken = try getCurrentProcessTokenHandle()
+
+        let tokenUserPtr = try getTokenInformation(of: TokenUser, from: processToken, as: TOKEN_USER.self)
+        let userSidPtr = tokenUserPtr.pointee.User.Sid
+
+        let groupSidPtr = try getTokenInformation(of: TokenPrimaryGroup, from: processToken, as: TOKEN_PRIMARY_GROUP.self)
+        let primaryGroupSid = groupSidPtr.pointee.PrimaryGroup
+
+        return try dacl(
+            fromPosixPermissions: permissions, 
+            ownerSidPtr: userSidPtr != nil ? .init(unownedResource: userSidPtr!) : nil, 
+            groupSidPtr: primaryGroupSid != nil ? .init(unownedResource: primaryGroupSid!) : nil, 
+            forDir: forDir
+        )
+
+    }
+
+
+    static func securityDescriptor(
+        fromPosixPermissions permissions: FilePermissions, 
+        forDir: Bool = false
+    ) throws(SystemError) -> UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR> {
+
+        let processToken = try getCurrentProcessTokenHandle()
+
+        let tokenUserPtr = try getTokenInformation(of: TokenUser, from: processToken, as: TOKEN_USER.self)
+        let userSidPtr = tokenUserPtr.pointee.User.Sid
+
+        let groupSidPtr = try getTokenInformation(of: TokenPrimaryGroup, from: processToken, as: TOKEN_PRIMARY_GROUP.self)
+        let primaryGroupSid = groupSidPtr.pointee.PrimaryGroup
+
+        let daclPtr = try dacl(
+            fromPosixPermissions: permissions, 
+            ownerSidPtr: userSidPtr != nil ? .init(unownedResource: userSidPtr!) : nil,
+            groupSidPtr: primaryGroupSid != nil ? .init(unownedResource: primaryGroupSid!) : nil,
+            forDir: forDir
+        )
 
         var securityDescriptor = SECURITY_DESCRIPTOR()
         try execThrowingCFunction {
@@ -390,7 +458,7 @@ enum WindowsAPI {
         }
 
         guard error == SystemError.successCode else {
-            throw SystemError(code: error)
+            throw SystemError(code: error)!
         }
 
         var genericMapping = GENERIC_MAPPING(

@@ -95,7 +95,7 @@ extension UnsafeSystemHandle {
         if result == false {
             let errorCode = GetLastError()
             guard errorCode == ERROR_IO_PENDING else {
-                throw SystemError(code: errorCode)
+                throw SystemError(code: errorCode)!
             }
         }
 
@@ -111,13 +111,13 @@ extension UnsafeSystemHandle {
         }
 
         guard result || GetLastError() == ERROR_IO_PENDING else {
-            throw SystemError(code: GetLastError())
+            throw SystemError(code: GetLastError())!
         }
 
         if result == false {
             let errorCode = GetLastError()
             guard errorCode == ERROR_IO_PENDING else {
-                throw SystemError(code: errorCode)
+                throw SystemError(code: errorCode)!
             }
         }
 

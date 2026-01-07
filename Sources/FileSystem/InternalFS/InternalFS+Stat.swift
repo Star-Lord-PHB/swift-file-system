@@ -13,13 +13,13 @@ extension InternalFS {
     /// 
     /// However, this type does not works very well on Windows due to limited support of stat 
     /// structure on Windows. It does works, but most of the properties may not be meaningful. 
-    /// For example, all the file time properties are represented as a single Int64 value 
-    /// instead of a FILETIME structure while creation time is not provided at all. Thus on 
-    /// Windows, it is just provided to support the unified stat function call, but not for 
-    /// serious file metadata access. For that, use the ``InternalFS/InternalRawFileInfo`` type
+    /// Thus on Windows, it is just provided to support the unified stat function call, but not 
+    /// for serious file metadata access. For that, use the ``InternalFS/InternalRawFileInfo`` type
     struct Stat {
 
-        #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        #if canImport(WinSDK)
+        typealias PlatformStat = _stat64
+        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         typealias PlatformStat = stat
         #else 
         typealias PlatformStat = StatCompat
@@ -31,16 +31,23 @@ extension InternalFS {
         typealias Time = timespec
         #endif
 
+        #if canImport(WinSDK)
+        typealias mode_t = UInt16
+        #endif
+
         let platformStat: PlatformStat
 
         var st_dev: UInt32 { .init(platformStat.st_dev) }
         var st_ino: UInt64 { .init(platformStat.st_ino) }
         var st_mode: mode_t { .init(platformStat.st_mode) }
         var st_nlink: UInt32 { .init(platformStat.st_nlink) }
-        var st_uid: UInt32 { platformStat.st_uid }
-        var st_gid: UInt32 { platformStat.st_gid }
         var st_rdev: UInt32 { .init(platformStat.st_rdev) }
         var st_size: UInt64 { .init(platformStat.st_size) }
+
+        #if !canImport(WinSDK)
+        var st_uid: UInt32 { platformStat.st_uid }
+        var st_gid: UInt32 { platformStat.st_gid }
+        #endif 
 
         var st_atim: Time {
             #if canImport(WinSDK)
@@ -107,6 +114,12 @@ extension InternalFS {
         var st = Stat.PlatformStat()
 
         #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        try execThrowingCFunction {
+            path.withPlatformString { pathPtr in 
+                _stat64(pathPtr, &st)
+            }
+        }
+        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in 
                 stat(pathPtr, &st)

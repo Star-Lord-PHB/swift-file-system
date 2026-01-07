@@ -86,6 +86,12 @@ struct UnsafeUnownedPointer<Pointee: ~Copyable>: ~Escapable {
     }
 
 
+    @_lifetime(copy self)
+    func pointer<Member>(to member: WritableKeyPath<Pointee, Member>) -> UnsafeUnownedPointer<Member> {
+        .init(unownedPointer: unsafeRawPtr.pointer(to: member)!)
+    }
+
+
     static func withPointer<R: ~Copyable, E: Error>(
         to value: borrowing Pointee, 
         _ body: (UnsafeUnownedPointer<Pointee>) throws(E) -> R

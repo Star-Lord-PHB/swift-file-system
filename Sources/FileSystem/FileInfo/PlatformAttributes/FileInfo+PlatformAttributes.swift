@@ -7,14 +7,14 @@ import WinSDK
 
 
 
-protocol PlatformAttributesProtocol: Sendable, OptionSet, Hashable, CustomStringConvertible where RawValue == RawBitType, Self.Element == Self {
+protocol PlatformFileAttributesProtocol: Sendable, OptionSet, Hashable, CustomStringConvertible where RawValue == RawBitType, Self.Element == Self {
     associatedtype RawBitType: FixedWidthInteger
     static var _allWithNameAsArray: [(Self, StaticString)]? { get }
     static var _all: Self { get }
 }
 
 
-extension PlatformAttributesProtocol {
+extension PlatformFileAttributesProtocol {
 
     @inlinable
     public var description: String {
@@ -45,32 +45,28 @@ extension PlatformAttributesProtocol {
 
 
 
-extension FileInfo {
+public struct PlatformFileAttributes: PlatformFileAttributesProtocol {
 
-    public struct PlatformAttributes: PlatformAttributesProtocol {
-
-        public typealias RawBitType = CInterop.PlatformFileAttribute
+    public typealias RawBitType = CInterop.PlatformFileAttribute
 
 
-        @_alwaysEmitIntoClient
-        public var rawValue: RawBitType
+    @_alwaysEmitIntoClient
+    public var rawValue: RawBitType
 
 
-        @inlinable
-        public init(rawValue: RawBitType) {
-            self.rawValue = rawValue
+    @inlinable
+    public init(rawValue: RawBitType) {
+        self.rawValue = rawValue
+    }
+
+
+    @inlinable
+    mutating func set(_ value: Bool, for attr: RawBitType) {
+        if value {
+            rawValue |= attr
+        } else {
+            rawValue &= ~attr
         }
-
-
-        @inlinable
-        mutating func set(_ value: Bool, for attr: RawBitType) {
-            if value {
-                rawValue |= attr
-            } else {
-                rawValue &= ~attr
-            }
-        }
-
     }
 
 }

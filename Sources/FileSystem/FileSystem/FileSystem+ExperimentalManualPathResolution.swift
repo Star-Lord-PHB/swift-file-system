@@ -23,7 +23,6 @@ extension FileSystem {
         }
 
     }
-    #endif
 
 
     @usableFromInline
@@ -305,7 +304,7 @@ extension FileSystem {
             //     fstatat(dirFdStack.top!, component.baseAddress, &st, AT_SYMLINK_NOFOLLOW)
             // }
 
-            // switch FileInfo.FileType(mode: st.st_mode) {
+            // switch FileType(mode: st.st_mode) {
             //     case .symlink: do {
 
             //         remainingSymlinkAllowed -= 1
@@ -368,6 +367,8 @@ extension FileSystem {
         #endif 
 
     }
+
+    #endif
 
 }
 

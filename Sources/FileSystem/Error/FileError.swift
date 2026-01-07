@@ -5,14 +5,14 @@ import SystemPackage
 
 public struct FileError: Error, LocalizedError, CustomStringConvertible {
 
-    public let code: ErrorCode
+    public let code: FsErrorCode
     public let operationDescription: OperationDescription
 
-    public var kind: ErrorCode.Kind { .init(mapping: code) }
+    public var kind: FsErrorCode.Kind { .init(mapping: code) }
 
 
     @inlinable
-    public init?(code: ErrorCode, operationDescription: OperationDescription) {
+    public init?(code: FsErrorCode, operationDescription: OperationDescription) {
         guard code != .success else { return nil }
         self.code = code
         self.operationDescription = operationDescription
@@ -47,8 +47,8 @@ public struct FileError: Error, LocalizedError, CustomStringConvertible {
 extension FileError {
 
     @inlinable
-    public init?(code: PlatformErrorCode.RawBitType, operationDescription: OperationDescription) {
-        let errorCode = PlatformErrorCode(rawValue: code)
+    public init?(code: CInterop.ErrorCode, operationDescription: OperationDescription) {
+        let errorCode = FsErrorCode.PlatformErrorCode(rawValue: code)
         guard errorCode != .success else { return nil }
         self.init(code: .platform(errorCode), operationDescription: operationDescription)
     }
@@ -56,7 +56,7 @@ extension FileError {
 
     @inlinable
     public static func fromLastError(operationDescription: @autoclosure () -> OperationDescription) -> FileError? {
-        let errorCode = PlatformErrorCode.fromLastError()
+        let errorCode = FsErrorCode.PlatformErrorCode.fromLastError()
         guard errorCode != .success else { return nil }
         return .init(code: .platform(errorCode), operationDescription: operationDescription())
     }

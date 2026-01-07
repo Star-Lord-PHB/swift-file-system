@@ -25,4 +25,18 @@ extension CInterop {
     public typealias PosixInodeFlags = CInt
     #endif
 
+    #if canImport(WinSDK)
+    public typealias FileId = UInt128
+    public typealias DeviceId = UInt64
+    #else
+    public typealias FileId = UInt64
+    public typealias DeviceId = UInt32
+    #endif 
+
+    #if canImport(WinSDK)
+    public typealias ErrorCode = DWORD
+    #else
+    public typealias ErrorCode = CInt
+    #endif
+
 }
