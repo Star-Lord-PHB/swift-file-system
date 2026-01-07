@@ -27,4 +27,10 @@ package var SUPPORT_SYMLINK_DESCRIPTOR: Bool {
 package var UTIME_OMIT: Int32 {
     Int32(_UTIME_OMIT)
 }
+package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
+    return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)
+}
+package var RENAME_NOREPLACE: Int32 {
+    Int32(_RENAME_NOREPLACE)
+}
 #endif 

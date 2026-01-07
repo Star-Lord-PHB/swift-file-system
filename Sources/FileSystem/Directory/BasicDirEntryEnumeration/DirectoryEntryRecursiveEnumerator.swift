@@ -208,12 +208,10 @@ struct DirectoryEntryRecursiveEnumerator: ~Copyable {
         let fileAttributes = systemEntry.dwFileAttributes
         let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
 
-        return if fileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
+        return if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
+            hasReparseTagSymlink ? .symlink : .unknown
+        } else if fileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
             .directory
-        } else if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 && hasReparseTagSymlink {
-            .symlink
-        } else if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
-            .unknown
         } else {
             .regular
         }

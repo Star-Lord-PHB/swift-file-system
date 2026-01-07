@@ -63,8 +63,12 @@ extension FileSystemTest.RemoveItemTest {
         let structure = [
             "file1.txt": .file(contents: "Serika is Cute!"),
             "a": [
-                "file2.txt": .file(contents: "Penghaobo is Handsome!"),
-                "link1.lnk": .symlink(target: "../file1.txt")
+                "file2.txt": .file(contents: "Hoshino is Cute!"),
+                "link1.lnk": .symlink(target: "../file1.txt"),
+                "b": [
+                    "file3.txt": .file(contents: "Swift is Great!")
+                ],
+                "link2.lnk": .symlink(target: "./b")
             ]
         ] as FileStructure
 

@@ -8,7 +8,7 @@ extension InternalFS {
 
     #if !canImport(WinSDK)
 
-    static func fdopendir(for handle: consuming UnsafeSystemHandle) throws(SystemError) -> OpaquePointer {
+    fileprivate static func fdopendir(for handle: consuming UnsafeSystemHandle) throws(SystemError) -> OpaquePointer {
         guard let dirStream = PlatformCLib.fdopendir(handle.take()) else {
             try SystemError.assertError()
         }
@@ -16,7 +16,7 @@ extension InternalFS {
     }
 
 
-    static func readdir(from dirStream: OpaquePointer) throws(SystemError) -> dirent? {
+    fileprivate static func readdir(from dirStream: OpaquePointer) throws(SystemError) -> dirent? {
 
         errno = 0
 
@@ -34,7 +34,7 @@ extension InternalFS {
     }
 
 
-    static func closedir(_ dirStream: OpaquePointer) throws(SystemError) {
+    fileprivate static func closedir(_ dirStream: OpaquePointer) throws(SystemError) {
 
         #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         let dirStream = UnsafeMutablePointer<DIR>(dirStream)

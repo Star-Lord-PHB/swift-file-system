@@ -195,6 +195,7 @@ extension InternalFS.InternalRawFileInfo {
 
 
 
+// - MARK: File Type
 extension InternalFS {
 
     static func type(ofItemAt path: FilePath) throws(SystemError) -> FileType {
@@ -262,7 +263,7 @@ extension InternalFS {
 
         #else
 
-        return try .init(mode: try ufstat(handle.unsafeRawHandle).st_mode)
+        return .init(mode: try ufstat(handle).st_mode)
 
         #endif
 
@@ -441,7 +442,7 @@ extension InternalFS {
 
         #else
 
-        let internalInfo = try getRawFileInfo(forItemAt: path, followSymlink: followSymlink)
+        let internalInfo = try getRawFileInfo(forItemAt: path)
         return .init(
             accessTime: internalInfo.accessTime, 
             modificationTime: internalInfo.modificationTime, 
@@ -468,14 +469,12 @@ extension InternalFS {
             )
         }
 
-        let times = InternalFileTimes(
+        return .init(
             accessTime: .init(largeInteger: fileBasicInfo.LastAccessTime), 
             modificationTime: .init(largeInteger: fileBasicInfo.LastWriteTime), 
             changeTime: .init(largeInteger: fileBasicInfo.ChangeTime),
             creationTime: .init(largeInteger: fileBasicInfo.CreationTime)
         )
-
-        return times
 
         #else
 
@@ -555,13 +554,13 @@ extension InternalFS {
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
     static func setFileAttributes(forItemAt path: FilePath, attributes: CInterop.PlatformFileAttribute) throws(SystemError) {
-        fatalError("Not Supported")
+        throw SystemError(code: .notSupported)!
     }
 
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
     static func setFileAttributes(for handle: borrowing UnsafeSystemHandle, attributes: CInterop.PlatformFileAttribute) throws(SystemError) {
-        fatalError("Not Supported")
+        throw SystemError(code: .notSupported)!
     }
 
 

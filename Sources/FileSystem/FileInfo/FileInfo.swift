@@ -102,17 +102,10 @@ extension FileInfo {
 #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
-        self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try .make(forItemAt: path, followSymLink: followSymLink)
+        let rawInfo = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
         }
-    }
-
-
-    static func make(forItemAt path: FilePath, followSymLink: Bool) throws(SystemError) -> FileInfo {
-        
-        let rawInfo = try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
-
-        return .init(
+        self.init(
             path: path, 
             size: rawInfo.size, 
             type: rawInfo.type, 
@@ -120,11 +113,13 @@ extension FileInfo {
             lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
             lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
             creationDate: .init(platformFileTime: rawInfo.creationTime), 
-            securityInfo: .init(permission: rawInfo.permissions, uid: rawInfo.uid, gid: rawInfo.gid), 
+            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
+            permissions: rawInfo.permissions,
+            uid: rawInfo.uid,
+            gid: rawInfo.gid,
             attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )
-
     }
 
 
@@ -140,7 +135,10 @@ extension FileInfo {
             lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
             lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
             creationDate: .init(platformFileTime: rawInfo.creationTime), 
-            securityInfo: .init(permission: rawInfo.permissions, uid: rawInfo.uid, gid: rawInfo.gid), 
+            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
+            permissions: rawInfo.permissions,
+            uid: rawInfo.uid,
+            gid: rawInfo.gid,
             attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )
@@ -150,65 +148,46 @@ extension FileInfo {
 #elseif canImport(Glibc) || canImport(Musl)
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
-        self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try .make(forItemAt: path, followSymLink: followSymLink)
+        let rawInfo = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
         }
-    }
-
-
-    static func make(forItemAt path: FilePath, followSymLink: Bool) throws(SystemError) -> FileInfo {
-
-        var stat = StatCompat()
-        let flags = followSymLink ? 0 : AT_SYMLINK_NOFOLLOW
-
-        try execThrowingCFunction {
-            systemStatCompat(path.string, flags, &stat)
-        }
-
-        return .init(
-            path: path,
-            size: UInt64(stat.st_size),
-            type: .init(mode: stat.st_mode),
-            lastAccessDate: .init(platformFileTime: stat.st_atim),
-            lastModificationDate: .init(platformFileTime: stat.st_mtim),
-            lastStatusChangeDate: .init(platformFileTime: stat.st_ctim),
-            creationDate: (stat.has_btime != 0) ? .init(platformFileTime: stat.st_btim) : nil,
-            securityInfo: .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid),
-            attributes: .init(rawValue: stat.st_attributes),
-            supportedAttributes: .init(rawValue: stat.st_attributes_mask)
+        self.init(
+            path: path, 
+            size: rawInfo.size, 
+            type: rawInfo.type, 
+            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
+            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
+            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
+            creationDate: rawInfo.creationTime.map { .init(platformFileTime: $0) }, 
+            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
+            permissions: rawInfo.permissions,
+            uid: rawInfo.uid,
+            gid: rawInfo.gid,
+            attributes: .init(rawValue: rawInfo.attributes), 
+            supportedAttributes: .all
         )
-
     }
 
 
     init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
 
-        var stat = StatCompat()
+        let rawInfo = try InternalFS.getRawFileInfo(from: handle)
 
-        try execThrowingCFunction {
-            systemFStatCompat(handle.unsafeRawHandle, &stat)
-        }
-
-        self.path = path
-        self.size = UInt64(stat.st_size)
-
-        self.lastAccessDate = .init(platformFileTime: stat.st_atim)
-        self.lastModificationDate = .init(platformFileTime: stat.st_mtim)
-        self.lastStatusChangeDate = .init(platformFileTime: stat.st_ctim)
-        if (stat.has_btime != 0) {
-            self.creationDate = .init(platformFileTime: stat.st_btim)
-        } else {
-            self.creationDate = nil
-        }
-
-        self.type = .init(mode: stat.st_mode)
-
-        self.attributes = .init(rawValue: stat.st_attributes)
-        self.supportedAttributes = .init(rawValue: stat.st_attributes_mask)
-
-        self.securityInfo = .init(permission: .init(rawValue: stat.st_mode & 0o7777), uid: stat.st_uid, gid: stat.st_gid)
-
-        // TODO: on older linux kernels, try to use ioctl with FS_IOC_GETFLAGS to get file attributes
+        self = .init(
+            path: path, 
+            size: rawInfo.size, 
+            type: rawInfo.type, 
+            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
+            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
+            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
+            creationDate: rawInfo.creationTime.map { .init(platformFileTime: $0) }, 
+            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
+            permissions: rawInfo.permissions,
+            uid: rawInfo.uid,
+            gid: rawInfo.gid,
+            attributes: .init(rawValue: rawInfo.attributes), 
+            supportedAttributes: .all
+        )
 
     }
 

@@ -113,7 +113,7 @@ extension InternalFS {
 
         var st = Stat.PlatformStat()
 
-        #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        #if canImport(WinSDK)
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in 
                 _stat64(pathPtr, &st)

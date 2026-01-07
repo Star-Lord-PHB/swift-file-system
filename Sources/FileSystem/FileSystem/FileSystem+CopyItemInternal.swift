@@ -1,7 +1,6 @@
 import SystemPackage
 import PlatformCLib
 import CFileSystem
-import BasicContainers
 
 
 
@@ -16,14 +15,37 @@ extension FileSystem {
 
     fileprivate struct CachedCopySrcItemAttrs: ~Copyable {
 
+        // this type is used instead of ``InternalFS.InternalFileTimes`` since we don't need ctime
+        struct CachedFileTimes {
+            let accessTime: CInterop.PlatformFileTime
+            let modificationTime: CInterop.PlatformFileTime
+            #if canImport(Darwin) || canImport(WinSDK) || os(FreeBSD) || os(OpenBSD)
+            let creationTime: CInterop.PlatformFileTime
+            #else
+            let creationTime: CInterop.PlatformFileTime?
+            #endif
+        }
+
         let info: InternalFS.InternalRawFileInfo
 
         var type: FileType { info.type }
 
+        var fileTimes: CachedFileTimes {
+            .init(
+                accessTime: info.accessTime, 
+                modificationTime: info.modificationTime, 
+                creationTime: creationTime
+            )
+        }
+
         var accessTime: CInterop.PlatformFileTime { info.accessTime }
         var modificationTime: CInterop.PlatformFileTime { info.modificationTime }
         var statusChangeTime: CInterop.PlatformFileTime { info.changeTime }
+        #if canImport(Darwin) || canImport(WinSDK) || os(FreeBSD) || os(OpenBSD)
+        var creationTime: CInterop.PlatformFileTime { info.creationTime }
+        #else 
         var creationTime: CInterop.PlatformFileTime? { info.creationTime }
+        #endif 
 
         #if canImport(Glibc) || canImport(Musl)
         // on Linux, inode flags are not available for symlinks
@@ -102,36 +124,6 @@ extension FileSystem {
         #endif 
 
         #endif 
-
-    }
-
-
-    fileprivate func _writeCachedFileTime(
-        forHandle handle: borrowing UnsafeSystemHandle, 
-        cachedAttrs: borrowing CachedCopySrcItemAttrs
-    ) throws(SystemError) {
-
-        try InternalFS.setFileTimes(
-            for: handle, 
-            access: cachedAttrs.accessTime, 
-            modification: cachedAttrs.modificationTime, 
-            creation: cachedAttrs.creationTime
-        )
-
-    }
-
-
-    fileprivate func _writeCachedFileTime(
-        forItemAt path: FilePath, 
-        cachedAttrs: borrowing CachedCopySrcItemAttrs
-    ) throws(SystemError) {
-
-        try InternalFS.setFileTimes(
-            forItemAt: path, 
-            access: cachedAttrs.accessTime, 
-            modification: cachedAttrs.modificationTime, 
-            creation: cachedAttrs.creationTime
-        ) 
 
     }
 
@@ -333,7 +325,7 @@ extension FileSystem {
             try InternalFS.copyRegularFile(from: srcHandle, to: dstHandle)
             try? InternalFS.setFileTimes(for: srcHandle, access: srcFileAttrs.accessTime, modification: nil)
             try _writeCachedItemAttrsWithoutFileTime(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
-            try _writeCachedFileTime(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
+            try InternalFS.setFileTimes(for: dstHandle, access: srcFileAttrs.accessTime, modification: srcFileAttrs.modificationTime, creation: srcFileAttrs.creationTime)
             if shouldRename {
                 try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
@@ -370,9 +362,15 @@ extension FileSystem {
                 // TODO: remove the copied symlink if fail to write the cached attributes
                 let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
                 try InternalFS.symlink(dstPath: targetPath, linkPath: dstPath)
-                try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
-                try _writeCachedFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
-                try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
+                do {
+                    try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
+                    try InternalFS.setFileTimes(forItemAt: dstPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime)
+                    try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
+                } catch {
+                    try? InternalFS.unlink(fileAt: dstPath)
+                    error.code.rawValue.map { errno = $0 }
+                    throw error
+                }
             case (.some(_), .skip):
                 return
             case (.some(.symlink), .replace), (.some(.regular), .replace), (.none, .replace), (.none, .skip):
@@ -389,12 +387,12 @@ extension FileSystem {
                     }
                 }
                 guard created else {
-                    errno = PlatformErrorCode.fileExists.rawValue
+                    errno = FsErrorCode.PlatformErrorCode.fileExists.rawValue
                     throw SystemError(code: .fileExists)!
                 }
                 do {
                     try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
-                    try _writeCachedFileTime(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
+                    try InternalFS.setFileTimes(forItemAt: dstTmpPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime)
                     try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
                     try InternalFS.rename(itemAt: dstTmpPath, to: dstPath)
                 } catch {
@@ -465,7 +463,7 @@ extension FileSystem {
         do {
             try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
             try _writeCachedItemAttrsWithoutFileTime(forItemAt: tmpDstPath, cachedAttrs: srcAttrs)
-            try _writeCachedFileTime(forItemAt: tmpDstPath, cachedAttrs: srcAttrs)
+            try InternalFS.setFileTimes(forItemAt: tmpDstPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime)
             if shouldRename {
                 try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
@@ -509,27 +507,27 @@ extension FileSystem {
             case (_, _):                                            break
         }
 
-        struct DirCachedAttrItem: ~Copyable {
-            let attr: CachedCopySrcItemAttrs?
-            let srcAccessTime: CInterop.PlatformFileTime
-            init(attr: consuming CachedCopySrcItemAttrs? = nil, srcAccessTime: CInterop.PlatformFileTime) {
-                self.attr = attr
-                self.srcAccessTime = srcAccessTime
+        /// Store the file times to be copied to the destination dir and the original access time of the source dir to be restored later
+        struct DirFileTimesItem {
+            let fileTimesToCopy: CachedCopySrcItemAttrs.CachedFileTimes?
+            let cachedSrcAccessTime: CInterop.PlatformFileTime
+            init(fileTimesToCopy: CachedCopySrcItemAttrs.CachedFileTimes? = nil, cachedSrcAccessTime: CInterop.PlatformFileTime) {
+                self.fileTimesToCopy = fileTimesToCopy
+                self.cachedSrcAccessTime = cachedSrcAccessTime
             }
-            init(attr: consuming CachedCopySrcItemAttrs) {
-                self.srcAccessTime = attr.accessTime
-                self.attr = .some(attr)
+            init(fileTimesToCopy: CachedCopySrcItemAttrs.CachedFileTimes) {
+                self.init(fileTimesToCopy: fileTimesToCopy, cachedSrcAccessTime: fileTimesToCopy.accessTime)
             }
         }
 
-        var dirCachedAttrStack = UniqueArray<DirCachedAttrItem>()
+        var dirFileTimesStack = [DirFileTimesItem]()
 
         if try _makeEmptyDirectoryForCopy(at: dstPath, overwrite: overwrite) {
             try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
-            dirCachedAttrStack.append(.init(attr: srcAttrs))
+            dirFileTimesStack.append(.init(fileTimesToCopy: srcAttrs.fileTimes))
         } else {
             let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath).accessTime
-            dirCachedAttrStack.append(.init(srcAccessTime: srcAccessTime))
+            dirFileTimesStack.append(.init(cachedSrcAccessTime: srcAccessTime))
         }
 
         var enumerator = try DirectoryEntryRecursiveEnumerator(path: srcPath, doStat: true)
@@ -537,12 +535,11 @@ extension FileSystem {
         while let enumerationElement = try enumerator.next() {
 
             if case .leavingDir(let path) = enumerationElement {
-                guard let item = dirCachedAttrStack.popLast() else { continue }
-                let accessTime = item.srcAccessTime
-                if let cachedAttr = item.attr {
-                    try _writeCachedFileTime(forItemAt: dstPath.appending(path.components), cachedAttrs: cachedAttr)
+                guard let item = dirFileTimesStack.popLast() else { continue }
+                if let times = item.fileTimesToCopy {
+                    try InternalFS.setFileTimes(forItemAt: dstPath.appending(path.components), access: times.accessTime, modification: times.modificationTime, creation: times.creationTime)
                 }
-                try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: accessTime, modification: nil)
+                try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: item.cachedSrcAccessTime, modification: nil)
                 continue
             }
 
@@ -566,22 +563,21 @@ extension FileSystem {
                     if try _makeEmptyDirectoryForCopy(at: dstPath.appending(entry.path.components), overwrite: overwrite) {
                         let cachedAttr = try _cacheItemAttrsForCopy(forItemAt: srcPath.appending(entry.path.components))
                         try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath.appending(entry.path.components), cachedAttrs: cachedAttr)
-                        dirCachedAttrStack.append(.init(attr: cachedAttr))
+                        dirFileTimesStack.append(.init(fileTimesToCopy: cachedAttr.fileTimes))
                     } else {
                         let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath.appending(entry.path.components)).accessTime
-                        dirCachedAttrStack.append(.init(srcAccessTime: srcAccessTime))
+                        dirFileTimesStack.append(.init(cachedSrcAccessTime: srcAccessTime))
                     }
                 default: break
             }
 
         }
 
-        if let item = dirCachedAttrStack.popLast() {
-            let accessTime = item.srcAccessTime
-            if let cachedAttr = item.attr {
-                try _writeCachedFileTime(forItemAt: dstPath, cachedAttrs: cachedAttr)
+        if let item = dirFileTimesStack.popLast() {
+            if let times = item.fileTimesToCopy {
+                try InternalFS.setFileTimes(forItemAt: dstPath, access: times.accessTime, modification: times.modificationTime, creation: times.creationTime)
             }
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: accessTime, modification: nil)
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: item.cachedSrcAccessTime, modification: nil)
         }
 
     }

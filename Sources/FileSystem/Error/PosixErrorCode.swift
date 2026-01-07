@@ -54,7 +54,7 @@ extension FsErrorCode.PlatformErrorCode {
     @inlinable public static var wouldBlock: Self { .resourceTemporarilyUnavailable }
 
 
-    var mappedErrorKind: ErrorCode.Kind {
+    var mappedErrorKind: FsErrorCode.Kind {
         switch self {
             case .noSuchFileOrDirectory: .notFound
             case .permissionDenied, .operationNotPermitted: .permissionDenied

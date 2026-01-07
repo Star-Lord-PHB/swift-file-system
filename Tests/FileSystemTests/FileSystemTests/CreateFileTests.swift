@@ -30,7 +30,7 @@ extension FileSystemTest.CreateFileTest {
         #if canImport(WinSDK)
         // TODO: Check default permission on Windows
         #else 
-        #expect(info.securityInfo.permission == [.ownerReadWrite, .groupRead, .otherRead])
+        #expect(info.permissions == [.ownerReadWrite, .groupRead, .otherRead])
         #endif 
 
         #expect(try Data(contentsOf: .init(filePath: path.string)) == .init())
@@ -62,7 +62,7 @@ extension FileSystemTest.CreateFileTest {
         #if canImport(WinSDK)
         // TODO: Check custom permission on Windows
         #else
-        #expect(info.securityInfo.permission == expectedPermission)
+        #expect(info.permissions == expectedPermission)
         #endif
 
         #expect(try Data(contentsOf: .init(filePath: path.string)) == Data(content))
@@ -87,7 +87,7 @@ extension FileSystemTest.CreateFileTest {
         #if canImport(WinSDK)
         // TODO: Check permission on Windows
         #else
-        #expect(info.securityInfo.permission == prevInfo.securityInfo.permission)
+        #expect(info.permissions == prevInfo.permissions)
         #endif
 
     }
@@ -113,7 +113,7 @@ extension FileSystemTest.CreateFileTest {
         // TODO: Check custom permission on Windows
         #else
         // when destination exists, the permission won't be updated
-        #expect(info.securityInfo.permission == prevInfo.securityInfo.permission)
+        #expect(info.permissions == prevInfo.permissions)
         #endif
 
     }

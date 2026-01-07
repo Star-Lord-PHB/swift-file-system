@@ -103,7 +103,7 @@ enum InternalFS {
         try execThrowingCFunction {
             srcPath.withPlatformString { srcPtr in 
                 dstPath.withPlatformString { dstPtr in 
-                    renameat2(AT_FDCWD, srcPtr, AT_FDCWD, dstPtr)
+                    renameat2(AT_FDCWD, srcPtr, AT_FDCWD, dstPtr, flags)
                 }
             }
         }

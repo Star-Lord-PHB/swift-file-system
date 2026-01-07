@@ -368,7 +368,7 @@ extension FileSystemTest {
         // TODO: add permission comparison for Windows
         #if !canImport(WinSDK)
         if !excludedCriteria.contains(.permission) {
-            #expect(info.permission == expectation.info.permission, comment, sourceLocation: sourceLocation)
+            #expect(info.permissions == expectation.info.permissions, comment, sourceLocation: sourceLocation)
         }
         #endif 
         if !excludedCriteria.contains(.attributes) {
