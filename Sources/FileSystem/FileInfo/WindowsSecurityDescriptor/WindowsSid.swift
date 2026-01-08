@@ -25,7 +25,7 @@ public struct WindowsSid {
     var psid: UnsafeUnownedResource {
         @_lifetime(borrow self)
         get {
-            .init(unownedResource: self.storage.psid.unsafeResourcePtr)
+            _overrideLifetime(self.storage.psid.unownedView(), borrowing: self)
         }
     }
 
@@ -49,6 +49,10 @@ public struct WindowsSid {
         return try! WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
     }
 
+    public var accountName: String {
+        try! WindowsAPI.name(ofPSid: psid)
+    }
+
     public func isValid() -> Bool {
         return IsValidSid(storage.psid.unsafeResourcePtr)
     }
@@ -57,7 +61,11 @@ public struct WindowsSid {
         return try WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
     }
 
-    public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
+    public func checkedAccountName() throws(SystemError) -> String {
+        return try WindowsAPI.name(ofPSid: psid)
+    }
+
+    public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
         let result = try body(storage.psid.unsafeResourcePtr)
         precondition(self.isValid(), "SID pointer corrupted")
         return result
@@ -74,19 +82,27 @@ public struct WindowsSid {
             precondition(isValid(), "Invalid SID pointer")
         }
 
-        var string: String {
+        public var string: String {
             return try! WindowsAPI.pSidToString(sidPtr: psid)
         }
 
-        func isValid() -> Bool {
+        public var accountName: String {
+            try! WindowsAPI.name(ofPSid: psid)
+        }
+
+        public func isValid() -> Bool {
             return IsValidSid(psid.unsafeResourcePtr)
         }
 
-        func checkedString() throws(SystemError) -> String {
+        public func checkedString() throws(SystemError) -> String {
             return try WindowsAPI.pSidToString(sidPtr: psid)
         }
 
-        func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
+        public func checkedAccountName() throws(SystemError) -> String {
+            return try WindowsAPI.name(ofPSid: psid)
+        }
+
+        public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
             let result = try body(psid.unsafeResourcePtr)
             precondition(isValid(), "SID pointer corrupted")
             return result

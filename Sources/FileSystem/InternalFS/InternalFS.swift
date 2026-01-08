@@ -514,7 +514,7 @@ enum InternalFS {
         #if canImport(WinSDK)
 
         let psd = try permissions.map { (p) throws(SystemError) in 
-            try WindowsAPI.securityDescriptor(fromPosixPermissions: p)
+            try WindowsAPI.securityDescriptor(fromPosixPermissions: p, forDir: true)
         }
 
         var sa = SECURITY_ATTRIBUTES()

@@ -49,9 +49,7 @@ extension WindowsSelfRelativeSecurityDescriptor {
     }
 
     public var control: (control: WindowsSecurityDescriptorControl, revision: DWORD) {
-        var revision = 0 as DWORD
-        var control = 0 as SECURITY_DESCRIPTOR_CONTROL
-        GetSecurityDescriptorControl(psd.unsafeRawPtr, &control, &revision)
+        let (control, revision) = try! WindowsAPI.getControl(from: psd.unownedView())
         return (.init(unsafeRawValue: control), revision)
     }
 

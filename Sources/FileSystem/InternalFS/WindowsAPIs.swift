@@ -4,6 +4,7 @@ import SystemPackage
 import CFileSystem
 
 
+/// A collections of wrappers around Win32 APIs that are not directly related to file system operations.
 enum WindowsAPI {
 
     static func pSidToString(sidPtr: UnsafeUnownedResource) throws(SystemError) -> String {
@@ -45,6 +46,33 @@ enum WindowsAPI {
     }
 
 
+    static func name(ofPSid sidPtr: UnsafeUnownedResource) throws(SystemError) -> String {
+
+        var nameSize = 0 as DWORD
+        var domainSize = 0 as DWORD
+        var use = SID_NAME_USE(0)
+
+        LookupAccountSidW(nil, sidPtr.unsafeResourcePtr, nil, &nameSize, nil, &domainSize, nil)
+        guard GetLastError() == ERROR_INSUFFICIENT_BUFFER else {
+            try SystemError.assertError()
+        }
+
+        let nameBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(nameSize))
+        let domainBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(domainSize))
+        defer {
+            nameBuffer.deallocate()
+            domainBuffer.deallocate()
+        }
+
+        try execThrowingCFunction {
+            LookupAccountSidW(nil, sidPtr.unsafeResourcePtr, nameBuffer, &nameSize, domainBuffer, &domainSize, &use)
+        }
+
+        return String(decodingCString: nameBuffer, as: UTF16.self)
+
+    }
+
+
     static func name(ofSid sidStr: String) throws(SystemError) -> String {
 
         var sidPtr = nil as PSID?
@@ -60,32 +88,12 @@ enum WindowsAPI {
         }
         defer { LocalFree(sidPtr) }
 
-        var nameSize = 0 as DWORD
-        var domainSize = 0 as DWORD
-        var use = SID_NAME_USE(0)
-
-        LookupAccountSidW(nil, sidPtr, nil, &nameSize, nil, &domainSize, nil)
-        guard GetLastError() == ERROR_INSUFFICIENT_BUFFER else {
-            try SystemError.assertError()
-        }
-
-        let nameBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(nameSize))
-        let domainBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(domainSize))
-        defer {
-            nameBuffer.deallocate()
-            domainBuffer.deallocate()
-        }
-
-        try execThrowingCFunction {
-            LookupAccountSidW(nil, sidPtr, nameBuffer, &nameSize, domainBuffer, &domainSize, &use)
-        }
-
-        return String(decodingCString: nameBuffer, as: UTF16.self)
+        return try name(ofPSid: .init(unownedResource: sidPtr))
 
     }
 
 
-    static func windowsPermissionBits(fromPosixPermissionBits bits: CModeT, forDir: Bool = false) -> DWORD {
+    static func windowsAcePermissionBits(fromPosixPermissionBits bits: CModeT, forDir: Bool = false) -> DWORD {
 
         var permissions = DWORD(0)
 
@@ -197,26 +205,6 @@ enum WindowsAPI {
     }
 
 
-    static func setEntries(
-        _ aclEntries: borrowing [EXPLICIT_ACCESSW], 
-        inAcl aclPtr: inout UnsafeOwnedAutoPointer<ACL>
-    ) throws(SystemError) {
-        var newAclPtr = nil as PACL?
-        try execThrowingCFunction {
-            aclEntries.withUnsafeBufferPointer { aclEntriesBuffer in 
-                SetEntriesInAclW(ULONG(aclEntriesBuffer.count), UnsafeMutablePointer(mutating: aclEntriesBuffer.baseAddress), aclPtr.unsafeRawPtr, &newAclPtr)
-            }
-        } onError: { (code) throws(SystemError) in
-            throw SystemError(code: code)!
-        }
-        guard let newAclPtr else {
-            try SystemError.assertError()
-        }
-        aclPtr.deallocate()
-        aclPtr = .init(owningPointer: newAclPtr, allocator: .localAlloc)
-    }
-
-
     static func makeAcl(from aclEntries: borrowing [EXPLICIT_ACCESSW]) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
         return try setEntriesInAcl(for: nil, entires: aclEntries)
     }
@@ -276,9 +264,9 @@ enum WindowsAPI {
         forDir: Bool = false
     ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
 
-        let ownerPermissions = windowsPermissionBits(fromPosixPermissionBits: permissions.rawValue >> 6, forDir: forDir)
-        let groupPermissions = windowsPermissionBits(fromPosixPermissionBits: (permissions.rawValue >> 3) & 0b111, forDir: forDir)
-        let othersPermissions = windowsPermissionBits(fromPosixPermissionBits: permissions.rawValue & 0b111, forDir: forDir)
+        let ownerPermissions = windowsAcePermissionBits(fromPosixPermissionBits: permissions.rawValue >> 6, forDir: forDir)
+        let groupPermissions = windowsAcePermissionBits(fromPosixPermissionBits: (permissions.rawValue >> 3) & 0b111, forDir: forDir)
+        let othersPermissions = windowsAcePermissionBits(fromPosixPermissionBits: permissions.rawValue & 0b111, forDir: forDir)
 
         var worldAuth = getSecurityWorldSidAuthority()
         let everyoneSidPtr = try allocateSid(identifierAuthorityPtr: &worldAuth, subAuthorityCount: 1, DWORD(SECURITY_WORLD_RID), 0, 0, 0, 0, 0, 0, 0)
@@ -475,6 +463,14 @@ enum WindowsAPI {
     }
 
 
+    static func getControl(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> (SECURITY_DESCRIPTOR_CONTROL, DWORD) {
+        var revision = 0 as DWORD
+        var control = 0 as SECURITY_DESCRIPTOR_CONTROL
+        GetSecurityDescriptorControl(securityDescriptorPtr.unsafeRawPtr, &control, &revision)
+        return (control, revision)
+    }
+
+
     @_lifetime(copy securityDescriptorPtr)
     static func getOwnerSid(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> (sid: UnsafeUnownedResource, defaulted: Bool) {
         var ownerSidPtr = nil as PSID?
@@ -500,33 +496,6 @@ enum WindowsAPI {
             try SystemError.assertError()
         }
         return (sid: .init(unownedResource: groupSidPtr), defaulted: groupDefaulted.boolValue)
-    }
-
-
-    static func getFileSecurity(
-        at path: FilePath, 
-        requesting information: SECURITY_INFORMATION
-    ) throws(SystemError) -> UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR> {
-
-        var descriptorSize = 0 as DWORD
-
-        let getFileSecurityResult = path.string.withCString(encodedAs: UTF16.self) { pathPtr in 
-            GetFileSecurityW(pathPtr, information, nil, 0, &descriptorSize)
-        }
-        guard getFileSecurityResult == false && GetLastError() == ERROR_INSUFFICIENT_BUFFER else {
-            try SystemError.assertError()
-        }
-
-        let securityDescriptorPtr = UnsafeMutableRawPointer.allocate(byteCount: Int(descriptorSize), alignment: MemoryLayout<SECURITY_DESCRIPTOR>.alignment)
-
-        try execThrowingCFunction {
-            path.string.withCString(encodedAs: UTF16.self) { pathPtr in 
-                GetFileSecurityW(pathPtr, information, securityDescriptorPtr, descriptorSize, &descriptorSize)
-            }
-        }
-
-        return .init(owningPointer: securityDescriptorPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self), allocator: .swift)
-
     }
 
 }

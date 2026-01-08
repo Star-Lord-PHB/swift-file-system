@@ -266,12 +266,12 @@ extension WindowsAbsoluteSecurityDescriptor {
 
 
     public mutating func removeDacl() {
-        self.dacl = .init()
+        self.dacl = nil
     }
 
 
     public mutating func removeSacl() {
-        self.sacl = .init()
+        self.sacl = nil
     }
 
 
@@ -284,79 +284,6 @@ extension WindowsAbsoluteSecurityDescriptor {
         self.group = nil
     }
 
-}
-
-
-
-public struct ExplicitAccess {
-    public var permission: ACCESS_MASK
-    public var accessMode: AccessMode
-    public var inheritance: Inheritance
-    public var trustee: RawTrustee
-
-    public var unsafeRawExplicitAccess: EXPLICIT_ACCESSW {
-        var ea = EXPLICIT_ACCESSW()
-        ea.grfAccessPermissions = permission
-        ea.grfAccessMode = accessMode.rawAccessMode
-        ea.grfInheritance = inheritance.rawValue
-        ea.Trustee = TRUSTEE_W(
-            pMultipleTrustee: nil,
-            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
-            TrusteeForm: TRUSTEE_IS_SID,
-            TrusteeType: trustee.type.rawTrusteeType,
-            ptstrName: trustee.sid.psid.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
-        )
-        return ea
-    }
-}
-
-
-
-public enum AccessMode: ACCESS_MODE.RawValue {
-    case notUsed, grantAccess, setAccess, denyAccess, revokeAccess
-    case setAuditSuccess, setAuditFailure
-    public var rawAccessMode: ACCESS_MODE { .init(rawValue: self.rawValue) }
-}
-
-
-
-public struct Inheritance: Sendable, OptionSet {
-
-    public let rawValue: DWORD
-
-    public init(rawValue: DWORD) {
-        self.rawValue = rawValue
-    }
-
-    public static let containerInherit: Inheritance = .init(rawValue: DWORD(CONTAINER_INHERIT_ACE))
-    public static let inheritNoPropagate: Inheritance = .init(rawValue: DWORD(INHERIT_NO_PROPAGATE))
-    public static let inheritOnly: Inheritance = .init(rawValue: DWORD(INHERIT_ONLY))
-    public static let inheritOnlyAce: Inheritance = .init(rawValue: DWORD(INHERIT_ONLY_ACE))
-    public static let noInheritance: Inheritance = .init(rawValue: DWORD(NO_INHERITANCE))
-    public static let noPropagateInheritAce: Inheritance = .init(rawValue: DWORD(NO_PROPAGATE_INHERIT_ACE))
-    public static let objectInheritAce: Inheritance = .init(rawValue: DWORD(OBJECT_INHERIT_ACE))
-    public static let subContainerAndObjectInherit: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_AND_OBJECTS_INHERIT))
-    public static let subContainerOnlyInherit: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_ONLY_INHERIT))
-    public static let subObjectOnlyInherit: Inheritance = .init(rawValue: DWORD(SUB_OBJECTS_ONLY_INHERIT))
-
-}
-
-
-
-public struct RawTrustee {
-    public var sid: WindowsSid
-    public var type: TrusteeType
-    public init(sid: WindowsSid, type: TrusteeType) {
-        self.sid = sid
-        self.type = type
-    }
-}
-
-
-
-public enum TrusteeType: TRUSTEE_TYPE.RawValue {
-    case unknown, user, group, domain, alias, wellKnownGroup, deleted, invalid, computer
-    public var rawTrusteeType: TRUSTEE_TYPE { .init(rawValue: self.rawValue) }
 }
 
 #endif 
