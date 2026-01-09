@@ -1,16 +1,16 @@
 import SystemPackage
-import CFileSystem
+import PlatformCLib
 
 
 public final class FileSystem: FileSystemProtocal {
 
     public init() {}
 
+}
 
-    public func info(ofFileAt path: FilePath, followSymlinks: Bool = false) throws(FileError) -> FileInfo {
-        return try .init(fileAt: path, followSymLink: followSymlinks)
-    }
 
+
+extension FileSystem {
 
     public func itemExists(at path: FilePath, followSymlinks: Bool = false) -> Bool {
 
@@ -199,6 +199,97 @@ public final class FileSystem: FileSystemProtocal {
 
     }
 
+}
+
+
+
+extension FileSystem {
+
+    public func info(ofFileAt path: FilePath, followSymlinks: Bool = false) throws(FileError) -> FileInfo {
+        return try .init(fileAt: path, followSymLink: followSymlinks)
+    }
+
+
+    public func setTimes(
+        forItemAt path: FilePath, 
+        accessTime: FileTimeSpec? = nil, 
+        modificationTime: FileTimeSpec? = nil, 
+        creationTime: FileTimeSpec? = nil
+    ) throws(FileError) {
+
+        try catchSystemError(operationDescription: .settingFileTimes(at: path)) { () throws(SystemError) in
+            try InternalFS.setFileTimes(
+                forItemAt: path, 
+                access: accessTime?.platformFileTime, 
+                modification: modificationTime?.platformFileTime,
+                creation: creationTime?.platformFileTime
+            )
+        }
+
+    }
+
+
+    public func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(FileError) {
+
+        #if canImport(Glibc) || canImport(Musl)
+
+        var inodeFlags = 0 as CInt
+
+        // Map statx attributes to inode flags
+        if attributes.isCompressed { inodeFlags |= FS_COMPR_FL }
+        if attributes.isImmutable { inodeFlags |= FS_IMMUTABLE_FL }
+        if attributes.isAppendOnly { inodeFlags |= FS_APPEND_FL }
+        if attributes.noDump { inodeFlags |= FS_NODUMP_FL }
+        if attributes.isEncrypted { inodeFlags |= FS_ENCRYPT_FL }
+        if attributes.isVerityProtected { inodeFlags |= FS_VERITY_FL }
+
+        try self.setInodeFlags(forItemAt: path, flags: inodeFlags)
+
+        #else 
+
+        try catchSystemError(operationDescription: .settingFileAttributes(at: path)) { () throws(SystemError) in
+            try InternalFS.setFileAttributes(forItemAt: path, attributes: attributes.rawValue)
+        }
+
+        #endif 
+
+    }
+
+
+    #if canImport(Glibc) || canImport(Musl)
+    public func getInodeFlags(forItemAt path: FilePath) throws(FileError) -> CInt {
+        try catchSystemError(operationDescription: .gettingFileInodeFlags(at: path)) { () throws(SystemError) in
+            try InternalFS.readFileInodeFlags(forItemAt: path)
+        }
+    }
+
+
+    public func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(FileError) {
+        try catchSystemError(operationDescription: .settingFileInodeFlags(at: path)) { () throws(SystemError) in
+            try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags)
+        }
+    }
+    #endif
+
+
+    public func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(FileError) {
+        try catchSystemError(operationDescription: .settingFilePermissions(at: path)) { () throws(SystemError) in
+            try InternalFS.setFilePermissions(forItemAt: path, permissions: permissions)
+        }
+    }
+
+
+    public func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError) {
+        try catchSystemError(operationDescription: .settingFileOwner(at: path)) { () throws(SystemError) in
+            try InternalFS.chown(forItemAt: path, owner: owner?.rawId, group: group?.rawId)
+        }
+    }
+
+}
+
+
+
+extension FileSystem {
 
     public func withFileHandle<R: ~Copyable>(
         forReadingAt path: FilePath, 

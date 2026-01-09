@@ -49,20 +49,12 @@ public struct WindowsSid {
         return try! WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
     }
 
-    public var accountName: String {
-        try! WindowsAPI.name(ofPSid: psid)
-    }
-
     public func isValid() -> Bool {
         return IsValidSid(storage.psid.unsafeResourcePtr)
     }
 
     public func checkedString() throws(SystemError) -> String {
         return try WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
-    }
-
-    public func checkedAccountName() throws(SystemError) -> String {
-        return try WindowsAPI.name(ofPSid: psid)
     }
 
     public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
@@ -86,20 +78,12 @@ public struct WindowsSid {
             return try! WindowsAPI.pSidToString(sidPtr: psid)
         }
 
-        public var accountName: String {
-            try! WindowsAPI.name(ofPSid: psid)
-        }
-
         public func isValid() -> Bool {
             return IsValidSid(psid.unsafeResourcePtr)
         }
 
         public func checkedString() throws(SystemError) -> String {
             return try WindowsAPI.pSidToString(sidPtr: psid)
-        }
-
-        public func checkedAccountName() throws(SystemError) -> String {
-            return try WindowsAPI.name(ofPSid: psid)
         }
 
         public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {

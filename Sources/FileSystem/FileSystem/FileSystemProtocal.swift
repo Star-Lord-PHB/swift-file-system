@@ -8,8 +8,6 @@ public protocol FileSystemProtocal: Sendable {
 
     // MARK: Basic Operations
 
-    func info(ofFileAt path: FilePath, followSymlinks: Bool) throws(FileError) -> FileInfo
-
     func itemExists(at path: FilePath, followSymlinks: Bool) -> Bool
 
     func createFile(at path: FilePath, replaceExisting: Bool, permission: FilePermissions?, content: ByteBuffer?) throws(FileError)
@@ -35,7 +33,31 @@ public protocol FileSystemProtocal: Sendable {
 
     func destinationOfSymLink(at path: FilePath, recursive: Bool) throws(FileError) -> FilePath
 
-    // MARK: TODO: Add APIs for updating file information
+
+    // File Information Operations
+
+    func info(ofFileAt path: FilePath, followSymlinks: Bool) throws(FileError) -> FileInfo
+
+    func setTimes(forItemAt path: FilePath, accessTime: FileTimeSpec?, modificationTime: FileTimeSpec?, creationTime: FileTimeSpec?) throws(FileError)
+
+    
+    func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(FileError)
+
+    #if canImport(Glibc) || canImport(Musl)
+    func getInodeFlags(forItemAt path: FilePath) throws(FileError) -> CInt
+
+    func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(FileError)
+    #endif 
+
+    func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(FileError)
+
+    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError)
+
+    #if canImport(WinSDK)
+    // MARK: TODO: APIs for updating file security (dacl, sacl, owner, group)
+
+    // MARK: TODO: APIs for retrieving file security (dacl, sacl, owner, group)
+    #endif 
 
 
     // MARK: File Handles

@@ -20,8 +20,8 @@ public struct FileInfo: Sendable, Equatable, Hashable {
 
     #if !canImport(WinSDK)
     public let permissions: FilePermissions
-    public let uid: UInt32
-    public let gid: UInt32
+    public let owner: PlatformIdentity
+    public let group: PlatformIdentity
     #endif
 
     public let attributes: PlatformFileAttributes
@@ -45,7 +45,7 @@ extension FileInfo: CustomStringConvertible {
             attributes: \(attributes))
             """
         #if !canImport(WinSDK)
-        str += ", permissions: \(permissions), uid: \(uid), gid: \(gid)"
+        str += ", permissions: \(permissions), owner: \(owner), group: \(group)"
         #endif
         return str
     }
@@ -115,8 +115,8 @@ extension FileInfo {
             creationDate: .init(platformFileTime: rawInfo.creationTime), 
             fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
             permissions: rawInfo.permissions,
-            uid: rawInfo.uid,
-            gid: rawInfo.gid,
+            owner: .init(rawId: rawInfo.uid, kind: .user),
+            group: .init(rawId: rawInfo.gid, kind: .group),
             attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )
@@ -137,8 +137,8 @@ extension FileInfo {
             creationDate: .init(platformFileTime: rawInfo.creationTime), 
             fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
             permissions: rawInfo.permissions,
-            uid: rawInfo.uid,
-            gid: rawInfo.gid,
+            owner: .init(rawId: rawInfo.uid, kind: .user),
+            group: .init(rawId: rawInfo.gid, kind: .group),
             attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )
@@ -161,8 +161,8 @@ extension FileInfo {
             creationDate: rawInfo.creationTime.map { .init(platformFileTime: $0) }, 
             fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
             permissions: rawInfo.permissions,
-            uid: rawInfo.uid,
-            gid: rawInfo.gid,
+            owner: .init(rawId: rawInfo.uid, kind: .user),
+            group: .init(rawId: rawInfo.gid, kind: .group),
             attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )
@@ -183,8 +183,8 @@ extension FileInfo {
             creationDate: rawInfo.creationTime.map { .init(platformFileTime: $0) }, 
             fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
             permissions: rawInfo.permissions,
-            uid: rawInfo.uid,
-            gid: rawInfo.gid,
+            owner: .init(rawId: rawInfo.uid, kind: .user),
+            group: .init(rawId: rawInfo.gid, kind: .group),
             attributes: .init(rawValue: rawInfo.attributes), 
             supportedAttributes: .all
         )

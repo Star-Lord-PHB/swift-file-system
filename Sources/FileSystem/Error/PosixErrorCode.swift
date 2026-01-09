@@ -38,7 +38,7 @@ extension FsErrorCode.PlatformErrorCode {
     @inlinable public static var noLocksAvailable: Self { .init(rawValue: ENOLCK) }
     @inlinable public static var functionNotImplemented: Self { .init(rawValue: ENOSYS) }
     @inlinable public static var directoryNotEmpty: Self { .init(rawValue: ENOTEMPTY) }
-    @inlinable public static var tooManySymbolicLinks: Self { .init(rawValue: EMLINK) }
+    @inlinable public static var tooManyLevelSymbolicLinks: Self { .init(rawValue: ELOOP) }
     @inlinable public static var valueTooLarge: Self { .init(rawValue: EOVERFLOW) }
     @inlinable public static var staleFileHandle: Self { .init(rawValue: ESTALE) }
     @inlinable public static var noEnoughSpace: Self { .init(rawValue: ENOSPC) }

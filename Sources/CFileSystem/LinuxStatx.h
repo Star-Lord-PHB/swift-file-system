@@ -30,74 +30,34 @@ int systemFStatCompat(int32_t fd, struct StatCompat* outStat);
 int systemStatCompat(const char* path, int flags, struct StatCompat*const outStat);
 
 
-#ifndef STATX_ATTR_COMPRESSED
-#define STATX_ATTR_COMPRESSED 0
-const static bool HAS_STATX_ATTR_COMPRESSED = false;
-#else
-const static bool HAS_STATX_ATTR_COMPRESSED = true;
-#endif
+extern const int _STATX_ATTR_COMPRESSED;
+extern const bool HAS_STATX_ATTR_COMPRESSED;
 
-#ifndef STATX_ATTR_IMMUTABLE
-#define STATX_ATTR_IMMUTABLE 0
-const static bool HAS_STATX_ATTR_IMMUTABLE = false;
-#else
-const static bool HAS_STATX_ATTR_IMMUTABLE = true;
-#endif
+extern const int _STATX_ATTR_IMMUTABLE;
+extern const bool HAS_STATX_ATTR_IMMUTABLE;
 
-#ifndef STATX_ATTR_APPEND
-#define STATX_ATTR_APPEND 0
-const static bool HAS_STATX_ATTR_APPEND = false;
-#else
-const static bool HAS_STATX_ATTR_APPEND = true;
-#endif
+extern const int _STATX_ATTR_APPEND;
+extern const bool HAS_STATX_ATTR_APPEND;
 
-#ifndef STATX_ATTR_NODUMP
-#define STATX_ATTR_NODUMP 0
-const static bool HAS_STATX_ATTR_NODUMP = false;
-#else
-const static bool HAS_STATX_ATTR_NODUMP = true;
-#endif
+extern const int _STATX_ATTR_NODUMP;
+extern const bool HAS_STATX_ATTR_NODUMP;
 
-#ifndef STATX_ATTR_ENCRYPTED
-#define STATX_ATTR_ENCRYPTED 0
-const static bool HAS_STATX_ATTR_ENCRYPTED = false;
-#else
-const static bool HAS_STATX_ATTR_ENCRYPTED = true;
-#endif
+extern const int _STATX_ATTR_ENCRYPTED;
+extern const bool HAS_STATX_ATTR_ENCRYPTED;
 
-#ifndef STATX_ATTR_AUTOMOUNT
-#define STATX_ATTR_AUTOMOUNT 0
-const static bool HAS_STATX_ATTR_AUTOMOUNT = false;
-#else
-const static bool HAS_STATX_ATTR_AUTOMOUNT = true;
-#endif
+extern const int _STATX_ATTR_AUTOMOUNT;
+extern const bool HAS_STATX_ATTR_AUTOMOUNT;
 
-#ifndef STATX_ATTR_MOUNT_ROOT
-#define STATX_ATTR_MOUNT_ROOT 0
-const static bool HAS_STATX_ATTR_MOUNT_ROOT = false;
-#else
-const static bool HAS_STATX_ATTR_MOUNT_ROOT = true;
-#endif
+extern const int _STATX_ATTR_MOUNT_ROOT;
+extern const bool HAS_STATX_ATTR_MOUNT_ROOT;
 
-#ifndef STATX_ATTR_VERITY
-#define STATX_ATTR_VERITY 0
-const static bool HAS_STATX_ATTR_VERITY = false;
-#else
-const static bool HAS_STATX_ATTR_VERITY = true;
-#endif
+extern const int _STATX_ATTR_VERITY;
+extern const bool HAS_STATX_ATTR_VERITY;
 
-#ifndef STATX_ATTR_WRITE_ATOMIC
-#define STATX_ATTR_WRITE_ATOMIC 0
-const static bool HAS_STATX_ATTR_WRITE_ATOMIC = false;
-#else
-const static bool HAS_STATX_ATTR_WRITE_ATOMIC = true;
-#endif
+extern const int _STATX_ATTR_WRITE_ATOMIC;
+extern const bool HAS_STATX_ATTR_WRITE_ATOMIC;
 
-#ifndef STATX_ATTR_DAX
-#define STATX_ATTR_DAX 0
-const static bool HAS_STATX_ATTR_DAX = false;
-#else
-const static bool HAS_STATX_ATTR_DAX = true;
-#endif
+extern const int _STATX_ATTR_DAX;
+extern const bool HAS_STATX_ATTR_DAX;
 
 #endif // __linux__

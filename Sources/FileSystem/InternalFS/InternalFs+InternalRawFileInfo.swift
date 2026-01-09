@@ -565,7 +565,7 @@ extension InternalFS {
 
 
     static func setFileInodeFlags(forItemAt path: FilePath, flags: CInterop.PosixInodeFlags) throws(SystemError) {
-        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly(), noFollow: true))
+        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: true))
         try setFileInodeFlags(for: fd, flags: flags)
         try fd.close()
     }

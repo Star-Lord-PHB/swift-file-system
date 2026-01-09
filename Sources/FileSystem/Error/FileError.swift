@@ -179,6 +179,30 @@ extension FileError {
             "Reading symbolic link at \(path)"
         }
 
+        public static func settingFileTimes(at path: FilePath) -> Self {
+            "Updating file times at \(path)"
+        }
+
+        public static func settingFileAttributes(at path: FilePath) -> Self {
+            "Setting file attributes at \(path)"
+        }
+
+        public static func gettingFileInodeFlags(at path: FilePath) -> Self {
+            "Getting inode flags for file at \(path)"
+        }
+
+        public static func settingFileInodeFlags(at path: FilePath) -> Self {
+            "Setting inode flags for file at \(path)"
+        }
+
+        public static func settingFilePermissions(at path: FilePath) -> Self {
+            "Setting file permissions at \(path)"
+        }
+
+        public static func settingFileOwner(at path: FilePath) -> Self {
+            "Setting file owner at \(path)"
+        }
+
     }
 
 }

@@ -78,6 +78,23 @@ extension FileTimeSpec: CustomStringConvertible {
 
 
 
+extension FileTimeSpec {
+
+    public init(from date: Date) {
+        #if canImport(WinSDK)
+        let timeInterval = date.timeIntervalSinceReferenceDate + Date.timeIntervalBetween1601AndReferenceDate
+        #else
+        let timeInterval = date.timeIntervalSinceReferenceDate + Date.timeIntervalBetween1970AndReferenceDate
+        #endif 
+        let seconds = Int(timeInterval)
+        let nanoseconds = Int((timeInterval - TimeInterval(seconds)) * 1_000_000_000)
+        self.init(seconds: seconds, nanoseconds: nanoseconds)
+    }
+
+}
+
+
+
 extension Date {
     @usableFromInline static let timeIntervalBetween1601AndReferenceDate: TimeInterval = 12622780800
 }
