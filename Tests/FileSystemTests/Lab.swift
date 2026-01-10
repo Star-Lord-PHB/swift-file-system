@@ -18,13 +18,21 @@ extension FileSystemTest.Lab {
     @Test("Lab 1")
     func lab1() async throws {
         
-        // let dir = try makeDir(at: "dir")
-        // let link = try makeSymlink(at: "link", pointingTo: dir)
+        // let filePath = try makeFile(at: "file")
 
-        // try InternalFS.rmdir(at: link)
+        // print(try FileSystem().getSecurityInfo(forItemAt: filePath).fullyParsedDescriptor().dacl!)
 
-        // print(try FileInfo(fileAt: link, followSymLink: false).type)
-        // print(try FileInfo(fileAt: dir, followSymLink: false).type)
+        // let newSecurity = WindowsRawAcl(entries: [
+        //     .init(permission: [.genericRead, .genericWrite, .genericExecute, .delete], trustee: .administrators),
+        //     .init(permission: .genericRead, trustee: .authenticatedUsers)
+        // ])
+
+        // try FileSystem().setSecurityInfo(
+        //     forItemAt: filePath,
+        //     dacl: .replace(newSecurity)
+        // )
+
+        // print(try FileSystem().getSecurityInfo(forItemAt: filePath).fullyParsedDescriptor().dacl!)
 
     }
 

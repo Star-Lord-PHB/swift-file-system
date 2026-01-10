@@ -4,7 +4,7 @@ import PlatformCLib
 
 
 
-public struct WindowsSid {
+public struct WindowsSid: @unchecked Sendable {
 
     private class Storage {
         var psid: UnsafeOwnedAutoResource
@@ -34,8 +34,8 @@ public struct WindowsSid {
         precondition(self.isValid(), "Invalid SID pointer")
     }
 
-    public init?(sidStr: String) {
-        guard let sidPtr = try? WindowsAPI.stringToPsid(sidStr: sidStr) else {
+    public init?(string: String) {
+        guard let sidPtr = try? WindowsAPI.stringToPsid(sidStr: string) else {
             return nil
         }
         self.storage = .init(psid: sidPtr)
@@ -93,6 +93,48 @@ public struct WindowsSid {
         }
 
     }
+
+}
+
+
+extension WindowsSid: Equatable, Hashable {
+
+    public static func == (lhs: WindowsSid, rhs: WindowsSid) -> Bool {
+        return WindowsAPI.equalSid(sid1: lhs.psid, sid2: rhs.psid)
+    }
+
+
+    public func hash(into hasher: inout Hasher) {
+        let length = WindowsAPI.getSidLength(sidPtr: psid)
+        let bufferPtr = UnsafeRawBufferPointer(start: psid.unsafeResourcePtr, count: Int(length))
+        hasher.combine(bytes: bufferPtr)
+    }
+
+}
+
+
+
+extension WindowsSid: CustomStringConvertible {
+
+    public var description: String { string }
+
+}
+
+
+
+extension WindowsSid {
+
+    public static var everyone: WindowsSid              { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinWorldSid)) }
+    public static var administrators: WindowsSid        { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinBuiltinAdministratorsSid)) }
+    public static var system: WindowsSid                { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinLocalSystemSid)) }
+    public static var authenticatedUsers: WindowsSid    { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinAuthenticatedUserSid)) }
+    public static var users: WindowsSid                 { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinBuiltinUsersSid)) }
+    public static var localService: WindowsSid          { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinLocalServiceSid)) }
+    public static var networkService: WindowsSid        { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinNetworkServiceSid)) }
+    public static var annonymous: WindowsSid            { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinAnonymousSid)) }
+
+    public static var creatorOwner: WindowsSid          { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinCreatorOwnerSid)) }
+    public static var creatorGroup: WindowsSid          { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinCreatorGroupSid)) }
 
 }
 

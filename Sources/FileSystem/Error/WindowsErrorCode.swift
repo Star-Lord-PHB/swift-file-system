@@ -32,6 +32,7 @@ extension FsErrorCode.PlatformErrorCode {
     @inlinable public static var negativeSeek: Self { .init(rawValue: .init(ERROR_NEGATIVE_SEEK)) }
     @inlinable public static var badArguments: Self { .init(rawValue: .init(ERROR_BAD_ARGUMENTS)) }
     @inlinable public static var notSupported: Self { .init(rawValue: .init(ERROR_NOT_SUPPORTED)) }
+    @inlinable public static var insufficientBuffer: Self { .init(rawValue: .init(ERROR_INSUFFICIENT_BUFFER)) }
 
 
     public var mappedErrorKind: FsErrorCode.Kind {

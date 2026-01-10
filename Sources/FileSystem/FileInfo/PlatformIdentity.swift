@@ -34,3 +34,17 @@ public struct PlatformIdentity: Sendable {
 
 
 extension PlatformIdentity: Equatable, Hashable {}
+
+
+
+extension PlatformIdentity: CustomStringConvertible {
+
+    public var description: String {
+        #if canImport(WinSDK)
+        rawId.string
+        #else 
+        "\(rawId) (\(kind == .user ? "uid" : "gid"))"
+        #endif
+    }
+
+}

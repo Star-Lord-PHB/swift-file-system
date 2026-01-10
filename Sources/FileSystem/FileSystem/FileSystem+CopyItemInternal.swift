@@ -141,7 +141,7 @@ extension FileSystem {
 
         try InternalFS.setFileSecurityInfo(
             for: handle, 
-            settring: .dacl, 
+            setting: .dacl, 
             dacl: absoluteSd._dacl, 
             sacl: nil, 
             owner: nil, 
@@ -178,7 +178,7 @@ extension FileSystem {
 
         try InternalFS.setFileSecurityInfo(
             forItemAt: path, 
-            settring: .dacl, 
+            setting: .dacl, 
             dacl: absoluteSd._dacl, 
             sacl: nil, 
             owner: nil, 

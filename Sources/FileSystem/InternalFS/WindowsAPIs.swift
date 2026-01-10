@@ -498,6 +498,40 @@ enum WindowsAPI {
         return (sid: .init(unownedResource: groupSidPtr), defaulted: groupDefaulted.boolValue)
     }
 
+
+    static func equalSid(sid1: UnsafeUnownedResource, sid2: UnsafeUnownedResource) -> Bool {
+        return EqualSid(sid1.unsafeResourcePtr, sid2.unsafeResourcePtr)
+    }
+
+    
+    static func getSidLength(sidPtr: UnsafeUnownedResource) -> DWORD {
+        return GetLengthSid(sidPtr.unsafeResourcePtr)
+    }
+
+
+    static func createWellKnownSid(type: WELL_KNOWN_SID_TYPE, domainSid: UnsafeUnownedResource? = nil) throws(SystemError) -> UnsafeOwnedAutoResource {
+
+        // 256 bytes should be enough for any well-known SID
+        var buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: 256, alignment: MemoryLayout<UInt8>.alignment)
+        var size = DWORD(buffer.count)
+        do {
+            try execThrowingCFunction {
+                CreateWellKnownSid(type, domainSid?.unsafeResourcePtr, buffer.baseAddress!, &size)
+            }
+            return .init(owningResource: buffer.baseAddress!, freeingFunc: { $0.deallocate() })
+        } catch let error where error.code == .platform(.insufficientBuffer) {
+            // ignore this error and retry
+        }
+
+        buffer.deallocate()
+        buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<UInt8>.alignment)
+        try execThrowingCFunction {
+            CreateWellKnownSid(type, domainSid?.unsafeResourcePtr, buffer.baseAddress!, &size)
+        }
+        return .init(owningResource: buffer.baseAddress!, freeingFunc: { $0.deallocate() })
+
+    }
+
 }
 
 #endif

@@ -54,9 +54,18 @@ public protocol FileSystemProtocal: Sendable {
     func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError)
 
     #if canImport(WinSDK)
-    // MARK: TODO: APIs for updating file security (dacl, sacl, owner, group)
-
-    // MARK: TODO: APIs for retrieving file security (dacl, sacl, owner, group)
+    func getSecurityInfo(
+        forItemAt path: FilePath, 
+        querying: FileOperationOptions.WindowsSecurityDescriptorMembers
+    ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor
+    
+    func setSecurityInfo(
+        forItemAt path: FilePath, 
+        dacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
+        sacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
+        owner: PlatformIdentity?, 
+        group: PlatformIdentity?
+    ) throws(FileError)
     #endif 
 
 

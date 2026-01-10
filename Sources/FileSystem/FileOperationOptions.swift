@@ -187,4 +187,34 @@ public enum FileOperationOptions {
         // TODO: Add more options if needed
     }
 
+
+    #if canImport(WinSDK)
+    public struct WindowsSecurityDescriptorMembers: Sendable, OptionSet {
+        public let rawValue: UInt8
+        public init(rawValue: UInt8) {
+            self.rawValue = rawValue
+        }
+        public static let owner: Self = .init(rawValue: 1 << 0)
+        public static let group: Self = .init(rawValue: 1 << 1)
+        public static let dacl: Self = .init(rawValue: 1 << 2)
+        public static let sacl: Self = .init(rawValue: 1 << 3)
+        public static var all: Self { [.owner, .group, .dacl, .sacl] }
+    }
+
+
+    public enum WindowsAclUpdateRequest: ~Copyable {
+        case replace(WindowsRawAcl)
+        case remove
+        case noChange
+
+        consuming func takeRawAcl() -> WindowsRawAcl? {
+            switch consume self {
+                case .replace(let acl): acl
+                case .remove:           nil
+                case .noChange:         nil
+            }
+        }
+    }
+    #endif 
+
 }

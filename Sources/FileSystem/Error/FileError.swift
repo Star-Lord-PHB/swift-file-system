@@ -203,6 +203,14 @@ extension FileError {
             "Setting file owner at \(path)"
         }
 
+        public static func gettingFileSecurityInfo(at path: FilePath) -> Self {
+            "Getting file security info at \(path)"
+        }
+
+        public static func settingFileSecurityInfo(at path: FilePath) -> Self {
+            "Setting file security info at \(path)"
+        }
+
     }
 
 }

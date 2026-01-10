@@ -154,7 +154,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
 
     public init(entries: [WindowsExplicitAccess] = []) {
         let pacl = UnsafeMutablePointer<ACL>.allocate(capacity: 1)
-        InitializeAcl(pacl, 0, DWORD(ACL_REVISION))
+        InitializeAcl(pacl, DWORD(MemoryLayout<ACL>.size), DWORD(ACL_REVISION))
         self.init(pacl: .init(owningPointer: pacl, allocator: .swift))
         if !entries.isEmpty {
             self.addEntries(entries)
@@ -433,14 +433,17 @@ public struct WindowsRawAceView: ~Escapable {
 
 
 public struct WindowsExplicitAccess {
-    public var permission: ACCESS_MASK
+    public var permission: WindowsAccessMask
     public var accessMode: AccessMode
     public var inheritance: Inheritance
     public var trustee: RawTrustee
 
+    /// > Warning: 
+    /// > The returned EXPLICIT_ACCESSW value contains a unowned pointer to a SID, 
+    /// > MUST ensure that the WindowsExplicitAccess value outlives the lifetime of the EXPLICIT_ACCESSW value.
     public var unsafeRawExplicitAccess: EXPLICIT_ACCESSW {
         var ea = EXPLICIT_ACCESSW()
-        ea.grfAccessPermissions = permission
+        ea.grfAccessPermissions = permission.rawValue
         ea.grfAccessMode = accessMode.rawAccessMode
         ea.grfInheritance = inheritance.rawValue
         ea.Trustee = TRUSTEE_W(
@@ -451,6 +454,18 @@ public struct WindowsExplicitAccess {
             ptstrName: trustee.sid.psid.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
         )
         return ea
+    }
+
+    public init(
+        permission: WindowsAccessMask, 
+        accessMode: AccessMode = .grantAccess, 
+        inheritance: Inheritance = .noInheritance, 
+        trustee: RawTrustee
+    ) {
+        self.permission = permission
+        self.accessMode = accessMode
+        self.inheritance = inheritance
+        self.trustee = trustee
     }
 }
 
@@ -473,16 +488,13 @@ extension WindowsExplicitAccess {
             self.rawValue = rawValue
         }
 
-        public static let containerInherit: Inheritance = .init(rawValue: DWORD(CONTAINER_INHERIT_ACE))
-        public static let inheritNoPropagate: Inheritance = .init(rawValue: DWORD(INHERIT_NO_PROPAGATE))
-        public static let inheritOnly: Inheritance = .init(rawValue: DWORD(INHERIT_ONLY))
-        public static let inheritOnlyAce: Inheritance = .init(rawValue: DWORD(INHERIT_ONLY_ACE))
         public static let noInheritance: Inheritance = .init(rawValue: DWORD(NO_INHERITANCE))
-        public static let noPropagateInheritAce: Inheritance = .init(rawValue: DWORD(NO_PROPAGATE_INHERIT_ACE))
-        public static let objectInheritAce: Inheritance = .init(rawValue: DWORD(OBJECT_INHERIT_ACE))
-        public static let subContainerAndObjectInherit: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_AND_OBJECTS_INHERIT))
-        public static let subContainerOnlyInherit: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_ONLY_INHERIT))
-        public static let subObjectOnlyInherit: Inheritance = .init(rawValue: DWORD(SUB_OBJECTS_ONLY_INHERIT))
+        public static let subFiles: Inheritance = .init(rawValue: DWORD(SUB_OBJECTS_ONLY_INHERIT))
+        public static let subContainers: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_ONLY_INHERIT))
+        public static let noPropagate: Inheritance = .init(rawValue: DWORD(INHERIT_NO_PROPAGATE))
+        public static let inheritOnly: Inheritance = .init(rawValue: DWORD(INHERIT_ONLY))
+
+        public static let allSubItems: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_AND_OBJECTS_INHERIT))
 
     }
 
@@ -494,6 +506,18 @@ extension WindowsExplicitAccess {
             self.sid = sid
             self.type = type
         }
+
+        public static var everyone: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
+        public static var administrators: RawTrustee { .init(sid: .administrators, type: .group) }
+        public static var system: RawTrustee { .init(sid: .system, type: .user) }
+        public static var authenticatedUsers: RawTrustee { .init(sid: .authenticatedUsers, type: .wellKnownGroup) }
+        public static var users: RawTrustee { .init(sid: .users, type: .wellKnownGroup) }
+        public static var localService: RawTrustee { .init(sid: .localService, type: .wellKnownGroup) }
+        public static var networkService: RawTrustee { .init(sid: .networkService, type: .wellKnownGroup) }
+        public static var annonymous: RawTrustee { .init(sid: .annonymous, type: .wellKnownGroup) }
+        public static var creatorOwner: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
+        public static var creatorGroup: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
+
     }
 
 

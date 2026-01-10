@@ -154,6 +154,27 @@ class FileSystemTest {
     }
 
 
+    func accessTime(ofItemAt path: FilePath) throws -> Date {
+        #if canImport(WinSDK)
+        var info = WIN32_FILE_ATTRIBUTE_DATA()
+        let success = path.withPlatformString { pathPtr in 
+            GetFileAttributesExW(pathPtr, GetFileExInfoStandard, &info)
+        }
+        guard success else {
+            throw SystemError(code: .platform(.init(rawValue: GetLastError())))!
+        }
+        let accessTimeSpec = info.ftLastAccessTime
+        let totalNanoseconds = ((UInt64(accessTimeSpec.dwHighDateTime) << 32) | UInt64(accessTimeSpec.dwLowDateTime)) * 100
+        let seconds = totalNanoseconds / 1_000_000_000
+        let nanoseconds = totalNanoseconds % 1_000_000_000
+        let timeInterval = TimeInterval(seconds) - 12622780800 + TimeInterval(nanoseconds) / 1_000_000_000
+        return Date(timeIntervalSinceReferenceDate: timeInterval)
+        #else
+        return try URL(filePath: path.string).resourceValues(forKeys: [.contentAccessDateKey]).contentAccessDate!
+        #endif 
+    }
+
+
     func expectNoResHandleLeak<R>(
         sourceLocation: SourceLocation = #_sourceLocation,
         operation: () async throws -> sending R

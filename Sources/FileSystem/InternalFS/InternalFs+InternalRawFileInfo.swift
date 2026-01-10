@@ -610,7 +610,7 @@ extension InternalFS {
         let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
         try setFileSecurityInfo(
             forItemAt: path, 
-            settring: .dacl, 
+            setting: .dacl, 
             dacl: .init(pacl: daclPtr), sacl: nil, owner: nil, group: nil
         )
     }
@@ -620,7 +620,7 @@ extension InternalFS {
         let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
         try setFileSecurityInfo(
             for: handle, 
-            settring: .dacl, 
+            setting: .dacl, 
             dacl: .init(pacl: daclPtr), sacl: nil, owner: nil, group: nil
         )
     }
@@ -638,7 +638,7 @@ extension InternalFS {
 
     static func setFileSecurityInfo(
         forItemAt path: FilePath, 
-        settring members: WindowsSecurityInfoMembers,
+        setting members: WindowsSecurityInfoMembers,
         dacl: consuming WindowsRawAcl?, 
         sacl: consuming WindowsRawAcl?, 
         owner: WindowsSid?, 
@@ -666,7 +666,7 @@ extension InternalFS {
 
     static func setFileSecurityInfo(
         for handle: borrowing UnsafeSystemHandle, 
-        settring members: WindowsSecurityInfoMembers,
+        setting members: WindowsSecurityInfoMembers,
         dacl: consuming WindowsRawAcl?, 
         sacl: consuming WindowsRawAcl?, 
         owner: WindowsSid?, 

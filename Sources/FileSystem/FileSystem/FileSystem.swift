@@ -102,6 +102,7 @@ extension FileSystem {
         } catch {
             // do nothing
         }
+
         try catchSystemError(operationDescription: .removingItem(at: path)) { () throws(SystemError) in
             try _removeDirectoryRecursive(at: path)
         }
@@ -140,7 +141,6 @@ extension FileSystem {
         to dstPath: FilePath, 
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite
     ) throws(FileError) {
-
         do {
             try InternalFS.rename(itemAt: srcPath, to: dstPath, replace: targetExistOption == .overwrite)
         } catch let error where error.kind == .alreadyExists && targetExistOption == .skip {
@@ -151,7 +151,6 @@ extension FileSystem {
                 operationDescription: .movingItem(from: srcPath, to: dstPath)
             )
         } 
-
     }
 
 
@@ -170,25 +169,20 @@ extension FileSystem {
 
 
     public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(FileError) {
-
         try catchSystemError(operationDescription: .creatingSymlink(at: path, pointingTo: destPath)) { () throws(SystemError) in
             try InternalFS.symlink(dstPath: destPath, linkPath: path)
         }
-
     }
 
 
     public func createHardLink(at path: FilePath, for existingPath: FilePath) throws(FileError) {
-
         try catchSystemError(operationDescription: .creatingHardlink(at: path, for: existingPath)) { () throws(SystemError) in
             try InternalFS.link(existingPath: existingPath, newPath: path)
         }
-
     }
 
 
     public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(FileError) -> FilePath {
-        
         try catchSystemError(operationDescription: .readingSymlink(at: path)) { () throws(SystemError) in
             if recursive {
                 try InternalFS.realpath(of: path)
@@ -196,7 +190,6 @@ extension FileSystem {
                 try InternalFS.readlink(fromSymlinkAt: path)
             }
         }
-
     }
 
 }
@@ -284,6 +277,66 @@ extension FileSystem {
             try InternalFS.chown(forItemAt: path, owner: owner?.rawId, group: group?.rawId)
         }
     }
+
+
+    #if canImport(WinSDK)
+    public func getSecurityInfo(
+        forItemAt path: FilePath, 
+        querying members: FileOperationOptions.WindowsSecurityDescriptorMembers = .all
+    ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
+
+        var internalQueryingMembers = [] as InternalFS.WindowsSecurityInfoMembers
+
+        if members.contains(.owner) { internalQueryingMembers.insert(.owner) }
+        if members.contains(.group) { internalQueryingMembers.insert(.group) }
+        if members.contains(.dacl) { internalQueryingMembers.insert(.dacl) }
+        if members.contains(.sacl) { internalQueryingMembers.insert(.sacl) }
+
+        return try catchSystemError(operationDescription: .gettingFileSecurityInfo(at: path)) { () throws(SystemError) in
+            try InternalFS.getSecurityInfo(forItemAt: path, members: internalQueryingMembers)
+        }
+
+    }
+
+
+    public func setSecurityInfo(
+        forItemAt path: FilePath, 
+        dacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
+        sacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
+        owner: PlatformIdentity? = nil, 
+        group: PlatformIdentity? = nil
+    ) throws(FileError) {
+
+        var members = [] as InternalFS.WindowsSecurityInfoMembers
+
+        switch dacl {
+            case .noChange: break
+            default:        members.insert(.dacl)
+        }
+        switch sacl {
+            case .noChange: break
+            default:        members.insert(.sacl)
+        }
+        if owner != nil { members.insert(.owner) }
+        if group != nil { members.insert(.group) }
+
+        guard !members.isEmpty else { return }
+
+        do {
+            try InternalFS.setFileSecurityInfo(
+                forItemAt: path, 
+                setting: members,
+                dacl: dacl.takeRawAcl(), 
+                sacl: sacl.takeRawAcl(), 
+                owner: owner?.rawId, 
+                group: group?.rawId
+            )
+        } catch {
+            throw FileError(systemError: error, operationDescription: .settingFileSecurityInfo(at: path))
+        }
+
+    }
+    #endif
 
 }
 

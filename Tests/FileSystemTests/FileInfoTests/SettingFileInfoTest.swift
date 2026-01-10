@@ -31,7 +31,7 @@ extension FileSystemTest.SettingFileInfoTests {
         )
 
         let fileAttrs = try FileManager.default.attributesOfItem(atPath: filePath.string)
-        let newAccessDate = try URL(fileURLWithPath: filePath.string).resourceValues(forKeys: [.contentAccessDateKey]).contentAccessDate
+        let newAccessDate = try accessTime(ofItemAt: filePath)
 
         #expect(newAccessDate == access.date)
         #expect(fileAttrs[.modificationDate] as? Date == modification.date)
@@ -60,7 +60,7 @@ extension FileSystemTest.SettingFileInfoTests {
         )
 
         let newAttrs = try FileManager.default.attributesOfItem(atPath: dirPath.string)
-        let newAccessDate = try URL(fileURLWithPath: dirPath.string).resourceValues(forKeys: [.contentAccessDateKey]).contentAccessDate
+        let newAccessDate = try accessTime(ofItemAt: dirPath)
 
         #expect(newAccessDate == access.date)
         #expect(newAttrs[.modificationDate] as? Date == modification.date)
@@ -92,7 +92,7 @@ extension FileSystemTest.SettingFileInfoTests {
         )
 
         let newAttrs = try FileManager.default.attributesOfItem(atPath: symlinkPath.string)
-        let newAccessDate = try URL(fileURLWithPath: symlinkPath.string).resourceValues(forKeys: [.contentAccessDateKey]).contentAccessDate
+        let newAccessDate = try accessTime(ofItemAt: symlinkPath)
 
         #expect(newAccessDate == access.date)
         #expect(newAttrs[.modificationDate] as? Date == modification.date)
@@ -112,7 +112,7 @@ extension FileSystemTest.SettingFileInfoTests {
         // MARK: TODO: fill the attributes to set for each platforms
         
         #if canImport(WinSDK)
-        let attr = [] as PlatformFileAttributes
+        let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         let attr = [.isUserImmutable, .noDump, .isHidden] as PlatformFileAttributes
         #else 
@@ -136,7 +136,7 @@ extension FileSystemTest.SettingFileInfoTests {
         // MARK: TODO: fill the attributes to set for each platforms
         
         #if canImport(WinSDK)
-        let attr = [] as PlatformFileAttributes
+        let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         let attr = [.isUserImmutable, .noDump, .isHidden] as PlatformFileAttributes
         #else 
@@ -149,7 +149,7 @@ extension FileSystemTest.SettingFileInfoTests {
 
         let dirInfo = try FileInfo(fileAt: dirPath, followSymLink: false)
 
-        #expect(dirInfo.attributes == attr)
+        #expect(dirInfo.attributes == attr.union(.isDirectory))
 
     }
 
@@ -160,7 +160,7 @@ extension FileSystemTest.SettingFileInfoTests {
         // MARK: TODO: fill the attributes to set for each platforms
         
         #if canImport(WinSDK)
-        let attr = [] as PlatformFileAttributes
+        let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         let attr = [.isUserImmutable, .noDump, .isHidden] as PlatformFileAttributes
         #else 
@@ -192,7 +192,7 @@ extension FileSystemTest.SettingFileInfoTests {
         try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr)
 
         let symlinkInfo = try FileInfo(fileAt: symlinkPath, followSymLink: false)
-        #expect(symlinkInfo.attributes == attr)
+        #expect(symlinkInfo.attributes == attr.union(.isReparsePoint))
 
         #endif 
 

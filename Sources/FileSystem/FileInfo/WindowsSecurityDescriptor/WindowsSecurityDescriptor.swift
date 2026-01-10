@@ -146,30 +146,22 @@ extension WindowsSecurityDescriptor {
                 case .allow: do {
                     let allowAcePtr = acePtr.bindMemory(to: ACCESS_ALLOWED_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: allowAcePtr.pointee.Mask)
-                    self.sid = try withUnsafeMutablePointer(to: &allowAcePtr.pointee.SidStart) { (ptr) throws(SystemError) in 
-                        try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ptr))
-                    }
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: allowAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
                 }
                 case .deny: do {
                     let denyAcePtr = acePtr.bindMemory(to: ACCESS_DENIED_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: denyAcePtr.pointee.Mask)
-                    self.sid = try withUnsafeMutablePointer(to: &denyAcePtr.pointee.SidStart) { (ptr) throws(SystemError) in 
-                        try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ptr))
-                    }
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: denyAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
                 }
                 case .audit: do {
                     let auditAcePtr = acePtr.bindMemory(to: SYSTEM_AUDIT_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: auditAcePtr.pointee.Mask)
-                    self.sid = try withUnsafeMutablePointer(to: &auditAcePtr.pointee.SidStart) { (ptr) throws(SystemError) in 
-                        try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ptr))
-                    }
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: auditAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
                 }
                 case .alarm: do {
                     let alarmAcePtr = acePtr.bindMemory(to: SYSTEM_ALARM_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: alarmAcePtr.pointee.Mask)
-                    self.sid = try withUnsafeMutablePointer(to: &alarmAcePtr.pointee.SidStart) { (ptr) throws(SystemError) in 
-                        try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: ptr))
-                    }
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: alarmAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
                 }
 
             }

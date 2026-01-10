@@ -696,15 +696,17 @@ enum InternalFS {
     static func chown(forItemAt path: FilePath, owner: WindowsSid?, group: WindowsSid?) throws(SystemError) {
         var settingMembers = [] as WindowsSecurityInfoMembers
         if owner != nil {
-            settingMembers.append(.owner)
+            settingMembers.insert(.owner)
         }
         if group != nil {
-            settingMembers.append(.group)
+            settingMembers.insert(.group)
         }
+        guard !settingMembers.isEmpty else { return }
         try setFileSecurityInfo(forItemAt: path, setting: settingMembers, dacl: nil, sacl: nil, owner: owner, group: group)
     }
     #else 
     static func chown(forItemAt path: FilePath, owner: UInt32?, group: UInt32?) throws(SystemError) {
+        if owner == nil && group == nil { return }
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in 
                 PlatformCLib.lchown(pathPtr, owner ?? .init(bitPattern: -1), group ?? .init(bitPattern: -1))
