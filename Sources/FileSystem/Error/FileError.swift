@@ -211,6 +211,18 @@ extension FileError {
             "Setting file security info at \(path)"
         }
 
+        public static func queryingAccountName(for identity: PlatformIdentity) -> Self {
+            "Querying account name for identity \(identity)"
+        }
+
+        public static func queryingIdentity(forAccountName name: String) -> Self {
+            "Querying identity for account name \(name)"
+        }
+
+        public static func queryingCurrentIdentity() -> Self {
+            "Querying current identity"
+        }
+
     }
 
 }

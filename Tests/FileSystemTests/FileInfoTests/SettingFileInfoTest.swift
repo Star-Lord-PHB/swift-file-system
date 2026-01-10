@@ -149,7 +149,11 @@ extension FileSystemTest.SettingFileInfoTests {
 
         let dirInfo = try FileInfo(fileAt: dirPath, followSymLink: false)
 
+        #if canImport(WinSDK)
         #expect(dirInfo.attributes == attr.union(.isDirectory))
+        #else 
+        #expect(dirInfo.attributes == attr)
+        #endif 
 
     }
 
@@ -192,7 +196,11 @@ extension FileSystemTest.SettingFileInfoTests {
         try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr)
 
         let symlinkInfo = try FileInfo(fileAt: symlinkPath, followSymLink: false)
+        #if canImport(WinSDK)
         #expect(symlinkInfo.attributes == attr.union(.isReparsePoint))
+        #else
+        #expect(symlinkInfo.attributes == attr)
+        #endif 
 
         #endif 
 
