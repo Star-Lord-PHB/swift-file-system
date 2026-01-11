@@ -223,6 +223,10 @@ extension FileError {
             "Querying current identity"
         }
 
+        public static func queryingEffectiveAccessMask(for identity: PlatformIdentity) -> Self {
+            "Querying effective access mask for identity \(identity)"
+        }
+
     }
 
 }

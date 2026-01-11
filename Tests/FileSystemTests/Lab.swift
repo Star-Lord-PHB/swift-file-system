@@ -17,30 +17,6 @@ extension FileSystemTest {
 
 extension FileSystemTest.Lab {
 
-    #if canImport(WinSDK)
-    @Test("Setting and Getting Windows Security Info")
-    func settingAndGettingWindowsSecurityInfo() async throws {
-        
-        let filePath = try makeFile(at: "file")
-
-        print(try FileSystem().getSecurityInfo(forItemAt: filePath).fullyParsedDescriptor().dacl!)
-
-        let newSecurity = WindowsRawAcl(entries: [
-            .init(permission: [.genericRead, .genericWrite, .genericExecute, .delete], trustee: .administrators),
-            .init(permission: .genericRead, trustee: .authenticatedUsers)
-        ])
-
-        try FileSystem().setSecurityInfo(
-            forItemAt: filePath,
-            dacl: .replace(newSecurity)
-        )
-
-        print(try FileSystem().getSecurityInfo(forItemAt: filePath).fullyParsedDescriptor().dacl!)
-
-    }
-    #endif
-
-
     @Test("Current Identity & Account Name")
     func currentIdentityAndAccountName() async throws {
         
@@ -56,6 +32,10 @@ extension FileSystemTest.Lab {
 
     @Test("Account Name -> Identity")
     func accountNameToIdentity() async throws {
+
+        // Here we include some accounts that cannot be easily tested automatically.
+        // For example, the "Administrator", "Guest" and "WDAGUtilityAccount" on Windows have SIDs depending on domain name.
+        // And on Posix, "nobody", "nogroup", "wheel" and "sudo" are platform dependent.
         
         let platformAPI = PlatformAPI()
 
@@ -95,6 +75,7 @@ extension FileSystemTest.Lab {
         let nobodyGroupName1 = "nobody"
         let nobodyGroupName2 = "nogroup"
         let wheelName = "wheel"
+        let sudoName = "sudo"
         let staffName = "staff"
         let everyoneName = "everyone"
         let daemonName = "daemon"
@@ -109,6 +90,7 @@ extension FileSystemTest.Lab {
         let nobodyGroupIdentity1 = try platformAPI.identity(forAccountName: nobodyGroupName1, kind: .group)
         let nobodyGroupIdentity2 = try platformAPI.identity(forAccountName: nobodyGroupName2, kind: .group)
         let wheelIdentity = try platformAPI.identity(forAccountName: wheelName, kind: .group)
+        let sudoIdentity = try platformAPI.identity(forAccountName: sudoName, kind: .group)
         let staffIdentity = try platformAPI.identity(forAccountName: staffName, kind: .group)
         let everyoneIdentity = try platformAPI.identity(forAccountName: everyoneName, kind: .group)
         let daemonIdentity = try platformAPI.identity(forAccountName: daemonName, kind: .user)
@@ -123,6 +105,7 @@ extension FileSystemTest.Lab {
         print("Nobody Group Identity 1: \(nobodyGroupIdentity1?.description ?? "nil")")
         print("Nobody Group Identity 2: \(nobodyGroupIdentity2?.description ?? "nil")")
         print("Wheel Identity: \(wheelIdentity?.description ?? "nil")")
+        print("Sudo Identity: \(sudoIdentity?.description ?? "nil")")
         print("Staff Identity: \(staffIdentity?.description ?? "nil")")
         print("Everyone Identity: \(everyoneIdentity?.description ?? "nil")")
         print("Daemon Identity: \(daemonIdentity?.description ?? "nil")")

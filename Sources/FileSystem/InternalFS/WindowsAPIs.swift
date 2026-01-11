@@ -46,53 +46,6 @@ enum WindowsAPI {
     }
 
 
-    static func name(ofPSid sidPtr: UnsafeUnownedResource) throws(SystemError) -> String {
-
-        var nameSize = 0 as DWORD
-        var domainSize = 0 as DWORD
-        var use = SID_NAME_USE(0)
-
-        LookupAccountSidW(nil, sidPtr.unsafeResourcePtr, nil, &nameSize, nil, &domainSize, nil)
-        guard GetLastError() == ERROR_INSUFFICIENT_BUFFER else {
-            try SystemError.assertError()
-        }
-
-        let nameBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(nameSize))
-        let domainBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(domainSize))
-        defer {
-            nameBuffer.deallocate()
-            domainBuffer.deallocate()
-        }
-
-        try execThrowingCFunction {
-            LookupAccountSidW(nil, sidPtr.unsafeResourcePtr, nameBuffer, &nameSize, domainBuffer, &domainSize, &use)
-        }
-
-        return String(decodingCString: nameBuffer, as: UTF16.self)
-
-    }
-
-
-    static func name(ofSid sidStr: String) throws(SystemError) -> String {
-
-        var sidPtr = nil as PSID?
-
-        try execThrowingCFunction {
-            sidStr.withCString(encodedAs: UTF16.self) { sidStrPtr in 
-                ConvertStringSidToSidW(sidStrPtr, &sidPtr)
-            }
-        }
-
-        guard let sidPtr else {
-            try SystemError.assertError()
-        }
-        defer { LocalFree(sidPtr) }
-
-        return try name(ofPSid: .init(unownedResource: sidPtr))
-
-    }
-
-
     static func windowsAcePermissionBits(fromPosixPermissionBits bits: CModeT, forDir: Bool = false) -> DWORD {
 
         var permissions = DWORD(0)
@@ -268,8 +221,7 @@ enum WindowsAPI {
         let groupPermissions = windowsAcePermissionBits(fromPosixPermissionBits: (permissions.rawValue >> 3) & 0b111, forDir: forDir)
         let othersPermissions = windowsAcePermissionBits(fromPosixPermissionBits: permissions.rawValue & 0b111, forDir: forDir)
 
-        var worldAuth = getSecurityWorldSidAuthority()
-        let everyoneSidPtr = try allocateSid(identifierAuthorityPtr: &worldAuth, subAuthorityCount: 1, DWORD(SECURITY_WORLD_RID), 0, 0, 0, 0, 0, 0, 0)
+        let everyoneSidPtr = try createWellKnownSid(type: WinWorldSid)
 
         var daclEntries = [] as [EXPLICIT_ACCESSW]
 
@@ -383,84 +335,84 @@ enum WindowsAPI {
     }
 
 
-    static func effectiveAccessMaskForCurrentProcess(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> DWORD {
-        let processToken = try getCurrentProcessTokenHandle()
-        return try effectiveAccessMask(from: securityDescriptorPtr, forSubject: processToken.unownedView())
-    }
+    // static func effectiveAccessMaskForCurrentProcess(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> DWORD {
+    //     let processToken = try getCurrentProcessTokenHandle()
+    //     return try effectiveAccessMask(from: securityDescriptorPtr, forSubject: processToken.unownedView())
+    // }
 
 
-    static func effectiveAccessMaskForCurrentProcess(
-        from securityDescriptorPtr: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>
-    ) throws(SystemError) -> DWORD {
-        return try effectiveAccessMaskForCurrentProcess(from: securityDescriptorPtr.unownedView())
-    }
+    // static func effectiveAccessMaskForCurrentProcess(
+    //     from securityDescriptorPtr: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>
+    // ) throws(SystemError) -> DWORD {
+    //     return try effectiveAccessMaskForCurrentProcess(from: securityDescriptorPtr.unownedView())
+    // }
 
 
-    static func effectiveAccessMask(
-        from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, 
-        forSubject subjectTokenHandle: UnsafeUnownedResource
-    ) throws(SystemError) -> DWORD {
+    // static func effectiveAccessMask(
+    //     from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, 
+    //     forSubject subjectTokenHandle: UnsafeUnownedResource
+    // ) throws(SystemError) -> DWORD {
 
-        var authResourceManager = nil as AUTHZ_RESOURCE_MANAGER_HANDLE?
-        try execThrowingCFunction {
-            AuthzInitializeResourceManager(
-                DWORD(AUTHZ_RM_FLAG_NO_AUDIT), 
-                nil, nil, nil, nil, 
-                &authResourceManager
-            )
-        }
-        guard let authResourceManager else {
-            try SystemError.assertError()
-        }
-        defer { AuthzFreeResourceManager(authResourceManager) }
+    //     var authResourceManager = nil as AUTHZ_RESOURCE_MANAGER_HANDLE?
+    //     try execThrowingCFunction {
+    //         AuthzInitializeResourceManager(
+    //             DWORD(AUTHZ_RM_FLAG_NO_AUDIT), 
+    //             nil, nil, nil, nil, 
+    //             &authResourceManager
+    //         )
+    //     }
+    //     guard let authResourceManager else {
+    //         try SystemError.assertError()
+    //     }
+    //     defer { AuthzFreeResourceManager(authResourceManager) }
 
-        var authClientContext = nil as AUTHZ_CLIENT_CONTEXT_HANDLE?
-        try execThrowingCFunction {
-            AuthzInitializeContextFromToken(0, subjectTokenHandle.unsafeResourcePtr, authResourceManager, nil, LUID(), nil, &authClientContext)
-        } 
-        guard let authClientContext else {
-            try SystemError.assertError()
-        }
-        defer { AuthzFreeContext(authClientContext) }
+    //     var authClientContext = nil as AUTHZ_CLIENT_CONTEXT_HANDLE?
+    //     try execThrowingCFunction {
+    //         AuthzInitializeContextFromToken(0, subjectTokenHandle.unsafeResourcePtr, authResourceManager, nil, LUID(), nil, &authClientContext)
+    //     } 
+    //     guard let authClientContext else {
+    //         try SystemError.assertError()
+    //     }
+    //     defer { AuthzFreeContext(authClientContext) }
 
-        var request = AUTHZ_ACCESS_REQUEST(
-            DesiredAccess: DWORD(MAXIMUM_ALLOWED), 
-            PrincipalSelfSid: nil, ObjectTypeList: nil, ObjectTypeListLength: 0, OptionalArguments: nil
-        )
+    //     var request = AUTHZ_ACCESS_REQUEST(
+    //         DesiredAccess: DWORD(MAXIMUM_ALLOWED), 
+    //         PrincipalSelfSid: nil, ObjectTypeList: nil, ObjectTypeListLength: 0, OptionalArguments: nil
+    //     )
 
-        var grantedAccessMask = 0 as DWORD
-        var error = 0 as DWORD
+    //     var grantedAccessMask = 0 as DWORD
+    //     var error = 0 as DWORD
 
-        try execThrowingCFunction {
-            withUnsafeMutablePointer(to: &grantedAccessMask) { grantedAccessMaskPtr in 
-                withUnsafeMutablePointer(to: &error) { errorPtr in 
-                    var reply = AUTHZ_ACCESS_REPLY(
-                        ResultListLength: 1, 
-                        GrantedAccessMask: grantedAccessMaskPtr, 
-                        SaclEvaluationResults: nil, 
-                        Error: errorPtr
-                    )
-                    return AuthzAccessCheck(0, authClientContext, &request, nil, securityDescriptorPtr.unsafeRawPtr, nil, 0, &reply, nil)
-                }
-            }
-        }
+    //     try execThrowingCFunction {
+    //         withUnsafeMutablePointer(to: &grantedAccessMask) { grantedAccessMaskPtr in 
+    //             withUnsafeMutablePointer(to: &error) { errorPtr in 
+    //                 var reply = AUTHZ_ACCESS_REPLY(
+    //                     ResultListLength: 1, 
+    //                     GrantedAccessMask: grantedAccessMaskPtr, 
+    //                     SaclEvaluationResults: nil, 
+    //                     Error: errorPtr
+    //                 )
+    //                 return AuthzAccessCheck(0, authClientContext, &request, nil, securityDescriptorPtr.unsafeRawPtr, nil, 0, &reply, nil)
+    //             }
+    //         }
+    //     }
 
-        guard error == SystemError.successCode else {
-            throw SystemError(code: error)!
-        }
+    //     guard error == SystemError.successCode else {
+    //         throw SystemError(code: error)!
+    //     }
 
-        var genericMapping = GENERIC_MAPPING(
-            GenericRead: DWORD(GENERIC_READ), 
-            GenericWrite: DWORD(GENERIC_WRITE), 
-            GenericExecute: DWORD(GENERIC_EXECUTE), 
-            GenericAll: DWORD(GENERIC_ALL)
-        )
+    //     var genericMapping = GENERIC_MAPPING(
+    //         GenericRead: DWORD(GENERIC_READ), 
+    //         GenericWrite: DWORD(GENERIC_WRITE), 
+    //         GenericExecute: DWORD(GENERIC_EXECUTE), 
+    //         GenericAll: DWORD(GENERIC_ALL)
+    //     )
 
-        MapGenericMask(&grantedAccessMask, &genericMapping)
+    //     MapGenericMask(&grantedAccessMask, &genericMapping)
 
-        return grantedAccessMask
+    //     return grantedAccessMask
 
-    }
+    // }
 
 
     static func getControl(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> (SECURITY_DESCRIPTOR_CONTROL, DWORD) {

@@ -114,6 +114,23 @@ extension WindowsSid: Equatable, Hashable {
 
 
 
+extension WindowsSid.View {
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        return WindowsAPI.equalSid(sid1: lhs.psid, sid2: rhs.psid)
+    }
+
+
+    public func hash(into hasher: inout Hasher) {
+        let length = WindowsAPI.getSidLength(sidPtr: psid)
+        let bufferPtr = UnsafeRawBufferPointer(start: psid.unsafeResourcePtr, count: Int(length))
+        hasher.combine(bytes: bufferPtr)
+    }
+
+}
+
+
+
 extension WindowsSid: CustomStringConvertible {
 
     public var description: String { string }

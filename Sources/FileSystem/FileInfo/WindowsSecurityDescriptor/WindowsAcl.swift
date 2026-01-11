@@ -20,6 +20,9 @@ fileprivate protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
         into initialResult: consuming T, 
         _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
     ) throws(E) -> T
+    var first: WindowsRawAceView? { @_lifetime(borrow self) get }
+    @_lifetime(borrow self)
+    func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView?
 }
 
 
@@ -112,6 +115,24 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
             try updateAccumulatingResult(&result, aceView)
         }
         return result
+    }
+
+    @_lifetime(borrow this)
+    static func _first(_ this: borrowing Self) -> WindowsRawAceView? {
+        guard this.aceCount > 0 else { return nil }
+        return this[0]
+    }
+
+    
+    @_lifetime(borrow this)
+    static func _first(_ this: borrowing Self, where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
+        for i in 0 ..< Int(this.aceCount) {
+            let aceView = this[i]
+            if try predicate(aceView) {
+                return aceView
+            }
+        }
+        return nil
     }
 
 }
@@ -229,6 +250,16 @@ extension WindowsRawAcl {
     ) throws(E) -> T {
         return try Self._reduce(self, into: initialResult, updateAccumulatingResult)
     }
+    public var first: WindowsRawAceView? {
+        @_lifetime(borrow self)
+        get {
+            Self._first(self)
+        }
+    }
+    @_lifetime(borrow self)
+    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
+        return try Self._first(self, where: predicate)
+    }
 
 }
 
@@ -267,6 +298,16 @@ extension WindowsRawAcl.View {
         _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
     ) throws(E) -> T {
         return try Self._reduce(self, into: initialResult, updateAccumulatingResult)
+    }
+    public var first: WindowsRawAceView? {
+        @_lifetime(borrow self)
+        get {
+            Self._first(self)
+        }
+    }
+    @_lifetime(borrow self)
+    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
+        return try Self._first(self, where: predicate)
     }
 
 }
@@ -337,8 +378,7 @@ extension WindowsRawAclView {
     public subscript(_ index: Int) -> WindowsRawAceView {
         @_lifetime(borrow self)
         get {
-            Self._subscriptGet(self, index)
-        }
+            Self._subscriptGet(self, index) }
     }
     public func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
         try Self._forEach(self, body)
@@ -360,6 +400,16 @@ extension WindowsRawAclView {
         _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
     ) throws(E) -> T {
         return try Self._reduce(self, into: initialResult, updateAccumulatingResult)
+    }
+    public var first: WindowsRawAceView? {
+        @_lifetime(borrow self)
+        get {
+            Self._first(self)
+        }
+    }
+    @_lifetime(borrow self)
+    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
+        return try Self._first(self, where: predicate)
     }
 
 }
