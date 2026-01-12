@@ -21,13 +21,13 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
     }
 
     public func withUnsafeSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
-        let result = try body(psd.unsafeRawPtr)
+        let result = try body(psd.unsafelyCastedMutableRawPtr)
         precondition(self.isValid(), "SECURITY_DESCRIPTOR pointer corrupted")
         return result
     }
 
     public func isValid() -> Bool {
-        return IsValidSecurityDescriptor(psd.unsafeRawPtr)
+        return IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr)
     }
 
     public func fullyParsedDescriptor() throws(SystemError) -> WindowsSecurityDescriptor {

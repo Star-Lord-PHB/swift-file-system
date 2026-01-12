@@ -26,7 +26,7 @@ extension WindowsSecurityDescriptor {
         var control = 0 as SECURITY_DESCRIPTOR_CONTROL
 
         try execThrowingCFunction {
-            GetSecurityDescriptorControl(sdPtr.unsafeRawPtr, &control, &revision)
+            GetSecurityDescriptorControl(sdPtr.unsafelyCastedMutableRawPtr, &control, &revision)
         }
 
         self.revision = BYTE(revision)
@@ -89,8 +89,8 @@ extension WindowsSecurityDescriptor {
 
             try execThrowingCFunction {
                 switch type {
-                    case .dacl: GetSecurityDescriptorDacl(sdPtr.unsafeRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
-                    case .sacl: GetSecurityDescriptorSacl(sdPtr.unsafeRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
+                    case .dacl: GetSecurityDescriptorDacl(sdPtr.unsafelyCastedMutableRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
+                    case .sacl: GetSecurityDescriptorSacl(sdPtr.unsafelyCastedMutableRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
                 }
             }
 
@@ -146,22 +146,22 @@ extension WindowsSecurityDescriptor {
                 case .allow: do {
                     let allowAcePtr = acePtr.bindMemory(to: ACCESS_ALLOWED_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: allowAcePtr.pointee.Mask)
-                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: allowAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: allowAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
                 case .deny: do {
                     let denyAcePtr = acePtr.bindMemory(to: ACCESS_DENIED_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: denyAcePtr.pointee.Mask)
-                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: denyAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: denyAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
                 case .audit: do {
                     let auditAcePtr = acePtr.bindMemory(to: SYSTEM_AUDIT_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: auditAcePtr.pointee.Mask)
-                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: auditAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: auditAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
                 case .alarm: do {
                     let alarmAcePtr = acePtr.bindMemory(to: SYSTEM_ALARM_ACE.self, capacity: 1)
                     self.mask = WindowsAccessMask(rawValue: alarmAcePtr.pointee.Mask)
-                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: alarmAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    self.sid = try WindowsAPI.pSidToString(sidPtr: .init(unownedResource: alarmAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
 
             }

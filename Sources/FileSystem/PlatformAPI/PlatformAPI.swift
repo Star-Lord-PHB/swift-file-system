@@ -306,7 +306,7 @@ extension PlatformAPI {
                         SaclEvaluationResults: nil, 
                         Error: errorPtr
                     )
-                    return AuthzAccessCheck(0, authClientContext, &request, nil, securityDescriptor.psd.unsafeRawPtr, nil, 0, &reply, nil)
+                    return AuthzAccessCheck(0, authClientContext, &request, nil, securityDescriptor.psd.unsafelyCastedMutableRawPtr, nil, 0, &reply, nil)
                 }
             }
         }

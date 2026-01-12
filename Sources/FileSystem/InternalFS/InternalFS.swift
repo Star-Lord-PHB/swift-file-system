@@ -520,7 +520,7 @@ enum InternalFS {
         var sa = SECURITY_ATTRIBUTES()
         sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
         switch psd {
-            case .some(let psd):    sa.lpSecurityDescriptor = LPVOID(psd.unsafeRawPtr)
+            case .some(let psd):    sa.lpSecurityDescriptor = LPVOID(psd.unsafelyCastedMutableRawPtr)
             case .none:             sa.lpSecurityDescriptor = nil
         }
 
@@ -549,7 +549,7 @@ enum InternalFS {
         var sa = SECURITY_ATTRIBUTES()
         sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
         switch permission {
-            case .some(let permission):    sa.lpSecurityDescriptor = LPVOID(permission.psd.unsafeRawPtr)
+            case .some(let permission):    sa.lpSecurityDescriptor = LPVOID(permission.psd.unsafelyCastedMutableRawPtr)
             case .none:                    sa.lpSecurityDescriptor = nil
         }
 

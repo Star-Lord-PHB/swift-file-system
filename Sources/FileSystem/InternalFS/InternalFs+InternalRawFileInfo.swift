@@ -652,7 +652,7 @@ extension InternalFS {
                 SetNamedSecurityInfoW(
                     .init(mutating: pathPtr), SE_FILE_OBJECT, members.rawValue, 
                     owner?.psid.unsafeResourcePtr, group?.psid.unsafeResourcePtr, 
-                    dacl?.pacl.unsafeRawPtr, sacl?.pacl.unsafeRawPtr
+                    dacl?.pacl.unsafelyCastedMutableRawPtr, sacl?.pacl.unsafelyCastedMutableRawPtr
                 )
             }
         } onError: { (code) throws(SystemError) in
@@ -679,7 +679,7 @@ extension InternalFS {
             SetSecurityInfo(
                 handle.unsafeRawHandle, SE_FILE_OBJECT, members.rawValue, 
                 owner?.psid.unsafeResourcePtr, group?.psid.unsafeResourcePtr, 
-                dacl?.pacl.unsafeRawPtr, sacl?.pacl.unsafeRawPtr
+                dacl?.pacl.unsafelyCastedMutableRawPtr, sacl?.pacl.unsafelyCastedMutableRawPtr
             )
         } onError: { (code) throws(SystemError) in
             if let error = SystemError(code: code) {

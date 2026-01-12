@@ -1,6 +1,7 @@
 #if canImport(WinSDK)
 
 import PlatformCLib
+import BasicContainers
 
 
 
@@ -173,7 +174,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
         precondition(self.isValid(), "Invalid ACL pointer")
     }
 
-    public init(entries: [WindowsExplicitAccess] = []) {
+    public init(entries: WindowsExplicitAccessArray = []) {
         let pacl = UnsafeMutablePointer<ACL>.allocate(capacity: 1)
         InitializeAcl(pacl, DWORD(MemoryLayout<ACL>.size), DWORD(ACL_REVISION))
         self.init(pacl: .init(owningPointer: pacl, allocator: .swift))
@@ -187,12 +188,14 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
     }
 
     public func isValid() -> Bool {
-        return IsValidAcl(pacl.unsafeRawPtr)
+        return IsValidAcl(pacl.unsafelyCastedMutableRawPtr)
     }
 
-    public mutating func addEntries(_ entries: [WindowsExplicitAccess]) {
-        let newPacl = try! WindowsAPI.setEntriesInAcl(for: self.pacl, entires: entries.map(\.unsafeRawExplicitAccess))
-        self = .init(pacl: newPacl)
+    public mutating func addEntries(_ entries: WindowsExplicitAccessArray) {
+        entries.withUnsafeRawExplicitAccessBuffer { ptr in
+            let newPacl = try! WindowsAPI.setEntriesInAcl(for: self.pacl, entires: .init(unownedBuffer: ptr))
+            self = .init(pacl: newPacl)
+        }
     }
 
     public static var emptyAcl: WindowsRawAcl { .init() }
@@ -203,12 +206,12 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
 
         @_lifetime(copy pacl)
         init(pacl: UnsafeUnownedPointer<ACL>) {
-            precondition(IsValidAcl(pacl.unsafeRawPtr), "Invalid ACL pointer")
+            precondition(IsValidAcl(pacl.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
             self.pacl = pacl
         }
 
         public func isValid() -> Bool {
-            return IsValidAcl(pacl.unsafeRawPtr)
+            return IsValidAcl(pacl.unsafelyCastedMutableRawPtr)
         }
 
     }
@@ -219,7 +222,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
 extension WindowsRawAcl {
 
     public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
-        return try operation(pacl.unsafeRawPtr)
+        return try operation(pacl.unsafelyCastedMutableRawPtr)
     }
     public var isNull: Bool { false }
     public var aceCount: WORD { Self._aceCount(self) }
@@ -268,7 +271,7 @@ extension WindowsRawAcl {
 extension WindowsRawAcl.View {
 
     public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
-        return try operation(pacl.unsafeRawPtr)
+        return try operation(pacl.unsafelyCastedMutableRawPtr)
     }
     public var isNull: Bool { false }
     public var aceCount: WORD { Self._aceCount(self) }
@@ -321,7 +324,7 @@ public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
 
     @_lifetime(copy pacl)
     init(pacl: UnsafeUnownedPointer<ACL>?, aclDefaulted: Bool) {
-        precondition(IsValidAcl(pacl?.unsafeRawPtr), "Invalid ACL pointer")
+        precondition(IsValidAcl(pacl?.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
         self.pacl = pacl
         self.aclDefaulted = aclDefaulted
     }
@@ -329,15 +332,15 @@ public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
     @_lifetime(copy psd)
     init?(psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
         
-        precondition(IsValidSecurityDescriptor(psd.unsafeRawPtr), "Invalid SECURITY_DESCRIPTOR pointer")
+        precondition(IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr), "Invalid SECURITY_DESCRIPTOR pointer")
         
         var aclPtr = nil as PACL?
         var aclPresent = false as WindowsBool
         var aclDefaulted = false as WindowsBool
 
         switch type {
-            case .dacl: GetSecurityDescriptorDacl(psd.unsafeRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
-            case .sacl: GetSecurityDescriptorSacl(psd.unsafeRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
+            case .dacl: GetSecurityDescriptorDacl(psd.unsafelyCastedMutableRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
+            case .sacl: GetSecurityDescriptorSacl(psd.unsafelyCastedMutableRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
         }
 
         guard aclPresent.boolValue else { return nil }
@@ -369,7 +372,7 @@ extension WindowsRawAclView {
 
     public func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
         return switch self.pacl {
-            case .some(let pacl): try operation(pacl.unsafeRawPtr)
+            case .some(let pacl): try operation(pacl.unsafelyCastedMutableRawPtr)
             case .none: try operation(nil)
         }
     }
@@ -455,22 +458,22 @@ public struct WindowsRawAceView: ~Escapable {
                 case .allow: do {
                     let allowAcePtr = pace.bindMemory(to: ACCESS_ALLOWED_ACE.self, capacity: 1)
                     mask = .init(rawValue: allowAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: allowAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    sid = .init(psid: .init(unownedResource: allowAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
                 case .deny: do {
                     let denyAcePtr = pace.bindMemory(to: ACCESS_DENIED_ACE.self, capacity: 1)
                     mask = .init(rawValue: denyAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: denyAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    sid = .init(psid: .init(unownedResource: denyAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
                 case .audit: do {
                     let auditAcePtr = pace.bindMemory(to: SYSTEM_AUDIT_ACE.self, capacity: 1)
                     mask = .init(rawValue: auditAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: auditAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    sid = .init(psid: .init(unownedResource: auditAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
                 case .alarm: do {
                     let alarmAcePtr = pace.bindMemory(to: SYSTEM_ALARM_ACE.self, capacity: 1)
                     mask = .init(rawValue: alarmAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: alarmAcePtr.pointer(to: \.SidStart).unsafeRawPtr))
+                    sid = .init(psid: .init(unownedResource: alarmAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
                 }
             }
 
@@ -482,16 +485,16 @@ public struct WindowsRawAceView: ~Escapable {
 
 
 
-public struct WindowsExplicitAccess {
+public struct WindowsExplicitAccess: Sendable {
     public var permission: WindowsAccessMask
     public var accessMode: AccessMode
     public var inheritance: Inheritance
     public var trustee: RawTrustee
 
     /// > Warning: 
-    /// > The returned EXPLICIT_ACCESSW value contains a unowned pointer to a SID, 
+    /// > The provided EXPLICIT_ACCESSW value contains a unowned pointer to a SID, 
     /// > MUST ensure that the WindowsExplicitAccess value outlives the lifetime of the EXPLICIT_ACCESSW value.
-    public var unsafeRawExplicitAccess: EXPLICIT_ACCESSW {
+    public func withUnsafeRawExplicitAccess<R: ~Copyable, E: Error>(_ operation: (EXPLICIT_ACCESSW) throws(E) -> R) throws(E) -> R {
         var ea = EXPLICIT_ACCESSW()
         ea.grfAccessPermissions = permission.rawValue
         ea.grfAccessMode = accessMode.rawAccessMode
@@ -503,7 +506,7 @@ public struct WindowsExplicitAccess {
             TrusteeType: trustee.type.rawTrusteeType,
             ptstrName: trustee.sid.psid.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
         )
-        return ea
+        return try operation(ea)
     }
 
     public init(
@@ -523,7 +526,7 @@ public struct WindowsExplicitAccess {
 
 extension WindowsExplicitAccess {
 
-    public enum AccessMode: ACCESS_MODE.RawValue {
+    public enum AccessMode: ACCESS_MODE.RawValue, Sendable {
         case notUsed, grantAccess, setAccess, denyAccess, revokeAccess
         case setAuditSuccess, setAuditFailure
         public var rawAccessMode: ACCESS_MODE { .init(rawValue: self.rawValue) }
@@ -549,7 +552,7 @@ extension WindowsExplicitAccess {
     }
 
 
-    public struct RawTrustee {
+    public struct RawTrustee: Sendable {
         public var sid: WindowsSid
         public var type: TrusteeType
         public init(sid: WindowsSid, type: TrusteeType) {
@@ -571,11 +574,71 @@ extension WindowsExplicitAccess {
     }
 
 
-    public enum TrusteeType: TRUSTEE_TYPE.RawValue {
+    public enum TrusteeType: TRUSTEE_TYPE.RawValue, Sendable {
         case unknown, user, group, domain, alias, wellKnownGroup, deleted, invalid, computer
         public var rawTrusteeType: TRUSTEE_TYPE { .init(rawValue: self.rawValue) }
     }
 
 }
+
+
+
+public struct WindowsExplicitAccessArray: ExpressibleByArrayLiteral, Sendable {
+
+    private var entries: [WindowsExplicitAccess]
+
+    public var count: Int { entries.count }
+
+    public var isEmpty: Bool { entries.isEmpty }
+
+    public init<S: Sequence>(_ entries: S) where S.Element == WindowsExplicitAccess {
+        self.entries = .init(entries)
+    }
+
+    public init(arrayLiteral elements: WindowsExplicitAccess...) {
+        self.entries = .init(elements)
+    }
+
+    public subscript(_ index: Int) -> WindowsExplicitAccess {
+        get { entries[index] }
+        set { entries[index] = newValue }
+    }
+
+    public mutating func append(_ entry: WindowsExplicitAccess) {
+        entries.append(entry)
+    }
+
+    public mutating func append(contentsOf newEntries: WindowsExplicitAccessArray) {
+        entries.append(contentsOf: newEntries.entries)
+    }
+
+    public mutating func append<S: Sequence>(contentsOf newEntries: S) where S.Element == WindowsExplicitAccess {
+        entries.append(contentsOf: newEntries)
+    }
+
+    public func withUnsafeRawExplicitAccessBuffer<R: ~Copyable, E: Error>(_ operation: (UnsafeBufferPointer<EXPLICIT_ACCESSW>) throws(E) -> R) throws(E) -> R {
+        let rawEntries = RigidArray<EXPLICIT_ACCESSW>(capacity: count) { outSpan in 
+            for i in 0 ..< count {
+                entries[i].withUnsafeRawExplicitAccess { rawEA in
+                    outSpan.append(rawEA)
+                }
+            }
+        }
+        return try rawEntries.span.withUnsafeBufferPointer(operation)
+    }
+
+    public func withUnsafeMutableRawExplicitAccessBuffer<R: ~Copyable, E: Error>(_ operation: (UnsafeMutableBufferPointer<EXPLICIT_ACCESSW>) throws(E) -> R) throws(E) -> R {
+        var rawEntries = RigidArray<EXPLICIT_ACCESSW>(capacity: count) { outSpan in 
+            for i in 0 ..< count {
+                entries[i].withUnsafeRawExplicitAccess { rawEA in
+                    outSpan.append(rawEA)
+                }
+            }
+        }
+        var mutableSpan = rawEntries.mutableSpan
+        return try mutableSpan.withUnsafeMutableBufferPointer(operation)
+    }
+
+} 
 
 #endif 

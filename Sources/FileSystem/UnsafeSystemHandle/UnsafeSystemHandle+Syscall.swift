@@ -70,7 +70,7 @@ extension UnsafeSystemHandle {
         // currently, borrowing switch is the only way to get the unsafeRawPtr in WindowsOwnedAPIPointer
         switch securityDescriptorPtr {
             case .some(let sdPtr):
-                securityAttributes.lpSecurityDescriptor = .init(sdPtr.unsafeRawPtr)
+                securityAttributes.lpSecurityDescriptor = .init(sdPtr.unsafelyCastedMutableRawPtr)
             case .none: break
         }
 

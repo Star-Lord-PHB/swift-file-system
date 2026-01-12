@@ -5,7 +5,7 @@ import PlatformCLib
 
 public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
-    fileprivate(set) var psd: UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>
+    fileprivate(set) var psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
     fileprivate(set) var _dacl: WindowsRawAcl?
     fileprivate(set) var _sacl: WindowsRawAcl?
     fileprivate(set) var _owner: WindowsSid?
@@ -19,7 +19,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         group: consuming WindowsSid?
     ) {
 
-        precondition(IsValidSecurityDescriptor(psd.unsafeRawPtr), "Invalid security descriptor")
+        precondition(IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr), "Invalid security descriptor")
 
         switch dacl {
             case .some(let acl): 
@@ -49,7 +49,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
             case .none: precondition(psd.unsafeRawPtr.pointee.Group == nil, "Group SID pointer mismatch")
         }
 
-        self.psd = psd
+        self.psd = psd.unsafeMutableCast()
         self._dacl = dacl
         self._owner = owner
         self._group = group
@@ -73,7 +73,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
         precondition(
             MakeAbsoluteSD(
-                selfRelativeSd.psd.unsafeRawPtr, 
+                selfRelativeSd.psd.unsafelyCastedMutableRawPtr, 
                 psd, &sdSize, 
                 pdacl, &daclSize, 
                 psacl, &saclSize, 
@@ -108,7 +108,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
         try execThrowingCFunction {
             MakeAbsoluteSD(
-                selfRelativeSd.psd.unsafeRawPtr, 
+                selfRelativeSd.psd.unsafelyCastedMutableRawPtr, 
                 psd!, &sdSize, 
                 pdacl, &daclSize, psacl, &saclSize, 
                 owner, &ownerSize, group, &groupSize
@@ -146,14 +146,14 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
     }
 
     public init() {
-        let psd = UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>(owningPointer: .allocate(capacity: 1), allocator: .swift)
-        InitializeSecurityDescriptor(psd.unsafeRawPtr, DWORD(SECURITY_DESCRIPTOR_REVISION))
+        let psd = UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>.swiftAllocate(capacity: 1)
+        InitializeSecurityDescriptor(psd.unsafelyCastedMutableRawPtr, DWORD(SECURITY_DESCRIPTOR_REVISION))
         self.init(psd: psd, dacl: nil, sacl: nil, owner: nil, group: nil)
     }
 
 
     public func makeSelfRelative() throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
-        let selfRelativeSd = try WindowsAPI.makeSelfRelativeSecurityDescriptor(from: psd.unownedView())
+        let selfRelativeSd = try WindowsAPI.makeSelfRelativeSecurityDescriptor(from: psd.unownedView().immutableCast())
         return .init(psd: selfRelativeSd)
     }
 
@@ -168,29 +168,29 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
             case .none: nil as WindowsRawAcl.View?
         }
         guard dacl?.isValid() != false else { return false }
-        guard psd.unsafeRawPtr.pointee.Dacl == dacl?.pacl.unsafeRawPtr else { return false }
+        guard psd.pointee.Dacl == dacl?.pacl.unsafelyCastedMutableRawPtr else { return false }
 
         let sacl = switch sacl {
             case .some(let acl): acl.view
             case .none: nil as WindowsRawAcl.View?
         }
         guard sacl?.isValid() != false else { return false }
-        guard psd.unsafeRawPtr.pointee.Sacl == sacl?.pacl.unsafeRawPtr else { return false }
+        guard psd.pointee.Sacl == sacl?.pacl.unsafelyCastedMutableRawPtr else { return false }
 
         switch owner {
             case .some(let sid): 
                 guard sid.isValid() else { return false }
-                guard psd.unsafeRawPtr.pointee.Owner == sid.psid.unsafeResourcePtr else { return false }
+                guard psd.pointee.Owner == sid.psid.unsafeResourcePtr else { return false }
             case .none:
-                guard psd.unsafeRawPtr.pointee.Owner == nil else { return false }
+                guard psd.pointee.Owner == nil else { return false }
         }
 
         switch group {
             case .some(let sid): 
                 guard sid.isValid() else { return false }
-                guard psd.unsafeRawPtr.pointee.Group == sid.psid.unsafeResourcePtr else { return false }
+                guard psd.pointee.Group == sid.psid.unsafeResourcePtr else { return false }
             case .none:
-                guard psd.unsafeRawPtr.pointee.Group == nil else { return false }
+                guard psd.pointee.Group == nil else { return false }
         }
 
         return true
@@ -233,7 +233,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         _modify { 
             yield &_dacl
             precondition(dacl?.isValid() ?? true, "Invalid DACL")
-            SetSecurityDescriptorDacl(psd.unsafeRawPtr, true, dacl?.pacl.unsafeRawPtr, false)
+            SetSecurityDescriptorDacl(psd.unsafeRawPtr, true, dacl?.pacl.unsafelyCastedMutableRawPtr, false)
         }
     }
 
@@ -242,7 +242,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         _modify { 
             yield &_sacl
             precondition(sacl?.isValid() ?? true, "Invalid SACL")
-            SetSecurityDescriptorSacl(psd.unsafeRawPtr, true, sacl?.pacl.unsafeRawPtr, false)
+            SetSecurityDescriptorSacl(psd.unsafeRawPtr, true, sacl?.pacl.unsafelyCastedMutableRawPtr, false)
         }
     }
 

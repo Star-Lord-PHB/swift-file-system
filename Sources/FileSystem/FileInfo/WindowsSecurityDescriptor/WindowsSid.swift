@@ -6,6 +6,8 @@ import PlatformCLib
 
 public struct WindowsSid: @unchecked Sendable {
 
+    // TODO: switch to raw pointer implementation to avoid reference counting overhead
+
     private class Storage {
         var psid: UnsafeOwnedAutoResource
         init(psid: consuming UnsafeOwnedAutoResource) {

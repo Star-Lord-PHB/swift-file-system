@@ -104,7 +104,7 @@ enum WindowsAPI {
             .swiftAllocate(byteCount: Int(size), alignment: MemoryLayout<T>.alignment)
             .assumingMemoryBound(to: T.self)
         try execThrowingCFunction {
-            GetTokenInformation(tokenHandle.unsafeResourcePtr, tokenInfoClass, infoPtr.unsafeRawPtr, size, &size)
+            GetTokenInformation(tokenHandle.unsafeResourcePtr, tokenInfoClass, infoPtr.unsafelyCastedMutableRawPtr, size, &size)
         }
         return infoPtr
     }
@@ -158,21 +158,19 @@ enum WindowsAPI {
     }
 
 
-    static func makeAcl(from aclEntries: borrowing [EXPLICIT_ACCESSW]) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
+    static func makeAcl(from aclEntries: UnsafeUnownedBufferPointer<EXPLICIT_ACCESSW>) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
         return try setEntriesInAcl(for: nil, entires: aclEntries)
     }
 
 
     static func setEntriesInAcl(
         for acl: consuming UnsafeOwnedAutoPointer<ACL>?, 
-        entires aclEntries: [EXPLICIT_ACCESSW]
+        entires aclEntries: UnsafeUnownedBufferPointer<EXPLICIT_ACCESSW>,
     ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
 
         var newAclPtr = nil as PACL?
         try execThrowingCFunction {
-            aclEntries.withUnsafeBufferPointer { aclEntriesBuffer in 
-                SetEntriesInAclW(ULONG(aclEntriesBuffer.count), UnsafeMutablePointer(mutating: aclEntriesBuffer.baseAddress), acl?.unsafeRawPtr, &newAclPtr)
-            }
+            SetEntriesInAclW(ULONG(aclEntries.count), aclEntries.baseAddress?.unsafelyCastedMutableRawPtr, acl?.unsafelyCastedMutableRawPtr, &newAclPtr)
         } onError: { (code) throws(SystemError) in
             throw SystemError(code: code)!
         }
@@ -190,7 +188,7 @@ enum WindowsAPI {
 
         var selfRelativeSDSize = 0 as DWORD
         guard 
-            MakeSelfRelativeSD(absoluteSecurityDescriptorPtr.unsafeRawPtr, nil, &selfRelativeSDSize) == false, 
+            MakeSelfRelativeSD(absoluteSecurityDescriptorPtr.unsafelyCastedMutableRawPtr, nil, &selfRelativeSDSize) == false, 
             GetLastError() == ERROR_INSUFFICIENT_BUFFER 
         else {
             try SystemError.assertError()
@@ -202,7 +200,7 @@ enum WindowsAPI {
         ).assumingMemoryBound(to: SECURITY_DESCRIPTOR.self)
 
         try execThrowingCFunction {
-            MakeSelfRelativeSD(absoluteSecurityDescriptorPtr.unsafeRawPtr, selfRelativeSDPtr.unsafeRawPtr, &selfRelativeSDSize)
+            MakeSelfRelativeSD(absoluteSecurityDescriptorPtr.unsafelyCastedMutableRawPtr, selfRelativeSDPtr.unsafelyCastedMutableRawPtr, &selfRelativeSDSize)
         }
 
         return selfRelativeSDPtr
@@ -265,7 +263,9 @@ enum WindowsAPI {
             daclEntries.append(entry)
         }
 
-        return try makeAcl(from: daclEntries)
+        return try daclEntries.span.withUnsafeBufferPointer { (buffer) throws(SystemError) in 
+            try makeAcl(from: .init(unownedBuffer: buffer))
+        }
 
     }
 
@@ -324,7 +324,7 @@ enum WindowsAPI {
             SetSecurityDescriptorGroup(&securityDescriptor, primaryGroupSid, false)
         }
         try execThrowingCFunction {
-            SetSecurityDescriptorDacl(&securityDescriptor, true, daclPtr.unsafeRawPtr, false)
+            SetSecurityDescriptorDacl(&securityDescriptor, true, daclPtr.unsafelyCastedMutableRawPtr, false)
         }
 
         // Make the security descriptor self-relative, otherwise its contents will be invalid once this function returns.
@@ -335,90 +335,10 @@ enum WindowsAPI {
     }
 
 
-    // static func effectiveAccessMaskForCurrentProcess(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> DWORD {
-    //     let processToken = try getCurrentProcessTokenHandle()
-    //     return try effectiveAccessMask(from: securityDescriptorPtr, forSubject: processToken.unownedView())
-    // }
-
-
-    // static func effectiveAccessMaskForCurrentProcess(
-    //     from securityDescriptorPtr: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>
-    // ) throws(SystemError) -> DWORD {
-    //     return try effectiveAccessMaskForCurrentProcess(from: securityDescriptorPtr.unownedView())
-    // }
-
-
-    // static func effectiveAccessMask(
-    //     from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, 
-    //     forSubject subjectTokenHandle: UnsafeUnownedResource
-    // ) throws(SystemError) -> DWORD {
-
-    //     var authResourceManager = nil as AUTHZ_RESOURCE_MANAGER_HANDLE?
-    //     try execThrowingCFunction {
-    //         AuthzInitializeResourceManager(
-    //             DWORD(AUTHZ_RM_FLAG_NO_AUDIT), 
-    //             nil, nil, nil, nil, 
-    //             &authResourceManager
-    //         )
-    //     }
-    //     guard let authResourceManager else {
-    //         try SystemError.assertError()
-    //     }
-    //     defer { AuthzFreeResourceManager(authResourceManager) }
-
-    //     var authClientContext = nil as AUTHZ_CLIENT_CONTEXT_HANDLE?
-    //     try execThrowingCFunction {
-    //         AuthzInitializeContextFromToken(0, subjectTokenHandle.unsafeResourcePtr, authResourceManager, nil, LUID(), nil, &authClientContext)
-    //     } 
-    //     guard let authClientContext else {
-    //         try SystemError.assertError()
-    //     }
-    //     defer { AuthzFreeContext(authClientContext) }
-
-    //     var request = AUTHZ_ACCESS_REQUEST(
-    //         DesiredAccess: DWORD(MAXIMUM_ALLOWED), 
-    //         PrincipalSelfSid: nil, ObjectTypeList: nil, ObjectTypeListLength: 0, OptionalArguments: nil
-    //     )
-
-    //     var grantedAccessMask = 0 as DWORD
-    //     var error = 0 as DWORD
-
-    //     try execThrowingCFunction {
-    //         withUnsafeMutablePointer(to: &grantedAccessMask) { grantedAccessMaskPtr in 
-    //             withUnsafeMutablePointer(to: &error) { errorPtr in 
-    //                 var reply = AUTHZ_ACCESS_REPLY(
-    //                     ResultListLength: 1, 
-    //                     GrantedAccessMask: grantedAccessMaskPtr, 
-    //                     SaclEvaluationResults: nil, 
-    //                     Error: errorPtr
-    //                 )
-    //                 return AuthzAccessCheck(0, authClientContext, &request, nil, securityDescriptorPtr.unsafeRawPtr, nil, 0, &reply, nil)
-    //             }
-    //         }
-    //     }
-
-    //     guard error == SystemError.successCode else {
-    //         throw SystemError(code: error)!
-    //     }
-
-    //     var genericMapping = GENERIC_MAPPING(
-    //         GenericRead: DWORD(GENERIC_READ), 
-    //         GenericWrite: DWORD(GENERIC_WRITE), 
-    //         GenericExecute: DWORD(GENERIC_EXECUTE), 
-    //         GenericAll: DWORD(GENERIC_ALL)
-    //     )
-
-    //     MapGenericMask(&grantedAccessMask, &genericMapping)
-
-    //     return grantedAccessMask
-
-    // }
-
-
     static func getControl(from securityDescriptorPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) -> (SECURITY_DESCRIPTOR_CONTROL, DWORD) {
         var revision = 0 as DWORD
         var control = 0 as SECURITY_DESCRIPTOR_CONTROL
-        GetSecurityDescriptorControl(securityDescriptorPtr.unsafeRawPtr, &control, &revision)
+        GetSecurityDescriptorControl(securityDescriptorPtr.unsafelyCastedMutableRawPtr, &control, &revision)
         return (control, revision)
     }
 
@@ -428,7 +348,7 @@ enum WindowsAPI {
         var ownerSidPtr = nil as PSID?
         var ownerDefaulted = false as WindowsBool
         try execThrowingCFunction {
-            GetSecurityDescriptorOwner(securityDescriptorPtr.unsafeRawPtr, &ownerSidPtr, &ownerDefaulted)
+            GetSecurityDescriptorOwner(securityDescriptorPtr.unsafelyCastedMutableRawPtr, &ownerSidPtr, &ownerDefaulted)
         }
         guard let ownerSidPtr else {
             try SystemError.assertError()
@@ -442,7 +362,7 @@ enum WindowsAPI {
         var groupSidPtr = nil as PSID?
         var groupDefaulted = false as WindowsBool
         try execThrowingCFunction {
-            GetSecurityDescriptorGroup(securityDescriptorPtr.unsafeRawPtr, &groupSidPtr, &groupDefaulted)
+            GetSecurityDescriptorGroup(securityDescriptorPtr.unsafelyCastedMutableRawPtr, &groupSidPtr, &groupDefaulted)
         }
         guard let groupSidPtr else {
             try SystemError.assertError()
