@@ -1,3 +1,4 @@
+#if canImport(WinSDK)
 import Testing
 import SystemPackage
 import Foundation
@@ -101,3 +102,4 @@ extension FileSystemTest.WindowsFileSecurityInfoTest {
     }
 
 }
+#endif 
