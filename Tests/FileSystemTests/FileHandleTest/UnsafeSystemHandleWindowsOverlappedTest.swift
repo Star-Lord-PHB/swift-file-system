@@ -31,12 +31,19 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
             do {
                 var buffer = Data(count: 5)
 
+                #if swift(>=6.2)
+                var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: 6)
+                var span = buffer.mutableBytes
+                let pendingOverlapped = try handle.read(into: &span, overlapped: &overlapped)
+                let bytesRead = try handle.waitForOverlappedResult(pendingOverlapped)
+                #else
                 let bytesRead = try buffer.withUnsafeMutableBytes { bufferPtr in 
                     var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: 6)
-                    try handle.read(into: bufferPtr, overlapped: &overlapped)
-                    let result = try handle.waitForOverlappedResult(overlapped)
+                    let pendingOverlapped = try handle.read(into: bufferPtr, overlapped: &overlapped)
+                    let result = try handle.waitForOverlappedResult(pendingOverlapped)
                     return result
                 }
+                #endif
 
                 #expect(bytesRead == 5)
                 #expect(try handle.tell() == 0)
@@ -50,16 +57,15 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
                 var overlapped1 = UnsafeSystemHandle.WindowsOverlapped()
                 var overlapped2 = UnsafeSystemHandle.WindowsOverlapped(offset: 2)
 
-                try buffer1.withUnsafeMutableBytes { bufferPtr in 
-                    try handle.read(into: bufferPtr, overlapped: &overlapped1)
+                let (bytesRead1, bytesRead2) = try buffer1.withUnsafeMutableBytes { bufferPtr in 
+                    let pendingOverlapped1 = try handle.read(into: bufferPtr, overlapped: &overlapped1)
+                    let bytesRead2 = try buffer2.withUnsafeMutableBytes { bufferPtr in 
+                        let pendingOverlapped2 = try handle.read(into: bufferPtr, length: 3, overlapped: &overlapped2)
+                        return try handle.waitForOverlappedResult(pendingOverlapped2)
+                    }
+                    let bytesRead1 = try handle.waitForOverlappedResult(pendingOverlapped1)
+                    return (bytesRead1, bytesRead2)
                 }
-
-                try buffer2.withUnsafeMutableBytes { bufferPtr in 
-                    try handle.read(into: bufferPtr, length: 3, overlapped: &overlapped2)
-                }
-
-                let bytesRead1 = try handle.waitForOverlappedResult(overlapped1)
-                let bytesRead2 = try handle.waitForOverlappedResult(overlapped2)
 
                 #expect(bytesRead1 == 5)
                 #expect(bytesRead2 == 3)
@@ -73,10 +79,10 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
                 var buffer = Data(count: 5)
 
                 let bytesRead = try buffer.withUnsafeMutableBytes { bufferPtr in 
-                    try handle.withWindowsOverlapped { overlapped in
-                        overlapped.offset = 5
-                        return try handle.read(into: bufferPtr, length: 3, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped()
+                    overlapped.offset = 5
+                    let pendingOverlapped = try handle.read(into: bufferPtr, length: 3, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)    
                 }
 
                 #expect(bytesRead == 3)
@@ -102,11 +108,17 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
             do {
                 let dataToWrite = Data("Serika!".utf8)
 
+                #if swift(>=6.2)
+                var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: 6)
+                let pendingOverlapped = try handle.write(contentsOf: dataToWrite.bytes, overlapped: &overlapped)
+                let bytesWritten = try handle.waitForOverlappedResult(pendingOverlapped)
+                #else
                 let bytesWritten = try dataToWrite.withUnsafeBytes { bufferPtr in 
                     var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: 6)
-                    try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    return try handle.waitForOverlappedResult(overlapped)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 }
+                #endif
 
                 #expect(bytesWritten == 7)
                 #expect(try handle.tell() == 0)
@@ -121,8 +133,8 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
 
                 let bytesWritten1 = try dataToWrite1.withUnsafeBytes { bufferPtr in 
                     var overlapped = UnsafeSystemHandle.WindowsOverlapped()
-                    try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    return try handle.waitForOverlappedResult(overlapped)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 }
 
                 #expect(bytesWritten1 == 6)
@@ -131,8 +143,8 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
 
                 let bytesWritten2 = try dataToWrite2.withUnsafeBytes { bufferPtr in 
                     var overlapped = UnsafeSystemHandle.WindowsOverlapped()
-                    try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    return try handle.waitForOverlappedResult(overlapped)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 }
 
                 #expect(bytesWritten2 == 7)
@@ -144,10 +156,9 @@ extension FileSystemTest.UnsafeSystemHandleWindowsOverlappedTest {
                 let dataToWrite = Data(" is cute".utf8)
 
                 let bytesWritten = try dataToWrite.withUnsafeBytes { bufferPtr in 
-                    try handle.withWindowsOverlapped { overlapped in
-                        overlapped.offset = 7
-                        return try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: 7)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 }
 
                 #expect(bytesWritten == 8)

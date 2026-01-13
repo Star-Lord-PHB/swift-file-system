@@ -123,18 +123,16 @@ extension ReadWriteFileHandle {
         try catchSystemError(operationDescription: .readingHandle(at: path, offset: offset, length: lengthToRead)) { () throws(SystemError) in
             if let offset {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    _ = try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
-                        overlapped.offset = offset
-                        try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: offset)
+                    let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
+                    _ = try handle.waitForOverlappedResult(pendingOverlapped)
                 }
             } else {
                 let currentOffset = _currentOffset.withLock(\.self)
                 let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
-                        overlapped.offset = currentOffset
-                        try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: currentOffset)
+                    let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped) 
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 }
                 _currentOffset.withLock {
                     $0 = currentOffset + bytesRead
@@ -173,16 +171,14 @@ extension ReadWriteFileHandle {
         return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(FileError) in 
             try catchSystemError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(bufferPtr.count))) { () throws(SystemError) in
                 if let offset {
-                    return try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
-                        overlapped.offset = offset
-                        try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: offset)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 } else {
                     let currentOffset = _currentOffset.withLock(\.self)
-                    let bytesWritten = try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
-                        overlapped.offset = currentOffset
-                        try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: currentOffset)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    let bytesWritten = try handle.waitForOverlappedResult(pendingOverlapped)
                     _currentOffset.withLock {
                         $0 = currentOffset + Int64(bytesWritten)
                     }

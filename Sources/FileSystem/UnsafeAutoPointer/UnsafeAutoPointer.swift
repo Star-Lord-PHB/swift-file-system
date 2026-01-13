@@ -235,7 +235,7 @@ struct UnsafeOwnedMutableAutoPointer<Pointee: ~Copyable>: ~Copyable {
 extension UnsafeOwnedMutableAutoPointer {
     var pointee: Pointee {
         get { unsafeRawPtr.pointee }
-        set { unsafeRawPtr.pointee = newValue }
+        nonmutating set { unsafeRawPtr.pointee = newValue }
     }
 }
 
@@ -293,6 +293,6 @@ extension UnsafeUnownedMutablePointer {
     var pointee: Pointee {
         get { unsafeRawPtr.pointee }
         @_lifetime(copy self)
-        set { unsafeRawPtr.pointee = newValue }
+        nonmutating set { unsafeRawPtr.pointee = newValue }
     }
 }

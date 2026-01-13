@@ -9,154 +9,177 @@ extension UnsafeSystemHandle {
 
     public struct WindowsOverlapped: ~Copyable {
 
-        private var systemOverlapped: OVERLAPPED
+        var systemOverlapped: UnsafeOwnedMutableAutoPointer<OVERLAPPED>
 
         public init(offset: Int64 = 0, eventHandle: WinSDK.HANDLE? = nil) {
-            self.systemOverlapped = OVERLAPPED()
-            self.systemOverlapped.Offset = DWORD(offset & 0xFFFFFFFF)
-            self.systemOverlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
-            self.systemOverlapped.hEvent = eventHandle
-        }
-
-        deinit {
-            assert(false, "WindowsOverlapped deinitialized without being explicitly consumed by calling waitForResult(handle:onComplete:)")
+            var systemOverlapped = OVERLAPPED()
+            systemOverlapped.Offset = DWORD(offset & 0xFFFFFFFF)
+            systemOverlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+            systemOverlapped.hEvent = eventHandle
+            self.systemOverlapped = UnsafeOwnedMutableAutoPointer<OVERLAPPED>.swiftAllocate(capacity: 1)
+            self.systemOverlapped.pointee = consume systemOverlapped
         }
 
         public var offset: Int64 {
-            get { Int64(self.systemOverlapped.Offset) | (Int64(self.systemOverlapped.OffsetHigh) << 32) }
+            get { Int64(self.systemOverlapped.pointee.Offset) | (Int64(self.systemOverlapped.pointee.OffsetHigh) << 32) }
             set {
-                self.systemOverlapped.Offset = DWORD(newValue & 0xFFFFFFFF)
-                self.systemOverlapped.OffsetHigh = DWORD((newValue >> 32) & 0xFFFFFFFF)
+                self.systemOverlapped.pointee.Offset = DWORD(newValue & 0xFFFFFFFF)
+                self.systemOverlapped.pointee.OffsetHigh = DWORD((newValue >> 32) & 0xFFFFFFFF)
             }
         }
 
         public var eventHandle: WinSDK.HANDLE? {
-            get { self.systemOverlapped.hEvent }
-            set { self.systemOverlapped.hEvent = newValue }
+            get { self.systemOverlapped.pointee.hEvent }
+            set { self.systemOverlapped.pointee.hEvent = newValue }
         }
 
-        public func withSystemOverlapped<T: ~Copyable, E: Error>(_ body: (OVERLAPPED) throws(E) -> T) throws(E) -> T {
-            return try body(self.systemOverlapped)
+        public func withSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
+            return try body(self.systemOverlapped.unsafeRawPtr)
         }
 
-        public mutating func withMutableSystemOverlapped<T: ~Copyable, E: Error>(_ body: (inout OVERLAPPED) throws(E) -> T) throws(E) -> T {
-            return try body(&self.systemOverlapped)
+        public mutating func withMutableSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafeMutablePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
+            return try body(self.systemOverlapped.unsafeRawPtr)
         }
 
-        consuming func _waitForResultAndDiscard<R: ~Copyable>(
-            handle: borrowing UnsafeSystemHandle,
-            onComplete: (_ overlapped: borrowing WindowsOverlapped, _ bytesTransferred: Int64) throws -> R = { _, bytesTransferred in bytesTransferred }
-        ) throws -> R {
-            var bytesTransferred = 0 as DWORD
-            do {
-                try execThrowingCFunction {
-                    GetOverlappedResult(handle.unsafeRawHandle, &systemOverlapped, &bytesTransferred, true)
-                }
-                let result = try onComplete(self, Int64(bytesTransferred))
-                discard self
-                return result
-            } catch {
-                discard self
-                throw error
-            }
-        }
-
-        consuming func _waitForResultAndDiscard<R: ~Copyable>(
-            handle: borrowing UnsafeSystemHandle,
-            onComplete: (_ overlapped: borrowing WindowsOverlapped, _ bytesTransferred: Int64) throws(SystemError) -> R = { _, bytesTransferred in bytesTransferred }
-        ) throws(SystemError) -> R {
-            var bytesTransferred = 0 as DWORD
-            do {
-                try execThrowingCFunction {
-                    GetOverlappedResult(handle.unsafeRawHandle, &systemOverlapped, &bytesTransferred, true)
-                }
-                let result = try onComplete(self, Int64(bytesTransferred))
-                discard self
-                return result
-            } catch {
-                discard self
-                throw error
-            }
+        @_lifetime(&self)
+        public mutating func startOperation<E: Error>(
+            operation: (_ overlapped: inout WindowsOverlapped) throws(E) -> Void
+        ) throws(E) -> WindowsPendingOverlapped {
+            try operation(&self)
+            return .init(overlapped: &self)
         }
         
     }
 
 
-    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil, overlapped: inout WindowsOverlapped) throws(SystemError) {
+    public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
+
+        private let systemOverlapped: UnsafeMutablePointer<OVERLAPPED>
+
+        @_lifetime(&overlapped)
+        public init(overlapped: inout WindowsOverlapped) {
+            self.systemOverlapped = overlapped.systemOverlapped.unsafeRawPtr
+        }
+
+        deinit {
+            precondition(false, "WindowsPendingOverlapped being deinitialized automatically without explicitly being waited")
+        }
+
+        public consuming func wait(on handle: borrowing UnsafeSystemHandle) throws(SystemError) -> Int64 {
+            let systemOverlapped = self.systemOverlapped
+            discard self
+            var bytesTransferred = 0 as DWORD
+            try execThrowingCFunction {
+                GetOverlappedResult(handle.unsafeRawHandle, systemOverlapped, &bytesTransferred, true)
+            }
+            return Int64(bytesTransferred)
+        }
+
+        public func withSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
+            return try body(self.systemOverlapped)
+        }
+
+        /// > Warning: 
+        /// > Mutating the OVERLAPPED value that is in use by an ongoing I/O operation is extremely dangerous, 
+        /// > use this function only if you are absolutely sure of what you are doing.
+        @_lifetime(copy self)
+        public mutating func withMutableSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafeMutablePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
+            return try body(self.systemOverlapped)
+        }
+
+    }
+
+
+    @_lifetime(&overlapped, borrow buffer)
+    public func read(
+        into buffer: UnsafeMutableRawBufferPointer, 
+        length: Int64? = nil, 
+        overlapped: inout WindowsOverlapped
+    ) throws(SystemError) -> WindowsPendingOverlapped {
 
         let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
 
         var bytesRead = 0 as DWORD
 
-        let result = overlapped.withMutableSystemOverlapped { systemOverlapped in
-            ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, &systemOverlapped)
-        }
-
-        if result == false {
-            let errorCode = GetLastError()
-            guard errorCode == ERROR_IO_PENDING else {
-                throw SystemError(code: errorCode)!
+        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+            if ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, overlapped.systemOverlapped.unsafeRawPtr) == false {
+                let errorCode = GetLastError()
+                guard errorCode == ERROR_IO_PENDING else {
+                    throw SystemError(code: errorCode)!
+                }
             }
         }
 
     }
 
 
-    public func write(contentsOf buffer: UnsafeRawBufferPointer, overlapped: inout WindowsOverlapped) throws(SystemError) {
+    @_lifetime(&overlapped, borrow buffer)
+    public func write(contentsOf buffer: UnsafeRawBufferPointer, overlapped: inout WindowsOverlapped) throws(SystemError) -> WindowsPendingOverlapped {
 
         var bytesWritten = 0 as DWORD
 
-        let result = overlapped.withMutableSystemOverlapped { systemOverlapped in
-            WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, &systemOverlapped)
-        }
-
-        guard result || GetLastError() == ERROR_IO_PENDING else {
-            throw SystemError(code: GetLastError())!
-        }
-
-        if result == false {
-            let errorCode = GetLastError()
-            guard errorCode == ERROR_IO_PENDING else {
-                throw SystemError(code: errorCode)!
+        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+            if WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, overlapped.systemOverlapped.unsafeRawPtr) == false {
+                let errorCode = GetLastError()
+                guard errorCode == ERROR_IO_PENDING else {
+                    throw SystemError(code: errorCode)!
+                }
             }
         }
 
     }
 
 
-    public func waitForOverlappedResult<R: ~Copyable>(
-        _ overlapped: consuming WindowsOverlapped,
-        onComplete: (_ overlapped: borrowing WindowsOverlapped, _ bytesTransferred: Int64) throws -> R = { _, bytesTransferred in bytesTransferred }
-    ) throws -> R {
-        return try overlapped._waitForResultAndDiscard(handle: self, onComplete: onComplete)
+    #if swift(>=6.2)
+    @_lifetime(&overlapped, &buffer)
+    public func read(
+        into buffer: inout MutableRawSpan, 
+        length: Int64? = nil, 
+        overlapped: inout WindowsOverlapped
+    ) throws(SystemError) -> WindowsPendingOverlapped {
+
+        let lengthToRead = min(buffer.byteCount, length.map { Int($0) } ?? buffer.byteCount)
+
+        var bytesRead = 0 as DWORD
+
+        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+            let result = buffer.withUnsafeMutableBytes { ptr in 
+                ReadFile(unsafeRawHandle, ptr.baseAddress, DWORD(lengthToRead), &bytesRead, overlapped.systemOverlapped.unsafeRawPtr)
+            }
+            if result == false {
+                let errorCode = GetLastError()
+                guard errorCode == ERROR_IO_PENDING else {
+                    throw SystemError(code: errorCode)!
+                }
+            }
+        }
+
     }
 
 
-    public func waitForOverlappedResult<R: ~Copyable>(
-        _ overlapped: consuming WindowsOverlapped,
-        onComplete: (_ overlapped: borrowing WindowsOverlapped, _ bytesTransferred: Int64) throws(SystemError) -> R = { _, bytesTransferred in bytesTransferred }
-    ) throws(SystemError) -> R {
-        return try overlapped._waitForResultAndDiscard(handle: self, onComplete: onComplete)
+    @_lifetime(copy buffer, &overlapped)
+    public func write(contentsOf buffer: RawSpan, overlapped: inout WindowsOverlapped) throws(SystemError) -> WindowsPendingOverlapped {
+
+        var bytesWritten = 0 as DWORD
+
+        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+            let result = buffer.withUnsafeBytes { ptr in 
+                WriteFile(unsafeRawHandle, ptr.baseAddress, DWORD(buffer.byteCount), &bytesWritten, overlapped.systemOverlapped.unsafeRawPtr)
+            }
+            if result == false {
+                let errorCode = GetLastError()
+                guard errorCode == ERROR_IO_PENDING else {
+                    throw SystemError(code: errorCode)!
+                }
+            }
+        }
+
     }
+    #endif
 
 
-    public func withWindowsOverlapped<T: ~Copyable>(
-        _ body: (inout WindowsOverlapped) throws -> Void, 
-        onComplete: (_ overlapped: borrowing WindowsOverlapped, _ bytesTransferred: Int64) throws -> T = { _, bytesTransferred in bytesTransferred }
-    ) throws -> T {
-        var overlapped = WindowsOverlapped()
-        try body(&overlapped)
-        return try waitForOverlappedResult(overlapped, onComplete: onComplete)
-    }
-
-
-    public func withWindowsOverlapped<T: ~Copyable>(
-        _ body: (inout WindowsOverlapped) throws(SystemError) -> Void, 
-        onComplete: (_ overlapped: borrowing WindowsOverlapped, _ bytesTransferred: Int64) throws(SystemError) -> T = { _, bytesTransferred in bytesTransferred }
-    ) throws(SystemError) -> T {
-        var overlapped = WindowsOverlapped()
-        try body(&overlapped)
-        return try waitForOverlappedResult(overlapped, onComplete: onComplete)
+    public func waitForOverlappedResult(_ overlapped: consuming WindowsPendingOverlapped) throws(SystemError) -> Int64 {
+        return try overlapped.wait(on: self)
     }
 
 }

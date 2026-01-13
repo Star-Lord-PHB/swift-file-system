@@ -121,16 +121,14 @@ extension WriteFileHandle {
         return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(FileError) in 
             try catchSystemError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(bufferPtr.count))) { () throws(SystemError) in
                 if let offset {
-                    return try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
-                        overlapped.offset = offset
-                        try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: offset)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 } else {
                     let currentOffset = _currentOffset.withLock(\.self)
-                    let bytesWritten = try handle.withWindowsOverlapped { (overlapped) throws(SystemError) in
-                        overlapped.offset = currentOffset
-                        try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    }
+                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: currentOffset)
+                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
+                    let bytesWritten = try handle.waitForOverlappedResult(pendingOverlapped)
                     _currentOffset.withLock {
                         $0 = currentOffset + Int64(bytesWritten)
                     }
