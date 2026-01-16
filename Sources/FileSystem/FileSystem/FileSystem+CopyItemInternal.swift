@@ -129,15 +129,9 @@ extension FileSystem {
 
         try handle.setFileAttributes(cachedAttrs.attributes)
 
-        let absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
+        var absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
 
-        try handle.setFileSecurityInfo(
-            .dacl, 
-            dacl: absoluteSd._dacl, 
-            sacl: nil, 
-            owner: nil, 
-            group: nil
-        )
+        try handle.setSecurityInfo(.dacl, dacl: absoluteSd.takeDacl(), sacl: nil, owner: nil, group: nil)
 
         #else 
 
@@ -165,15 +159,13 @@ extension FileSystem {
 
         try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes)
 
-        let absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
+        var absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
 
         try InternalFS.setFileSecurityInfo(
             forItemAt: path, 
             setting: .dacl, 
-            dacl: absoluteSd._dacl, 
-            sacl: nil, 
-            owner: nil, 
-            group: nil
+            dacl: absoluteSd.takeDacl(), 
+            sacl: nil, owner: nil, group: nil
         )
 
         #else

@@ -284,6 +284,16 @@ extension WindowsAbsoluteSecurityDescriptor {
         self.group = nil
     }
 
+
+    public mutating func takeDacl() -> WindowsRawAcl? {
+        return self.dacl.take()
+    }
+
+
+    public mutating func takeSacl() -> WindowsRawAcl? {
+        return self.sacl.take()
+    }
+
 }
 
 #endif 
