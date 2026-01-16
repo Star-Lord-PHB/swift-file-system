@@ -276,7 +276,7 @@ extension FileSystem {
         querying members: FileOperationOptions.WindowsSecurityDescriptorMembers = .all
     ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
 
-        var internalQueryingMembers = [] as InternalFS.WindowsSecurityInfoMembers
+        var internalQueryingMembers = [] as WindowsSecurityInfoMembers
 
         if members.contains(.owner) { internalQueryingMembers.insert(.owner) }
         if members.contains(.group) { internalQueryingMembers.insert(.group) }
@@ -298,7 +298,7 @@ extension FileSystem {
         group: PlatformIdentity? = nil
     ) throws(FileError) {
 
-        var members = [] as InternalFS.WindowsSecurityInfoMembers
+        var members = [] as WindowsSecurityInfoMembers
 
         switch dacl {
             case .noChange: break

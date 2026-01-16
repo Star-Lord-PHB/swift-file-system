@@ -57,7 +57,7 @@ extension InternalFS {
             openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformSpecificOptions: .windows.backupSemantics)
         )
 
-        return try getRawFileInfo(from: handle)
+        return try handle.fileInfo()
 
         #else 
 
@@ -119,7 +119,7 @@ extension InternalFS {
             openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: true, platformSpecificOptions: .windows.backupSemantics)
         )
 
-        return try type(ofHandle: handle)
+        return try handle.type()
 
         #else 
 
@@ -151,7 +151,7 @@ extension InternalFS {
             at: path, 
             openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: true, platformSpecificOptions: .windows.backupSemantics)
         )
-        try setFileTimes(for: handle, access: access, modification: modification, creation: creation)
+        try handle.setFileTimes(access: access, modification: modification, creation: creation)
         try handle.close()
 
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
@@ -217,7 +217,7 @@ extension InternalFS {
             openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: true)
         )
         
-        let times = try getFileTimes(from: handle)
+        let times = try handle.fileTimes()
 
         try handle.close()
 

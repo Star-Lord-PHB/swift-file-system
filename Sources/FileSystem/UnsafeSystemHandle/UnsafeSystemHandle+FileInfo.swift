@@ -21,7 +21,7 @@ extension UnsafeSystemHandle {
             )
         }
 
-        let type = try type(ofHandle: handle, prefetchedAttributes: fileBasicInfo.FileAttributes)
+        let type = try type(prefetchedAttributes: fileBasicInfo.FileAttributes)
 
         var fileIdInfo = FILE_ID_INFO()
         try execThrowingCFunction {
@@ -81,7 +81,7 @@ extension UnsafeSystemHandle {
 
 
     #if canImport(WinSDK)
-    static func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileType {
+    func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileType {
 
         SetLastError(DWORD(NO_ERROR))
         let fileTypeFlags = GetFileType(unsafeRawHandle)
@@ -177,7 +177,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    func getFileTimes() throws(SystemError) -> FileTimes {
+    func fileTimes() throws(SystemError) -> FileTimes {
 
         #if canImport(WinSDK)
 
