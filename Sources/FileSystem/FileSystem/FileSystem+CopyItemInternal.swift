@@ -141,7 +141,7 @@ extension FileSystem {
 
         #else 
 
-        try handle.setFilePermissions(cachedAttrs.permission)
+        try handle.setPermissions(cachedAttrs.permission)
 
         #if canImport(Glibc) || canImport(Musl)
         if let flags = cachedAttrs.attributes {

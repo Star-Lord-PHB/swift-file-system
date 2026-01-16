@@ -81,7 +81,7 @@ extension UnsafeSystemHandle {
 
 
     #if canImport(WinSDK)
-    func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileType {
+    fileprivate func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileType {
 
         SetLastError(DWORD(NO_ERROR))
         let fileTypeFlags = GetFileType(unsafeRawHandle)
@@ -124,8 +124,8 @@ extension UnsafeSystemHandle {
 extension UnsafeSystemHandle {
 
     func setFileTimes(
-        access: FileTimeSpec?, 
-        modification: FileTimeSpec?,
+        access: FileTimeSpec? = nil, 
+        modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
     ) throws(SystemError) {
 
@@ -317,7 +317,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    func setFileSecurityInfo(
+    func setSecurityInfo(
         _ members: WindowsSecurityInfoMembers,
         dacl: consuming WindowsRawAcl?, 
         sacl: consuming WindowsRawAcl?, 
@@ -343,7 +343,7 @@ extension UnsafeSystemHandle {
 
     #else 
 
-    func setFilePermissions(_ permissions: FilePermissions) throws(SystemError) {
+    func setPermissions(_ permissions: FilePermissions) throws(SystemError) {
         try execThrowingCFunction {
             fchmod(unsafeRawHandle, permissions.rawValue)
         }
