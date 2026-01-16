@@ -275,31 +275,39 @@ extension FileSystemTest {
 
 
     enum ItemExpectation {
-        case file(info: FileInfo, contents: Data?, excludedCriteria: ExpectationCriterias = [])
-        case symlink(info: FileInfo, target: FilePath, excludedCriteria: ExpectationCriterias = [])
-        case directory(info: FileInfo, excludedCriteria: ExpectationCriterias = [])
+        case file(path: FilePath, info: FileInfo, contents: Data?, excludedCriteria: ExpectationCriterias = [])
+        case symlink(path: FilePath, info: FileInfo, target: FilePath, excludedCriteria: ExpectationCriterias = [])
+        case directory(path: FilePath, info: FileInfo, excludedCriteria: ExpectationCriterias = [])
+
+        var path: FilePath {
+            switch self {
+                case .file(let path, _, _, _): return path
+                case .symlink(let path, _, _, _): return path
+                case .directory(let path, _, _): return path
+            }
+        }
 
         var info: FileInfo {
             switch self {
-                case .file(let info, _, _): return info
-                case .symlink(let info, _, _): return info
-                case .directory(let info, _): return info
+                case .file(_, let info, _, _): return info
+                case .symlink(_, let info, _, _): return info
+                case .directory(_, let info, _): return info
             }
         }
 
         var excludedCriteria: ExpectationCriterias {
             switch self {
-                case .file(_, _, let excludedCriteria): return excludedCriteria
-                case .symlink(_, _, let excludedCriteria): return excludedCriteria
-                case .directory(_, let excludedCriteria): return excludedCriteria
+                case .file(_, _, _, let excludedCriteria): return excludedCriteria
+                case .symlink(_, _, _, let excludedCriteria): return excludedCriteria
+                case .directory(_, _, let excludedCriteria): return excludedCriteria
             }
         }
 
         func preconditionSelfValid() {
             switch self {
-                case .file(let info, _, _): precondition(info.type == .regular)
-                case .symlink(let info, _, _): precondition(info.type == .symlink)
-                case .directory(let info, _): precondition(info.type == .directory)
+                case .file(_, let info, _, _): precondition(info.type == .regular)
+                case .symlink(_, let info, _, _): precondition(info.type == .symlink)
+                case .directory(_, let info, _): precondition(info.type == .directory)
             }
         }
 
@@ -308,12 +316,12 @@ extension FileSystemTest {
             switch type {
                 case .regular:
                     let contents = try Data(contentsOf: .init(filePath: path.string))
-                    return .file(info: try FileInfo(fileAt: path, followSymLink: true), contents: contents, excludedCriteria: excludedCriteria)
+                    return .file(path: path, info: try FileInfo(fileAt: path, followSymLink: true), contents: contents, excludedCriteria: excludedCriteria)
                 case .symlink:
                     let targetPath = FilePath(stringLiteral: try FileManager.default.destinationOfSymbolicLink(atPath: path.string))
-                    return .symlink(info: try FileInfo(fileAt: path, followSymLink: false), target: targetPath, excludedCriteria: excludedCriteria)
+                    return .symlink(path: path, info: try FileInfo(fileAt: path, followSymLink: false), target: targetPath, excludedCriteria: excludedCriteria)
                 case .directory:
-                    return .directory(info: try FileInfo(fileAt: path, followSymLink: true), excludedCriteria: excludedCriteria)
+                    return .directory(path: path, info: try FileInfo(fileAt: path, followSymLink: true), excludedCriteria: excludedCriteria)
                 default:
                     fatalError("Unsupported file type \(type) at path \(path)")
             }
@@ -372,19 +380,19 @@ extension FileSystemTest {
 
         let info = try FileInfo(fileAt: path, followSymLink: followSymlink)
 
-        let comment = "when matching item at \(try testRelativePath(of: path)) to item at \(try testRelativePath(of: expectation.info.path))" as Comment
+        let comment = "when matching item at \(try testRelativePath(of: path)) to item at \(try testRelativePath(of: expectation.path))" as Comment
 
         if !excludedCriteria.contains(.type) {
             #expect(info.type == expectation.info.type, comment, sourceLocation: sourceLocation)
         }
         if !excludedCriteria.contains(.accessTime) {
-            #expect(info.lastAccessDate == expectation.info.lastAccessDate, comment, sourceLocation: sourceLocation)
+            #expect(info.times.lastAccess == expectation.info.times.lastAccess, comment, sourceLocation: sourceLocation)
         }
         if !excludedCriteria.contains(.modificationTime) {
-            #expect(info.lastModificationDate == expectation.info.lastModificationDate, comment, sourceLocation: sourceLocation)
+            #expect(info.times.lastModification == expectation.info.times.lastModification, comment, sourceLocation: sourceLocation)
         }
         if !excludedCriteria.contains(.creationTime) {
-            #expect(info.creationDate == expectation.info.creationDate, comment, sourceLocation: sourceLocation)
+            #expect(info.times.creation == expectation.info.times.creation, comment, sourceLocation: sourceLocation)
         }
         // TODO: add permission comparison for Windows
         #if !canImport(WinSDK)
@@ -403,10 +411,10 @@ extension FileSystemTest {
 
         if !excludedCriteria.contains(.contents) {
             switch (info.type, expectation) {
-                case (.regular, .file(_, let expectedContents, _)): 
+                case (.regular, .file(_, _, let expectedContents, _)): 
                     let content1 = try Data(contentsOf: .init(fileURLWithPath: path.string))
                     #expect(content1 == expectedContents, comment, sourceLocation: sourceLocation)
-                case (.symlink, .symlink(_, let expectedTarget, _)):
+                case (.symlink, .symlink(_, _, let expectedTarget, _)):
                     let target = try FileManager.default.destinationOfSymbolicLink(atPath: path.string)
                     #expect(target == expectedTarget.string, comment, sourceLocation: sourceLocation)
                 default: 

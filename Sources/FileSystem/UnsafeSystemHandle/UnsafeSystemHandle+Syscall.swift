@@ -74,7 +74,7 @@ extension UnsafeSystemHandle {
             case .none: break
         }
 
-        let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
+        let handle = path.withPlatformString { cStr in
             CreateFileW(
                 cStr, 
                 openOptions.accessModeFlags, 
@@ -123,7 +123,7 @@ extension UnsafeSystemHandle {
 
         let openFlags = DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS)
 
-        let handle = path.string.withCString(encodedAs: UTF16.self) { cStr in
+        let handle = path.withPlatformString { cStr in
             CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), nil, DWORD(OPEN_EXISTING), openFlags, nil)
         }
         guard let handle, handle != INVALID_HANDLE_VALUE else {

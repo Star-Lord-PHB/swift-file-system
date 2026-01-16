@@ -27,5 +27,6 @@ const int _FS_ENCRYPT_FL = FS_ENCRYPT_FL;
 const int _FS_VERITY_FL = FS_VERITY_FL;
 
 const unsigned long _UTIME_OMIT = UTIME_OMIT;
+const unsigned long _UTIME_NOW = UTIME_NOW;
 
 #endif

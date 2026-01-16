@@ -4,6 +4,17 @@ import PlatformCLib
 
 
 
+struct WindowsSecurityInfoMembers: OptionSet {
+    let rawValue: DWORD
+    static let owner: Self = .init(rawValue: DWORD(OWNER_SECURITY_INFORMATION))
+    static let group: Self = .init(rawValue: DWORD(GROUP_SECURITY_INFORMATION))
+    static let dacl: Self = .init(rawValue: DWORD(DACL_SECURITY_INFORMATION))
+    static let sacl: Self = .init(rawValue: DWORD(SACL_SECURITY_INFORMATION))
+    static var all: Self { [.owner, .group, .dacl, .sacl] }
+}
+
+
+
 public struct WindowsSecurityDescriptorControl: Sendable, Equatable, Hashable, ExpressibleByArrayLiteral, CustomStringConvertible {
 
     public let rawValue: SECURITY_DESCRIPTOR_CONTROL

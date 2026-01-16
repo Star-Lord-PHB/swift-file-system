@@ -21,5 +21,6 @@ extern const int _FS_ENCRYPT_FL;
 extern const int _FS_VERITY_FL;
 
 extern const unsigned long _UTIME_OMIT;
+extern const unsigned long _UTIME_NOW;
 
 #endif

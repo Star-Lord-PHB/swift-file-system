@@ -17,42 +17,34 @@ extension FileSystem {
 
         // this type is used instead of ``InternalFS.InternalFileTimes`` since we don't need ctime
         struct CachedFileTimes {
-            let accessTime: CInterop.PlatformFileTime
-            let modificationTime: CInterop.PlatformFileTime
-            #if canImport(Darwin) || canImport(WinSDK) || os(FreeBSD) || os(OpenBSD)
-            let creationTime: CInterop.PlatformFileTime
-            #else
-            let creationTime: CInterop.PlatformFileTime?
-            #endif
+            let accessTime: FileTimeSpec
+            let modificationTime: FileTimeSpec
+            let creationTime: FileTimeSpec?
         }
 
-        let info: InternalFS.InternalRawFileInfo
+        let info: FileInfo
 
         var type: FileType { info.type }
 
         var fileTimes: CachedFileTimes {
             .init(
-                accessTime: info.accessTime, 
-                modificationTime: info.modificationTime, 
-                creationTime: creationTime
+                accessTime: info.times.lastAccess, 
+                modificationTime: info.times.lastModification, 
+                creationTime: info.times.creation
             )
         }
 
-        var accessTime: CInterop.PlatformFileTime { info.accessTime }
-        var modificationTime: CInterop.PlatformFileTime { info.modificationTime }
-        var statusChangeTime: CInterop.PlatformFileTime { info.changeTime }
-        #if canImport(Darwin) || canImport(WinSDK) || os(FreeBSD) || os(OpenBSD)
-        var creationTime: CInterop.PlatformFileTime { info.creationTime }
-        #else 
-        var creationTime: CInterop.PlatformFileTime? { info.creationTime }
-        #endif 
+        var accessTime: FileTimeSpec { info.times.lastAccess }
+        var modificationTime: FileTimeSpec { info.times.lastModification }
+        var statusChangeTime: FileTimeSpec { info.times.lastChange }
+        var creationTime: FileTimeSpec? { info.times.creation }
 
         #if canImport(Glibc) || canImport(Musl)
         // on Linux, inode flags are not available for symlinks
         let attributes: CInt?
         #else
         // on other platforms, file flags should always be available
-        var attributes: CInterop.PlatformFileAttribute { info.attributes }
+        var attributes: PlatformFileAttributes { info.attributes }
         #endif 
 
         #if canImport(WinSDK)
@@ -69,18 +61,18 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        let info = try InternalFS.getRawFileInfo(from: handle)
-        let sd = try InternalFS.getSecurityInfo(for: handle, members: .dacl)
+        let info = try handle.fileInfo()
+        let sd = try handle.securityInfo(.dacl)
 
         return .init(info: info, securityDescriptor: sd)
 
         #else 
 
-        let info = try InternalFS.getRawFileInfo(from: handle)
+        let info = try handle.fileInfo()
 
         #if canImport(Glibc) || canImport(Musl)
 
-        let flags = try InternalFS.readFileInodeFlags(for: handle)
+        let flags = try handle.fileInodeFlags()
         return .init(info: info, attributes: flags)
 
         #else
@@ -98,14 +90,14 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        let info = try InternalFS.getRawFileInfo(forItemAt: path)
+        let info = try InternalFS.getFileInfo(forItemAt: path)
         let sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl)
 
         return .init(info: info, securityDescriptor: sd)
 
         #else 
 
-        let info = try InternalFS.getRawFileInfo(forItemAt: path)
+        let info = try InternalFS.getFileInfo(forItemAt: path)
 
         #if canImport(Glibc) || canImport(Musl)
 
@@ -135,13 +127,12 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        try InternalFS.setFileAttributes(for: handle, attributes: cachedAttrs.attributes)
+        try handle.setFileAttributes(cachedAttrs.attributes)
 
         let absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
 
-        try InternalFS.setFileSecurityInfo(
-            for: handle, 
-            setting: .dacl, 
+        try handle.setFileSecurityInfo(
+            .dacl, 
             dacl: absoluteSd._dacl, 
             sacl: nil, 
             owner: nil, 
@@ -150,14 +141,14 @@ extension FileSystem {
 
         #else 
 
-        try InternalFS.setFilePermissions(for: handle, permissions: cachedAttrs.permission)
+        try handle.setFilePermissions(cachedAttrs.permission)
 
         #if canImport(Glibc) || canImport(Musl)
         if let flags = cachedAttrs.attributes {
-            try InternalFS.setFileInodeFlags(for: handle, flags: flags)
+            try handle.setFileInodeFlags(flags)
         }
         #else
-        try InternalFS.setFileAttributes(for: handle, attributes: cachedAttrs.attributes)
+        try handle.setFileAttributes(cachedAttrs.attributes)
         #endif
 
         #endif 
@@ -280,7 +271,7 @@ extension FileSystem {
         let tmpDstPath: FilePath
         let shouldRename: Bool
 
-        let dstFileType = try? FileType(mode: InternalFS.ulstat(dstPath).st_mode)
+        let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
@@ -323,9 +314,9 @@ extension FileSystem {
 
         do {
             try InternalFS.copyRegularFile(from: srcHandle, to: dstHandle)
-            try? InternalFS.setFileTimes(for: srcHandle, access: srcFileAttrs.accessTime, modification: nil)
+            try srcHandle.setFileTimes(access: srcFileAttrs.accessTime, modification: nil)
             try _writeCachedItemAttrsWithoutFileTime(forHandle: dstHandle, cachedAttrs: srcFileAttrs)
-            try InternalFS.setFileTimes(for: dstHandle, access: srcFileAttrs.accessTime, modification: srcFileAttrs.modificationTime, creation: srcFileAttrs.creationTime)
+            try dstHandle.setFileTimes(access: srcFileAttrs.accessTime, modification: srcFileAttrs.modificationTime, creation: srcFileAttrs.creationTime)
             if shouldRename {
                 try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
@@ -353,7 +344,7 @@ extension FileSystem {
 
         #else 
 
-        let dstFileType = try? FileType(mode: InternalFS.ulstat(dstPath).st_mode)
+        let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
 
         switch (dstFileType, overwrite) {
             case (.some(_), .none): 
@@ -510,8 +501,8 @@ extension FileSystem {
         /// Store the file times to be copied to the destination dir and the original access time of the source dir to be restored later
         struct DirFileTimesItem {
             let fileTimesToCopy: CachedCopySrcItemAttrs.CachedFileTimes?
-            let cachedSrcAccessTime: CInterop.PlatformFileTime
-            init(fileTimesToCopy: CachedCopySrcItemAttrs.CachedFileTimes? = nil, cachedSrcAccessTime: CInterop.PlatformFileTime) {
+            let cachedSrcAccessTime: FileTimeSpec
+            init(fileTimesToCopy: CachedCopySrcItemAttrs.CachedFileTimes? = nil, cachedSrcAccessTime: FileTimeSpec) {
                 self.fileTimesToCopy = fileTimesToCopy
                 self.cachedSrcAccessTime = cachedSrcAccessTime
             }
@@ -526,7 +517,7 @@ extension FileSystem {
             try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath, cachedAttrs: srcAttrs)
             dirFileTimesStack.append(.init(fileTimesToCopy: srcAttrs.fileTimes))
         } else {
-            let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath).accessTime
+            let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath).lastAccess
             dirFileTimesStack.append(.init(cachedSrcAccessTime: srcAccessTime))
         }
 
@@ -565,7 +556,7 @@ extension FileSystem {
                         try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstPath.appending(entry.path.components), cachedAttrs: cachedAttr)
                         dirFileTimesStack.append(.init(fileTimesToCopy: cachedAttr.fileTimes))
                     } else {
-                        let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath.appending(entry.path.components)).accessTime
+                        let srcAccessTime = try InternalFS.getFileTimes(fromItemAt: srcPath.appending(entry.path.components)).lastAccess
                         dirFileTimesStack.append(.init(cachedSrcAccessTime: srcAccessTime))
                     }
                 default: break

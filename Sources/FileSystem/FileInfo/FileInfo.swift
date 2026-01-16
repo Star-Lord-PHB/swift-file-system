@@ -6,15 +6,12 @@ import CFileSystem
 
 public struct FileInfo: Sendable, Equatable, Hashable {
 
-    public let path: FilePath
+    // public let path: FilePath
     public let size: UInt64
 
     public let type: FileType
 
-    public let lastAccessDate: FileTimeSpec
-    public let lastModificationDate: FileTimeSpec
-    public let lastStatusChangeDate: FileTimeSpec
-    public let creationDate: FileTimeSpec?
+    public let times: FileTimes
 
     public let fileIdentifier: FileIdentifier
 
@@ -37,11 +34,11 @@ extension FileInfo: CustomStringConvertible {
     public var description: String {
         var str = """
             File(\
-            path: \(path), type: \(type), size: \(size) bytes, \
-            last accessed: \(lastAccessDate), \
-            last modified: \(lastModificationDate), \
-            last status changed: \(lastStatusChangeDate), \
-            \(creationDate.map { "created: \($0)," } ?? "") \
+            type: \(type), size: \(size) bytes, \
+            last accessed: \(times.lastAccess), \
+            last modified: \(times.lastModification), \
+            last status changed: \(times.lastChange), \
+            \(times.creation.map { "created: \($0)," } ?? "") \
             attributes: \(attributes))
             """
         #if !canImport(WinSDK)
@@ -56,141 +53,57 @@ extension FileInfo: CustomStringConvertible {
 
 extension FileInfo {
 
-#if canImport(WinSDK)
+    #if !canImport(WinSDK)
+    init(stat: CInterop.Stat) {
+        self.type = .init(mode: stat.st_mode)
+        self.size = .init(stat.st_size)
+        self.fileIdentifier = .init(fileId: stat.st_ino, deviceId: stat.st_dev)
+
+        #if canImport(Glibc) || canImport(Musl)
+        self.times = .init(
+            lastAccess: .init(platformFileTime: stat.st_atim), 
+            lastModification: .init(platformFileTime: stat.st_mtim), 
+            lastChange: .init(platformFileTime: stat.st_ctim), 
+            creation: stat.st_btim.map { .init(platformFileTime: $0) }
+        )
+        #else
+        self.times = .init(
+            lastAccess: .init(platformFileTime: stat.st_atim), 
+            lastModification: .init(platformFileTime: stat.st_mtim), 
+            lastChange: .init(platformFileTime: stat.st_ctim), 
+            creation: .init(platformFileTime: stat.st_btim)
+        )
+        #endif
+
+        self.attributes = .init(rawValue: stat.st_flags)
+
+        #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        self.supportedAttributes = .all
+        #else 
+        self.supportedAttributes = .init(rawValue: stat.st_flags_mask)
+        #endif
+
+        self.permissions = .init(rawValue: stat.st_mode & 0o7777)
+        self.owner = .init(rawId: stat.st_uid, kind: .user)
+        self.group = .init(rawId: stat.st_gid, kind: .group)
+    }
+    #endif
+
+}
+
+
+
+extension FileInfo {
 
     public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
-
-        let info = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
+        self = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+            try InternalFS.getFileInfo(forItemAt: path, followSymlink: followSymLink)
         }
-
-        self.init(
-            path: path, 
-            size: info.size, 
-            type: info.type, 
-            lastAccessDate: .init(platformFileTime: info.accessTime), 
-            lastModificationDate: .init(platformFileTime: info.modificationTime), 
-            lastStatusChangeDate: .init(platformFileTime: info.changeTime), 
-            creationDate: .init(platformFileTime: info.creationTime), 
-            fileIdentifier: .init(fileId: info.fileId, deviceId: info.deviceId),
-            attributes: .init(rawValue: info.attributes), 
-            supportedAttributes: .all
-        )
-
     }
 
 
-    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
-
-        let info = try InternalFS.getRawFileInfo(from: handle)
-
-        self.init(
-            path: path, 
-            size: info.size, 
-            type: info.type, 
-            lastAccessDate: .init(platformFileTime: info.accessTime), 
-            lastModificationDate: .init(platformFileTime: info.modificationTime), 
-            lastStatusChangeDate: .init(platformFileTime: info.changeTime), 
-            creationDate: .init(platformFileTime: info.creationTime), 
-            fileIdentifier: .init(fileId: info.fileId, deviceId: info.deviceId),
-            attributes: .init(rawValue: info.attributes), 
-            supportedAttributes: .all
-        )
-
+    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle) throws(SystemError) {
+        self = try handle.fileInfo()
     }
-
-#elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-
-    public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
-        let rawInfo = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
-        }
-        self.init(
-            path: path, 
-            size: rawInfo.size, 
-            type: rawInfo.type, 
-            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
-            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
-            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
-            creationDate: .init(platformFileTime: rawInfo.creationTime), 
-            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
-            permissions: rawInfo.permissions,
-            owner: .init(rawId: rawInfo.uid, kind: .user),
-            group: .init(rawId: rawInfo.gid, kind: .group),
-            attributes: .init(rawValue: rawInfo.attributes), 
-            supportedAttributes: .all
-        )
-    }
-
-
-    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
-
-        let rawInfo = try InternalFS.getRawFileInfo(from: handle)
-
-        self = .init(
-            path: path, 
-            size: rawInfo.size, 
-            type: rawInfo.type, 
-            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
-            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
-            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
-            creationDate: .init(platformFileTime: rawInfo.creationTime), 
-            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
-            permissions: rawInfo.permissions,
-            owner: .init(rawId: rawInfo.uid, kind: .user),
-            group: .init(rawId: rawInfo.gid, kind: .group),
-            attributes: .init(rawValue: rawInfo.attributes), 
-            supportedAttributes: .all
-        )
-
-    }
-
-#elseif canImport(Glibc) || canImport(Musl)
-
-    public init(fileAt path: FilePath, followSymLink: Bool = true) throws(FileError) {
-        let rawInfo = try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
-            try InternalFS.getRawFileInfo(forItemAt: path, followSymlink: followSymLink)
-        }
-        self.init(
-            path: path, 
-            size: rawInfo.size, 
-            type: rawInfo.type, 
-            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
-            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
-            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
-            creationDate: rawInfo.creationTime.map { .init(platformFileTime: $0) }, 
-            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
-            permissions: rawInfo.permissions,
-            owner: .init(rawId: rawInfo.uid, kind: .user),
-            group: .init(rawId: rawInfo.gid, kind: .group),
-            attributes: .init(rawValue: rawInfo.attributes), 
-            supportedAttributes: .all
-        )
-    }
-
-
-    init(unsafeSystemHandle handle: borrowing UnsafeSystemHandle, path: FilePath) throws(SystemError) {
-
-        let rawInfo = try InternalFS.getRawFileInfo(from: handle)
-
-        self = .init(
-            path: path, 
-            size: rawInfo.size, 
-            type: rawInfo.type, 
-            lastAccessDate: .init(platformFileTime: rawInfo.accessTime), 
-            lastModificationDate: .init(platformFileTime: rawInfo.modificationTime), 
-            lastStatusChangeDate: .init(platformFileTime: rawInfo.changeTime), 
-            creationDate: rawInfo.creationTime.map { .init(platformFileTime: $0) }, 
-            fileIdentifier: .init(fileId: rawInfo.fileId, deviceId: rawInfo.deviceId),
-            permissions: rawInfo.permissions,
-            owner: .init(rawId: rawInfo.uid, kind: .user),
-            group: .init(rawId: rawInfo.gid, kind: .group),
-            attributes: .init(rawValue: rawInfo.attributes), 
-            supportedAttributes: .all
-        )
-
-    }
-
-#endif
 
 }

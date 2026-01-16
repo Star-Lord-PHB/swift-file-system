@@ -59,13 +59,13 @@ extension FileSystemTest.FileInfoTest {
 
         #expect(info.size == attributes[.size] as? UInt64)
 
-        #expect(dateEquals(info.creationDate?.date, urlAttributes.creationDate))
-        #expect(dateEquals(info.lastModificationDate.date, attributes[.modificationDate] as? Date))
+        #expect(dateEquals(info.times.creation?.date, urlAttributes.creationDate))
+        #expect(dateEquals(info.times.lastModification.date, attributes[.modificationDate] as? Date))
         
         #if canImport(WinSDK)
-        #expect(dateEquals(info.lastAccessDate.date, urlAttributes.contentAccessDate, accuracy: 1))
+        #expect(dateEquals(info.times.lastAccess.date, urlAttributes.contentAccessDate, accuracy: 1))
         #else
-        #expect(dateEquals(info.lastAccessDate.date, urlAttributes.contentAccessDate))
+        #expect(dateEquals(info.times.lastAccess.date, urlAttributes.contentAccessDate))
         #endif
 
     }
@@ -88,13 +88,13 @@ extension FileSystemTest.FileInfoTest {
         #expect(info.size == attributes[.size] as? UInt64)
         #expect(info.type == .directory)
 
-        #expect(dateEquals(info.creationDate?.date, urlAttributes.creationDate))
-        #expect(dateEquals(info.lastModificationDate.date, attributes[.modificationDate] as? Date))
+        #expect(dateEquals(info.times.creation?.date, urlAttributes.creationDate))
+        #expect(dateEquals(info.times.lastModification.date, attributes[.modificationDate] as? Date))
 
         #if canImport(WinSDK)
-        #expect(dateEquals(info.lastAccessDate.date, urlAttributes.contentAccessDate, accuracy: 1))
+        #expect(dateEquals(info.times.lastAccess.date, urlAttributes.contentAccessDate, accuracy: 1))
         #else
-        #expect(dateEquals(info.lastAccessDate.date, urlAttributes.contentAccessDate))
+        #expect(dateEquals(info.times.lastAccess.date, urlAttributes.contentAccessDate))
         #endif
 
     }
@@ -122,13 +122,13 @@ extension FileSystemTest.FileInfoTest {
         #expect(targetInfo.size == attributes[.size] as? UInt64)
         #expect(targetInfo.type == .regular)
 
-        #expect(dateEquals(targetInfo.creationDate?.date, urlAttributes.creationDate))
-        #expect(dateEquals(targetInfo.lastModificationDate.date, attributes[.modificationDate] as? Date))
+        #expect(dateEquals(targetInfo.times.creation?.date, urlAttributes.creationDate))
+        #expect(dateEquals(targetInfo.times.lastModification.date, attributes[.modificationDate] as? Date))
 
         #if canImport(WinSDK)
-        #expect(dateEquals(targetInfo.lastAccessDate.date, urlAttributes.contentAccessDate, accuracy: 1))
+        #expect(dateEquals(targetInfo.times.lastAccess.date, urlAttributes.contentAccessDate, accuracy: 1))
         #else
-        #expect(dateEquals(targetInfo.lastAccessDate.date, urlAttributes.contentAccessDate))
+        #expect(dateEquals(targetInfo.times.lastAccess.date, urlAttributes.contentAccessDate))
         #endif
 
     }

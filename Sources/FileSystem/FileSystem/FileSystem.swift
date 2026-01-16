@@ -22,9 +22,7 @@ extension FileSystem {
                 openOptions: .init(access: .none, noFollow: false, platformSpecificOptions: .windows.backupSemantics)
             )) != nil
         } else {
-            return path.withPlatformString {
-                GetFileAttributesW($0) != INVALID_FILE_ATTRIBUTES
-            }
+            return (try? InternalFS.getFileAttributes(forItemAt: path)) != nil
         }
 
         #else
@@ -209,41 +207,25 @@ extension FileSystem {
         modificationTime: FileTimeSpec? = nil, 
         creationTime: FileTimeSpec? = nil
     ) throws(FileError) {
-
         try catchSystemError(operationDescription: .settingFileTimes(at: path)) { () throws(SystemError) in
             try InternalFS.setFileTimes(
                 forItemAt: path, 
-                access: accessTime?.platformFileTime, 
-                modification: modificationTime?.platformFileTime,
-                creation: creationTime?.platformFileTime
+                access: accessTime, 
+                modification: modificationTime,
+                creation: creationTime
             )
         }
-
     }
 
 
     public func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(FileError) {
 
         #if canImport(Glibc) || canImport(Musl)
-
-        var inodeFlags = 0 as CInt
-
-        // Map statx attributes to inode flags
-        if attributes.isCompressed { inodeFlags |= FS_COMPR_FL }
-        if attributes.isImmutable { inodeFlags |= FS_IMMUTABLE_FL }
-        if attributes.isAppendOnly { inodeFlags |= FS_APPEND_FL }
-        if attributes.noDump { inodeFlags |= FS_NODUMP_FL }
-        if attributes.isEncrypted { inodeFlags |= FS_ENCRYPT_FL }
-        if attributes.isVerityProtected { inodeFlags |= FS_VERITY_FL }
-
-        try self.setInodeFlags(forItemAt: path, flags: inodeFlags)
-
+        try self.setInodeFlags(forItemAt: path, flags: InternalFS.fileAttributesToInodeFlags(attributes))
         #else 
-
         try catchSystemError(operationDescription: .settingFileAttributes(at: path)) { () throws(SystemError) in
-            try InternalFS.setFileAttributes(forItemAt: path, attributes: attributes.rawValue)
+            try InternalFS.setFileAttributes(forItemAt: path, attributes: attributes)
         }
-
         #endif 
 
     }
@@ -267,14 +249,23 @@ extension FileSystem {
 
     public func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(FileError) {
         try catchSystemError(operationDescription: .settingFilePermissions(at: path)) { () throws(SystemError) in
+            #if canImport(WinSDK)
+            let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
+            try InternalFS.setFileSecurityInfo(
+                forItemAt: path, 
+                setting: .dacl, 
+                dacl: .init(pacl: daclPtr), sacl: nil, owner: nil, group: nil
+            )
+            #else 
             try InternalFS.setFilePermissions(forItemAt: path, permissions: permissions)
+            #endif
         }
     }
 
 
     public func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError) {
         try catchSystemError(operationDescription: .settingFileOwner(at: path)) { () throws(SystemError) in
-            try InternalFS.chown(forItemAt: path, owner: owner?.rawId, group: group?.rawId)
+            try InternalFS.chown(forItemAt: path, owner: owner, group: group)
         }
     }
 

@@ -75,13 +75,34 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    public static func makeFifo(
-        at path: FilePath, 
-        permission: FilePermissions = [.ownerReadWrite, .groupReadWrite, .otherReadWrite]
-    ) throws(SystemError) {
+    func futimens(_ times: (FileTimeSpec, FileTimeSpec)) throws(SystemError) {
+        let platformTimes = (times.0.platformFileTime, times.1.platformFileTime)
         try execThrowingCFunction {
-            mkfifo(path.string, permission.rawValue)
+            withUnsafePointer(to: platformTimes) { ptr in 
+                ptr.withMemoryRebound(to: timespec.self, capacity: 2) { reboundPtr in 
+                    PlatformCLib.futimens(self.unsafeRawHandle, reboundPtr)
+                }
+            }
         }
+    }
+
+
+    func fstat() throws(SystemError) -> CInterop.Stat {
+
+        var st = CInterop.Stat.PlatformStat()
+
+        #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        try execThrowingCFunction {
+            PlatformCLib.fstat(unsafeRawHandle, &st)
+        }
+        #else
+        try execThrowingCFunction {
+            systemFStatCompat(unsafeRawHandle, &st)
+        }
+        #endif
+
+        return .init(platformStat: st)
+
     }
 
 }

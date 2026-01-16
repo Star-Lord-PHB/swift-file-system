@@ -6,6 +6,33 @@ import SystemPackage
 @usableFromInline
 enum InternalFS {
 
+    static func ustat(_ path: FilePath) throws(SystemError) -> CInterop.Stat {
+
+        var st = CInterop.Stat.PlatformStat()
+
+        #if canImport(WinSDK)
+        try execThrowingCFunction {
+            path.withPlatformString { pathPtr in 
+                _stat64(pathPtr, &st)
+            }
+        }
+        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        try execThrowingCFunction {
+            path.withPlatformString { pathPtr in 
+                stat(pathPtr, &st)
+            }
+        }
+        #else
+        try execThrowingCFunction {
+            systemStatCompat(path.string, 0, &st)
+        }
+        #endif
+
+        return .init(platformStat: st)
+
+    }
+
+
     static func rename(itemAt srcPath: FilePath, to dstPath: FilePath, replace: Bool = true) throws(SystemError) {
 
         #if canImport(WinSDK)
@@ -80,12 +107,15 @@ enum InternalFS {
 
         // use manual check and rename to simulate no-replace behaviour
 
-        if replace {
-            switch (itemExists(at: dstPath), targetExistOption) {
-                case (true, .skip): return 
-                case (true, .error): throw SystemError(code: .fileExists)!
-                case (_, _): break
+        var itemExists: Bool {
+            var stat = stat()
+            return dstPath.withPlatformString { pathPtr in 
+                lstat(pathPtr, &stat) == 0
             }
+        }
+
+        if !replace && itemExists {
+            throw SystemError(code: .fileExists)!
         }
 
         try execThrowingCFunction {
@@ -109,207 +139,6 @@ enum InternalFS {
         }
 
         #endif 
-
-    }
-
-
-    #if canImport(WinSDK)
-    @available(*, deprecated, message: "Not recomended on Windows for copying files, use copyRegularFileOrSymlink instead")
-    #endif 
-    static func copyRegularFile(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(SystemError) {
-
-        #if canImport(WinSDK)
-
-        var buffer = ByteBuffer(count: .init(srcFileSize ?? 0x7ffff000))
-
-        while true {
-
-            let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
-                try srcHandle.read(into: ptr)
-            }
-            guard bytesRead > 0 else { break }
-
-            try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
-                _ = try dstHandle.write(contentsOf: ptr)
-            }
-
-            if bytesRead < buffer.count { break }
-
-        }
-
-        #elseif canImport(Darwin)
-
-        try execThrowingCFunction {
-            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ALL))
-        }
-
-        #else 
-
-        var srcOffset: off_t = 0
-        var dstOffset: off_t = 0
-        var fallbackToManualCopy = false
-
-        while true {
-            // faster path using copy_file_range if available
-
-            let byteCopied = copy_file_range(srcHandle.unsafeRawHandle, &srcOffset, dstHandle.unsafeRawHandle, &dstOffset, .init(srcFileSize ?? 0x7ffff000), 0)
-            if byteCopied < 0 && errno == ENOSYS {
-                // copy_file_range not available, fallback to manual copy
-                fallbackToManualCopy = true
-                break
-            }
-            // EINTR (interrupted) can be ignored and simply retry
-            guard byteCopied >= 0 || errno != EINTR else {
-                try SystemError.assertError()
-            }
-            guard byteCopied > 0 else { break }
-
-        }
-
-        if fallbackToManualCopy {
-
-            var buffer = ByteBuffer(count: 64 * 1024)
-
-            while true {
-                // manual copy, only used when copy_file_range is not available
-
-                let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
-                    try srcHandle.read(into: ptr)
-                }
-                guard bytesRead > 0 else { break }
-
-                try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
-                    _ = try dstHandle.write(contentsOf: ptr)
-                }
-
-                if bytesRead < buffer.count { break }
-
-            }
-
-        }
-
-        #endif 
-
-    }
-
-
-    #if canImport(WinSDK)
-
-    static func copyRegularFileOrSymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(SystemError) {
-
-        let flags = DWORD(COPY_FILE_COPY_SYMLINK) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
-
-        try execThrowingCFunction {
-            srcPath.withPlatformString { srcPtr in 
-                dstPath.withPlatformString { dstPtr in 
-                    CopyFileExW(srcPtr, dstPtr, nil, nil, nil, flags)
-                }
-            }
-        }
-
-    }
-
-
-    /// > Warning: 
-    /// > May fail on older Windows system, check ERROR_INVALID_PARAMETER and ERROR_NOT_SUPPORTED for that
-    /// > and fallback to manual copy if needed
-    static func copyDirectory(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(SystemError) {
-
-        let flags = DWORD(COPY_FILE_DIRECTORY) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
-
-        var param = COPYFILE2_EXTENDED_PARAMETERS()
-        param.dwSize = DWORD(MemoryLayout<COPYFILE2_EXTENDED_PARAMETERS>.size)
-        param.dwCopyFlags = flags
-
-        try execThrowingCFunction {
-            srcPath.withPlatformString { srcPtr in 
-                dstPath.withPlatformString { dstPtr in 
-                    CopyFile2(srcPtr, dstPtr, &param)
-                }
-            }
-        }
-
-    }
-
-    #endif 
-
-
-    static func makeRandomTmpName(in dirPath: FilePath, prefix: FilePath.Component) -> FilePath {
-
-        #if canImport(WinSDK)
-        let pid = GetCurrentProcessId()
-        #else 
-        let pid = getpid()
-        #endif
-        let lastComponent = FilePath.Component("\(prefix).tmp-\(pid)-\(String(UInt64.random(in: 0 ... .max), radix: 16))")!
-        return dirPath.appending(lastComponent)
-
-    }
-
-
-    static func makeRandomTmpName(baseOn path: FilePath) -> FilePath {
-        assert(path.lastComponent != nil, "base path for temp file name must not be empty")
-        return makeRandomTmpName(in: path.removingLastComponent(), prefix: path.lastComponent!)
-    }
-
-
-    struct TmpFileResult: ~Copyable {
-        let path: FilePath
-        let handle: UnsafeSystemHandle
-        consuming func takeHandle() -> UnsafeSystemHandle {
-            return handle
-        }
-    }
-
-
-    static func makeTmpFile(in dirPath: FilePath, prefix: FilePath.Component) throws(SystemError) -> TmpFileResult {
-
-        #if canImport(WinSDK)
-
-        for _ in 0 ..< 24 {
-            
-            let tmpPath = makeRandomTmpName(in: dirPath, prefix: prefix)
-
-            do {
-                let handle = try UnsafeSystemHandle.open(
-                    at: tmpPath, 
-                    openOptions: .init(access: .readWrite(), creation: .assertMissing)
-                )
-                return .init(path: tmpPath, handle: handle)
-            } catch let error where error.kind == .alreadyExists {
-                // try again
-                continue
-            }
-
-        }
-
-        throw SystemError(code: .fileExists)!
-
-        #else
-
-        var pathBuffer = (dirPath.string + "/\(prefix).tmp-XXXXXX").utf8CString
-
-        let fd = pathBuffer.withUnsafeMutableBufferPointer { strPtr in 
-            mkstemp(strPtr.baseAddress!)
-        }
-
-        guard fd >= 0 else {
-            try SystemError.assertError()
-        }
-
-        let tmpPath = pathBuffer.withUnsafeBufferPointer { FilePath(platformString: $0.baseAddress!) }
-
-        return .init(path: tmpPath, handle: .init(owningRawHandle: fd))
-
-        #endif 
-
-    }
-
-
-    static func makeTmpFile(baseOn path: FilePath) throws(SystemError) -> TmpFileResult {
-
-        assert(path.lastComponent != nil, "base path for temp file must not be empty")
-        return try makeTmpFile(in: path.removingLastComponent(), prefix: path.lastComponent!)
 
     }
 
@@ -636,64 +465,10 @@ enum InternalFS {
     }
 
 
-    #if canImport(WinSDK)
-    
-    static func utimes(for path: FilePath, creation: FILETIME?, access: FILETIME?, modify: FILETIME?) throws(SystemError) {
-        let handle = try UnsafeSystemHandle.open(
-            at: path, 
-            openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: true, platformSpecificOptions: .windows.backupSemantics)
-        )
-        try futimes(for: handle, creation: creation, access: access, modify: modify)
-        try handle.close()
-    }
+    static func chown(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(SystemError) {
 
-    static func futimes(for handle: borrowing UnsafeSystemHandle, creation: FILETIME?, access: FILETIME?, modify: FILETIME?) throws(SystemError) {
-        try execThrowingCFunction {
-            withUnsafeOptionalPointer(to: creation) { creationPtr in 
-                withUnsafeOptionalPointer(to: access) { accessPtr in 
-                    withUnsafeOptionalPointer(to: modify) { modifyPtr in 
-                        PlatformCLib.SetFileTime(
-                            handle.unsafeRawHandle, 
-                            creationPtr, 
-                            accessPtr, 
-                            modifyPtr
-                        )
-                    }
-                }
-            }
-        }
-    }
+        #if canImport(WinSDK)
 
-    #else 
-
-    static func utimens(for path: FilePath, times: (timespec, timespec)) throws(SystemError) {
-        try execThrowingCFunction {
-            withUnsafePointer(to: times) { ptr in 
-                ptr.withMemoryRebound(to: timespec.self, capacity: 2) { reboundPtr in 
-                    path.withPlatformString { pathPtr in 
-                        utimensat(AT_FDCWD, pathPtr, reboundPtr, AT_SYMLINK_NOFOLLOW)
-                    }
-                }
-            }
-        }
-    }
-
-
-    static func futimens(for handle: borrowing UnsafeSystemHandle, times: (timespec, timespec)) throws(SystemError) {
-        try execThrowingCFunction {
-            withUnsafePointer(to: times) { ptr in 
-                ptr.withMemoryRebound(to: timespec.self, capacity: 2) { reboundPtr in 
-                    PlatformCLib.futimens(handle.unsafeRawHandle, reboundPtr)
-                }
-            }
-        }
-    }
-
-    #endif
-
-
-    #if canImport(WinSDK)
-    static func chown(forItemAt path: FilePath, owner: WindowsSid?, group: WindowsSid?) throws(SystemError) {
         var settingMembers = [] as WindowsSecurityInfoMembers
         if owner != nil {
             settingMembers.insert(.owner)
@@ -702,17 +477,232 @@ enum InternalFS {
             settingMembers.insert(.group)
         }
         guard !settingMembers.isEmpty else { return }
-        try setFileSecurityInfo(forItemAt: path, setting: settingMembers, dacl: nil, sacl: nil, owner: owner, group: group)
-    }
-    #else 
-    static func chown(forItemAt path: FilePath, owner: UInt32?, group: UInt32?) throws(SystemError) {
+        try setFileSecurityInfo(forItemAt: path, setting: settingMembers, dacl: nil, sacl: nil, owner: owner?.rawId, group: group?.rawId)
+
+        #else 
+
         if owner == nil && group == nil { return }
+        precondition(owner?.kind != .group, "owner identity must be of user kind")
+        precondition(group?.kind != .user, "group identity must be of group kind")
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in 
-                PlatformCLib.lchown(pathPtr, owner ?? .init(bitPattern: -1), group ?? .init(bitPattern: -1))
+                PlatformCLib.lchown(pathPtr, owner?.rawId ?? .init(bitPattern: -1), group?.rawId ?? .init(bitPattern: -1))
             }
         }
+
+        #endif 
+
     }
+
+}
+
+
+
+extension InternalFS {
+
+    static func makeRandomTmpName(in dirPath: FilePath, prefix: FilePath.Component) -> FilePath {
+
+        #if canImport(WinSDK)
+        let pid = GetCurrentProcessId()
+        #else 
+        let pid = getpid()
+        #endif
+        let lastComponent = FilePath.Component("\(prefix).tmp-\(pid)-\(String(UInt64.random(in: 0 ... .max), radix: 16))")!
+        return dirPath.appending(lastComponent)
+
+    }
+
+
+    static func makeRandomTmpName(baseOn path: FilePath) -> FilePath {
+        assert(path.lastComponent != nil, "base path for temp file name must not be empty")
+        return makeRandomTmpName(in: path.removingLastComponent(), prefix: path.lastComponent!)
+    }
+
+
+    struct TmpFileResult: ~Copyable {
+        let path: FilePath
+        let handle: UnsafeSystemHandle
+        consuming func takeHandle() -> UnsafeSystemHandle {
+            return handle
+        }
+    }
+
+
+    static func makeTmpFile(in dirPath: FilePath, prefix: FilePath.Component) throws(SystemError) -> TmpFileResult {
+
+        #if canImport(WinSDK)
+
+        for _ in 0 ..< 24 {
+            
+            let tmpPath = makeRandomTmpName(in: dirPath, prefix: prefix)
+
+            do {
+                let handle = try UnsafeSystemHandle.open(
+                    at: tmpPath, 
+                    openOptions: .init(access: .readWrite(), creation: .assertMissing)
+                )
+                return .init(path: tmpPath, handle: handle)
+            } catch let error where error.kind == .alreadyExists {
+                // try again
+                continue
+            }
+
+        }
+
+        throw SystemError(code: .fileExists)!
+
+        #else
+
+        var pathBuffer = (dirPath.string + "/\(prefix).tmp-XXXXXX").utf8CString
+
+        let fd = pathBuffer.withUnsafeMutableBufferPointer { strPtr in 
+            mkstemp(strPtr.baseAddress!)
+        }
+
+        guard fd >= 0 else {
+            try SystemError.assertError()
+        }
+
+        let tmpPath = pathBuffer.withUnsafeBufferPointer { FilePath(platformString: $0.baseAddress!) }
+
+        return .init(path: tmpPath, handle: .init(owningRawHandle: fd))
+
+        #endif 
+
+    }
+
+
+    static func makeTmpFile(baseOn path: FilePath) throws(SystemError) -> TmpFileResult {
+
+        assert(path.lastComponent != nil, "base path for temp file must not be empty")
+        return try makeTmpFile(in: path.removingLastComponent(), prefix: path.lastComponent!)
+
+    }
+
+}
+
+
+
+extension InternalFS {
+
+    #if canImport(WinSDK)
+    @available(*, deprecated, message: "Not recomended on Windows for copying files, use copyRegularFileOrSymlink instead")
+    #endif 
+    static func copyRegularFile(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(SystemError) {
+
+        #if canImport(WinSDK)
+
+        var buffer = ByteBuffer(count: .init(srcFileSize ?? 0x7ffff000))
+
+        while true {
+
+            let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
+                try srcHandle.read(into: ptr)
+            }
+            guard bytesRead > 0 else { break }
+
+            try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
+                _ = try dstHandle.write(contentsOf: ptr)
+            }
+
+            if bytesRead < buffer.count { break }
+
+        }
+
+        #elseif canImport(Darwin)
+
+        try execThrowingCFunction {
+            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ALL))
+        }
+
+        #else 
+
+        var srcOffset: off_t = 0
+        var dstOffset: off_t = 0
+        var fallbackToManualCopy = false
+
+        while true {
+            // faster path using copy_file_range if available
+
+            let byteCopied = copy_file_range(srcHandle.unsafeRawHandle, &srcOffset, dstHandle.unsafeRawHandle, &dstOffset, .init(srcFileSize ?? 0x7ffff000), 0)
+            if byteCopied < 0 && errno == ENOSYS {
+                // copy_file_range not available, fallback to manual copy
+                fallbackToManualCopy = true
+                break
+            }
+            // EINTR (interrupted) can be ignored and simply retry
+            guard byteCopied >= 0 || errno != EINTR else {
+                try SystemError.assertError()
+            }
+            guard byteCopied > 0 else { break }
+
+        }
+
+        if fallbackToManualCopy {
+
+            var buffer = ByteBuffer(count: 64 * 1024)
+
+            while true {
+                // manual copy, only used when copy_file_range is not available
+
+                let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
+                    try srcHandle.read(into: ptr)
+                }
+                guard bytesRead > 0 else { break }
+
+                try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
+                    _ = try dstHandle.write(contentsOf: ptr)
+                }
+
+                if bytesRead < buffer.count { break }
+
+            }
+
+        }
+
+        #endif 
+
+    }
+
+
+    #if canImport(WinSDK)
+
+    static func copyRegularFileOrSymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(SystemError) {
+
+        let flags = DWORD(COPY_FILE_COPY_SYMLINK) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
+
+        try execThrowingCFunction {
+            srcPath.withPlatformString { srcPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    CopyFileExW(srcPtr, dstPtr, nil, nil, nil, flags)
+                }
+            }
+        }
+
+    }
+
+
+    /// > Warning: 
+    /// > May fail on older Windows system, check ERROR_INVALID_PARAMETER and ERROR_NOT_SUPPORTED for that
+    /// > and fallback to manual copy if needed
+    static func copyDirectory(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(SystemError) {
+
+        let flags = DWORD(COPY_FILE_DIRECTORY) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
+
+        var param = COPYFILE2_EXTENDED_PARAMETERS()
+        param.dwSize = DWORD(MemoryLayout<COPYFILE2_EXTENDED_PARAMETERS>.size)
+        param.dwCopyFlags = flags
+
+        try execThrowingCFunction {
+            srcPath.withPlatformString { srcPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    CopyFile2(srcPtr, dstPtr, &param)
+                }
+            }
+        }
+
+    }
+
     #endif 
 
 }

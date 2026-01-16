@@ -14,7 +14,7 @@
 #error("Unsupported Platform")
 #endif
 
-internal import CFileSystem
+@_exported import CFileSystem
 
 
 
@@ -54,6 +54,9 @@ package var FS_VERITY_FL: CInt { _FS_VERITY_FL }
 
 package var UTIME_OMIT: Int32 {
     Int32(_UTIME_OMIT)
+}
+package var UTIME_NOW: Int32 {
+    Int32(_UTIME_NOW)
 }
 package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
     return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)

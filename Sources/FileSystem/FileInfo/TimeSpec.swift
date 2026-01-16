@@ -63,6 +63,17 @@ public struct FileTimeSpec: Sendable, Equatable, Hashable {
         #endif 
     }
 
+
+    #if !canImport(WinSDK)
+    static var utimeOmit: FileTimeSpec {
+        .init(platformFileTime: .init(tv_sec: 0, tv_nsec: .init(UTIME_OMIT)))
+    }
+
+    static var utimeNow: FileTimeSpec {
+        .init(platformFileTime: .init(tv_sec: 0, tv_nsec: .init(UTIME_NOW)))
+    }
+    #endif
+
 }
 
 
@@ -111,3 +122,32 @@ extension FILETIME {
     }
 }
 #endif
+
+
+
+public struct FileTimes: Sendable, Equatable, Hashable {
+    public let lastAccess: FileTimeSpec
+    public let lastModification: FileTimeSpec
+    public let lastChange: FileTimeSpec
+    public let creation: FileTimeSpec?
+}
+
+
+
+extension FileTimes {
+
+    public init(
+        lastAccess: CInterop.PlatformFileTime,
+        lastModification: CInterop.PlatformFileTime,
+        lastChange: CInterop.PlatformFileTime,
+        creation: CInterop.PlatformFileTime?
+    ) {
+        self.init(
+            lastAccess: .init(platformFileTime: lastAccess), 
+            lastModification: .init(platformFileTime: lastModification), 
+            lastChange: .init(platformFileTime: lastChange), 
+            creation: creation.map { .init(platformFileTime: $0) }
+        )
+    }
+
+}

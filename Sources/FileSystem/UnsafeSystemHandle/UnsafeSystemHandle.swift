@@ -80,6 +80,11 @@ public struct UnsafeSystemHandle: ~Copyable {
     }
     #endif
 
+
+    public func withUnsafeRawHandle<T: ~Copyable, E: Error>(_ operation: (SystemHandleType) throws(E) -> T) throws(E) -> T {
+        return try operation(unsafeRawHandle)
+    }
+
 }
 
 
