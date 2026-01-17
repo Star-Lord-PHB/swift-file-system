@@ -329,7 +329,7 @@ extension InternalFS {
 
     static func setFileSecurityInfo(
         forItemAt path: FilePath, 
-        setting members: WindowsSecurityInfoMembers,
+        setting members: FileOperationOptions.WindowsSecurityInfoMembers,
         dacl: consuming WindowsRawAcl?, 
         sacl: consuming WindowsRawAcl?, 
         owner: WindowsSid?, 
@@ -355,7 +355,7 @@ extension InternalFS {
     }
 
 
-    static func getSecurityInfo(forItemAt path: FilePath, members: WindowsSecurityInfoMembers) throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
+    static func getSecurityInfo(forItemAt path: FilePath, members: FileOperationOptions.WindowsSecurityInfoMembers) throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
         
         var psd = nil as PSECURITY_DESCRIPTOR?
 

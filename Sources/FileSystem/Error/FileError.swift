@@ -107,7 +107,7 @@ extension FileError {
             "Opening file handle for file at \(path)"
         }
 
-        public static func seekingHandle(at path: FilePath, to offset: Int64, relativeTo whence: UnsafeSystemHandle.SeekWhence) -> Self {
+        public static func seekingHandle(at path: FilePath, to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) -> Self {
             "Seeking handle of file at \(path) to offset \(offset), relative to \(whence)"
         }
 

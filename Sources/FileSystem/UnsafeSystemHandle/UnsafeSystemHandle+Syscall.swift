@@ -147,7 +147,7 @@ extension UnsafeSystemHandle {
 
 
     @discardableResult
-    public func seek(to offset: Int64, from whence: SeekWhence = .beginning) throws(SystemError) -> Int64 {
+    public func seek(to offset: Int64, from whence: FileOperationOptions.SeekWhence = .beginning) throws(SystemError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -392,7 +392,7 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        var settingMembers = [] as WindowsSecurityInfoMembers
+        var settingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
         if owner != nil {
             settingMembers.insert(.owner)
         }

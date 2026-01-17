@@ -115,19 +115,13 @@ extension FileSystem {
         symlinkOption: FileOperationOptions.CopyItemSymlinkOption = .copyLink
     ) throws(FileError) {
 
-        let copyOption = switch targetExistOption {
-            case .error:     .none
-            case .overwrite: .replace
-            case .skip:      .skip
-        } as CopyOverwriteOption
-
         let srcPath = try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
             // resolve symlink first if needed
             symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
         }
 
         try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
-            try _copyItemNoFollow(from: srcPath, to: dstPath, overwrite: copyOption)
+            try _copyItemNoFollow(from: srcPath, to: dstPath, overwrite: targetExistOption)
         }
 
     }
@@ -273,10 +267,10 @@ extension FileSystem {
     #if canImport(WinSDK)
     public func getSecurityInfo(
         forItemAt path: FilePath, 
-        querying members: FileOperationOptions.WindowsSecurityDescriptorMembers = .all
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers = .all
     ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
 
-        var internalQueryingMembers = [] as WindowsSecurityInfoMembers
+        var internalQueryingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
 
         if members.contains(.owner) { internalQueryingMembers.insert(.owner) }
         if members.contains(.group) { internalQueryingMembers.insert(.group) }
@@ -298,7 +292,7 @@ extension FileSystem {
         group: PlatformIdentity? = nil
     ) throws(FileError) {
 
-        var members = [] as WindowsSecurityInfoMembers
+        var members = [] as FileOperationOptions.WindowsSecurityInfoMembers
 
         switch dacl {
             case .noChange: break

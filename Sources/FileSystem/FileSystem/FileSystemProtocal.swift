@@ -56,7 +56,7 @@ public protocol FileSystemProtocal: Sendable {
     #if canImport(WinSDK)
     func getSecurityInfo(
         forItemAt path: FilePath, 
-        querying: FileOperationOptions.WindowsSecurityDescriptorMembers
+        querying: FileOperationOptions.WindowsSecurityInfoMembers
     ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor
     
     func setSecurityInfo(

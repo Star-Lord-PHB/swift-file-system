@@ -469,7 +469,7 @@ enum InternalFS {
 
         #if canImport(WinSDK)
 
-        var settingMembers = [] as WindowsSecurityInfoMembers
+        var settingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
         if owner != nil {
             settingMembers.insert(.owner)
         }

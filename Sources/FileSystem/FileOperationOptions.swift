@@ -1,4 +1,5 @@
 import SystemPackage
+import PlatformCLib
 
 
 public enum FileOperationOptions {
@@ -188,8 +189,51 @@ public enum FileOperationOptions {
     }
 
 
+    public enum SeekWhence: CInt {
+
+        case beginning
+        case current
+        case end
+
+        public var rawValue: CInt {
+            #if canImport(WinSDK)
+            switch self {
+                case .beginning: WinSDK.FILE_BEGIN
+                case .current: WinSDK.FILE_CURRENT
+                case .end: WinSDK.FILE_END
+            }
+            #else 
+            switch self {
+                case .beginning: SEEK_SET
+                case .current: SEEK_CUR
+                case .end: SEEK_END
+            }
+            #endif
+        }
+
+        public init?(rawValue: CInt) {
+            #if canImport(WinSDK)
+            switch rawValue {
+                case WinSDK.FILE_BEGIN: self = .beginning
+                case WinSDK.FILE_CURRENT: self = .current
+                case WinSDK.FILE_END: self = .end
+                default: return nil
+            }
+            #else 
+            switch rawValue {
+                case SEEK_SET: self = .beginning
+                case SEEK_CUR: self = .current
+                case SEEK_END: self = .end
+                default: return nil
+            }
+            #endif
+        }
+        
+    }
+
+
     #if canImport(WinSDK)
-    public struct WindowsSecurityDescriptorMembers: Sendable, OptionSet {
+    public struct WindowsSecurityInfoMembers: Sendable, OptionSet {
         public let rawValue: UInt8
         public init(rawValue: UInt8) {
             self.rawValue = rawValue
@@ -212,6 +256,27 @@ public enum FileOperationOptions {
                 case .replace(let acl): acl
                 case .remove:           nil
                 case .noChange:         nil
+            }
+        }
+    }
+    #else
+    public enum PosixPollEventToMonitor: Int16, Sendable {
+        case read
+        case write
+        case readWrite
+        public var rawValue: Int16 {
+            switch self {
+                case .read:         .init(POLLIN)
+                case .write:        .init(POLLOUT)
+                case .readWrite:    .init(POLLIN | POLLOUT)
+            }
+        }
+        public init?(rawValue: Int16) {
+            switch CInt(rawValue) {
+                case POLLIN:            self = .read
+                case POLLOUT:           self = .write
+                case POLLIN | POLLOUT:  self = .readWrite
+                default:                return nil
             }
         }
     }

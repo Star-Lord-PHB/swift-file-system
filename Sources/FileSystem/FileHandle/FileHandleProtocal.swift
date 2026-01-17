@@ -101,9 +101,9 @@ extension FileHandleProtocol where Self: ~Copyable {
 
     #if canImport(WinSDK)
     public func securityInfo(
-        _ members: FileOperationOptions.WindowsSecurityDescriptorMembers = .all
+        _ members: FileOperationOptions.WindowsSecurityInfoMembers = .all
     ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
-        var internalQueryingMembers = [] as WindowsSecurityInfoMembers
+        var internalQueryingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
 
         if members.contains(.owner) { internalQueryingMembers.insert(.owner) }
         if members.contains(.group) { internalQueryingMembers.insert(.group) }
@@ -125,7 +125,7 @@ extension FileHandleProtocol where Self: ~Copyable {
         group: PlatformIdentity? = nil
     ) throws(FileError) {
         
-        var members = [] as WindowsSecurityInfoMembers
+        var members = [] as FileOperationOptions.WindowsSecurityInfoMembers
 
         switch dacl {
             case .noChange: break
@@ -192,7 +192,7 @@ extension FileHandleProtocol where Self: ~Copyable {
 public protocol SeekableFileHandleProtocol: ~Copyable, FileHandleProtocol {
 
     @discardableResult
-    func seek(to offset: Int64, relativeTo whence: UnsafeSystemHandle.SeekWhence) throws(FileError) -> Int64
+    func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(FileError) -> Int64
 
 }
 

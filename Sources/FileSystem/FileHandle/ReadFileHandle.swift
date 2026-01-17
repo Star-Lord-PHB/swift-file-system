@@ -57,7 +57,7 @@ extension ReadFileHandle {
 
 
     @discardableResult
-    public func seek(to offset: Int64, relativeTo whence: UnsafeSystemHandle.SeekWhence = .beginning) throws(FileError) -> Int64 {
+    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence = .beginning) throws(FileError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -121,14 +121,14 @@ extension ReadFileHandle {
         try catchSystemError(operationDescription: .readingHandle(at: path, offset: offset, length: lengthToRead)) { () throws(SystemError) in
             if let offset {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: offset)
+                    var overlapped = WindowsOverlapped(offset: offset)
                     let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
                     _ = try handle.waitForOverlappedResult(pendingOverlapped)
                 }
             } else {
                 let currentOffset = _currentOffset.withLock(\.self)
                 let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    var overlapped = UnsafeSystemHandle.WindowsOverlapped(offset: currentOffset)
+                    var overlapped = WindowsOverlapped(offset: currentOffset)
                     let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped) 
                     return try handle.waitForOverlappedResult(pendingOverlapped)
                 }

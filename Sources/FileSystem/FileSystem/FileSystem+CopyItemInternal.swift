@@ -6,13 +6,6 @@ import CFileSystem
 
 extension FileSystem {
 
-    enum CopyOverwriteOption {
-        case none 
-        case skip
-        case replace
-    }
-
-
     fileprivate struct CachedCopySrcItemAttrs: ~Copyable {
 
         // this type is used instead of ``InternalFS.InternalFileTimes`` since we don't need ctime
@@ -198,7 +191,11 @@ extension FileSystem {
 
 extension FileSystem {
 
-    func _copyItemNoFollow(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption) throws(SystemError) {
+    func _copyItemNoFollow(
+        from srcPath: FilePath, 
+        to dstPath: FilePath, 
+        overwrite: FileOperationOptions.CopyTargetExistOption
+    ) throws(SystemError) {
         
         let srcAttrs = try _cacheItemAttrsForCopy(forItemAt: srcPath)
         let type = srcAttrs.type
@@ -218,7 +215,12 @@ extension FileSystem {
 
 
     // assume that the srcPath directly points to a regular file (not a directory or symlink)
-    fileprivate func _copyFile(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: consuming CachedCopySrcItemAttrs? = nil) throws(SystemError) {
+    fileprivate func _copyFile(
+        from srcPath: FilePath, 
+        to dstPath: FilePath, 
+        overwrite: FileOperationOptions.CopyTargetExistOption, 
+        srcAttrs: consuming CachedCopySrcItemAttrs? = nil
+    ) throws(SystemError) {
 
         #if canImport(WinSDK)
 
@@ -246,7 +248,7 @@ extension FileSystem {
     fileprivate func _copyFile(
         from srcHandle: borrowing UnsafeSystemHandle, 
         to dstPath: FilePath, 
-        overwrite: CopyOverwriteOption, 
+        overwrite: FileOperationOptions.CopyTargetExistOption, 
         srcPath: FilePath, 
         srcFileAttrs: consuming CachedCopySrcItemAttrs,
     ) throws(SystemError) {
@@ -266,9 +268,9 @@ extension FileSystem {
         let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
 
         switch (dstFileType, overwrite) {
-            case (.some(_), .none): 
+            case (.some(_), .error): 
                 throw SystemError(code: .fileExists)!
-            case (.none, .none): 
+            case (.none, .error): 
                 tmpDstPath = dstPath
                 shouldRename = false
                 dstHandle = try UnsafeSystemHandle.open(
@@ -277,7 +279,7 @@ extension FileSystem {
                 )
             case (.some(_), .skip): 
                 return
-            case (.none, .replace), (.none, .skip): 
+            case (.none, .overwrite), (.none, .skip): 
                 let handle: UnsafeSystemHandle
                 do {
                     // try to create directly
@@ -287,20 +289,20 @@ extension FileSystem {
                     )
                 } catch let error where error.kind == .alreadyExists && overwrite == .skip {
                     return
-                } catch let error where error.kind == .alreadyExists && overwrite == .replace {
+                } catch let error where error.kind == .alreadyExists && overwrite == .overwrite {
                     fallthrough     // if fail, fallthrough to copy to temp file 
                 }
                 tmpDstPath = dstPath
                 shouldRename = false
                 dstHandle = handle
-            case (.some(.symlink), .replace), (.some(.regular), .replace):
+            case (.some(.symlink), .overwrite), (.some(.regular), .overwrite):
                 let tmpFileResult = try InternalFS.makeTmpFile(baseOn: dstPath)
                 tmpDstPath = tmpFileResult.path
                 dstHandle = tmpFileResult.takeHandle()
                 shouldRename = true
-            case (.some(.directory), .replace): 
+            case (.some(.directory), .overwrite): 
                 throw SystemError(code: .isADirectory)!
-            case (.some(_), .replace): 
+            case (.some(_), .overwrite): 
                 throw SystemError(code: .notSupported)!
         }
 
@@ -324,7 +326,12 @@ extension FileSystem {
 
 
     // assume that the srcPath directly points to a symlink (not a regular file or directory)
-    fileprivate func _copySymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: consuming CachedCopySrcItemAttrs? = nil) throws(SystemError) {
+    fileprivate func _copySymlink(
+        from srcPath: FilePath, 
+        to dstPath: FilePath, 
+        overwrite: FileOperationOptions.CopyTargetExistOption, 
+        srcAttrs: consuming CachedCopySrcItemAttrs? = nil
+    ) throws(SystemError) {
 
         let srcAttrs = if let srcAttrs { srcAttrs } else { try _cacheItemAttrsForCopy(forItemAt: srcPath) }
 
@@ -339,9 +346,9 @@ extension FileSystem {
         let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
 
         switch (dstFileType, overwrite) {
-            case (.some(_), .none): 
+            case (.some(_), .error): 
                 throw SystemError(code: .fileExists)!
-            case (.none, .none):
+            case (.none, .error):
                 // TODO: remove the copied symlink if fail to write the cached attributes
                 let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
                 try InternalFS.symlink(dstPath: targetPath, linkPath: dstPath)
@@ -356,7 +363,7 @@ extension FileSystem {
                 }
             case (.some(_), .skip):
                 return
-            case (.some(.symlink), .replace), (.some(.regular), .replace), (.none, .replace), (.none, .skip):
+            case (.some(.symlink), .overwrite), (.some(.regular), .overwrite), (.none, .overwrite), (.none, .skip):
                 let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
                 var dstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 var created = false
@@ -383,9 +390,9 @@ extension FileSystem {
                     error.code.rawValue.map { errno = $0 }
                     throw error
                 }
-            case (.some(.directory), .replace):
+            case (.some(.directory), .overwrite):
                 throw SystemError(code: .isADirectory)!
-            case (.some(_), .replace):
+            case (.some(_), .overwrite):
                 throw SystemError(code: .notSupported)!
         }
 
@@ -461,21 +468,29 @@ extension FileSystem {
 
 
     // return whether a new directory is actually created
-    fileprivate func _makeEmptyDirectoryForCopy(at dstPath: FilePath, overwrite: CopyOverwriteOption) throws(SystemError) -> Bool {
+    fileprivate func _makeEmptyDirectoryForCopy(
+        at dstPath: FilePath, 
+        overwrite: FileOperationOptions.CopyTargetExistOption
+    ) throws(SystemError) -> Bool {
         do {
             try InternalFS.mkdir(at: dstPath, permissions: nil)
             return true
         } catch let error where error.kind == .alreadyExists {
             switch overwrite{
-                case .none:     throw error
+                case .error:     throw error
                 case .skip:     return false
-                case .replace:  return true
+                case .overwrite:  return true
             }
         }
     }
 
 
-    fileprivate func _copyDirectoryRecursive(from srcPath: FilePath, to dstPath: FilePath, overwrite: CopyOverwriteOption, srcAttrs: consuming CachedCopySrcItemAttrs? = nil) throws(SystemError) {
+    fileprivate func _copyDirectoryRecursive(
+        from srcPath: FilePath, 
+        to dstPath: FilePath, 
+        overwrite: FileOperationOptions.CopyTargetExistOption, 
+        srcAttrs: consuming CachedCopySrcItemAttrs? = nil
+    ) throws(SystemError) {
 
         let srcAttrs = if let srcAttrs { srcAttrs } else { try _cacheItemAttrsForCopy(forItemAt: srcPath) }
 
@@ -484,7 +499,7 @@ extension FileSystem {
         let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
 
         switch (dstFileType, overwrite) {
-            case (.some(_), .none):                                 throw SystemError(code: .fileExists)!
+            case (.some(_), .error):                                throw SystemError(code: .fileExists)!
             case (.some(let type), .skip) where type != .directory: return
             case (.some(let type), _) where type != .directory:     throw SystemError(code: .notADirectory)!
             case (_, _):                                            break

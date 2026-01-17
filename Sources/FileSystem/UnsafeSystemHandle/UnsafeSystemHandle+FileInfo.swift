@@ -295,7 +295,7 @@ extension UnsafeSystemHandle {
 
     #if canImport(WinSDK)
 
-    func securityInfo(_ members: WindowsSecurityInfoMembers) throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
+    func securityInfo(_ members: FileOperationOptions.WindowsSecurityInfoMembers) throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
 
         var psd = nil as PSECURITY_DESCRIPTOR?
 
@@ -318,7 +318,7 @@ extension UnsafeSystemHandle {
 
 
     func setSecurityInfo(
-        _ members: WindowsSecurityInfoMembers,
+        _ members: FileOperationOptions.WindowsSecurityInfoMembers,
         dacl: consuming WindowsRawAcl?, 
         sacl: consuming WindowsRawAcl?, 
         owner: WindowsSid?, 
