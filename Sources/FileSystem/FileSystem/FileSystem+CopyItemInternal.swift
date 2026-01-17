@@ -405,7 +405,7 @@ extension FileSystem {
     fileprivate func _copyFileOrSymlink(
         from srcPath: FilePath,
         to dstPath: FilePath,
-        overwrite: CopyOverwriteOption,
+        overwrite: FileOperationOptions.CopyTargetExistOption,
         srcAttrs: consuming CachedCopySrcItemAttrs
     ) throws(SystemError) {
 
@@ -420,9 +420,9 @@ extension FileSystem {
         let shouldRename: Bool
 
         switch (overwrite, dstFileType) {
-            case (.none, .some(_)): throw SystemError(code: .fileExists)!
+            case (.error, .some(_)): throw SystemError(code: .fileExists)!
             case (.skip, .some(_)): return
-            case (.none, .none), (.skip, .none): 
+            case (.error, .none), (.skip, .none): 
                 tmpDstPath = dstPath
                 shouldRename = false
                 do {
@@ -430,8 +430,8 @@ extension FileSystem {
                 } catch let error where error.kind == .alreadyExists && overwrite == .skip {
                     return
                 }
-            case (.replace, .directory) : throw SystemError(code: .isADirectory)!
-            case (.replace, _):
+            case (.overwrite, .directory) : throw SystemError(code: .isADirectory)!
+            case (.overwrite, _):
                 var tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 shouldRename = true
                 var copied = false
@@ -476,7 +476,7 @@ extension FileSystem {
             try InternalFS.mkdir(at: dstPath, permissions: nil)
             return true
         } catch let error where error.kind == .alreadyExists {
-            switch overwrite{
+            switch overwrite {
                 case .error:     throw error
                 case .skip:     return false
                 case .overwrite:  return true

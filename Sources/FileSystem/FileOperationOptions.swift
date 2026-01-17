@@ -234,14 +234,14 @@ public enum FileOperationOptions {
 
     #if canImport(WinSDK)
     public struct WindowsSecurityInfoMembers: Sendable, OptionSet {
-        public let rawValue: UInt8
-        public init(rawValue: UInt8) {
+        public let rawValue: DWORD
+        public init(rawValue: DWORD) {
             self.rawValue = rawValue
         }
-        public static let owner: Self = .init(rawValue: 1 << 0)
-        public static let group: Self = .init(rawValue: 1 << 1)
-        public static let dacl: Self = .init(rawValue: 1 << 2)
-        public static let sacl: Self = .init(rawValue: 1 << 3)
+        public static let owner: Self = .init(rawValue: .init(OWNER_SECURITY_INFORMATION))
+        public static let group: Self = .init(rawValue: .init(GROUP_SECURITY_INFORMATION))
+        public static let dacl: Self = .init(rawValue: .init(DACL_SECURITY_INFORMATION))
+        public static let sacl: Self = .init(rawValue: .init(SACL_SECURITY_INFORMATION))
         public static var all: Self { [.owner, .group, .dacl, .sacl] }
     }
 

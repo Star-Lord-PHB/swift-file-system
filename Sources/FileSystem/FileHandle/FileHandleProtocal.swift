@@ -103,16 +103,9 @@ extension FileHandleProtocol where Self: ~Copyable {
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .all
     ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
-        var internalQueryingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
-
-        if members.contains(.owner) { internalQueryingMembers.insert(.owner) }
-        if members.contains(.group) { internalQueryingMembers.insert(.group) }
-        if members.contains(.dacl) { internalQueryingMembers.insert(.dacl) }
-        if members.contains(.sacl) { internalQueryingMembers.insert(.sacl) }
-
         return try catchSystemError(operationDescription: .gettingFileSecurityInfo(at: path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
-                try sysHandle.securityInfo(internalQueryingMembers)
+                try sysHandle.securityInfo(members)
             }
         }
     }
