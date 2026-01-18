@@ -406,3 +406,43 @@ extension FileSystem {
     }
 
 }
+
+
+
+extension FileSystem {
+
+    public func currentWorkingDirectoryPath() throws(FileError) -> FilePath {
+        try catchSystemError(operationDescription: .queryingCurrentWorkingDirectory()) { () throws(SystemError) in
+            try InternalFS.currentWorkingDirectoryPath()
+        }
+    }
+
+
+    public func executablePath() throws(FileError) -> FilePath {
+        try catchSystemError(operationDescription: .queryingExecutablePath()) { () throws(SystemError) in
+            try InternalFS.executablePath()
+        }
+    }
+
+
+    public func tempDirectoryPath() throws(FileError) -> FilePath {
+        try catchSystemError(operationDescription: .queryingTempDirectory()) { () throws(SystemError) in
+            try InternalFS.tmpDirectoryPath()
+        }
+    }
+
+
+    public func homeDirectoryPath() throws(FileError) -> FilePath {
+        try catchSystemError(operationDescription: .queryingHomeDirectory()) { () throws(SystemError) in
+            try InternalFS.homeDirectoryPath()
+        }
+    }
+
+
+    public func cacheDirectoryPath() throws(FileError) -> FilePath {
+        try catchSystemError(operationDescription: .queryingCacheDirectory()) { () throws(SystemError) in
+            try InternalFS.cacheDirectoryPath()
+        }
+    }
+
+}

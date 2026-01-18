@@ -227,6 +227,27 @@ extension FileError {
             "Querying effective access mask for identity \(identity)"
         }
 
+        public static func queryingCurrentWorkingDirectory() -> Self {
+            "Querying current working directory"
+        }
+
+        public static func queryingExecutablePath() -> Self {
+            "Querying executable path"
+        }
+        
+        public static func queryingTempDirectory() -> Self {
+            "Querying temporary directory"
+        }
+
+        public static func queryingHomeDirectory() -> Self {
+            "Querying home directory"
+        }
+
+
+        public static func queryingCacheDirectory() -> Self {
+            "Querying cache directory"
+        }
+
     }
 
 }

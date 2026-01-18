@@ -79,4 +79,16 @@ public protocol FileSystemProtocal: Sendable {
 
     func withDirHandle<R: ~Copyable>(at path: FilePath, options: FileOperationOptions.OpenForDirectory, body: (borrowing DirectoryHandle) throws -> R) throws -> R
 
+
+    // MARK: Common Paths and Directories
+    func currentWorkingDirectoryPath() throws(FileError) -> FilePath
+
+    func executablePath() throws(FileError) -> FilePath
+
+    func homeDirectoryPath() throws(FileError) -> FilePath
+
+    func tempDirectoryPath() throws(FileError) -> FilePath
+
+    func cacheDirectoryPath() throws(FileError) -> FilePath
+
 }
