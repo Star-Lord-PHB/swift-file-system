@@ -13,8 +13,31 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
-        throw SystemError(code: .extended(.notImplemented))!
-        #warning("Not yet implemented")
+        var buffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(MAX_PATH))
+        defer { buffer.deallocate() }
+
+        SetLastError(0)
+
+        let requiredSize = PlatformCLib.GetCurrentDirectoryW(DWORD(MAX_PATH), buffer)
+
+        guard requiredSize > 0 else {
+            try SystemError.assertError(fallbackToUnknownError: true)
+        }
+
+        if requiredSize <= DWORD(MAX_PATH) {
+            return .init(platformString: buffer)
+        }
+
+        buffer.deallocate()
+        buffer = .allocate(capacity: Int(requiredSize))
+
+        SetLastError(0)
+
+        guard PlatformCLib.GetCurrentDirectoryW(requiredSize, buffer) != 0 else {
+            try SystemError.assertError(fallbackToUnknownError: true)
+        }
+
+        return .init(platformString: buffer)
 
         #else 
         
@@ -43,8 +66,26 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
-        throw SystemError(code: .extended(.notImplemented))!
-        #warning("Not yet implemented")
+        var buffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(MAX_PATH + 1))
+        defer { buffer.deallocate() }
+
+        let requiredSize = PlatformCLib.GetTempPathW(DWORD(MAX_PATH + 1), buffer)
+        guard requiredSize > 0 else {
+            try SystemError.assertError(fallbackToUnknownError: true)
+        }
+
+        if requiredSize <= DWORD(MAX_PATH + 1) {
+            return .init(platformString: buffer)
+        }
+
+        buffer.deallocate()
+        buffer = .allocate(capacity: Int(requiredSize))
+
+        guard PlatformCLib.GetTempPathW(requiredSize, buffer) != 0 else {
+            try SystemError.assertError(fallbackToUnknownError: true)
+        }
+
+        return .init(platformString: buffer)
 
         #elseif canImport(Darwin)
 
@@ -86,8 +127,28 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
-        throw SystemError(code: .extended(.notImplemented))!
-        #warning("Not yet implemented")
+        let tokenHandle = try WindowsAPI.getCurrentProcessTokenHandle()
+
+        var pathBufferSize = DWORD(MAX_PATH)
+        var pathBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(pathBufferSize))
+
+        if GetUserProfileDirectoryW(tokenHandle.unsafeResourcePtr, pathBuffer, &pathBufferSize) {
+            return .init(platformString: pathBuffer)
+        }
+
+        let error = GetLastError()
+        if error != ERROR_INSUFFICIENT_BUFFER {
+            throw SystemError(code: error)!
+        }
+
+        pathBuffer.deallocate()
+        pathBuffer = .allocate(capacity: Int(pathBufferSize))
+
+        try execThrowingCFunction {
+            GetUserProfileDirectoryW(tokenHandle.unsafeResourcePtr, pathBuffer, &pathBufferSize)
+        }
+
+        return .init(platformString: pathBuffer)
 
         #else 
 
@@ -129,8 +190,22 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
-        throw SystemError(code: .extended(.notImplemented))!
-        #warning("Not yet implemented")
+        var bufferSize = DWORD(MAX_PATH)
+        var buffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(bufferSize))
+        defer { buffer.deallocate() }
+
+        while true {
+            let length = GetModuleFileNameW(nil, buffer, bufferSize)
+            guard length > 0 else {
+                try SystemError.assertError(fallbackToUnknownError: true)
+            }
+            if length < bufferSize {
+                return .init(platformString: buffer)
+            }
+            bufferSize *= 2
+            buffer.deallocate()
+            buffer = .allocate(capacity: Int(bufferSize))
+        }
 
         #elseif canImport(Darwin)
 
@@ -164,8 +239,43 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
-        throw SystemError(code: .extended(.notImplemented))!
-        #warning("Not yet implemented")
+        do {
+
+            // On Windows, we are currently using the %LOCALAPPDATA% path (default to %USERPROFILE%\AppData\Local)
+            // as the cache directory. This is not the same as what provided by Foundation FileManager, which uses
+            // %LOCALAPPDATA%/Temp, but matches closer to the original definition of %LOCALAPPDATA%.
+
+            var pathBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(MAX_PATH))
+            defer { pathBuffer.deallocate() }
+
+            let lengthRequired = "LOCALAPPDATA".withCString(encodedAs: UTF16.self) { varNamePtr in
+                GetEnvironmentVariableW(varNamePtr, pathBuffer, DWORD(MAX_PATH))
+            }
+
+            guard lengthRequired > 0 else {
+                try SystemError.assertError(fallbackToUnknownError: true)
+            }
+
+            if lengthRequired < DWORD(MAX_PATH) {
+                return .init(platformString: pathBuffer)
+            }
+
+            pathBuffer.deallocate()
+            pathBuffer = .allocate(capacity: Int(lengthRequired))
+
+            let length = "LOCALAPPDATA".withCString(encodedAs: UTF16.self) { varNamePtr in
+                GetEnvironmentVariableW(varNamePtr, pathBuffer, lengthRequired)
+            }
+
+            guard length > 0 && length < lengthRequired else {
+                try SystemError.assertError(fallbackToUnknownError: true)
+            }
+
+            return .init(platformString: pathBuffer)
+
+        } catch where error.code.rawValue == DWORD(ERROR_ENVVAR_NOT_FOUND) {
+            return try homeDirectoryPath().appending("AppData").appending("Local")
+        }
 
         #elseif canImport(Darwin)
 
