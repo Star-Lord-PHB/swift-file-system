@@ -1,0 +1,513 @@
+import SystemPackage
+import PlatformCLib
+
+
+
+extension UnsafeSystemHandle {
+
+    /// Opens a system file handle at the specified path using the given open options
+    /// 
+    /// - Parameter path: The path to the file to open.
+    /// - Parameter openOptions: The options to use when opening the file.
+    /// - Parameter creationPermissions: The permissions to use when creating the file. 
+    ///             Ignored if file creation is not requested.
+    /// 
+    /// - Returns: An ``UnsafeSystemHandle`` representing the opened file handle.
+    /// 
+    /// ### Creation Permissions Behavior
+    /// 
+    /// On both Windows and Posix platforms, the [`FilePermissions`] from swift-system is used to specify 
+    /// the permissions when creating a new file, but it behaves differently on the two platforms.
+    /// 
+    /// On Posix, it is mapped directly to the standard file mode bits. If specified as `nil` while creation
+    /// is requested, it will be defaulted to `0o644` (rw-r--r--).
+    /// 
+    /// On Windows, the permissions will be mapped to a DACL with the best effect with the following rules:
+    /// 
+    /// | Posix Permission Identity | Mapped Win ACE Identity |
+    /// | -- | -- |
+    /// | Owner | Current User |
+    /// | Group | Primary Group of Current User |
+    /// | Other | "Everyone" Group |
+    /// 
+    /// | Posix Permission | Mapped Win Permission |
+    /// | -- | -- |
+    /// | Read | FILE_READ_ATTRIBUTES | FILE_READ_EA | FILE_READ_DATA | STANDARD_RIGHTS_READ | SYNCHRONIZE |
+    /// | Write | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_WRITE_DATA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE |
+    /// | Execute | FILE_EXECUTE | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE |
+    /// 
+    /// Such mapping is not exactly the same as the semantics of Posix file mode. For example, 0o044 means that 
+    /// anyone can read the file except the owner. However, on Windows, the owner will also have read access.
+    /// 
+    /// Beside the difference in permission semantics, the default value behavior (when `creationPermissions` 
+    /// paramater is set to `nil`) is also different, as described in the table below:
+    /// 
+    /// | Platform | Default Creation Permissions |
+    /// | -- | -- |
+    /// | Posix | 0o644 (rw-r--r--) |
+    /// | Windows | Inherited from Parent Directory |
+    /// 
+    /// - SeeAlso: ``UnsafeSystemHandle/OpenOptions``
+    /// 
+    /// [`FilePermissions`]: https://swiftpackageindex.com/apple/swift-system/documentation/systempackage/filepermissions
+    public static func open(
+        at path: FilePath, 
+        openOptions: OpenOptions = .init(),
+        creationPermissions: FilePermissions? = nil
+    ) throws(SystemError) -> UnsafeSystemHandle {
+
+        #if canImport(WinSDK)
+        
+        var securityAttributes = openOptions.securityAttributes
+
+        // Set up security descriptor only when file creation may occur. 
+        let securityDescriptorPtr = if openOptions.creation != .never, let creationPermissions {
+            try WindowsAPI.securityDescriptor(fromPosixPermissions: creationPermissions)
+        } else {
+            nil as UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>?
+        }
+
+        // currently, borrowing switch is the only way to get the unsafeRawPtr in WindowsOwnedAPIPointer
+        switch securityDescriptorPtr {
+            case .some(let sdPtr):
+                securityAttributes.lpSecurityDescriptor = .init(sdPtr.unsafelyCastedMutableRawPtr)
+            case .none: break
+        }
+
+        let handle = path.withPlatformString { cStr in
+            CreateFileW(
+                cStr, 
+                openOptions.accessModeFlags, 
+                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), 
+                &securityAttributes, 
+                openOptions.creationFlags,
+                openOptions.openFlags,
+                nil
+            )
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: handle)
+
+        #else 
+
+        let flags = openOptions.accessModeFlags | openOptions.creationFlags | openOptions.openFlags
+
+        let handle = if openOptions.creation != .never {
+            // on Posix, when creating file is requested, there must be a creation permission specified,
+            // if not, use default permission 0o644 (rw-r--r--)
+            path.withPlatformString { strPtr in 
+                PlatformCLib.open(strPtr, flags, (creationPermissions ?? [.ownerReadWrite, .groupRead, .otherRead]).rawValue)
+            }
+        } else {
+            path.withPlatformString { strPtr in 
+                PlatformCLib.open(strPtr, flags)
+            }
+        }
+        guard handle >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: handle)
+
+        #endif 
+
+    }
+
+
+    public static func openDir(at path: FilePath) throws(SystemError) -> UnsafeSystemHandle {
+
+        #if canImport(WinSDK)
+
+        let openFlags = DWORD(FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS)
+
+        let handle = path.withPlatformString { cStr in
+            CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), nil, DWORD(OPEN_EXISTING), openFlags, nil)
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: handle)
+
+        #else
+
+        let handle = PlatformCLib.open(path.string, O_RDONLY | O_DIRECTORY)
+        guard handle >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: handle)
+        
+        #endif 
+
+    }
+
+
+    @discardableResult
+    public func seek(to offset: Int64, from whence: FileOperationOptions.SeekWhence = .beginning) throws(SystemError) -> Int64 {
+
+        #if canImport(WinSDK)
+
+        var newOffset: LARGE_INTEGER = LARGE_INTEGER()
+        
+        try execThrowingCFunction {
+            SetFilePointerEx(unsafeRawHandle, LARGE_INTEGER(QuadPart: offset), &newOffset, DWORD(whence.rawValue))
+        }
+
+        return newOffset.QuadPart
+
+        #else 
+
+        let newOffset = lseek(self.unsafeRawHandle, off_t(offset), whence.rawValue)
+        guard newOffset >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return Int64(newOffset)
+
+        #endif 
+
+    }
+
+
+    public func tell() throws(SystemError) -> Int64 {
+        return try self.seek(to: 0, from: .current)
+    }
+
+
+    @discardableResult
+    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil) throws(SystemError) -> Int64 {
+
+        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+
+        #if canImport(WinSDK)
+
+        var bytesRead = 0 as DWORD
+
+        try execThrowingCFunction {
+            ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, nil)
+        }
+
+        return Int64(bytesRead)
+
+        #else 
+
+        let bytesRead = PlatformCLib.read(self.unsafeRawHandle, buffer.baseAddress, lengthToRead)
+        guard bytesRead >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return Int64(bytesRead)
+
+        #endif
+
+    }
+
+
+    @discardableResult
+    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64, length: Int64? = nil) throws(SystemError) -> Int64 {
+
+        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+
+        #if canImport(WinSDK)
+
+        var overlapped = OVERLAPPED()
+        overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
+        overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+
+        var bytesRead = 0 as DWORD
+
+        try execThrowingCFunction {
+            ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, &overlapped)
+        }
+
+        return Int64(bytesRead)
+
+        #else 
+
+        let bytesRead = PlatformCLib.pread(self.unsafeRawHandle, buffer.baseAddress, lengthToRead, off_t(offset))
+        guard bytesRead >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return Int64(bytesRead)
+
+        #endif 
+
+    }
+
+
+    @discardableResult
+    public func write(contentsOf buffer: UnsafeRawBufferPointer) throws(SystemError) -> Int64 {
+
+        #if canImport(WinSDK)
+
+        var bytesWritten = 0 as DWORD
+
+        try execThrowingCFunction {
+            WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, nil)
+        }
+
+        return Int64(bytesWritten)
+
+        #else 
+
+        let bytesWritten = PlatformCLib.write(self.unsafeRawHandle, buffer.baseAddress, buffer.count)
+        guard bytesWritten >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return Int64(bytesWritten)
+
+        #endif 
+
+    }
+
+
+    @discardableResult
+    public func pwrite(contentsOf buffer: UnsafeRawBufferPointer, to offset: Int64) throws(SystemError) -> Int64 {
+
+        #if canImport(WinSDK)
+
+        var overlapped = OVERLAPPED()
+        overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
+        overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+        var bytesWritten = 0 as DWORD
+        try execThrowingCFunction {
+            WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, &overlapped)
+        }
+        return Int64(bytesWritten)
+
+        #else
+
+        let bytesWritten = PlatformCLib.pwrite(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
+        guard bytesWritten >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return Int64(bytesWritten)
+
+        #endif
+
+    }
+
+
+    public func fsync() throws(SystemError) {
+
+        #if canImport(WinSDK)
+
+        try execThrowingCFunction {
+            FlushFileBuffers(self.unsafeRawHandle)
+        }
+
+        #else 
+
+        try execThrowingCFunction {
+            PlatformCLib.fsync(self.unsafeRawHandle)
+        }
+
+        #endif
+
+    }
+
+
+    public func truncate(to offset: Int64) throws(SystemError) {
+
+        #if canImport(WinSDK)
+
+        let currentFilePointerOffset = try self.tell()
+        defer {
+            _ = try? self.seek(to: currentFilePointerOffset, from: .beginning)
+        }
+
+        try self.seek(to: offset, from: .beginning)
+
+        try execThrowingCFunction {
+            SetEndOfFile(self.unsafeRawHandle)
+        }
+
+        #else 
+
+        try execThrowingCFunction {
+            ftruncate(self.unsafeRawHandle, off_t(offset))
+        }
+
+        #endif
+
+    }
+
+
+    public func truncate() throws(SystemError) {
+        #if canImport(WinSDK)
+        try execThrowingCFunction {
+            SetEndOfFile(self.unsafeRawHandle)
+        }
+        #else 
+        try truncate(to: tell())
+        #endif
+    }
+
+
+    public func duplicate() throws(SystemError) -> UnsafeSystemHandle {
+
+        #if canImport(WinSDK)
+
+        var newHandle: WinSDK.HANDLE? = nil
+
+        try execThrowingCFunction {
+            DuplicateHandle(
+                GetCurrentProcess(),
+                self.unsafeRawHandle,
+                GetCurrentProcess(),
+                &newHandle,
+                0,
+                false,
+                DWORD(DUPLICATE_SAME_ACCESS)
+            )
+        }
+        guard let newHandle else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
+
+        #else 
+
+        let newHandle = dup(self.unsafeRawHandle)
+        guard newHandle >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
+
+        #endif
+
+    }
+
+
+    package func fchown(owner: PlatformIdentity?, group: PlatformIdentity?) throws(SystemError) {
+
+        #if canImport(WinSDK)
+
+        var settingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
+        if owner != nil {
+            settingMembers.insert(.owner)
+        }
+        if group != nil {
+            settingMembers.insert(.group)
+        }
+        guard !settingMembers.isEmpty else { return }
+        
+        try setSecurityInfo(settingMembers, dacl: nil, sacl: nil, owner: owner?.rawId, group: group?.rawId)
+
+        #else 
+
+        if owner == nil && group == nil { return }
+
+        precondition(owner?.kind != .group, "owner identity must be of user kind")
+        precondition(group?.kind != .user, "group identity must be of group kind")
+
+        try execThrowingCFunction {
+            PlatformCLib.fchown(unsafeRawHandle, owner?.rawId ?? .init(bitPattern: -1), group?.rawId ?? .init(bitPattern: -1))
+        }
+
+        #endif 
+
+    }
+
+}
+
+
+
+extension UnsafeSystemHandle {
+
+    public struct PipeHandles: ~Copyable {
+        public let readHandle: UnsafeSystemHandle
+        public let writeHandle: UnsafeSystemHandle
+    }
+
+
+    public static func pipe() throws(SystemError) -> PipeHandles {
+
+        #if canImport(WinSDK)
+
+        var readHandle: HANDLE? = nil
+        var writeHandle: HANDLE? = nil
+        var securityAttributes = SECURITY_ATTRIBUTES(
+            nLength: DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size),
+            lpSecurityDescriptor: nil,
+            bInheritHandle: true
+        )
+
+        try execThrowingCFunction {
+            CreatePipe(&readHandle, &writeHandle, &securityAttributes, 0)
+        }
+        guard let readHandle, let writeHandle else {
+            try SystemError.assertError()
+        }
+
+        return .init(readHandle: .init(owningRawHandle: readHandle), writeHandle: .init(owningRawHandle: writeHandle))
+
+        #else 
+
+        var fds = [0, 0] as [CInt]
+
+        try execThrowingCFunction {
+            PlatformCLib.pipe(&fds)
+        }
+
+        var readHandle = UnsafeSystemHandle(owningRawHandle: fds[0])
+        var writeHandle = UnsafeSystemHandle(owningRawHandle: fds[1])
+
+        return .init(readHandle: readHandle, writeHandle: writeHandle)
+
+        #endif 
+
+    }
+
+}
+
+
+
+extension UnsafeUnownedSystemHandle {
+
+    package func duplicate() throws(SystemError) -> UnsafeSystemHandle {
+
+        #if canImport(WinSDK)
+
+        var newHandle: WinSDK.HANDLE? = nil
+
+        try execThrowingCFunction {
+            DuplicateHandle(
+                GetCurrentProcess(),
+                self.unsafeRawHandle,
+                GetCurrentProcess(),
+                &newHandle,
+                0,
+                false,
+                DWORD(DUPLICATE_SAME_ACCESS)
+            )
+        }
+        guard let newHandle else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
+
+        #else 
+
+        let newHandle = dup(self.unsafeRawHandle)
+        guard newHandle >= 0 else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: newHandle)
+
+        #endif
+
+    }
+
+}

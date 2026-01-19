@@ -2,7 +2,8 @@
 import Testing
 import SystemPackage
 import Foundation
-@testable import FileSystem
+@testable import SwiftFileSystem
+@testable import FileSystemCore
 
 import CFileSystem
 

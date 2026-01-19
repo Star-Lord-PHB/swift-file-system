@@ -1,0 +1,25 @@
+import FileSystemCore
+
+
+extension DirectoryEntryIterator {
+
+    public struct DirectoryEntryErrorIterator: DirectoryEntryIteratorProtocol {
+
+        public let error: FileError
+        public private(set) var ended: Bool = false
+
+
+        init(error: FileError) {
+            self.error = error
+        }
+
+
+        public mutating func next() -> DirectoryEntrySequenceResult? {
+            guard !ended else { return nil }
+            ended = true
+            return .failure(error)
+        }
+
+    }
+
+}

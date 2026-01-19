@@ -9,8 +9,12 @@ let package = Package(
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "FileSystem",
-            targets: ["FileSystem"]
+            name: "SwiftFileSystem",
+            targets: ["SwiftFileSystem"]
+        ),
+        .library(
+            name: "FileSystemCore",
+            targets: ["FileSystemCore"]
         ),
     ],
     dependencies: [
@@ -22,7 +26,23 @@ let package = Package(
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "FileSystem",
+            name: "SwiftFileSystem",
+            dependencies: [
+                .product(name: "SystemPackage", package: "swift-system"),
+                .product(name: "BasicContainers", package: "swift-collections"),
+                "CFileSystem",
+                "PlatformCLib",
+                "FileSystemCore"
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+                .enableExperimentalFeature("NonescapableTypes"),
+                .enableExperimentalFeature("NoncopyableGenerics"),
+                .enableExperimentalFeature("BorrowingSwitch")
+            ]
+        ),
+        .target(
+            name: "FileSystemCore", 
             dependencies: [
                 .product(name: "SystemPackage", package: "swift-system"),
                 .product(name: "BasicContainers", package: "swift-collections"),
@@ -46,7 +66,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FileSystemTests",
-            dependencies: ["FileSystem"]
+            dependencies: ["SwiftFileSystem"]
         ),
     ]
 )
@@ -54,7 +74,8 @@ let package = Package(
 
 #if canImport(Darwin)
 if #available(macOS 13, iOS 16, watchOS 9, tvOS 16, *) {
-    package.dependencies.append(.package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")),)
+    // MARK: TODO: Consider adding a Environment variable to control whether to include the benchmark target.
+    package.dependencies.append(.package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")))
     package.platforms = [.macOS(.v13), .iOS(.v16), .watchOS(.v9), .tvOS(.v16)]
     // Benchmark of FileSystemBenchmark
     package.targets += [
@@ -62,7 +83,7 @@ if #available(macOS 13, iOS 16, watchOS 9, tvOS 16, *) {
             name: "FileSystemBenchmark",
             dependencies: [
                 .product(name: "Benchmark", package: "package-benchmark"),
-                "FileSystem"
+                "SwiftFileSystem"
             ],
             path: "Benchmarks/FileSystemBenchmark",
             swiftSettings: [

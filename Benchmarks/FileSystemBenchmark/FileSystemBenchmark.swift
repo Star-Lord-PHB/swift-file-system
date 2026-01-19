@@ -2,7 +2,7 @@
 
 import Benchmark
 import Foundation
-import FileSystem
+import SwiftFileSystem
 import SystemPackage
 
 
