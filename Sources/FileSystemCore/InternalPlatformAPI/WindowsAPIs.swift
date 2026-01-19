@@ -5,7 +5,7 @@ import CFileSystem
 
 
 /// A collections of wrappers around Win32 APIs that are not directly related to file system operations.
-enum WindowsAPI {
+package enum WindowsAPI {
 
     package static func pSidToString(sidPtr: UnsafeUnownedResource) throws(SystemError) -> String {
 

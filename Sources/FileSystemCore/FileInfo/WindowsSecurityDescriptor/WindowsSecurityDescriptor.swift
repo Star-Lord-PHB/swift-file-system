@@ -20,7 +20,7 @@ public struct WindowsSecurityDescriptor: Sendable, Equatable, Hashable {
 
 extension WindowsSecurityDescriptor {
 
-    init(unsafeFromSecurityDescriptorPtr sdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) {
+    package init(unsafeFromSecurityDescriptorPtr sdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) {
 
         var revision = 0 as DWORD
         var control = 0 as SECURITY_DESCRIPTOR_CONTROL
@@ -81,7 +81,7 @@ extension WindowsSecurityDescriptor {
         }
 
 
-        init?(unsafeSecurityDescriptorPtr sdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) throws(SystemError) {
+        package init?(unsafeSecurityDescriptorPtr sdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) throws(SystemError) {
 
             var aclPtr = nil as PACL?
             var aclPresent = false as WindowsBool
@@ -133,7 +133,7 @@ extension WindowsSecurityDescriptor {
         }
 
 
-        init(unsafeFromACEPtr acePtr: UnsafeUnownedRawPointer) throws(SystemError) {
+        package init(unsafeFromACEPtr acePtr: UnsafeUnownedRawPointer) throws(SystemError) {
             
             let headerPtr = acePtr.bindMemory(to: ACE_HEADER.self, capacity: 1)
 

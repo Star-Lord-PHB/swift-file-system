@@ -11,7 +11,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
     fileprivate(set) var _owner: WindowsSid?
     fileprivate(set) var _group: WindowsSid?
 
-    init(
+    package init(
         psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, 
         dacl: consuming WindowsRawAcl?,
         sacl: consuming WindowsRawAcl?,
@@ -57,7 +57,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         
     }
 
-    init(converting selfRelativeSd: borrowing WindowsSelfRelativeSecurityDescriptor) throws(SystemError) {
+    package init(converting selfRelativeSd: borrowing WindowsSelfRelativeSecurityDescriptor) throws(SystemError) {
 
         var psd = nil as UnsafeMutablePointer<SECURITY_DESCRIPTOR>?
         var pdacl = nil as UnsafeMutablePointer<ACL>?

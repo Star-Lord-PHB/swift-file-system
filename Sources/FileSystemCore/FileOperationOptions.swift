@@ -251,7 +251,7 @@ public enum FileOperationOptions {
         case remove
         case noChange
 
-        consuming func takeRawAcl() -> WindowsRawAcl? {
+        package consuming func takeRawAcl() -> WindowsRawAcl? {
             switch consume self {
                 case .replace(let acl): acl
                 case .remove:           nil

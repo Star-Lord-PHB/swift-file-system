@@ -15,7 +15,7 @@ package enum InternalPlatformAPI {
         let error = GetLastError()
         guard error == ERROR_INSUFFICIENT_BUFFER else {
             if error == ERROR_NONE_MAPPED { return nil }
-            throw SystemError(code: error) ?? .init(code: .extended(.unknown))
+            throw SystemError(code: error) ?? .init(code: .extended(.unknown))!
         }
 
         let nameBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(nameSize))
@@ -123,7 +123,7 @@ package enum InternalPlatformAPI {
         let error = GetLastError()
         guard error == ERROR_INSUFFICIENT_BUFFER else {
             if error == ERROR_NONE_MAPPED { return nil }
-            throw SystemError(code: error) ?? .init(code: .extended(.unknown))
+            throw SystemError(code: error) ?? .init(code: .extended(.unknown))!
         }
 
         let sidBuffer = UnsafeMutableRawPointer.allocate(byteCount: Int(sidSize), alignment: MemoryLayout<UInt8>.alignment)
@@ -300,7 +300,7 @@ package enum InternalPlatformAPI {
         }
 
         guard error == SystemError.successCode else {
-            throw SystemError(code: error)
+            throw SystemError(code: error)!
         }
 
         var genericMapping = GENERIC_MAPPING(

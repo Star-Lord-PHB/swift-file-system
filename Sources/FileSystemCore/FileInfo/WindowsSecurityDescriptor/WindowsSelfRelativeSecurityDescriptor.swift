@@ -6,9 +6,9 @@ import PlatformCLib
 
 public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
 
-    let psd: UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>
+    package let psd: UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>
 
-    init(psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>) {
+    package init(psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>) {
         self.psd = psd
         precondition(self.isValid(), "Invalid SECURITY_DESCRIPTOR pointer")
     }

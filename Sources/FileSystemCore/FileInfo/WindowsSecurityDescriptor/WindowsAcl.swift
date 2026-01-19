@@ -169,7 +169,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
         }
     }
 
-    init(pacl: consuming UnsafeOwnedAutoPointer<ACL>) {
+    package init(pacl: consuming UnsafeOwnedAutoPointer<ACL>) {
         self.pacl = pacl
         precondition(self.isValid(), "Invalid ACL pointer")
     }
@@ -319,18 +319,18 @@ extension WindowsRawAcl.View {
 
 public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
 
-    let pacl: UnsafeUnownedPointer<ACL>?
+    package let pacl: UnsafeUnownedPointer<ACL>?
     public let aclDefaulted: Bool
 
     @_lifetime(copy pacl)
-    init(pacl: UnsafeUnownedPointer<ACL>?, aclDefaulted: Bool) {
+    package init(pacl: UnsafeUnownedPointer<ACL>?, aclDefaulted: Bool) {
         precondition(IsValidAcl(pacl?.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
         self.pacl = pacl
         self.aclDefaulted = aclDefaulted
     }
 
     @_lifetime(copy psd)
-    init?(psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
+    package init?(psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
         
         precondition(IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr), "Invalid SECURITY_DESCRIPTOR pointer")
         
@@ -354,7 +354,7 @@ public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
     }
 
     @_lifetime(borrow psd)
-    init?(psd: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
+    package init?(psd: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
         self.init(psd: psd.unownedView(), type: type)
     }
 
@@ -421,15 +421,15 @@ extension WindowsRawAclView {
 
 public struct WindowsRawAceView: ~Escapable {
 
-    let pace: UnsafeUnownedRawPointer
+    package let pace: UnsafeUnownedRawPointer
 
     @_lifetime(copy pace)
-    init(pace: UnsafeUnownedRawPointer) {
+    package init(pace: UnsafeUnownedRawPointer) {
         self.pace = pace
     }
 
     @_lifetime(immortal)
-    init(unsafeBorrowingAcePtr: LPVOID) {
+    package init(unsafeBorrowingAcePtr: LPVOID) {
         self.pace = .init(unownedPointer: unsafeBorrowingAcePtr)
     }
 

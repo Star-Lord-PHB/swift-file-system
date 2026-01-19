@@ -17,21 +17,21 @@ public struct WindowsSid: @unchecked Sendable {
 
     private let storage: Storage
 
-    var view: View {
+    package var view: View {
         @_lifetime(borrow self)
         get {
             .init(psid: psid)
         }
     }
 
-    var psid: UnsafeUnownedResource {
+    package var psid: UnsafeUnownedResource {
         @_lifetime(borrow self)
         get {
             _overrideLifetime(self.storage.psid.unownedView(), borrowing: self)
         }
     }
 
-    init(psid: consuming UnsafeOwnedAutoResource) {
+    package init(psid: consuming UnsafeOwnedAutoResource) {
         self.storage = .init(psid: psid)
         precondition(self.isValid(), "Invalid SID pointer")
     }

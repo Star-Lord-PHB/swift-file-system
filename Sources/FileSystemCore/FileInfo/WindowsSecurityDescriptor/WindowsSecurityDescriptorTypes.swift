@@ -301,7 +301,7 @@ public enum WindowsMemoryAllocatorType {
         self.mappedInternalAllocatorType.dealloc(pointer: pointer)
     }
 
-    var mappedInternalAllocatorType: MemoryAllocatorType {
+    package var mappedInternalAllocatorType: MemoryAllocatorType {
         switch self {
             case .globalAlloc:  .globalAlloc
             case .localAlloc:   .localAlloc
