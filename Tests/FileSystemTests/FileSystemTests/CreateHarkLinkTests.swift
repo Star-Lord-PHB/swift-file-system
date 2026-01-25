@@ -128,8 +128,7 @@ extension FileSystemTest.CreateHardLinkTest {
         }
 
         #if canImport(WinSDK)
-        #warning("Add error expectation for Windows")
-        try #require(Bool(false))
+        #expect(error?.code == .system(.accessDenied))
         #else
         #expect(error?.code == .system(.operationNotPermitted))
         #endif

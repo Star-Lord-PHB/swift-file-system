@@ -26,12 +26,39 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
         return result
     }
 
-    public func isValid() -> Bool {
-        return IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr)
+    fileprivate func isValid() -> Bool {
+        IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr) && self.control.control.contains(.selfRelative)
     }
 
-    public func fullyParsedDescriptor() throws(SystemError) -> WindowsSecurityDescriptor {
-        try .init(unsafeFromSecurityDescriptorPtr: psd.unownedView())
+    public func fullyParsedDescriptor() -> WindowsSecurityDescriptor {
+        do {
+            return try .init(unsafeFromSecurityDescriptorPtr: psd.unownedView())
+        } catch {
+            fatalError(
+                """
+                Unexpected failure when parsing WindowsSelfRelativeSecurityDescriptor: \(error.code.description).\
+                This should not happen since the descriptor should have been validated. It can be a severe memory\
+                corruption issue (e.g.: the pointer used to initialize this type is unexpectedly mutated by some\
+                other owner) or a bug in the implementation.
+                """
+            )
+        }
+    }
+
+    public func makeAbsolute() -> WindowsAbsoluteSecurityDescriptor {
+        do {
+            return try .init(converting: self)
+        } catch {
+            fatalError(
+                """
+                Unexpected failure when converting WindowsSelfRelativeSecurityDescriptor to\
+                WindowsAbsoluteSecurityDescriptor: \(error.code.description). This should not happen since the\
+                descriptor should have been validated. It can be a severe memory corruption issue (e.g.: the\
+                pointer used to initialize this type is unexpectedly mutated by some other owner) or a bug in\
+                the implementation.
+                """
+            )
+        }
     }
 
 }

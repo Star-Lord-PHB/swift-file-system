@@ -77,7 +77,7 @@ extension WriteFileHandle {
                 }
             case .end:
                 var size = LARGE_INTEGER(QuadPart: 0)
-                try execThrowingCFunction(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence)) {
+                try execThrowingCFunction(operation: .seekHandle(originalPath: path)) {
                     GetFileSizeEx(handle.unsafeRawHandle, &size)
                 }
                 return _currentOffset.withLock {

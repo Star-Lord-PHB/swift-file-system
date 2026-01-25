@@ -162,7 +162,7 @@ class FileSystemTest {
             GetFileAttributesExW(pathPtr, GetFileExInfoStandard, &info)
         }
         guard success else {
-            throw SystemError(code: .platform(.init(rawValue: GetLastError())))!
+            throw SystemError(code: .system(.init(rawValue: GetLastError())))!
         }
         let accessTimeSpec = info.ftLastAccessTime
         let totalNanoseconds = ((UInt64(accessTimeSpec.dwHighDateTime) << 32) | UInt64(accessTimeSpec.dwLowDateTime)) * 100

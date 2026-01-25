@@ -462,7 +462,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             }
 
             #if canImport(WinSDK)
-            #expect(error.code == .platform(.invalidFunction))
+            #expect(error.code == .system(.invalidFunction))
             #else
             #expect(error.code == .isADirectory)
             #endif

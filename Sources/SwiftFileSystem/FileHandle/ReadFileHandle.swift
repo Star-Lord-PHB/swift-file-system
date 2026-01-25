@@ -74,7 +74,7 @@ extension ReadFileHandle {
                 }
             case .end:
                 var size = LARGE_INTEGER(QuadPart: 0)
-                try execThrowingCFunction(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence)) {
+                try execThrowingCFunction(operation: .seekHandle(originalPath: path)) {
                     GetFileSizeEx(handle.unsafeRawHandle, &size)
                 }
                 return _currentOffset.withLock {
@@ -118,7 +118,7 @@ extension ReadFileHandle {
 
     #if canImport(WinSDK)
 
-        try catchSystemError(operationDescription: .readingHandle(at: path, offset: offset, length: lengthToRead)) { () throws(SystemError) in
+        try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in
             if let offset {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
                     var overlapped = WindowsOverlapped(offset: offset)

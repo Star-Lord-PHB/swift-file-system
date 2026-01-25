@@ -22,13 +22,17 @@ extension FileSystemTest._ExperimentalSymlinkResolutionTest {
         let linkPath = try makeSymlink(at: "link.lnk", pointingTo: "target.txt")
 
         let resolvedTarget = try FileSystem().destinationOfSymLink(at: linkPath, recursive: true)
-
-        // MARK: TODO: figure out better way to test this
         
         #if canImport(WinSDK)
-        #warning("Check correctness on Windows")
-        try #require(Bool(false))
+        // On Windows, due to the limitation of URL, there is currently no good way to get the path root starts with "\\?\".
+        // So currently we are manually removing this prefix for comparison
+        let expectedResolvedPathUrl = URL(filePath: linkPath.string).resolvingSymlinksInPath().standardizedFileURL
+        var transformedResolvedTarget = resolvedTarget
+        transformedResolvedTarget.root = .init(resolvedTarget.root?.string.dropFirst(4).description ?? "")
+        var expectedResolvedPath = FilePath(expectedResolvedPathUrl.pathComponents.dropFirst().joined(separator: "/"))
+        #expect(transformedResolvedTarget == expectedResolvedPath)
         #else
+        // The resolveingSymlinksInPath on Darwin does not work correctly, so we are suing realpath here directly
         var buffer = [CChar](repeating: 0, count: 4096)     // 4096 bytes should be enough even for platforms without actual path length limit
         realpath(targetPath.string, &buffer)
         let expectedResolvedPath = FilePath(platformString: buffer)
@@ -60,8 +64,13 @@ extension FileSystemTest._ExperimentalSymlinkResolutionTest {
         let resolvedTarget = try FileSystem().destinationOfSymLink(at: pathToResolve, recursive: true)
         
         #if canImport(WinSDK)
-        #warning("Check correctness on Windows")
-        try #require(Bool(false))
+        // On Windows, due to the limitation of URL, there is currently no good way to get the path root starts with "\\?\".
+        // So currently we are manually removing this prefix for comparison
+        let expectedResolvedPathUrl = URL(filePath: pathToResolve.string).resolvingSymlinksInPath().standardizedFileURL
+        var transformedResolvedTarget = resolvedTarget
+        transformedResolvedTarget.root = .init(resolvedTarget.root?.string.dropFirst(4).description ?? "")
+        var expectedResolvedPath = FilePath(expectedResolvedPathUrl.pathComponents.dropFirst().joined(separator: "/"))
+        #expect(transformedResolvedTarget == expectedResolvedPath)
         #else
         var buffer = [CChar](repeating: 0, count: 4096)     // 4096 bytes should be enough even for platforms without actual path length limit
         realpath(targetPath.string, &buffer)

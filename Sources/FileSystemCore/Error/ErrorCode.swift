@@ -38,7 +38,7 @@ extension PlatformErrorCode {
     public struct SystemErrorCode: Sendable, RawRepresentable, CustomStringConvertible {
 
         #if canImport(WinSDK)
-        public static var success: PlatformErrorCode { .init(rawValue: DWORD(ERROR_SUCCESS)) }
+        public static var success: SystemErrorCode { .init(rawValue: DWORD(ERROR_SUCCESS)) }
         #else
         public static var success: SystemErrorCode { .init(rawValue: 0) }
         #endif

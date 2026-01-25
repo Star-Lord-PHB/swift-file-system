@@ -187,7 +187,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
         self.init(pacl: .init(owningPointer: unsafeOwningAclPtr, allocator: allocator.mappedInternalAllocatorType))
     }
 
-    public func isValid() -> Bool {
+    fileprivate func isValid() -> Bool {
         return IsValidAcl(pacl.unsafelyCastedMutableRawPtr)
     }
 
@@ -208,10 +208,6 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
         init(pacl: UnsafeUnownedPointer<ACL>) {
             precondition(IsValidAcl(pacl.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
             self.pacl = pacl
-        }
-
-        public func isValid() -> Bool {
-            return IsValidAcl(pacl.unsafelyCastedMutableRawPtr)
         }
 
     }

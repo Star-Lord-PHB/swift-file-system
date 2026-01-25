@@ -2,7 +2,7 @@
 import WinSDK
 
 
-extension FsErrorCode.PlatformErrorCode {
+extension PlatformErrorCode.SystemErrorCode {
 
     @inlinable public static var invalidFunction: Self { .init(rawValue: .init(ERROR_INVALID_FUNCTION)) }
     @inlinable public static var fileNotFound: Self { .init(rawValue: .init(ERROR_FILE_NOT_FOUND)) }
@@ -35,7 +35,7 @@ extension FsErrorCode.PlatformErrorCode {
     @inlinable public static var insufficientBuffer: Self { .init(rawValue: .init(ERROR_INSUFFICIENT_BUFFER)) }
 
 
-    public var mappedErrorKind: FsErrorCode.Kind {
+    public var mappedErrorKind: PlatformErrorCode.Kind {
         switch self {
             case .fileNotFound, .pathNotFound: .notFound
             case .accessDenied: .permissionDenied

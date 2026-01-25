@@ -391,7 +391,7 @@ package enum WindowsAPI {
                 CreateWellKnownSid(type, domainSid?.unsafeResourcePtr, buffer.baseAddress!, &size)
             }
             return .init(owningResource: buffer.baseAddress!, freeingFunc: { $0.deallocate() })
-        } catch let error where error.code == .platform(.insufficientBuffer) {
+        } catch let error where error.code == .system(.insufficientBuffer) {
             // ignore this error and retry
         }
 

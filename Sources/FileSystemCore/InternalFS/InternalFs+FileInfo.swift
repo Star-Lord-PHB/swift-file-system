@@ -104,7 +104,7 @@ extension InternalFS {
                 } else {
                     .regular
                 }
-            } catch let e where e.kind == .notFound || e.kind == .nameTooLong || e.code == .platform(.invalidFileName) {
+            } catch let e where e.kind == .notFound || e.kind == .nameTooLong || e.code == .system(.invalidFileName) {
                 // These errors are won't be resolved even after falling back to handle-based method
                 // MARK: TODO: Need to check whether there are other error codes like these
                 throw e

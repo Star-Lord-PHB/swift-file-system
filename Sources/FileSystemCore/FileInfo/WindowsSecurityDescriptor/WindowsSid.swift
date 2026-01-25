@@ -40,7 +40,7 @@ public struct WindowsSid: @unchecked Sendable {
         guard let sidPtr = try? WindowsAPI.stringToPsid(sidStr: string) else {
             return nil
         }
-        self.storage = .init(psid: sidPtr)
+        self.init(psid: sidPtr)
     }
 
     public init(unsafeOwningPSid: PSID, freeingFunc: @escaping (PSID) -> Void) {
@@ -51,12 +51,14 @@ public struct WindowsSid: @unchecked Sendable {
         return try! WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
     }
 
-    public func isValid() -> Bool {
+    fileprivate func isValid() -> Bool {
         return IsValidSid(storage.psid.unsafeResourcePtr)
     }
 
-    public func checkedString() throws(SystemError) -> String {
-        return try WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
+    public func checkedString() -> Result<String, SystemError> {
+        return .init { () throws(SystemError) in
+            try WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView()) 
+        }
     }
 
     public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
@@ -80,12 +82,14 @@ public struct WindowsSid: @unchecked Sendable {
             return try! WindowsAPI.pSidToString(sidPtr: psid)
         }
 
-        public func isValid() -> Bool {
+        fileprivate func isValid() -> Bool {
             return IsValidSid(psid.unsafeResourcePtr)
         }
 
-        public func checkedString() throws(SystemError) -> String {
-            return try WindowsAPI.pSidToString(sidPtr: psid)
+        public func checkedString() -> Result<String, SystemError> {
+            return .init { () throws(SystemError) in
+                try WindowsAPI.pSidToString(sidPtr: psid)
+            }
         }
 
         public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {

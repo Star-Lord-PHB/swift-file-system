@@ -28,7 +28,7 @@ public struct PlatformError: Error, CustomStringConvertible {
         """
         PlatformError(\
         operation: \(operation)\
-        \(code.rawValue.map { ", code: \($0), " } ?? "")\
+        \(code.rawValue.map { ", code: \($0)" } ?? "")\
         \(underlyingError.map { ", underlyingError: \($0)" } ?? "")\
         )
         """

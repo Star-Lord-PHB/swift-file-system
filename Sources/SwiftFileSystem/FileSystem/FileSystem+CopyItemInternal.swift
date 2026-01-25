@@ -443,7 +443,7 @@ extension FileSystem {
                     tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 }
                 guard copied else {
-                    SetLastError(FsErrorCode.PlatformErrorCode.fileExists.rawValue)
+                    SetLastError(PlatformErrorCode.SystemErrorCode.fileExists.rawValue)
                     throw SystemError(code: .fileExists)! 
                 }
                 tmpDstPath = tmpPath

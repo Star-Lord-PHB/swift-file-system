@@ -171,7 +171,7 @@ package enum InternalFS {
         }
 
         guard buffer.pointee.ReparseTag == IO_REPARSE_TAG_SYMLINK else {
-            throw SystemError(code: .platform(.badArguments))!
+            throw SystemError(code: .system(.badArguments))!
         }
 
         if buffer.pointee.SymbolicLinkReparseBuffer.PrintNameLength > 0 {
