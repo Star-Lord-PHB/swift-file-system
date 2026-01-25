@@ -16,6 +16,8 @@ extension FileSystemTest {
 
 extension FileSystemTest._ExperimentalSymlinkResolutionTest {
 
+    #if !canImport(WinSDK)
+
     @Test("Recursive (Single Level at End)")
     func recursiveSingleLevelAtEnd() async throws {
         
@@ -91,5 +93,7 @@ extension FileSystemTest._ExperimentalSymlinkResolutionTest {
         #endif
 
     }
+
+    #endif
 
 }
