@@ -12,30 +12,30 @@ public final class PlatformAPI: PlatformAPIProtocol {
 
 extension PlatformAPI {
 
-    public func accountName(for identity: PlatformIdentity) throws(FileError) -> String? {
-        return try catchSystemError(operationDescription: .queryingAccountName(for: identity)) { () throws(SystemError) in
+    public func accountName(for identity: PlatformIdentity) throws(PlatformError) -> String? {
+        return try catchSystemError(operation: .queryAccountNameFromIdentity) { () throws(SystemError) in
             try InternalPlatformAPI.accountName(for: identity)
         }
     }
 
 
     #if canImport(WinSDK)
-    public func identity(forAccountName name: String) throws(FileError) -> PlatformIdentity? {
-        return try catchSystemError(operationDescription: .queryingIdentity(forAccountName: name)) { () throws(SystemError) in
+    public func identity(forAccountName name: String) throws(PlatformError) -> PlatformIdentity? {
+        return try catchSystemError(operation: .queryIdentityfromName) { () throws(SystemError) in
             try InternalPlatformAPI.identity(forAccountName: name)
         }
     }
     #else 
-    public func identity(forAccountName name: String, kind: PlatformIdentity.Kind) throws(FileError) -> PlatformIdentity? {
-        return try catchSystemError(operationDescription: .queryingIdentity(forAccountName: name)) { () throws(SystemError) in
+    public func identity(forAccountName name: String, kind: PlatformIdentity.Kind) throws(PlatformError) -> PlatformIdentity? {
+        return try catchSystemError(operation: .queryIdentityfromName) { () throws(SystemError) in
             try InternalPlatformAPI.identity(forAccountName: name, kind: kind)
         }
     }
     #endif 
 
 
-    public func currentIdentity() throws(FileError) -> PlatformIdentity {
-        return try catchSystemError(operationDescription: .queryingCurrentIdentity()) { () throws(SystemError) in
+    public func currentIdentity() throws(PlatformError) -> PlatformIdentity {
+        return try catchSystemError(operation: .queryCurrentIdentity) { () throws(SystemError) in
             try InternalPlatformAPI.currentIdentity()
         }
     }
@@ -45,8 +45,8 @@ extension PlatformAPI {
     public func effectiveAccessMask(
         for identity: PlatformIdentity, 
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
-    ) throws(FileError) -> WindowsAccessMask {
-        return try catchSystemError(operationDescription: .queryingEffectiveAccessMask(for: identity)) { () throws(SystemError) in
+    ) throws(PlatformError) -> WindowsAccessMask {
+        return try catchSystemError(operation: .queryEffectiveAccessMask) { () throws(SystemError) in
             try InternalPlatformAPI.effectiveAccessMask(for: identity, whenAccessing: securityDescriptor)
         }
     }
@@ -54,7 +54,7 @@ extension PlatformAPI {
 
     public func effectiveAccessMaskForCurrentProcess(
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
-    ) throws(FileError) -> WindowsAccessMask {
+    ) throws(PlatformError) -> WindowsAccessMask {
         try effectiveAccessMask(for: currentIdentity(), whenAccessing: securityDescriptor)
     }
     #endif 

@@ -115,7 +115,7 @@ extension FileSystemTest.WriteFileHandleTests {
 
         let path = try makeFile(at: "test.txt")
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             _ = try WriteFileHandle(forFileAt: path, options: .newFile(replaceExisting: false))
         }
 
@@ -129,7 +129,7 @@ extension FileSystemTest.WriteFileHandleTests {
 
         let path = makePath(at: "test.txt")
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             _ = try WriteFileHandle(forFileAt: path, options: .editFile(createIfMissing: false))
         }
 

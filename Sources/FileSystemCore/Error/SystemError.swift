@@ -5,17 +5,17 @@ import SystemPackage
 public struct SystemError: Error, Equatable, CustomStringConvertible {
 
     public typealias Code = CInterop.ErrorCode
-    public static let successCode: Code = FsErrorCode.PlatformErrorCode.success.rawValue
+    public static let successCode: Code = PlatformErrorCode.SystemErrorCode.success.rawValue
 
-    public let code: FsErrorCode
+    public let code: PlatformErrorCode
 
-    public var kind: FsErrorCode.Kind { code.mappedErrorKind }
+    public var kind: PlatformErrorCode.Kind { code.mappedErrorKind }
 
     public init?(code: Code) {
-        self.init(code: .platform(.init(rawValue: code)))
+        self.init(code: .system(.init(rawValue: code)))
     }
 
-    public init?(code: FsErrorCode) {
+    public init?(code: PlatformErrorCode) {
         guard code != .success else { return nil }
         self.code = code
     }

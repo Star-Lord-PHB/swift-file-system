@@ -12,8 +12,8 @@ extension DirectoryEntryIterator {
         public var rootPath: FilePath { enumerator.rootPath }
         
 
-        public init(path: FilePath) throws(FileError) {
-            self.enumerator = try catchSystemError(operationDescription: .readingDirEntries(at: path)) { () throws(SystemError) in
+        public init(path: FilePath) throws(PlatformError) {
+            self.enumerator = try catchSystemError(operation: .readDirectory(path)) { () throws(SystemError) in
                 try .init(path: path)
             }
         }
@@ -22,14 +22,14 @@ extension DirectoryEntryIterator {
         public mutating func next() -> DirectoryEntrySequenceResult? {
             do {
                 return try catchSystemError(
-                    operationDescription: .readingDirEntries(at: rootPath)
+                    operation: .readDirectory(rootPath)
                 ) { () throws(SystemError) in
                     while let element = try enumerator.next() {
                         switch element {
                             case .entry(let entry): 
                                 return .success(.entry(entry))
                             case .entryError(let path, let error): 
-                                return .success(.entryError(path, .init(systemError: error, operationDescription: .readingDirEntries(at: rootPath))))
+                                return .success(.entryError(path, .init(systemError: error, operation: .readDirectory(rootPath))))
                             case .leavingDir(_): 
                                 continue
                         }

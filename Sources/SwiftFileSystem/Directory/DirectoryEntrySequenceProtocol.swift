@@ -4,7 +4,7 @@ import FileSystemCore
 
 public enum DirectoryEntrySequenceElement: Sendable {
     case entry(DirectoryEntry)
-    case entryError(FilePath, FileError)
+    case entryError(FilePath, PlatformError)
 
     public var path: FilePath {
         switch self {
@@ -19,7 +19,7 @@ public enum DirectoryEntrySequenceElement: Sendable {
 }
 
 
-public typealias DirectoryEntrySequenceResult = Result<DirectoryEntrySequenceElement, FileError>
+public typealias DirectoryEntrySequenceResult = Result<DirectoryEntrySequenceElement, PlatformError>
 
 
 

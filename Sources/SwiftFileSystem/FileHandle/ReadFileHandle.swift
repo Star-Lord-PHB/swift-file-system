@@ -16,7 +16,7 @@ public struct ReadFileHandle: ~Copyable, ReadFileHandleProtocol {
     // while allowing accessing with system file pointer. So we track the current offset manually.
     private let _currentOffset: Mutex<Int64> = Mutex(0)
     public var currentOffset: Int64 {
-        get throws(FileError) {
+        get throws(PlatformError) {
             _currentOffset.withLock(\.self)
         }
     }
@@ -34,7 +34,7 @@ public struct ReadFileHandle: ~Copyable, ReadFileHandleProtocol {
 
 extension ReadFileHandle {
 
-    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(FileError) {
+    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(PlatformError) {
 
         var openOptions = options.unsafeSystemFileOpenOptions()
 
@@ -44,7 +44,7 @@ extension ReadFileHandle {
         openOptions.noBlocking = false
         #endif
 
-        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: openOptions
@@ -57,7 +57,7 @@ extension ReadFileHandle {
 
 
     @discardableResult
-    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence = .beginning) throws(FileError) -> Int64 {
+    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence = .beginning) throws(PlatformError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -85,7 +85,7 @@ extension ReadFileHandle {
 
         #else 
 
-        return try catchSystemError(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence)) { () throws(SystemError) in
+        return try catchSystemError(operation: .seekHandle(originalPath: path)) { () throws(SystemError) in
             try handle.seek(to: offset, from: whence)
         }
         
@@ -93,11 +93,11 @@ extension ReadFileHandle {
     }
 
 
-    public consuming func close() throws(FileError) {
+    public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
         } catch {
-            throw .init(systemError: error, operationDescription: .closingHandle(at: path))
+            throw .init(systemError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
@@ -112,7 +112,7 @@ extension ReadFileHandle {
 
 extension ReadFileHandle {
 
-    public func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(FileError) {
+    public func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) {
 
         let lengthToRead = min(Int64(buffer.count), length ?? Int64(buffer.count))
 
@@ -140,7 +140,7 @@ extension ReadFileHandle {
 
     #else
 
-        try catchSystemError(operationDescription: .readingHandle(at: path, offset: offset, length: lengthToRead)) { () throws(SystemError) in 
+        try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in 
             if let offset {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
                     _ = try handle.pread(into: bufferPtr, from: offset, length: lengthToRead)

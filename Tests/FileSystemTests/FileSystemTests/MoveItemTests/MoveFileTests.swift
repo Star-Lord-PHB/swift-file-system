@@ -66,7 +66,7 @@ extension FileSystemTest.MoveItemTest {
         let srcExpectation = try ItemExpectation.from(itemAt: srcPath)
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
@@ -123,7 +123,7 @@ extension FileSystemTest.MoveItemTest {
         let srcExpectation = try ItemExpectation.from(itemAt: srcPath)
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
@@ -144,7 +144,7 @@ extension FileSystemTest.MoveItemTest {
         let srcExpectation = try ItemExpectation.from(itemAt: srcPath)
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath)
         }
 
@@ -182,7 +182,7 @@ extension FileSystemTest.MoveItemTest {
         let srcExpectation = try ItemExpectation.from(itemAt: srcPath)
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 

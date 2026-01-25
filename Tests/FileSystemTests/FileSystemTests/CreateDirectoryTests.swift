@@ -35,7 +35,7 @@ extension FileSystemTest.CreateDirectoryTest {
         
         let path = makePath(at: "dir/a")
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().createDirectory(at: path, withIntermediateDirectories: false)
         }
 
@@ -49,7 +49,7 @@ extension FileSystemTest.CreateDirectoryTest {
         
         let path = try makeDir(at: "dir")
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().createDirectory(at: path, withIntermediateDirectories: false)
         }
 

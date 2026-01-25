@@ -20,9 +20,9 @@ public struct DirectoryHandle: ~Copyable, DirectoryHandleProtocol {
 
 extension DirectoryHandle {
 
-    public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(FileError) { 
+    public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(PlatformError) { 
 
-        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: options.unsafeSystemFileOpenOptions()
@@ -34,9 +34,9 @@ extension DirectoryHandle {
     }
 
 
-    public func directEntries() throws(FileError) -> [DirectoryEntry] {
+    public func directEntries() throws(PlatformError) -> [DirectoryEntry] {
         try ScopedEntrySequence(unsafeSystemHandle: handle, path: path, recursive: false)
-            .compactMap { entry throws(FileError) in
+            .compactMap { entry throws(PlatformError) in
                 switch entry {
                     case .success(.entry(let dirEntry)):    return dirEntry
                     case .success(.entryError):             return nil
@@ -47,16 +47,16 @@ extension DirectoryHandle {
 
 
     @_lifetime(borrow self)
-    public func entrySequence(recursive: Bool = false) throws(FileError) -> DirectoryEntrySequenceType {
+    public func entrySequence(recursive: Bool = false) throws(PlatformError) -> DirectoryEntrySequenceType {
         return ScopedEntrySequence(unsafeSystemHandle: handle, path: path, recursive: recursive)
     }
 
 
-    public consuming func close() throws(FileError) {
+    public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
         } catch {
-            throw .init(systemError: error, operationDescription: .closingHandle(at: path))
+            throw .init(systemError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
@@ -91,9 +91,7 @@ extension DirectoryHandle {
                 if recursive {
                     return try DirectoryEntryIterator.recursive(path: path)
                 } else {
-                    let duplicatedHandle = try catchSystemError(
-                        operationDescription: .openingDirStream(forDirectoryAt: path)
-                    ) { () throws(SystemError) in
+                    let duplicatedHandle = try catchSystemError(operation: .readDirectory(path)) { () throws(SystemError) in
                         try handle.duplicate()
                     }
                     return try DirectoryEntryIterator.direct(unsafeSystemHandle: duplicatedHandle, path: path)

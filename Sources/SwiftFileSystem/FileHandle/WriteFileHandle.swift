@@ -18,7 +18,7 @@ public struct WriteFileHandle: ~Copyable, WriteFileHandleProtocol {
     // while allowing accessing with system file pointer. So we track the current offset manually.
     private let _currentOffset: Mutex<Int64> = Mutex(0)
     public var currentOffset: Int64 {
-        get throws(FileError) {
+        get throws(PlatformError) {
             _currentOffset.withLock(\.self)
         }
     }
@@ -36,7 +36,7 @@ public struct WriteFileHandle: ~Copyable, WriteFileHandleProtocol {
 
 extension WriteFileHandle {
 
-    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForWriting = .editFile()) throws(FileError) {
+    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForWriting = .editFile()) throws(PlatformError) {
 
         var openOptions = options.unsafeSystemFileOpenOptions()
 
@@ -46,7 +46,7 @@ extension WriteFileHandle {
         openOptions.noBlocking = false
         #endif
 
-        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
             try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: openOptions,
@@ -60,7 +60,7 @@ extension WriteFileHandle {
 
 
     @discardableResult
-    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(FileError) -> Int64 {
+    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64 {
 
         #if canImport(WinSDK)
         
@@ -88,7 +88,7 @@ extension WriteFileHandle {
 
         #else 
 
-        try catchSystemError(operationDescription: .seekingHandle(at: path, to: offset, relativeTo: whence)) { () throws(SystemError) in
+        try catchSystemError(operation: .seekHandle(originalPath: path)) { () throws(SystemError) in
             try handle.seek(to: offset, from: whence)
         }
 
@@ -96,11 +96,11 @@ extension WriteFileHandle {
     }
 
 
-    public consuming func close() throws(FileError) {
+    public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
         } catch {
-            throw .init(systemError: error, operationDescription: .closingHandle(at: path))
+            throw .init(systemError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
@@ -115,12 +115,12 @@ extension WriteFileHandle {
 
 extension WriteFileHandle {
 
-    public func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(FileError) -> Int64 {
+    public func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
         
     #if canImport(WinSDK)
 
-        return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(FileError) in 
-            try catchSystemError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(bufferPtr.count))) { () throws(SystemError) in
+        return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in 
+            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
                     let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
@@ -140,8 +140,8 @@ extension WriteFileHandle {
 
     #else
 
-        return try data.withUnsafeBytesTypedThrow { bufferPtr throws(FileError) in
-            try catchSystemError(operationDescription: .writingHandle(at: path, offset: offset, length: Int64(bufferPtr.count))) { () throws(SystemError) in
+        return try data.withUnsafeBytesTypedThrow { bufferPtr throws(PlatformError) in
+            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 if let offset {
                     return try handle.pwrite(contentsOf: bufferPtr, to: offset)
                 } else {
@@ -155,18 +155,18 @@ extension WriteFileHandle {
     }
 
 
-    public func resize(to size: Int64) throws(FileError) {
+    public func resize(to size: Int64) throws(PlatformError) {
         
-        try catchSystemError(operationDescription: .resizingHandle(at: path, toSize: size)) { () throws(SystemError) in
+        try catchSystemError(operation: .resizeHandle(originalPath: path)) { () throws(SystemError) in
             try handle.truncate(to: size)
         }
 
     }
 
 
-    public func synchronize() throws(FileError) {
+    public func synchronize() throws(PlatformError) {
         
-        try catchSystemError(operationDescription: .synchronizingHandle(at: path)) { () throws(SystemError) in
+        try catchSystemError(operation: .syncHandle(originalPath: path)) { () throws(SystemError) in
             try handle.fsync()
         }
 

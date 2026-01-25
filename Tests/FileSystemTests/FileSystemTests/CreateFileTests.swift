@@ -126,7 +126,7 @@ extension FileSystemTest.CreateFileTest {
         let path = try makeFile(at: "file", contents: .init("Hello Swift!".utf8))
         let prevInfo = try FileInfo(fileAt: path)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().createFile(at: path, replaceExisting: false)
         }
 

@@ -3,7 +3,7 @@
 import PlatformCLib
 
 
-extension FsErrorCode.PlatformErrorCode {
+extension PlatformErrorCode.SystemErrorCode {
 
     @inlinable public static var operationNotPermitted: Self { .init(rawValue: EPERM) }
     @inlinable public static var noSuchFileOrDirectory: Self { .init(rawValue: ENOENT) }
@@ -54,7 +54,7 @@ extension FsErrorCode.PlatformErrorCode {
     @inlinable public static var wouldBlock: Self { .resourceTemporarilyUnavailable }
 
 
-    var mappedErrorKind: FsErrorCode.Kind {
+    var mappedErrorKind: PlatformErrorCode.Kind {
         switch self {
             case .noSuchFileOrDirectory: .notFound
             case .permissionDenied, .operationNotPermitted: .permissionDenied

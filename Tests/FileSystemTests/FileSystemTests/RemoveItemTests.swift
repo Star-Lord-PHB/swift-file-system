@@ -87,7 +87,7 @@ extension FileSystemTest.RemoveItemTest {
         
         let path = makePath(at: "not-exist.txt")
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().removeItem(at: path)
         }
 

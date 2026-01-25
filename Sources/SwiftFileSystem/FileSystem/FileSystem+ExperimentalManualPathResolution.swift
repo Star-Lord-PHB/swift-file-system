@@ -279,7 +279,7 @@ extension FileSystem {
                 }
 
                 if remainingSymlinkAllowed == 0 {
-                    throw SystemError(code: .platform(.tooManyLinks))!
+                    throw SystemError(code: .system(.tooManyLinks))!
                 }
                 remainingSymlinkAllowed -= 1
 

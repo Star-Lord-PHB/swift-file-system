@@ -8,7 +8,7 @@ public protocol FileHandleProtocol: ~Copyable {
 
     var path: FilePath { get }
 
-    consuming func close() throws(FileError)
+    consuming func close() throws(PlatformError)
 
     func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R
 
@@ -18,8 +18,8 @@ public protocol FileHandleProtocol: ~Copyable {
 
 extension FileHandleProtocol where Self: ~Copyable {
 
-    public func fileInfo() throws(FileError) -> FileInfo {
-        try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+    public func fileInfo() throws(PlatformError) -> FileInfo {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.fileInfo()
             }
@@ -27,8 +27,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func type() throws(FileError) -> FileType {
-        try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+    public func type() throws(PlatformError) -> FileType {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try self.withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.type()
             }
@@ -36,8 +36,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func fileTimes() throws(FileError) -> FileTimes {
-        try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+    public func fileTimes() throws(PlatformError) -> FileTimes {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.fileTimes()
             }
@@ -49,8 +49,8 @@ extension FileHandleProtocol where Self: ~Copyable {
         access: FileTimeSpec? = nil, 
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
-    ) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFileTimes(at: path)) { () throws(SystemError) in
+    ) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.setFileTimes(access: access, modification: modification, creation: creation)
             }
@@ -58,8 +58,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func fileAttributes() throws(FileError) -> PlatformFileAttributes {
-        try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+    public func fileAttributes() throws(PlatformError) -> PlatformFileAttributes {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.fileAttributes()
             }
@@ -67,11 +67,11 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func setFileAttributes(_ attributes: PlatformFileAttributes) throws(FileError) {
+    public func setFileAttributes(_ attributes: PlatformFileAttributes) throws(PlatformError) {
         #if canImport(Glibc) || canImport(Musl)
         try self.setInodeFlags(InternalFS.fileAttributesToInodeFlags(attributes))
         #else 
-        try catchSystemError(operationDescription: .settingFileAttributes(at: path)) { () throws(SystemError) in
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.setFileAttributes(attributes)
             }
@@ -81,8 +81,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     #if canImport(Glibc) || canImport(Musl)
-    public func inodeFlags() throws(FileError) -> CInterop.PosixInodeFlags {
-        try catchSystemError(operationDescription: .fetchingInfo(for: path)) { () throws(SystemError) in
+    public func inodeFlags() throws(PlatformError) -> CInterop.PosixInodeFlags {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.fileInodeFlags()
             }
@@ -90,8 +90,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func setInodeFlags(_ flags: CInterop.PosixInodeFlags) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFileInodeFlags(at: path)) { () throws(SystemError) in
+    public func setInodeFlags(_ flags: CInterop.PosixInodeFlags) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.setFileInodeFlags(flags)
             }
@@ -103,8 +103,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     #if canImport(WinSDK)
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .all
-    ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
-        return try catchSystemError(operationDescription: .gettingFileSecurityInfo(at: path)) { () throws(SystemError) in
+    ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
+        return try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.securityInfo(members)
             }
@@ -117,7 +117,7 @@ extension FileHandleProtocol where Self: ~Copyable {
         sacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
         owner: PlatformIdentity? = nil, 
         group: PlatformIdentity? = nil
-    ) throws(FileError) {
+    ) throws(PlatformError) {
         
         var members = [] as FileOperationOptions.WindowsSecurityInfoMembers
 
@@ -137,7 +137,7 @@ extension FileHandleProtocol where Self: ~Copyable {
         var dacl = Optional<FileOperationOptions.WindowsAclUpdateRequest>.some(dacl)
         var sacl = Optional<FileOperationOptions.WindowsAclUpdateRequest>.some(sacl)
 
-        try catchSystemError(operationDescription: .settingFileSecurityInfo(at: path)) { () throws(SystemError) in
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 let dacl = dacl.take() 
                 let sacl = sacl.take()  
@@ -155,8 +155,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     #endif
 
 
-    public func setPermissions(_ permissions: FilePermissions) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFilePermissions(at: path)) { () throws(SystemError) in
+    public func setPermissions(_ permissions: FilePermissions) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             #if canImport(WinSDK)
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
@@ -171,8 +171,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func setOwner(owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFileOwner(at: path)) { () throws(SystemError) in
+    public func setOwner(owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.fchown(owner: owner, group: group)
             }
@@ -186,7 +186,7 @@ extension FileHandleProtocol where Self: ~Copyable {
 public protocol SeekableFileHandleProtocol: ~Copyable, FileHandleProtocol {
 
     @discardableResult
-    func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(FileError) -> Int64
+    func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64
 
 }
 
@@ -195,7 +195,7 @@ public protocol SeekableFileHandleProtocol: ~Copyable, FileHandleProtocol {
 extension SeekableFileHandleProtocol where Self: ~Copyable {
 
     public var currentOffset: Int64 {
-        get throws(FileError) {
+        get throws(PlatformError) {
             try seek(to: 0, relativeTo: .current)
         }
     }
@@ -206,7 +206,7 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
 
 public protocol ReadFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
-    func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(FileError)
+    func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError)
 
 }
 
@@ -214,17 +214,17 @@ public protocol ReadFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
 extension ReadFileHandleProtocol where Self: ~Copyable {
 
-    public func read(length: Int64? = nil, into buffer: inout ByteBuffer) throws(FileError) {
+    public func read(length: Int64? = nil, into buffer: inout ByteBuffer) throws(PlatformError) {
         try read(fromOffset: nil, length: length, into: &buffer)
     }
 
 
-    public func read(fromOffset offset: Int64?, into buffer: inout ByteBuffer) throws(FileError) {
+    public func read(fromOffset offset: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) {
         try read(fromOffset: offset, length: Int64(buffer.count), into: &buffer)
     }
 
 
-    public func read(fromOffset offset: Int64? = nil, length: Int64) throws(FileError) -> ByteBuffer {
+    public func read(fromOffset offset: Int64? = nil, length: Int64) throws(PlatformError) -> ByteBuffer {
         var buffer = ByteBuffer(count: Int(length))
         try read(fromOffset: offset, length: length, into: &buffer)
         return buffer
@@ -236,11 +236,11 @@ extension ReadFileHandleProtocol where Self: ~Copyable {
 
 public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
-    func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(FileError) -> Int64
+    func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(PlatformError) -> Int64
 
-    func resize(to size: Int64) throws(FileError)
+    func resize(to size: Int64) throws(PlatformError)
 
-    func synchronize() throws(FileError)
+    func synchronize() throws(PlatformError)
 
 }
 
@@ -248,7 +248,7 @@ public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
 extension WriteFileHandleProtocol where Self: ~Copyable {
 
-    public func write(_ data: some ContiguousBytes) throws(FileError) -> Int64 {
+    public func write(_ data: some ContiguousBytes) throws(PlatformError) -> Int64 {
         try write(data, toOffset: nil)
     }
 
@@ -262,13 +262,13 @@ public typealias ReadWriteFileHandleProtocol = ReadFileHandleProtocol & WriteFil
 
 public protocol DirectoryHandleProtocol: ~Copyable, FileHandleProtocol {
 
-    // TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
+    // MARK: TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
     // associatedtype DirectoryEntrySequenceType: DirectoryEntrySequenceProtocol & ~Escapable & ~Copyable 
     typealias DirectoryEntrySequenceType = any (DirectoryEntrySequenceProtocol & ~Escapable & ~Copyable)
 
-    func directEntries() throws(FileError) -> [DirectoryEntry]
+    func directEntries() throws(PlatformError) -> [DirectoryEntry]
 
     @_lifetime(borrow self)
-    func entrySequence(recursive: Bool) throws(FileError) -> DirectoryEntrySequenceType
+    func entrySequence(recursive: Bool) throws(PlatformError) -> DirectoryEntrySequenceType
 
 }

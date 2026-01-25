@@ -113,6 +113,8 @@ extension InternalFS {
 
         package mutating func next() throws(SystemError) -> FTSENT? {
 
+            errno = 0
+
             guard let entry = fts_read(entryStream) else {
                 try SystemError.check()
                 return nil
@@ -160,6 +162,8 @@ extension InternalFS {
         }
 
         package mutating func next() throws(SystemError) -> WIN32_FIND_DATAW? {
+
+            SetLastError(DWORD(ERROR_SUCCESS))
 
             var findData = WIN32_FIND_DATAW()
 

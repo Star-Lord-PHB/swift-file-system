@@ -5,11 +5,11 @@ extension DirectoryEntryIterator {
 
     public struct DirectoryEntryErrorIterator: DirectoryEntryIteratorProtocol {
 
-        public let error: FileError
+        public let error: PlatformError
         public private(set) var ended: Bool = false
 
 
-        init(error: FileError) {
+        init(error: PlatformError) {
             self.error = error
         }
 

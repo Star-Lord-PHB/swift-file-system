@@ -3,44 +3,44 @@ import SystemPackage
 
 
 
-public enum FsErrorCode: Sendable, Equatable, Hashable {
-    case platform(PlatformErrorCode)
+public enum PlatformErrorCode: Sendable, Equatable, Hashable {
+    case system(SystemErrorCode)
     case extended(ExtendedErrorCode)
 
     public var mappedErrorKind: Kind {
         switch self {
-            case .platform(let platformErrorCode): platformErrorCode.mappedErrorKind
+            case .system(let systemErrorCode): systemErrorCode.mappedErrorKind
             case .extended(let extendedErrorCode): extendedErrorCode.mappedErrorKind
         }
     }
 
     public var description: String {
         switch self {
-            case .platform(let platformErrorCode): platformErrorCode.description
+            case .system(let systemErrorCode): systemErrorCode.description
             case .extended(let extendedErrorCode): extendedErrorCode.description
         }
     }
 
     public var rawValue: CInterop.ErrorCode? {
         switch self {
-            case .platform(let platformErrorCode): platformErrorCode.rawValue
+            case .system(let systemErrorCode): systemErrorCode.rawValue
             case .extended: nil
         }
     }
 
-    public static var success: FsErrorCode { .platform(.success) }
+    public static var success: PlatformErrorCode { .system(.success) }
 }
 
 
 
-extension FsErrorCode {
+extension PlatformErrorCode {
 
-    public struct PlatformErrorCode: Sendable, RawRepresentable, CustomStringConvertible {
+    public struct SystemErrorCode: Sendable, RawRepresentable, CustomStringConvertible {
 
         #if canImport(WinSDK)
         public static var success: PlatformErrorCode { .init(rawValue: DWORD(ERROR_SUCCESS)) }
         #else
-        public static var success: PlatformErrorCode { .init(rawValue: 0) }
+        public static var success: SystemErrorCode { .init(rawValue: 0) }
         #endif
 
 
@@ -57,11 +57,11 @@ extension FsErrorCode {
 
 
 
-extension FsErrorCode.PlatformErrorCode: Equatable, Hashable { }
+extension PlatformErrorCode.SystemErrorCode: Equatable, Hashable { }
 
 
 
-extension FsErrorCode.PlatformErrorCode {
+extension PlatformErrorCode.SystemErrorCode {
 
     @inlinable
     public var description: String {
@@ -87,7 +87,7 @@ extension FsErrorCode.PlatformErrorCode {
 
 
 
-extension FsErrorCode {
+extension PlatformErrorCode {
 
     public enum ExtendedErrorCode: Sendable, Equatable, Hashable {
 
@@ -96,7 +96,7 @@ extension FsErrorCode {
         case notImplemented
 
 
-        public var mappedErrorKind: FsErrorCode.Kind {
+        public var mappedErrorKind: PlatformErrorCode.Kind {
             switch self {
                 case .unknown: .unknown
                 case .notImplemented: .unsupported
@@ -117,81 +117,81 @@ extension FsErrorCode {
 
 
 
-extension FsErrorCode {
+extension PlatformErrorCode {
 
-    public static var fileNotFound: FsErrorCode {
+    public static var fileNotFound: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.fileNotFound)
+        return .system(.fileNotFound)
         #else
-        return .platform(.noSuchFileOrDirectory)
+        return .system(.noSuchFileOrDirectory)
         #endif
     }
 
-    public static var permissionDenied: FsErrorCode {
+    public static var permissionDenied: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.accessDenied)
+        return .system(.accessDenied)
         #else
-        return .platform(.permissionDenied)
+        return .system(.permissionDenied)
         #endif
     }
 
-    public static var fileExists: FsErrorCode {
+    public static var fileExists: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.fileExists)
+        return .system(.fileExists)
         #else
-        return .platform(.fileExists)
+        return .system(.fileExists)
         #endif
     }
 
-    public static var notADirectory: FsErrorCode {
+    public static var notADirectory: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.invalidDirectoryName)
+        return .system(.invalidDirectoryName)
         #else
-        return .platform(.notADirectory)
+        return .system(.notADirectory)
         #endif
     }
 
-    public static var isADirectory: FsErrorCode {
+    public static var isADirectory: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.accessDenied)
+        return .system(.accessDenied)
         #else
-        return .platform(.isADirectory)
+        return .system(.isADirectory)
         #endif
     }
 
-    public static var directoryNotEmpty: FsErrorCode {
+    public static var directoryNotEmpty: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.directoryNotEmpty)
+        return .system(.directoryNotEmpty)
         #else
-        return .platform(.directoryNotEmpty)
+        return .system(.directoryNotEmpty)
         #endif
     }
 
-    public static var invalidHandle: FsErrorCode {
+    public static var invalidHandle: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.invalidHandle)
+        return .system(.invalidHandle)
         #else
-        return .platform(.badFileDescriptor)
+        return .system(.badFileDescriptor)
         #endif
     }
 
-    public static var noEnoughSpace: FsErrorCode {
+    public static var noEnoughSpace: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.diskFull)
+        return .system(.diskFull)
         #else
-        return .platform(.noSpaceLeftOnDevice)
+        return .system(.noSpaceLeftOnDevice)
         #endif
     }
 
-    public static var notSupported: FsErrorCode {
+    public static var notSupported: PlatformErrorCode {
         #if canImport(WinSDK)
-        return .platform(.notSupported)
+        return .system(.notSupported)
         #else
-        return .platform(.operationNotSupported)
+        return .system(.operationNotSupported)
         #endif
     }
 
-    public static var unknown: FsErrorCode {
+    public static var unknown: PlatformErrorCode {
         .extended(.unknown)
     }
 
@@ -199,7 +199,7 @@ extension FsErrorCode {
 
 
 
-extension FsErrorCode {
+extension PlatformErrorCode {
 
     public enum Kind: Sendable, Equatable, Hashable {
 
@@ -223,19 +223,19 @@ extension FsErrorCode {
 
 
 
-extension FsErrorCode.Kind {
+extension PlatformErrorCode.Kind {
 
-    public init(mapping extendedErrorCode: FsErrorCode.ExtendedErrorCode) {
+    public init(mapping extendedErrorCode: PlatformErrorCode.ExtendedErrorCode) {
         self = extendedErrorCode.mappedErrorKind
     }
 
 
-    public init(mapping platformErrorCode: FsErrorCode.PlatformErrorCode) {
-        self = platformErrorCode.mappedErrorKind
+    public init(mapping systemErrorCode: PlatformErrorCode.SystemErrorCode) {
+        self = systemErrorCode.mappedErrorKind
     }
 
 
-    public init(mapping errorCode: FsErrorCode) {
+    public init(mapping errorCode: PlatformErrorCode) {
         self = errorCode.mappedErrorKind
     }
 

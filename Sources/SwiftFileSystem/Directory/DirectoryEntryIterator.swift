@@ -13,17 +13,17 @@ public enum DirectoryEntryIterator: DirectoryEntryIteratorProtocol, ~Copyable {
     static func direct(
         unsafeSystemHandle: consuming UnsafeSystemHandle, 
         path: FilePath
-    ) throws(FileError) -> DirectoryEntryIterator {
+    ) throws(PlatformError) -> DirectoryEntryIterator {
         try .direct(.init(unsafeSystemHandle: unsafeSystemHandle, path: path))
     }
 
 
-    static func recursive(path: FilePath) throws(FileError) -> DirectoryEntryIterator {
+    static func recursive(path: FilePath) throws(PlatformError) -> DirectoryEntryIterator {
         try .recursive(.init(path: path))
     }
 
 
-    static func openError(error: FileError) -> DirectoryEntryIterator {
+    static func openError(error: PlatformError) -> DirectoryEntryIterator {
         .openError(.init(error: error))
     }
 

@@ -18,10 +18,10 @@ extension FileSystemTest.FileInfoTest {
 
     #if canImport(WinSDK)
     static let fileTimeAccuracy: TimeInterval = 1e-4
-    // var fileNotFoundErrorCode: FileError.PlatformErrorCode { .fileNotFound }
+    // var fileNotFoundErrorCode: PlatformError.PlatformErrorCode { .fileNotFound }
     #else
     static let fileTimeAccuracy: TimeInterval = 1e-6
-    // var fileNotFoundErrorCode: FileError.PlatformErrorCode { .noSuchFileOrDirectory }
+    // var fileNotFoundErrorCode: PlatformError.PlatformErrorCode { .noSuchFileOrDirectory }
     #endif
 
     func dateEquals(_ date1: Date?, _ date2: Date?, accuracy: TimeInterval = fileTimeAccuracy) -> Bool {
@@ -140,7 +140,7 @@ extension FileSystemTest.FileInfoTest {
         
         let path = "not-exists.txt" as FilePath
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             _ = try FileInfo(fileAt: path)
         }
 
@@ -158,7 +158,7 @@ extension FileSystemTest.FileInfoTest {
 
         try FileManager.default.removeItem(atPath: targetPath.string)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             _ = try FileInfo(fileAt: linkPath, followSymLink: true)
         }
 

@@ -64,7 +64,7 @@ extension FileSystemTest.ReadFileHandleTests {
 
         let path = makePath(at: "test.txt")
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             _ = try ReadFileHandle(forFileAt: path)
         }
 
@@ -79,7 +79,7 @@ extension FileSystemTest.ReadFileHandleTests {
 
         let path = try makeDir(at: "dir")
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             _ = try ReadFileHandle(forFileAt: path)
         }
 
@@ -94,7 +94,7 @@ extension FileSystemTest.ReadFileHandleTests {
 
         let handle = try ReadFileHandle(forFileAt: path)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try handle.read(length: 10)
         }
 

@@ -17,8 +17,8 @@ public struct DirectoryEntrySequence: DirectoryEntrySequenceProtocol, ~Copyable 
     }
 
 
-    public init(dirAt path: FilePath, recursive: Bool = false) throws(FileError) {
-        let handle = try catchSystemError(operationDescription: .openingHandle(forFileAt: path)) { () throws(SystemError) in
+    public init(dirAt path: FilePath, recursive: Bool = false) throws(PlatformError) {
+        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
             try UnsafeSystemHandle.openDir(at: path)
         }
         self.init(
@@ -34,9 +34,7 @@ public struct DirectoryEntrySequence: DirectoryEntrySequenceProtocol, ~Copyable 
             if recursive {
                 return try DirectoryEntryIterator.recursive(path: path)
             } else {
-                let duplicatedHandle = try catchSystemError(
-                    operationDescription: .openingDirStream(forDirectoryAt: path)
-                ) { () throws(SystemError) in
+                let duplicatedHandle = try catchSystemError(operation: .readDirectory(path)) { () throws(SystemError) in
                     try handle.duplicate()
                 }
                 return try DirectoryEntryIterator.direct(unsafeSystemHandle: duplicatedHandle, path: path)

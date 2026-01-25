@@ -123,14 +123,15 @@ extension FileSystemTest.CreateHardLinkTest {
         let existingPath = try makeDir(at: "directory")
         let hardLinkParh = makePath(at: "link")
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().createHardLink(at: hardLinkParh, for: existingPath)
         }
 
         #if canImport(WinSDK)
-        // TODO: Add error expectation
+        #warning("Add error expectation for Windows")
+        try #require(Bool(false))
         #else
-        #expect(error?.code == .platform(.operationNotPermitted))
+        #expect(error?.code == .system(.operationNotPermitted))
         #endif
 
     }
@@ -142,7 +143,7 @@ extension FileSystemTest.CreateHardLinkTest {
         let existingPath = makePath(at: "non-existing")
         let hardLinkParh = makePath(at: "link")
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().createHardLink(at: hardLinkParh, for: existingPath)
         }
 
@@ -157,7 +158,7 @@ extension FileSystemTest.CreateHardLinkTest {
         let existingPath = try makeFile(at: "file", contents: .init("Hello, World!".utf8))
         let hardLinkParh = try makeFile(at: "link", contents: .init("Existing File".utf8))
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().createHardLink(at: hardLinkParh, for: existingPath)
         }
 

@@ -78,7 +78,7 @@ extension FileSystemTest.MoveItemTest {
         print(dstPath)
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
@@ -142,7 +142,7 @@ extension FileSystemTest.MoveItemTest {
         )
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
@@ -177,7 +177,7 @@ extension FileSystemTest.MoveItemTest {
         )
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
@@ -242,7 +242,7 @@ extension FileSystemTest.MoveItemTest {
         )
         let dstExpectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
@@ -338,7 +338,7 @@ extension FileSystemTest.MoveItemTest {
             contents: [:]
         )
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
@@ -377,7 +377,7 @@ extension FileSystemTest.MoveItemTest {
             ]
         )
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
@@ -451,7 +451,7 @@ extension FileSystemTest.MoveItemTest {
             ]
         )
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 

@@ -58,32 +58,32 @@ package func execThrowingCFunction(_ function: () -> Bool) throws(SystemError) {
 }
 
 
-package func execThrowingCFunction(operationDescription: FileError.OperationDescription, _ function: () -> CInt) throws(FileError) {
+package func execThrowingCFunction(operation: @autoclosure () -> PlatformError.Operation, _ function: () -> CInt) throws(PlatformError) {
     let errorCode = function()
     guard errorCode == SystemError.successCode else {
-        try FileError.assertError(operationDescription: operationDescription)
+        try PlatformError.assertError(operation: operation())
     }
 }
 
 
-package func execThrowingCFunction(operationDescription: FileError.OperationDescription, _ function: () -> Bool) throws(FileError) {
+package func execThrowingCFunction(operation: @autoclosure () -> PlatformError.Operation, _ function: () -> Bool) throws(PlatformError) {
     let success = function()
     guard success else {
-        try FileError.assertError(operationDescription: operationDescription)
+        try PlatformError.assertError(operation: operation())
     }
 }
 
 
 @inlinable
 package func catchSystemError<R: ~Copyable>(
-    operationDescription: FileError.OperationDescription, 
+    operation: @autoclosure () -> PlatformError.Operation, 
     _ function: () throws(SystemError) -> R
-) throws(FileError) -> R {
+) throws(PlatformError) -> R {
 
     do {
         return try function()
     } catch {
-        throw .init(systemError: error, operationDescription: operationDescription)
+        throw .init(systemError: error, operation: operation())
     }
 
 }

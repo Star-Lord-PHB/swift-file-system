@@ -188,7 +188,7 @@ extension FileSystemTest.CopyFileTest {
             ]
         )
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().copyItem(at: srcDirPath, to: dstDirPath, onExistingTarget: .error)
         }
 
@@ -211,7 +211,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
@@ -253,7 +253,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .error)
         }
 
@@ -278,7 +278,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation1 = try ItemExpectation.from(itemAt: dstPath)
         let expectation2 = try ItemExpectation.from(itemAt: linkTargetPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
@@ -326,7 +326,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation1 = try ItemExpectation.from(itemAt: dstPath)
         let expectation2 = try ItemExpectation.from(itemAt: linkTargetPath)
 
-        let error = try #require(throws: FileError.self) {
+        let error = try #require(throws: PlatformError.self) {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .error)
         }
 

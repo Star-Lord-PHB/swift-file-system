@@ -38,11 +38,9 @@ extension FileSystem {
     }
 
 
-    public func createFile(at path: FilePath, replaceExisting: Bool = false, permission: FilePermissions? = nil, content: ByteBuffer? = nil) throws(FileError) {
+    public func createFile(at path: FilePath, replaceExisting: Bool = false, permission: FilePermissions? = nil, content: ByteBuffer? = nil) throws(PlatformError) {
 
-        try catchSystemError(
-            operationDescription: .creatingFile(at: path, replaceExisting: replaceExisting, permission: permission)
-        ) { () throws(SystemError) in 
+        try catchSystemError(operation: .createFile(path)) { () throws(SystemError) in 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
@@ -59,12 +57,10 @@ extension FileSystem {
     }
 
 
-    public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false) throws(FileError) {
+    public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false) throws(PlatformError) {
 
         if !withIntermediateDirectories {
-            try catchSystemError(
-                operationDescription: .createDir(at: path, withIntermediateDirectories: withIntermediateDirectories)
-            ) { () throws(SystemError) in
+            try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
                 try InternalFS.mkdir(at: path, permissions: nil)
             }
             return
@@ -78,11 +74,9 @@ extension FileSystem {
             components.append(component)
         }
 
-        for component in components.reversed() {
-            path.append(component)
-            try catchSystemError(
-                operationDescription: .createDir(at: path, withIntermediateDirectories: withIntermediateDirectories)
-            ) { () throws(SystemError) in
+        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+            for component in components.reversed() {
+                path.append(component)
                 try InternalFS.mkdir(at: path, permissions: nil)
             }
         }
@@ -90,20 +84,18 @@ extension FileSystem {
     }
 
 
-    public func removeItem(at path: FilePath) throws(FileError) {
+    public func removeItem(at path: FilePath) throws(PlatformError) {
 
         do {
             try InternalFS.remove(itemAt: path)
             return 
         } catch let error where error.kind != .notEmptyDirectory {
-            throw FileError(systemError: error, operationDescription: .removingItem(at: path))
+            throw PlatformError(systemError: error, operation: .remove(path))
         } catch {
             // do nothing
         }
 
-        try catchSystemError(operationDescription: .removingItem(at: path)) { () throws(SystemError) in
-            try _removeDirectoryRecursive(at: path)
-        }
+        try _removeDirectoryRecursive(at: path)
 
     }
 
@@ -113,14 +105,14 @@ extension FileSystem {
         to dstPath: FilePath, 
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite, 
         symlinkOption: FileOperationOptions.CopyItemSymlinkOption = .copyLink
-    ) throws(FileError) {
+    ) throws(PlatformError) {
 
-        let srcPath = try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
+        let srcPath = try catchSystemError(operation: .copy(srcPath: srcPath, dstPath: dstPath)) { () throws(SystemError) in
             // resolve symlink first if needed
             symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
         }
-
-        try catchSystemError(operationDescription: .copyingItem(from: srcPath, to: dstPath)) { () throws(SystemError) in
+    
+        try catchSystemError(operation: .copy(srcPath: srcPath, dstPath: dstPath)) { () throws(SystemError) in
             try _copyItemNoFollow(from: srcPath, to: dstPath, overwrite: targetExistOption)
         }
 
@@ -132,21 +124,21 @@ extension FileSystem {
         at srcPath: FilePath, 
         to dstPath: FilePath, 
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite
-    ) throws(FileError) {
+    ) throws(PlatformError) {
         do {
             try InternalFS.rename(itemAt: srcPath, to: dstPath, replace: targetExistOption == .overwrite)
         } catch let error where error.kind == .alreadyExists && targetExistOption == .skip {
             return 
         } catch {
-            throw FileError(
+            throw PlatformError(
                 systemError: error, 
-                operationDescription: .movingItem(from: srcPath, to: dstPath)
+                operation: .move(srcPath: srcPath, dstPath: dstPath)
             )
         } 
     }
 
 
-    public func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = [.skipDotEntries]) throws(FileError) -> [DirectoryEntry] {
+    public func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = [.skipDotEntries]) throws(PlatformError) -> [DirectoryEntry] {
         try DirectoryEntrySequence(dirAt: path).compactMap {
             guard case .success(.entry(let entry)) = $0 else { return nil }
             if options.contains(.skipDotEntries) && entry.path.lastComponent?.kind != .regular {
@@ -160,22 +152,22 @@ extension FileSystem {
     }
 
 
-    public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(FileError) {
-        try catchSystemError(operationDescription: .creatingSymlink(at: path, pointingTo: destPath)) { () throws(SystemError) in
+    public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError) {
+        try catchSystemError(operation: .createSymlink(linkPath: path, dstPath: destPath)) { () throws(SystemError) in
             try InternalFS.symlink(dstPath: destPath, linkPath: path)
         }
     }
 
 
-    public func createHardLink(at path: FilePath, for existingPath: FilePath) throws(FileError) {
-        try catchSystemError(operationDescription: .creatingHardlink(at: path, for: existingPath)) { () throws(SystemError) in
+    public func createHardLink(at path: FilePath, for existingPath: FilePath) throws(PlatformError) {
+        try catchSystemError(operation: .createHardLink(linkPath: path, existingPath: existingPath)) { () throws(SystemError) in
             try InternalFS.link(existingPath: existingPath, newPath: path)
         }
     }
 
 
-    public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(FileError) -> FilePath {
-        try catchSystemError(operationDescription: .readingSymlink(at: path)) { () throws(SystemError) in
+    public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(PlatformError) -> FilePath {
+        try catchSystemError(operation: .readSymlink(path)) { () throws(SystemError) in
             if recursive {
                 try InternalFS.realpath(of: path)
             } else {
@@ -190,7 +182,7 @@ extension FileSystem {
 
 extension FileSystem {
 
-    public func info(ofFileAt path: FilePath, followSymlinks: Bool = false) throws(FileError) -> FileInfo {
+    public func info(ofFileAt path: FilePath, followSymlinks: Bool = false) throws(PlatformError) -> FileInfo {
         return try .init(fileAt: path, followSymLink: followSymlinks)
     }
 
@@ -200,8 +192,8 @@ extension FileSystem {
         accessTime: FileTimeSpec? = nil, 
         modificationTime: FileTimeSpec? = nil, 
         creationTime: FileTimeSpec? = nil
-    ) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFileTimes(at: path)) { () throws(SystemError) in
+    ) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try InternalFS.setFileTimes(
                 forItemAt: path, 
                 access: accessTime, 
@@ -212,12 +204,12 @@ extension FileSystem {
     }
 
 
-    public func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(FileError) {
+    public func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(PlatformError) {
 
         #if canImport(Glibc) || canImport(Musl)
         try self.setInodeFlags(forItemAt: path, flags: InternalFS.fileAttributesToInodeFlags(attributes))
         #else 
-        try catchSystemError(operationDescription: .settingFileAttributes(at: path)) { () throws(SystemError) in
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try InternalFS.setFileAttributes(forItemAt: path, attributes: attributes)
         }
         #endif 
@@ -226,23 +218,23 @@ extension FileSystem {
 
 
     #if canImport(Glibc) || canImport(Musl)
-    public func getInodeFlags(forItemAt path: FilePath) throws(FileError) -> CInt {
-        try catchSystemError(operationDescription: .gettingFileInodeFlags(at: path)) { () throws(SystemError) in
+    public func getInodeFlags(forItemAt path: FilePath) throws(PlatformError) -> CInt {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try InternalFS.readFileInodeFlags(forItemAt: path)
         }
     }
 
 
-    public func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFileInodeFlags(at: path)) { () throws(SystemError) in
+    public func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags)
         }
     }
     #endif
 
 
-    public func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFilePermissions(at: path)) { () throws(SystemError) in
+    public func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             #if canImport(WinSDK)
             let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
             try InternalFS.setFileSecurityInfo(
@@ -257,8 +249,8 @@ extension FileSystem {
     }
 
 
-    public func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError) {
-        try catchSystemError(operationDescription: .settingFileOwner(at: path)) { () throws(SystemError) in
+    public func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError) {
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try InternalFS.chown(forItemAt: path, owner: owner, group: group)
         }
     }
@@ -268,8 +260,8 @@ extension FileSystem {
     public func getSecurityInfo(
         forItemAt path: FilePath, 
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .all
-    ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor {
-        return try catchSystemError(operationDescription: .gettingFileSecurityInfo(at: path)) { () throws(SystemError) in
+    ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
+        return try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try InternalFS.getSecurityInfo(forItemAt: path, members: members)
         }
     }
@@ -281,7 +273,7 @@ extension FileSystem {
         sacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
         owner: PlatformIdentity? = nil, 
         group: PlatformIdentity? = nil
-    ) throws(FileError) {
+    ) throws(PlatformError) {
 
         var members = [] as FileOperationOptions.WindowsSecurityInfoMembers
 
@@ -308,7 +300,7 @@ extension FileSystem {
                 group: group?.rawId
             )
         } catch {
-            throw FileError(systemError: error, operationDescription: .settingFileSecurityInfo(at: path))
+            throw PlatformError(systemError: error, operation: .setMeta(path))
         }
 
     }
@@ -411,36 +403,36 @@ extension FileSystem {
 
 extension FileSystem {
 
-    public func currentWorkingDirectoryPath() throws(FileError) -> FilePath {
-        try catchSystemError(operationDescription: .queryingCurrentWorkingDirectory()) { () throws(SystemError) in
+    public func currentWorkingDirectoryPath() throws(PlatformError) -> FilePath {
+        try catchSystemError(operation: .queryCurrentWorkingDir) { () throws(SystemError) in
             try InternalFS.currentWorkingDirectoryPath()
         }
     }
 
 
-    public func executablePath() throws(FileError) -> FilePath {
-        try catchSystemError(operationDescription: .queryingExecutablePath()) { () throws(SystemError) in
+    public func executablePath() throws(PlatformError) -> FilePath {
+        try catchSystemError(operation: .queryExecutablePath) { () throws(SystemError) in
             try InternalFS.executablePath()
         }
     }
 
 
-    public func tempDirectoryPath() throws(FileError) -> FilePath {
-        try catchSystemError(operationDescription: .queryingTempDirectory()) { () throws(SystemError) in
+    public func tempDirectoryPath() throws(PlatformError) -> FilePath {
+        try catchSystemError(operation: .queryTempDir) { () throws(SystemError) in
             try InternalFS.tmpDirectoryPath()
         }
     }
 
 
-    public func homeDirectoryPath() throws(FileError) -> FilePath {
-        try catchSystemError(operationDescription: .queryingHomeDirectory()) { () throws(SystemError) in
+    public func homeDirectoryPath() throws(PlatformError) -> FilePath {
+        try catchSystemError(operation: .queryHomeDir) { () throws(SystemError) in
             try InternalFS.homeDirectoryPath()
         }
     }
 
 
-    public func cacheDirectoryPath() throws(FileError) -> FilePath {
-        try catchSystemError(operationDescription: .queryingCacheDirectory()) { () throws(SystemError) in
+    public func cacheDirectoryPath() throws(PlatformError) -> FilePath {
+        try catchSystemError(operation: .queryCacheDir) { () throws(SystemError) in
             try InternalFS.cacheDirectoryPath()
         }
     }

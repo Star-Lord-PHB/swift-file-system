@@ -184,11 +184,11 @@ extension FileSystemTest.SettingFileInfoTests {
 
         let linkExpectation = try ItemExpectation.from(itemAt: symlinkPath, followSymlink: false)
 
-        let error = #expect(throws: FileError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr)    
         }
 
-        #expect(error?.code == .platform(.tooManyLevelSymbolicLinks))
+        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
         try expectItem(at: symlinkPath, toMatch: linkExpectation)
 
         #else 
@@ -260,7 +260,7 @@ extension FileSystemTest.SettingFileInfoTests {
             try FileSystem().setPermissions(forItemAt: symlinkPath, permissions: permissions)
             let newPermissions = try #require(try FileManager.default.attributesOfItem(atPath: symlinkPath.string)[.posixPermissions] as? Int16)
             #expect(newPermissions == permissions.rawValue)
-        } catch let error as FileError where error.kind == .unsupported {
+        } catch let error as PlatformError where error.kind == .unsupported {
             // On linux, most of the fs does not support setting permissions for symlink, so unsupported error is ignored
         }
 

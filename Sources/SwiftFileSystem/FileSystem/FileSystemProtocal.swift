@@ -11,54 +11,54 @@ public protocol FileSystemProtocal: Sendable {
 
     func itemExists(at path: FilePath, followSymlinks: Bool) -> Bool
 
-    func createFile(at path: FilePath, replaceExisting: Bool, permission: FilePermissions?, content: ByteBuffer?) throws(FileError)
+    func createFile(at path: FilePath, replaceExisting: Bool, permission: FilePermissions?, content: ByteBuffer?) throws(PlatformError)
 
-    func createDirectory(at path: FilePath, withIntermediateDirectories: Bool) throws(FileError)
+    func createDirectory(at path: FilePath, withIntermediateDirectories: Bool) throws(PlatformError)
 
-    func removeItem(at path: FilePath) throws(FileError)
+    func removeItem(at path: FilePath) throws(PlatformError)
 
     func copyItem(
         at srcPath: FilePath, 
         to dstPath: FilePath, 
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption,
         symlinkOption: FileOperationOptions.CopyItemSymlinkOption
-    ) throws(FileError)
+    ) throws(PlatformError)
 
-    func moveItem(at srcPath: FilePath, to dstPath: FilePath, onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption) throws(FileError)
+    func moveItem(at srcPath: FilePath, to dstPath: FilePath, onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption) throws(PlatformError)
 
-    func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption) throws(FileError) -> [DirectoryEntry]
+    func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption) throws(PlatformError) -> [DirectoryEntry]
 
-    func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(FileError)
+    func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError)
 
-    func createHardLink(at path: FilePath, for existingPath: FilePath) throws(FileError)
+    func createHardLink(at path: FilePath, for existingPath: FilePath) throws(PlatformError)
 
-    func destinationOfSymLink(at path: FilePath, recursive: Bool) throws(FileError) -> FilePath
+    func destinationOfSymLink(at path: FilePath, recursive: Bool) throws(PlatformError) -> FilePath
 
 
     // File Information Operations
 
-    func info(ofFileAt path: FilePath, followSymlinks: Bool) throws(FileError) -> FileInfo
+    func info(ofFileAt path: FilePath, followSymlinks: Bool) throws(PlatformError) -> FileInfo
 
-    func setTimes(forItemAt path: FilePath, accessTime: FileTimeSpec?, modificationTime: FileTimeSpec?, creationTime: FileTimeSpec?) throws(FileError)
+    func setTimes(forItemAt path: FilePath, accessTime: FileTimeSpec?, modificationTime: FileTimeSpec?, creationTime: FileTimeSpec?) throws(PlatformError)
 
     
-    func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(FileError)
+    func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(PlatformError)
 
     #if canImport(Glibc) || canImport(Musl)
-    func getInodeFlags(forItemAt path: FilePath) throws(FileError) -> CInt
+    func getInodeFlags(forItemAt path: FilePath) throws(PlatformError) -> CInt
 
-    func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(FileError)
+    func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(PlatformError)
     #endif 
 
-    func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(FileError)
+    func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(PlatformError)
 
-    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(FileError)
+    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError)
 
     #if canImport(WinSDK)
     func getSecurityInfo(
         forItemAt path: FilePath, 
         querying: FileOperationOptions.WindowsSecurityInfoMembers
-    ) throws(FileError) -> WindowsSelfRelativeSecurityDescriptor
+    ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
     
     func setSecurityInfo(
         forItemAt path: FilePath, 
@@ -66,7 +66,7 @@ public protocol FileSystemProtocal: Sendable {
         sacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
         owner: PlatformIdentity?, 
         group: PlatformIdentity?
-    ) throws(FileError)
+    ) throws(PlatformError)
     #endif 
 
 
@@ -82,14 +82,14 @@ public protocol FileSystemProtocal: Sendable {
 
 
     // MARK: Common Paths and Directories
-    func currentWorkingDirectoryPath() throws(FileError) -> FilePath
+    func currentWorkingDirectoryPath() throws(PlatformError) -> FilePath
 
-    func executablePath() throws(FileError) -> FilePath
+    func executablePath() throws(PlatformError) -> FilePath
 
-    func homeDirectoryPath() throws(FileError) -> FilePath
+    func homeDirectoryPath() throws(PlatformError) -> FilePath
 
-    func tempDirectoryPath() throws(FileError) -> FilePath
+    func tempDirectoryPath() throws(PlatformError) -> FilePath
 
-    func cacheDirectoryPath() throws(FileError) -> FilePath
+    func cacheDirectoryPath() throws(PlatformError) -> FilePath
 
 }

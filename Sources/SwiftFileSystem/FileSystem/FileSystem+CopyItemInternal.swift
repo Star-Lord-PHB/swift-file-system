@@ -376,7 +376,7 @@ extension FileSystem {
                     }
                 }
                 guard created else {
-                    errno = FsErrorCode.PlatformErrorCode.fileExists.rawValue
+                    errno = PlatformErrorCode.SystemErrorCode.fileExists.rawValue
                     throw SystemError(code: .fileExists)!
                 }
                 do {
