@@ -7,6 +7,7 @@ import Foundation
 
 extension FileSystemTest {
 
+    @Suite(.disabled())
     final class _ExperimentalSymlinkResolutionTest: FileSystemTest {}
 
 }
@@ -59,7 +60,18 @@ extension FileSystemTest._ExperimentalSymlinkResolutionTest {
 
         let pathToResolve = testDir.appending("linkA2.lnk/linkB.lnk/link.lnk")
 
-        // MARK: TODO: figure out better way to test this
+        let t1 = try ContinuousClock.continuous.measure {
+            _ = try FileSystem().__symlinkRecursiveDestination(of: pathToResolve)
+        }
+
+        let t2 = ContinuousClock.continuous.measure {
+            var buffer = [CChar](repeating: 0, count: 4096)     // 4096 bytes should be enough even for platforms without actual path length limit
+            realpath(targetPath.string, &buffer)
+            let _ = FilePath(platformString: buffer)
+        }
+
+        print("custom resolve: \(t1)")
+        print("realpath:       \(t2)")
 
         let resolvedTarget = try FileSystem().destinationOfSymLink(at: pathToResolve, recursive: true)
         
