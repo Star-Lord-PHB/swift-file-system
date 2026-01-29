@@ -264,11 +264,15 @@ public protocol DirectoryHandleProtocol: ~Copyable, FileHandleProtocol {
 
     // MARK: TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
     // associatedtype DirectoryEntrySequenceType: DirectoryEntrySequenceProtocol & ~Escapable & ~Copyable 
-    typealias DirectoryEntrySequenceType = any (DirectoryEntrySequenceProtocol & ~Escapable & ~Copyable)
+    typealias DirectoryEntryRecursiveSequenceType = any (DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable)
+    typealias DirectoryEntryDirectSequenceType = any (DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable)
 
-    func directEntries() throws(PlatformError) -> [DirectoryEntry]
+    func directEntries(options: FileOperationOptions.DirectoryTraversalOption) throws(PlatformError) -> [DirectoryEntry]
 
     @_lifetime(borrow self)
-    func entrySequence(recursive: Bool) throws(PlatformError) -> DirectoryEntrySequenceType
+    func entryDirectSequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryDirectSequenceType
+
+    @_lifetime(borrow self)
+    func entryRecursiveSequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryRecursiveSequenceType
 
 }

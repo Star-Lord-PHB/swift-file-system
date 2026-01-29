@@ -88,9 +88,12 @@ extension InternalFS {
         private(set) var closed: Bool = false
 
 
-        package init(path: FilePath, doStat: Bool = true) throws(SystemError) {
+        package init(path: FilePath, doStat: Bool = true, includeDots: Bool = true) throws(SystemError) {
 
-            var ftsFlags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT | FTS_COMFOLLOW
+            var ftsFlags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_COMFOLLOW
+            if includeDots {
+                ftsFlags |= FTS_SEEDOT
+            }
             if doStat == false {
                 ftsFlags |= FTS_NOSTAT
             }
@@ -149,9 +152,10 @@ extension InternalFS {
         package let rootPath: FilePath
         private(set) var closed: Bool = false
 
-        package init(path: FilePath) throws(SystemError) {
+        package init(path: FilePath) {
             self.findHandle = nil
             self.rootPath = path
+            self.options = options
         }
 
         deinit {

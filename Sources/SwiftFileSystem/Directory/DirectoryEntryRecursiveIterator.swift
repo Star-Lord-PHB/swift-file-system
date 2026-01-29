@@ -3,42 +3,48 @@ import FileSystemCore
 
 
 
-extension DirectoryEntryIterator {
+public struct DirectoryEntryRecursiveIterator: DirectoryEntryIteratorRecursiveProtocol, ~Escapable, ~Copyable {
 
-    public struct DirectoryEntryRecursiveIterator: DirectoryEntryIteratorProtocol, ~Copyable {
+    private var enumerator: DirectoryEntryRecursiveEnumerator
 
-        var enumerator: DirectoryEntryRecursiveEnumerator
+    public var rootPath: FilePath { enumerator.rootPath }
+    
 
-        public var rootPath: FilePath { enumerator.rootPath }
-        
-
-        public init(path: FilePath) throws(PlatformError) {
-            self.enumerator = try catchSystemError(operation: .readDirectory(path)) { () throws(SystemError) in
-                try .init(path: path)
-            }
-        }
+    @_lifetime(immortal)
+    public init(path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) {
+        self.enumerator = .init(path: path, options: options)
+    }
 
 
-        public mutating func next() -> DirectoryEntrySequenceResult? {
-            do {
-                return try catchSystemError(
-                    operation: .readDirectory(rootPath)
-                ) { () throws(SystemError) in
-                    while let element = try enumerator.next() {
-                        switch element {
-                            case .entry(let entry): 
-                                return .success(.entry(entry))
-                            case .entryError(let path, let error): 
-                                return .success(.entryError(path, .init(systemError: error, operation: .readDirectory(rootPath))))
-                            case .leavingDir(_): 
-                                continue
-                        }
-                    }
-                    return nil
+    public mutating func next() -> DirectoryEntryRecursiveSequenceResult? {
+
+        do {
+
+            return try catchSystemError(operation: .readDirectory(rootPath)) { () throws(SystemError) in
+
+                return try enumerator.next().map { element in
+
+                    let element = switch element {
+                        case .entry(let entry): 
+                            .entry(entry)
+                        case .entryError(let path, let error): 
+                            .entryError(path, .init(systemError: error, operation: .readDirectory(path.removingLastComponent())))
+                        case .subTreeError(let path, let error): 
+                            .subTreeError(path, .init(systemError: error, operation: .readDirectory(path)))
+                        case .leavingDir(let path, .some(let error)): 
+                            .leavingDir(path, .init(systemError: error, operation: .readDirectory(path)))
+                        case .leavingDir(let path, .none):
+                            .leavingDir(path, nil)
+                    } as DirectoryEntryRecursiveSequenceElement
+
+                    return .success(element)
+
                 }
-            } catch {
-                return .failure(error)
+
             }
+
+        } catch {
+            return .failure(error)
         }
 
     }

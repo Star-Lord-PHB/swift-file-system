@@ -5,18 +5,6 @@ import SystemPackage
 
 package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
-    package enum Element {
-        case entry(DirectoryEntry)
-        case entryError(FilePath, SystemError)
-
-        package var path: FilePath {
-            switch self {
-                case .entry(let entry):         entry.path
-                case .entryError(let path, _):  path
-            }
-        }
-    }
-
     #if canImport(WinSDK)
     package typealias SystemEntryDataType = WIN32_FIND_DATAW
     private var findHandle: InternalFS.WindowsFindHandle?
@@ -29,21 +17,25 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
 
     package private(set) var ended: Bool = false
+    package let options: FileOperationOptions.DirectoryTraversalOption
 
 
-    package init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) throws(SystemError) {
+    package init(
+        unsafeSystemHandle: consuming UnsafeSystemHandle, 
+        path: FilePath, 
+        options: FileOperationOptions.DirectoryTraversalOption
+    ) throws(SystemError) {
+
+        self.options = options
 
         #if canImport(WinSDK)
-
         self.rootPath = path
-        self.findHandle = try .init(path: path)
-
+        self.findHandle = .init(path: path)
         #else
-
         self.rootPath = path
         self.dirStream = try .init(unsafeSystemHandle: unsafeSystemHandle)
-
         #endif
+
     }
 
 
@@ -56,7 +48,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    package mutating func next() throws(SystemError) -> Element? {
+    package mutating func next() throws(SystemError) -> DirectoryEntry? {
         
         guard !ended else { return nil }
     
@@ -75,62 +67,77 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private mutating func _next() throws(SystemError) -> Element? {
+    private mutating func _next() throws(SystemError) -> DirectoryEntry? {
         #if canImport(WinSDK)
-        return try findHandle?.next().flatMap { extractEntryInfo(from: $0) }
+        while let entry = try findHandle?.next() {
+            lazy var path = extractPath(from: entry)
+            let type = extractType(from: entry)
+            if options.contains(.skipDir) && type == .directory { continue }
+            if !options.contains(.includeDotEntries) && path.lastComponent?.kind != .regular { continue }
+            return .init(path: path, type: type)
+        }
         #else
-        return try dirStream?.next().flatMap { extractEntryInfo(from: $0) }
+        while let entry = try dirStream?.next() {
+            lazy var path = extractPath(from: entry)
+            let type = extractType(from: entry)
+            if options.contains(.skipDir) && type == .directory { continue }
+            if !options.contains(.includeDotEntries) && path.lastComponent?.kind != .regular { continue }
+            return .init(path: path, type: type)
+        }
+        return nil
         #endif 
     }
 
 
-    private func extractEntryInfo(from systemEntry: borrowing SystemEntryDataType) -> Element? {
+    private func extractPath(from systemEntry: borrowing SystemEntryDataType) -> FilePath {
+        
+        #if canImport(WinSDK)
+        return withUnsafePointer(to: systemEntry.cFileName) { ptr in 
+            ptr.withMemoryRebound(to: WCHAR.self, capacity: Int(MAX_PATH)) { wcharPtr in
+                FilePath(platformString: wcharPtr)
+            }
+        } 
+        #else
+        let nameLen = withUnsafeBytes(of: systemEntry.d_name) { $0.count }
+        return withUnsafePointer(to: systemEntry.d_name) { originalPtr in 
+            originalPtr.withMemoryRebound(to: CChar.self, capacity: nameLen) { pointer in
+                FilePath(platformString: pointer)
+            }
+        }
+        #endif
+
+    }
+
+
+    private func extractType(from systemEntry: borrowing SystemEntryDataType) -> FileType {
 
         #if canImport(WinSDK)
 
-            let fileAttributes = systemEntry.dwFileAttributes
+        let fileAttributes = systemEntry.dwFileAttributes
 
-            let name = withUnsafePointer(to: systemEntry.cFileName) { ptr in 
-                ptr.withMemoryRebound(to: WCHAR.self, capacity: Int(MAX_PATH)) { wcharPtr in
-                    String(decodingCString: wcharPtr, as: UTF16.self)
-                }
-            }
+        let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
 
-            let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
-
-            let type = if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
-                hasReparseTagSymlink ? .symlink : .unknown
-            } else if fileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
-                .directory
-            } else {
-                .regular
-            } as FileType
-
-            return DirectoryEntry(path: .init(name), type: type).map { .entry($0) }
+        return if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
+            hasReparseTagSymlink ? .symlink : .unknown
+        } else if fileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
+            .directory
+        } else {
+            .regular
+        } as FileType
 
         #else
 
-            let nameLen = withUnsafeBytes(of: systemEntry.d_name) { $0.count }
-
-            let name = withUnsafePointer(to: systemEntry.d_name) { originalPtr in 
-                originalPtr.withMemoryRebound(to: CChar.self, capacity: nameLen) { pointer in
-                    String(cString: pointer)
-                }
-            }
-
-            let type = switch systemEntry.d_type {
-                case .init(DT_REG):     .regular
-                case .init(DT_DIR):     .directory
-                case .init(DT_LNK):     .symlink
-                case .init(DT_SOCK):    .socket
-                case .init(DT_BLK):     .block
-                case .init(DT_CHR):     .character
-                case .init(DT_FIFO):    .fifo
-                default:                .unknown
-            } as FileType
-
-            return DirectoryEntry(path: .init(name), type: type).map { .entry($0) }
-
+        return switch systemEntry.d_type {
+            case .init(DT_REG):     .regular
+            case .init(DT_DIR):     .directory
+            case .init(DT_LNK):     .symlink
+            case .init(DT_SOCK):    .socket
+            case .init(DT_BLK):     .block
+            case .init(DT_CHR):     .character
+            case .init(DT_FIFO):    .fifo
+            default:                .unknown
+        } as FileType
+        
         #endif
 
     }

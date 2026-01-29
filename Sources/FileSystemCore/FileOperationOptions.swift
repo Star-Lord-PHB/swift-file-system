@@ -183,7 +183,7 @@ public enum FileOperationOptions {
         public init(rawValue: Int32) {
             self.rawValue = rawValue
         }
-        public static let skipDotEntries: DirectoryTraversalOption = .init(rawValue: 1 << 0)
+        public static let includeDotEntries: DirectoryTraversalOption = .init(rawValue: 1 << 0)
         public static let skipDir: DirectoryTraversalOption = .init(rawValue: 1 << 1)
         // TODO: Add more options if needed
     }

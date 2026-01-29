@@ -12,14 +12,16 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     package enum Element {
         case entry(DirectoryEntry)
-        case leavingDir(FilePath)
+        case leavingDir(FilePath, SystemError?)
         case entryError(FilePath, SystemError)
+        case subTreeError(FilePath, SystemError)
 
         package var path: FilePath {
             switch self {
-                case .entry(let entry):         entry.path
-                case .entryError(let path, _):  path
-                case .leavingDir(let path):     path
+                case .entry(let entry):          entry.path
+                case .leavingDir(let path, _):   path
+                case .entryError(let path, _):   path
+                case .subTreeError(let path, _): path
             }
         }
     }
@@ -35,31 +37,21 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     package typealias SystemEntryDataType = FTSENT
     // private var entryStream: UnsafeMutablePointer<FTS>
     private var ftsStream: InternalFS.PosixFTSStream?
+    private var prevLevel: Int16 = 0
 
     #endif
 
     package let rootPath: FilePath
     package let doStat: Bool
+    package let options: FileOperationOptions.DirectoryTraversalOption
 
     package private(set) var ended: Bool = false
 
 
-    package init(path: FilePath, doStat: Bool = true) throws(SystemError) {
-
+    package init(path: FilePath, doStat: Bool = true, options: FileOperationOptions.DirectoryTraversalOption = []) {
         self.rootPath = path
         self.doStat = doStat
-
-        #if canImport(WinSDK)
-
-        // The find handle will not be initialized here, and will only be initialized on the first call to next()
-        // This is because on Windows, we need to use FindFirstFileExW to open the handle, which will give us the first result directly.
-
-        #else
-
-        self.ftsStream = try .init(path: path, doStat: doStat)
-
-        #endif
-
+        self.options = options
     }
 
 
@@ -100,80 +92,134 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     
         #if canImport(WinSDK)
 
-        // TODO: Migrate to use .entryError on Windows
+        while true {
 
-        SetLastError(DWORD(NO_ERROR))
+            SetLastError(DWORD(NO_ERROR))
 
-        var findData = WIN32_FIND_DATAW()
+            var findData = WIN32_FIND_DATAW()
 
-        if findHandleStack.count == relativePathStack.components.count + 1 {
+            if findHandleStack.count == relativePathStack.components.count + 1 {
 
-            // On Windows, `findHandleStack` maintains a stack of dir handles corresponding to the current opened directories.
-            // Besides the root dir, each opened subdir has its name stored in `relativePathStack`, while the root dir is represented 
-            // by the `rootPath`. So ideally, the num of opened dir handles should be 1 larger than the num of file names in `relativePathStack`.
-            // In this case, the top handle in `findHandleStack` is the current dir we are traversing. 
+                // On Windows, `findHandleStack` maintains a stack of dir handles corresponding to the current opened directories.
+                // Besides the root dir, each opened subdir has its name stored in `relativePathStack`, while the root dir is represented 
+                // by the `rootPath`. So ideally, the num of opened dir handles should be 1 larger than the num of file names in `relativePathStack`.
+                // In this case, the top handle in `findHandleStack` is the current dir we are traversing. 
 
-            // temporarily pop the handle on stack top for reading the next entry
-            guard var findHandle = findHandleStack.popLast() else { return nil }
+                // temporarily pop the handle on stack top for reading the next entry
+                guard var findHandle = findHandleStack.popLast() else { return nil }
 
-            if let data = try findHandle.next() {
-                findData = data
-                findHandleStack.append(findHandle)      // Push it back
+                do {
+                    if let data = try findHandle.next() {
+                        findData = data
+                        findHandleStack.append(findHandle)      // Push it back
+                    } else {
+                        if findHandleStack.isEmpty { return nil }
+                        // Return back to the parent directory (findHandle will be closed automatically in deinit)
+                        let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                        relativePathStack.removeLastComponent()
+                        if options.contains(.skipDir) {
+                            continue
+                        } else {
+                            return .leavingDir(leavingDirPath, nil)
+                        }
+                    }
+                } catch {
+                    // if any error occurs, we need to stop traversing this dir and return back to the parent dir
+                    // since this is an early return due to error, we also need to include the error in the `leavingDir` element
+                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                    relativePathStack.removeLastComponent()
+                    return .leavingDir(leavingDirPath, error)
+                }
+
             } else {
-                if findHandleStack.isEmpty { return nil }
-                // Return back to the parent directory
-                let leavingDirPath = FilePath(root: nil, relativePathStack.components)
-                relativePathStack.removeLastComponent()
-                try? findHandle.close()
-                return .leavingDir(leavingDirPath)
+
+                // However, if the num of opened dir handles is equal to the num of file names in `relativePathStack`, the iterator is trying to 
+                // enter a new subdir, whose file name is the top file name in `relativePathStack`, but the corresponding dir handle has not been 
+                // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
+
+                let pathToOpen = rootPath.appending(relativePathStack.components)
+                var handle = InternalFS.WindowsFindHandle(path: pathToOpen)
+                do {
+                    findData = try handle.next()!
+                } catch {
+                    // fail to enter the subdir
+                    // handle closing will be done automatically in deinit (since we don't care the error when closing handle)
+                    if relativePathStack.isEmpty {
+                        // the current dir is the root dir, in this case we just stop and fail the entire enumeration
+                        // (This is slightly different from POSIX, which will throw the error in the initializer)
+                        throw error
+                    }
+                    relativePathStack.removeLastComponent()
+                    return .subTreeError(pathToOpen, error)
+                }
+
+                findHandleStack.append(handle)
+
             }
 
-        } else {
+            let type = extractEntryType(of: findData)
 
-            // However, if the num of opened dir handles is equal to the num of file names in `relativePathStack`, the iterator is trying to 
-            // enter a new subdir, whose file name is the top file name in `relativePathStack`, but the corresponding dir handle has not been 
-            // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
+            let path = extractPath(from: findData)
+            let name = path.lastComponent!
 
-            let pathToOpen = rootPath.appending(relativePathStack.components)
-            var handle = try InternalFS.WindowsFindHandle(path: pathToOpen)
-            findData = try handle.next()!
-            findHandleStack.append(handle)
+            if type == .directory && (name.kind == .regular) {
+                // Entering a subdirectory. 
+                // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir 
+                // handle will be opened 
+                relativePathStack.append(name)
+            }
+
+            if options.contains(.skipDir) && type == .directory { 
+                continue 
+            } else if !options.contains(.includeDotEntries) && name.kind != .regular {
+                continue
+            } else {
+                return DirectoryEntry(path: path, type: type).map { .entry($0) }
+            }
 
         }
-
-        let path = extractPath(from: findData)
-        let name = path.lastComponent!
-        let type = extractEntryType(of: findData)
-
-        if type == .directory && (name.kind == .regular) {
-            // Entering a subdirectory. 
-            // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir 
-            // handle will be opened 
-            relativePathStack.append(name)
-        }
-
-        return DirectoryEntry(path: path, type: type).map { .entry($0) }
 
         #else
+
+        if ftsStream == nil {
+            ftsStream = try .init(path: rootPath, doStat: doStat, includeDots: options.contains(.includeDotEntries))
+        }
 
         while let entry = try ftsStream?.next() {
 
             if entry.fts_level == FTS_ROOTLEVEL { continue }
 
+            defer { prevLevel = entry.fts_level }
+
+            if options.contains(.skipDir) {
+                switch Int32(entry.fts_info) {
+                    case FTS_D, FTS_DP, FTS_DOT: continue
+                    default:                     break
+                }
+            }
+
+            // on Posix, no need to check the dot entries since it's already done by the FTS library itself
+
             lazy var path = extractPath(from: entry)
 
             switch Int32(entry.fts_info) {
-                case FTS_ERR, FTS_NS, FTS_DNR:
+                case FTS_NS:
                     return .entryError(path, .init(code: entry.fts_errno)!)
+                case FTS_ERR where entry.fts_level > prevLevel:
+                    return .leavingDir(path, .init(code: entry.fts_errno)!)
+                case FTS_ERR:
+                    return .entryError(path, .init(code: entry.fts_errno)!)
+                case FTS_DNR: 
+                    return .subTreeError(path, .init(code: entry.fts_errno)!)
                 case FTS_DP:
-                    return .leavingDir(path)
+                    return .leavingDir(path, nil)
                 case FTS_DC:
                     continue
                 default:
                     break
             }
 
-            let type = extractEntryType(from: entry, hasStat: entry.fts_info == FTS_NSOK)
+            let type = extractEntryType(from: entry)
 
             return DirectoryEntry(path: path, type: type).map { .entry($0) }
 
@@ -190,10 +236,10 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
         #if canImport(WinSDK)
             let name = withUnsafePointer(to: systemEntry.cFileName) { ptr in 
                 ptr.withMemoryRebound(to: WCHAR.self, capacity: Int(MAX_PATH)) { wcharPtr in
-                    String(decodingCString: wcharPtr, as: UTF16.self)
+                    FilePath.Component(platformString: wcharPtr)!
                 }
             }
-            return FilePath(root: nil, relativePathStack.components + CollectionOfOne(.init(name)!))
+            return FilePath(root: nil, relativePathStack.components + CollectionOfOne(name))
         #else
             var path = FilePath(platformString: systemEntry.fts_path)
             _ = path.removePrefix(rootPath)
@@ -219,14 +265,15 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     #else
 
-    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType, hasStat: Bool) -> FileType {
+    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType) -> FileType {
         return switch Int32(systemEntry.fts_info) {
             case FTS_F:         .regular
             case FTS_D:         .directory
             case FTS_DOT:       .directory
             case FTS_SL:        .symlink
             case FTS_SLNONE:    .symlink
-            case FTS_DEFAULT:   hasStat ? .init(mode: systemEntry.fts_statp.pointee.st_mode) : .unknown
+            case FTS_DEFAULT:   .init(mode: systemEntry.fts_statp.pointee.st_mode)
+            case FTS_NSOK:      .unknown
             default:            .unknown
         }
     }

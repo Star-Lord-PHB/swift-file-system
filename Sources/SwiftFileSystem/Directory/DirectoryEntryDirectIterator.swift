@@ -3,46 +3,76 @@ import FileSystemCore
 
 
 
-extension DirectoryEntryIterator {
+public struct DirectoryEntryDirectIterator: DirectoryEntryDirectIteratorProtocol, ~Escapable, ~Copyable {
 
-    public struct DirectoryEntryDirectIterator: DirectoryEntryIteratorProtocol, ~Copyable {
+    private enum State: ~Copyable, ~Escapable {
 
-        private var enumerator: DirectoryEntryDirectEnumerator
+        case ready(UnsafeUnownedSystemHandle, FilePath, FileOperationOptions.DirectoryTraversalOption)
+        case opened(DirectoryEntryDirectEnumerator)
 
-        public var rootPath: FilePath { enumerator.rootPath }
-        public var ended: Bool { enumerator.ended }
-
-
-        init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) throws(PlatformError) {
-            do {
-                self.enumerator = try .init(unsafeSystemHandle: unsafeSystemHandle, path: path)
-            } catch {
-                throw PlatformError(systemError: error, operation: .readDirectory(path))
-            }
-            
-        }
-
-
-        public mutating func next() -> DirectoryEntrySequenceResult? {
-            do {
-                return try catchSystemError(
-                    operation: .readDirectory(rootPath)
-                ) { () throws(SystemError) in
-                    while let element = try enumerator.next() {
-                        switch element {
-                            case .entry(let entry): 
-                                return .success(.entry(entry))
-                            case .entryError(let path, let error): 
-                                return .success(.entryError(path, .init(systemError: error, operation: .readDirectory(rootPath))))
-                        }
+        mutating func next() throws(SystemError) -> DirectoryEntry? {
+            switch consume self {
+                case .ready(let handle, let path, let options):
+                    do {
+                        self = .opened(try .init(unsafeSystemHandle: handle.duplicate(), path: path, options: options))
+                    } catch {
+                        self = .ready(handle, path, options)
+                        throw error
                     }
-                    return nil
-                }
-            } catch {
-                return .failure(error)
+                case let s: 
+                    self = s
+            }
+            switch consume self {
+                case .opened(var enumerator):
+                    do {
+                        let entry = try enumerator.next()
+                        self = .opened(enumerator)
+                        return entry
+                    } catch {
+                        self = .opened(enumerator)
+                        throw error
+                    }
+                default: 
+                    fatalError("Should not reach here")
             }
         }
 
+    }
+
+    private var state: State
+
+
+    public var rootPath: FilePath {
+        switch state {
+            case .ready(_, let path, _): path
+            case .opened(let stream): stream.rootPath
+        }
+    }
+
+    public var ended: Bool {
+        switch state {
+            case .ready:         false
+            case .opened(let e): e.ended
+        }
+    }
+
+
+    @_lifetime(copy unsafeSystemHandle)
+    init(
+        unsafeSystemHandle: UnsafeUnownedSystemHandle, 
+        path: FilePath, 
+        options: FileOperationOptions.DirectoryTraversalOption = []
+    ) {
+        self.state = .ready(unsafeSystemHandle, path, options)
+    }
+
+
+    public mutating func next() -> DirectoryEntryDirectSequenceResult? {
+        do {
+            return try state.next().map { .success($0) }
+        } catch {
+            return .failure(.init(systemError: error, operation: .readDirectory(rootPath)))
+        }
     }
 
 }

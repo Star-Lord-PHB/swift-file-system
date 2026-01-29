@@ -138,17 +138,11 @@ extension FileSystem {
     }
 
 
-    public func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = [.skipDotEntries]) throws(PlatformError) -> [DirectoryEntry] {
-        try DirectoryEntrySequence(dirAt: path).compactMap {
-            guard case .success(.entry(let entry)) = $0 else { return nil }
-            if options.contains(.skipDotEntries) && entry.path.lastComponent?.kind != .regular {
-                return nil
+    public func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) -> [DirectoryEntry] {
+        try DirectoryEntryDirectSequence(dirAt: path, options: options)
+            .compactMap { (result) throws(PlatformError) in
+                try result.get()
             }
-            if options.contains(.skipDir) && entry.type == .directory {
-                return nil
-            }
-            return entry
-        }
     }
 
 
@@ -167,10 +161,12 @@ extension FileSystem {
 
 
     public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(PlatformError) -> FilePath {
-        try catchSystemError(operation: .readSymlink(path)) { () throws(SystemError) in
-            if recursive {
+        if recursive {
+            try catchSystemError(operation: .recursiveResolveSymlink(path)) { () throws(SystemError) in
                 try InternalFS.realpath(of: path)
-            } else {
+            }
+        } else {
+            try catchSystemError(operation: .readSymlink(path)) { () throws(SystemError) in
                 try InternalFS.readlink(fromSymlinkAt: path)
             }
         }

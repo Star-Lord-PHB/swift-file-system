@@ -7,11 +7,13 @@ extension FileSystem {
 
     func _removeDirectoryRecursive(at path: FilePath) throws(PlatformError) {
 
-        var enumerator = try catchSystemError(operation: .remove(path)) { () throws(SystemError) in
-            try DirectoryEntryRecursiveEnumerator(path: path, doStat: false)
-        }
+        var enumerator = DirectoryEntryRecursiveEnumerator(path: path, doStat: false)
 
         while true {
+
+            // Currently the deletion is best-effort, meaning that any errors when traversing or deleting 
+            // individual items will be ignored and will not currently be reported back to the caller.
+            // MARK: TODO: add a callback for reporting errors? 
 
             let enumerationElement = try catchSystemError(operation: .remove(path)) { () throws(SystemError) in
                 try enumerator.next()
@@ -23,13 +25,15 @@ extension FileSystem {
                 switch enumerationElement {
                     case .entry(let entry) where entry.type != .directory && entry.path.lastComponent?.kind == .regular:
                         #if canImport(WinSDK)
-                        try InternalFS.remove(itemAt: path.appending(entry.path.components))
+                        try? InternalFS.remove(itemAt: path.appending(entry.path.components))
                         #else 
-                        try InternalFS.unlink(fileAt: path.appending(entry.path.components))
+                        try? InternalFS.unlink(fileAt: path.appending(entry.path.components))
                         #endif 
-                    case .leavingDir(let dirPath): 
+                    case .leavingDir(let dirPath, .none): 
                         try InternalFS.rmdir(at: path.appending(dirPath.components))
                     default:
+                        // All the other cases are error cases, currently the strategy is to skip those
+                        // items and continue deleting other items.
                         break
                 }
 

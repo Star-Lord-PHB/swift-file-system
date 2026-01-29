@@ -34,21 +34,23 @@ extension DirectoryHandle {
     }
 
 
-    public func directEntries() throws(PlatformError) -> [DirectoryEntry] {
-        try ScopedEntrySequence(unsafeSystemHandle: handle, path: path, recursive: false)
-            .compactMap { entry throws(PlatformError) in
-                switch entry {
-                    case .success(.entry(let dirEntry)):    return dirEntry
-                    case .success(.entryError):             return nil
-                    case .failure(let error):               throw error
-                }
+    public func directEntries(options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) -> [DirectoryEntry] {
+        try ScopedEntryDirectSequence(unsafeSystemHandle: handle, path: path, options: options)
+            .map { entry throws(PlatformError) in
+                try entry.get()
             }
     }
 
 
     @_lifetime(borrow self)
-    public func entrySequence(recursive: Bool = false) throws(PlatformError) -> DirectoryEntrySequenceType {
-        return ScopedEntrySequence(unsafeSystemHandle: handle, path: path, recursive: recursive)
+    public func entryDirectSequence(options: FileOperationOptions.DirectoryTraversalOption = []) -> DirectoryEntryDirectSequenceType {
+        return ScopedEntryDirectSequence(unsafeSystemHandle: handle, path: path, options: options)
+    }
+
+
+    @_lifetime(borrow self)
+    public func entryRecursiveSequence(options: FileOperationOptions.DirectoryTraversalOption = []) -> DirectoryEntryRecursiveSequenceType {
+        return ScopedEntryRecursiveSequence(path: path, options: options)
     }
 
 
@@ -71,34 +73,54 @@ extension DirectoryHandle {
 
 extension DirectoryHandle {
 
-    public struct ScopedEntrySequence: DirectoryEntrySequenceProtocol, ~Escapable, ~Copyable {
+    public struct ScopedEntryDirectSequence: DirectoryEntryDirectSequenceProtocol, ~Escapable, ~Copyable {
 
         private let handle: UnsafeUnownedSystemHandle
         public let path: FilePath
-        public let recursive: Bool
+        public let options: FileOperationOptions.DirectoryTraversalOption
 
 
         @_lifetime(borrow unsafeSystemHandle)
-        init(unsafeSystemHandle: borrowing UnsafeSystemHandle, path: FilePath, recursive: Bool) {
+        init(
+            unsafeSystemHandle: borrowing UnsafeSystemHandle, 
+            path: FilePath, 
+            options: FileOperationOptions.DirectoryTraversalOption = []
+        ) {
             self.handle = unsafeSystemHandle.unownedHandle()
             self.path = path
-            self.recursive = recursive
+            self.options = options
         }
 
 
+        @_lifetime(copy self)
         public func makeIterator() -> Iterator {
-            do {
-                if recursive {
-                    return try DirectoryEntryIterator.recursive(path: path)
-                } else {
-                    let duplicatedHandle = try catchSystemError(operation: .readDirectory(path)) { () throws(SystemError) in
-                        try handle.duplicate()
-                    }
-                    return try DirectoryEntryIterator.direct(unsafeSystemHandle: duplicatedHandle, path: path)
-                }
-            } catch {
-                return DirectoryEntryIterator.openError(error: error)
-            }
+            return _overrideLifetime(
+                DirectoryEntryDirectIterator(unsafeSystemHandle: handle, path: path, options: options), 
+                copying: self
+            )
+        }
+
+    }
+
+    public struct ScopedEntryRecursiveSequence: DirectoryEntryRecursiveSequenceProtocol, ~Escapable, ~Copyable {
+
+        public let path: FilePath
+        public let options: FileOperationOptions.DirectoryTraversalOption
+
+
+        @_lifetime(immortal)
+        init(path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) {
+            self.path = path
+            self.options = options
+        }
+
+
+        @_lifetime(copy self)
+        public func makeIterator() -> Iterator {
+            return _overrideLifetime(
+                DirectoryEntryRecursiveIterator(path: path, options: options), 
+                copying: self
+            )
         }
 
     }

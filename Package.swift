@@ -38,7 +38,8 @@ let package = Package(
                 .enableExperimentalFeature("Lifetimes"),
                 .enableExperimentalFeature("NonescapableTypes"),
                 .enableExperimentalFeature("NoncopyableGenerics"),
-                .enableExperimentalFeature("BorrowingSwitch")
+                .enableExperimentalFeature("BorrowingSwitch"),
+                .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults")
             ]
         ),
         .target(
@@ -53,7 +54,8 @@ let package = Package(
                 .enableExperimentalFeature("Lifetimes"),
                 .enableExperimentalFeature("NonescapableTypes"),
                 .enableExperimentalFeature("NoncopyableGenerics"),
-                .enableExperimentalFeature("BorrowingSwitch")
+                .enableExperimentalFeature("BorrowingSwitch"),
+                .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults")
             ]
         ),
         .target(

@@ -3,45 +3,61 @@ import FileSystemCore
 
 
 
-public struct DirectoryEntrySequence: DirectoryEntrySequenceProtocol, ~Copyable {
+public struct DirectoryEntryDirectSequence: DirectoryEntryDirectSequenceProtocol, ~Copyable {
 
     private let handle: UnsafeSystemHandle
     public let path: FilePath
-    public let recursive: Bool
+    public let options: FileOperationOptions.DirectoryTraversalOption
 
-
-    public init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath, recursive: Bool) {
+    public init(
+        unsafeSystemHandle: consuming UnsafeSystemHandle, 
+        path: FilePath, 
+        options: FileOperationOptions.DirectoryTraversalOption = []
+    ) {
         self.handle = unsafeSystemHandle
         self.path = path
-        self.recursive = recursive
+        self.options = options
     }
 
-
-    public init(dirAt path: FilePath, recursive: Bool = false) throws(PlatformError) {
+    public init(dirAt path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) {
         let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
             try UnsafeSystemHandle.openDir(at: path)
         }
         self.init(
-            unsafeSystemHandle: handle, 
-            path: path, 
-            recursive: recursive
+            unsafeSystemHandle: handle,
+            path: path,
+            options: options
         )
+    }
+
+    public func makeIterator() -> Iterator {
+        return _overrideLifetime(
+            DirectoryEntryDirectIterator(unsafeSystemHandle: handle.unownedHandle(), path: path, options: options), 
+            borrowing: self
+        )
+    }
+
+}
+
+
+
+public struct DirectoryEntryRecursiveSequence: DirectoryEntryRecursiveSequenceProtocol, ~Copyable {
+
+    public let path: FilePath
+    public let options: FileOperationOptions.DirectoryTraversalOption
+
+
+    public init(dirAt path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) {
+        self.path = path
+        self.options = options
     }
 
 
     public func makeIterator() -> Iterator {
-        do {
-            if recursive {
-                return try DirectoryEntryIterator.recursive(path: path)
-            } else {
-                let duplicatedHandle = try catchSystemError(operation: .readDirectory(path)) { () throws(SystemError) in
-                    try handle.duplicate()
-                }
-                return try DirectoryEntryIterator.direct(unsafeSystemHandle: duplicatedHandle, path: path)
-            }
-        } catch {
-            return DirectoryEntryIterator.openError(error: error)
-        }
+        return _overrideLifetime(
+            DirectoryEntryRecursiveIterator(path: path, options: options), 
+            borrowing: self
+        )
     }
 
 }

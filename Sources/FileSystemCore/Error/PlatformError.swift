@@ -90,6 +90,7 @@ extension PlatformError {
         case move(srcPath: FilePath, dstPath: FilePath)
         case copy(srcPath: FilePath, dstPath: FilePath)
         case readSymlink(_ path: FilePath)
+        case recursiveResolveSymlink(_ path: FilePath)
         case readDirectory(_ path: FilePath)
         case fetchMeta(_ path: FilePath)
         case setMeta(_ path: FilePath)
@@ -129,6 +130,7 @@ extension PlatformError {
                 case .move(let srcPath, let dstPath): "move(\(srcPath) -> \(dstPath))"
                 case .copy(let srcPath, let dstPath): "copy(\(srcPath) -> \(dstPath))"
                 case .readSymlink(let path): "readSymlink(\(path))"
+                case .recursiveResolveSymlink(let path): "recursiveResolveSymlink(\(path))"
                 case .readDirectory(let path): "readDirectory(\(path))"
                 case .fetchMeta(let path): "fetchMeta(\(path))"
                 case .setMeta(let path): "setMeta(\(path))"

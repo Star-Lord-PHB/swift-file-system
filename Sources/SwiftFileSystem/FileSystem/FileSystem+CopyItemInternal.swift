@@ -527,11 +527,11 @@ extension FileSystem {
             dirFileTimesStack.append(.init(cachedSrcAccessTime: srcAccessTime))
         }
 
-        var enumerator = try DirectoryEntryRecursiveEnumerator(path: srcPath, doStat: true)
+        var enumerator = DirectoryEntryRecursiveEnumerator(path: srcPath, doStat: true)
 
         while let enumerationElement = try enumerator.next() {
 
-            if case .leavingDir(let path) = enumerationElement {
+            if case .leavingDir(let path, _) = enumerationElement {
                 guard let item = dirFileTimesStack.popLast() else { continue }
                 if let times = item.fileTimesToCopy {
                     try InternalFS.setFileTimes(forItemAt: dstPath.appending(path.components), access: times.accessTime, modification: times.modificationTime, creation: times.creationTime)
@@ -541,7 +541,7 @@ extension FileSystem {
             }
 
             guard case .entry(let entry) = enumerationElement else { continue }
-            guard entry.path.lastComponent?.kind == .regular else { continue }
+            guard entry.path.lastComponent?.kind == .regular else { continue }   // technically not necessary, just be defensive
 
             switch entry.type {
                 case .regular: 

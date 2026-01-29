@@ -7,6 +7,7 @@ import Foundation
 
 extension FileSystemTest {
 
+    @Suite
     final class DirectoryHandleTest: FileSystemTest {}
 
 }
@@ -41,7 +42,7 @@ extension FileSystemTest.DirectoryHandleTest {
             let info = try dirHandle.fileInfo()
             #expect(try FileInfo(fileAt: dirPath) == info)
 
-            for entry in try dirHandle.directEntries() {
+            for entry in try dirHandle.directEntries(options: .includeDotEntries) {
                 // print(entry)
                 #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
             }
@@ -81,10 +82,23 @@ extension FileSystemTest.DirectoryHandleTest {
 
             let dirHandle = try DirectoryHandle(forDirAt: dirPath)
 
-            try dirHandle.entrySequence(recursive: true).forEach { result in
-                let entry = try result.get()
-                // print(entry)
-                #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
+            try dirHandle.entryRecursiveSequence(options: .includeDotEntries).forEach { result in
+                let e = try result.get()
+                switch e {
+                    case .entry(let entry) where entry.type == .directory && entry.path.lastComponent?.kind == .regular: 
+                        #expect(entries.contains(dirPath.appending(entry.path.components)))
+                    case .entry(let entry):
+                        #expect(entries.remove(dirPath.appending(entry.path.components)) != nil)
+                    case .leavingDir(let path, .none):
+                        #expect(entries.remove(dirPath.appending(path.components)) != nil)
+                    case .leavingDir(_, .some(let err)):
+                        throw err
+                    case .entryError(_, let err): 
+                        throw err
+                    case .subTreeError(_, let err):
+                        throw err
+                }
+                // print(e.path)
             }
 
             #expect(entries.isEmpty)
