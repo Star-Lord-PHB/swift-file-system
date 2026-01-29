@@ -155,7 +155,6 @@ extension InternalFS {
         package init(path: FilePath) {
             self.findHandle = nil
             self.rootPath = path
-            self.options = options
         }
 
         deinit {

@@ -76,6 +76,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
             if !options.contains(.includeDotEntries) && path.lastComponent?.kind != .regular { continue }
             return .init(path: path, type: type)
         }
+        return nil
         #else
         while let entry = try dirStream?.next() {
             lazy var path = extractPath(from: entry)
