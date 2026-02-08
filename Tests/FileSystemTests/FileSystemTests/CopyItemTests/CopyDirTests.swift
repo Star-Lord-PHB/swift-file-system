@@ -244,7 +244,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstDirPath, onExistingTarget: .error)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectFileStructure(at: dstDirPath, toMatch: expectation)
 
@@ -309,7 +309,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -334,7 +334,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error.code == .notADirectory)
+        #expect(error.kind == .notADirectory)
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: linkTargetPath, toMatch: expectation2)
@@ -382,7 +382,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: linkTargetPath, toMatch: expectation2)
@@ -471,7 +471,11 @@ extension FileSystemTest.CopyFileTest {
             dict[error.itemRelativePath] = error.code
         }
 
+        #if canImport(WinSDK) 
+        #expect(errorMap["file3.txt"]?.mappedErrorKind == .permissionDenied)
+        #else
         #expect(errorMap["file3.txt"]?.mappedErrorKind == .isADirectory)
+        #endif
         #expect(errorMap["c"]?.mappedErrorKind == .notADirectory)
 
     }

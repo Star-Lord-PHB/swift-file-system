@@ -201,21 +201,44 @@ extension PlatformErrorCode {
 
 extension PlatformErrorCode {
 
-    public enum Kind: Sendable, Equatable, Hashable {
+    public struct Kind: Sendable, Equatable, Hashable {
 
-        case notFound
-        case permissionDenied
-        case alreadyExists
-        case invalidInput
-        case isADirectory
-        case notADirectory
-        case notEmptyDirectory
-        case invalidHandle
-        case noEnoughSpace
-        case nameTooLong
-        case unsupported
+        private enum KindCases: Sendable, Equatable, Hashable {
 
-        case unknown
+            case notFound
+            case permissionDenied
+            case alreadyExists
+            case invalidInput
+            case isADirectory
+            case notADirectory
+            case notEmptyDirectory
+            case invalidHandle
+            case noEnoughSpace
+            case nameTooLong
+            case unsupported
+
+            case unknown
+
+        }
+
+        private let kindCases: KindCases
+
+        private init(_ kindCases: KindCases) {
+            self.kindCases = kindCases
+        }
+
+        public static var notFound: Kind { .init(.notFound) }
+        public static var permissionDenied: Kind { .init(.permissionDenied) }   
+        public static var alreadyExists: Kind { .init(.alreadyExists) } 
+        public static var invalidInput: Kind { .init(.invalidInput) }
+        public static var isADirectory: Kind { .init(.isADirectory) }       
+        public static var notADirectory: Kind { .init(.notADirectory) }
+        public static var notEmptyDirectory: Kind { .init(.notEmptyDirectory) }
+        public static var invalidHandle: Kind { .init(.invalidHandle) }
+        public static var noEnoughSpace: Kind { .init(.noEnoughSpace) }
+        public static var nameTooLong: Kind { .init(.nameTooLong) } 
+        public static var unsupported: Kind { .init(.unsupported) }
+        public static var unknown: Kind { .init(.unknown) }
 
     }
 
