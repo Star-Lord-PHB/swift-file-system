@@ -120,7 +120,7 @@ extension FileSystemTest.SettingFileInfoTests {
         #if canImport(WinSDK)
         let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        let attr = [.isUserImmutable, .noDump, .isHidden] as PlatformFileAttributes
+        let attr = [.noDump, .isHidden] as PlatformFileAttributes
         #else 
         let attr = [.noDump] as PlatformFileAttributes  // .isImmutable is not always supported on all fs, so not tested here
         #endif 
@@ -142,7 +142,7 @@ extension FileSystemTest.SettingFileInfoTests {
         #if canImport(WinSDK)
         let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        let attr = [.isUserImmutable, .noDump, .isHidden] as PlatformFileAttributes
+        let attr = [.noDump, .isHidden] as PlatformFileAttributes
         #else 
         let attr = [.noDump] as PlatformFileAttributes
         #endif 
@@ -168,7 +168,7 @@ extension FileSystemTest.SettingFileInfoTests {
         #if canImport(WinSDK)
         let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        let attr = [.isUserImmutable, .noDump, .isHidden] as PlatformFileAttributes
+        let attr = [.noDump, .isHidden] as PlatformFileAttributes
         #else 
         let attr = [.noDump] as PlatformFileAttributes
         #endif 
