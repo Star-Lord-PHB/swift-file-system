@@ -2,13 +2,11 @@ import PlatformCLib
 import CFileSystem
 import SystemPackage
 
-#if canImport(WinSDK)
 import BasicContainers
-#endif 
 
 
 
-package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
+package struct SkipableDirectoryEntryEnumerator: ~Copyable {
 
     package enum Element {
         case entry(DirectoryEntry)
@@ -34,10 +32,9 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     #else
 
-    package typealias SystemEntryDataType = FTSENT
-    // private var entryStream: UnsafeMutablePointer<FTS>
-    private var ftsStream: InternalFS.PosixFTSStream?
-    private var prevLevel: Int16 = 0
+    package typealias SystemEntryDataType = dirent
+    private var entryStreamStack: UniqueArray<InternalFS.PosixDirectoryStream> = .init()
+    private var relativePathStack: FilePath = .init("")
 
     #endif
 
@@ -46,6 +43,10 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     package let options: FileOperationOptions.DirectoryTraversalOption
 
     package private(set) var ended: Bool = false
+
+    package var currentDirPathComponents: FilePath.ComponentView {
+        return relativePathStack.components
+    }
 
 
     package init(path: FilePath, doStat: Bool = true, options: FileOperationOptions.DirectoryTraversalOption = []) {
@@ -62,17 +63,20 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
             try? handle.close()
         }
         #else 
-        try? ftsStream?.close()
+        var entryStreamStack = entryStreamStack
+        while let stream = entryStreamStack.popLast() {
+            try? stream.close()
+        }
         #endif 
     }
 
 
-    package mutating func next() throws(SystemError) -> Element? {
+    package mutating func next(skipCurrentDir: Bool = false) throws(SystemError) -> Element? {
 
         guard !ended else { return nil }
     
         do {
-            if let entry = try _next() {
+            if let entry = try _next(skipCurrentDir: skipCurrentDir) {
                 return entry
             } else {
                 try endIter()
@@ -86,9 +90,11 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     }
 
 
-    private mutating func _next() throws(SystemError) -> Element? {
+    private mutating func _next(skipCurrentDir: Bool = false) throws(SystemError) -> Element? {
 
         guard !ended else { return nil }
+
+        var skipCurrentDir = skipCurrentDir
     
         #if canImport(WinSDK)
 
@@ -107,6 +113,18 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
                 // temporarily pop the handle on stack top for reading the next entry
                 guard var findHandle = findHandleStack.popLast() else { return nil }
+
+                if skipCurrentDir {
+                    // Skip the current directory
+                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                    relativePathStack.removeLastComponent()
+                    if options.contains(.skipDir) {
+                        skipCurrentDir = false
+                        continue
+                    } else {
+                        return .leavingDir(leavingDirPath, nil)
+                    }
+                }
 
                 do {
                     if let data = try findHandle.next() {
@@ -137,10 +155,18 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 // enter a new subdir, whose file name is the top file name in `relativePathStack`, but the corresponding dir handle has not been 
                 // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
 
+                if skipCurrentDir {
+                    if relativePathStack.isEmpty { return nil }
+                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                    relativePathStack.removeLastComponent()
+                    skipCurrentDir = false
+                    continue
+                }
+
                 let pathToOpen = rootPath.appending(relativePathStack.components)
                 var handle = InternalFS.WindowsFindHandle(path: pathToOpen)
                 do {
-                    findData = try handle.next()!
+                    findData = try handle.next()!   // this force unwrap is safe since a dir always has at least "." and ".." entries
                 } catch {
                     // fail to enter the subdir
                     // handle closing will be done automatically in deinit (since we don't care the error when closing handle)
@@ -181,47 +207,100 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
         #else
 
-        if ftsStream == nil {
-            ftsStream = try .init(path: rootPath, doStat: doStat, includeDots: options.contains(.includeDotEntries))
-        }
+        while true {
 
-        while let entry = try ftsStream?.next() {
+            errno = 0
 
-            if entry.fts_level == FTS_ROOTLEVEL { continue }
+            var dirent = dirent()
 
-            defer { prevLevel = entry.fts_level }
+            if entryStreamStack.count == relativePathStack.components.count + 1 {
 
-            if options.contains(.skipDir) {
-                switch Int32(entry.fts_info) {
-                    case FTS_D, FTS_DP, FTS_DOT: continue
-                    default:                     break
+                guard var entryStream = entryStreamStack.popLast() else { return nil }
+
+                if skipCurrentDir {
+                    // Skip the current directory
+                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                    relativePathStack.removeLastComponent()
+                    if options.contains(.skipDir) {
+                        skipCurrentDir = false
+                        continue
+                    } else {
+                        return .leavingDir(leavingDirPath, nil)
+                    }
                 }
-            }
 
-            // on Posix, no need to check the dot entries since it's already done by the FTS library itself
+                do {
+                    if let entry = try entryStream.next() {
+                        dirent = entry
+                        entryStreamStack.append(entryStream)    // Push it back
+                    } else {
+                        if entryStreamStack.isEmpty { return nil }
+                        // Return back to the parent directory (stream closing will be done automatically in deinit)
+                        let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                        relativePathStack.removeLastComponent()
+                        if options.contains(.skipDir) {
+                            continue
+                        } else {
+                            return .leavingDir(leavingDirPath, nil)
+                        }
+                    }
+                } catch {
+                    // if any error occurs, we need to stop traversing this dir and return back to the parent dir
+                    // since this is an early return due to error, we also need to include the error in the `leavingDir` element
+                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                    relativePathStack.removeLastComponent()
+                    return .leavingDir(leavingDirPath, error)
+                }
 
-            lazy var path = extractPath(from: entry)
+            } else {
 
-            switch Int32(entry.fts_info) {
-                case FTS_NS:
-                    return .entryError(path, .init(code: entry.fts_errno)!)
-                case FTS_ERR where entry.fts_level > prevLevel:
-                    return .leavingDir(path, .init(code: entry.fts_errno)!)
-                case FTS_ERR:
-                    return .entryError(path, .init(code: entry.fts_errno)!)
-                case FTS_DNR: 
-                    return .subTreeError(path, .init(code: entry.fts_errno)!)
-                case FTS_DP:
-                    return .leavingDir(path, nil)
-                case FTS_DC:
+                // Entering a new subdir
+
+                if skipCurrentDir {
+                    if relativePathStack.isEmpty { return nil }
+                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
+                    relativePathStack.removeLastComponent()
+                    skipCurrentDir = false
                     continue
-                default:
-                    break
+                }
+
+                let pathToOpen = rootPath.appending(relativePathStack.components)
+                // var stream = try InternalFS.PosixDirectoryStream(unsafeSystemHandle: .openDir(at: pathToOpen))
+                do {
+                    var stream = try InternalFS.PosixDirectoryStream(unsafeSystemHandle: .openDir(at: pathToOpen))
+                    dirent = try stream.next()!     // this force unwrap is safe since a dir always has at least "." and ".." entries
+                    entryStreamStack.append(stream)
+                } catch {
+                    // fail to enter the subdir
+                    // stream closing will be done automatically in deinit (since we don't care the error when closing stream)
+                    if relativePathStack.isEmpty {
+                        // the current dir is the root dir, in this case we just stop and fail the entire enumeration
+                        throw error
+                    }
+                    relativePathStack.removeLastComponent()
+                    return .subTreeError(.init(root: nil, relativePathStack.components), error)
+                }
+
             }
 
-            let type = extractEntryType(from: entry)
+            let type = extractEntryType(from: dirent)
 
-            return DirectoryEntry(path: path, type: type).map { .entry($0) }
+            let path = extractPath(from: dirent)
+            let name = path.lastComponent!
+
+            if type == .directory && (name.kind == .regular) {
+                // Entering a subdirectory. 
+                // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir 
+                // stream will be opened 
+                relativePathStack.append(name)
+            }
+            if options.contains(.skipDir) && type == .directory { 
+                continue 
+            } else if !options.contains(.includeDotEntries) && name.kind != .regular {
+                continue
+            } else {
+                return DirectoryEntry(path: path, type: type).map { .entry($0) }
+            }
 
         }
 
@@ -234,16 +313,20 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     private func extractPath(from systemEntry: borrowing SystemEntryDataType) -> FilePath {
         #if canImport(WinSDK)
-            let name = withUnsafePointer(to: systemEntry.cFileName) { ptr in 
-                ptr.withMemoryRebound(to: WCHAR.self, capacity: Int(MAX_PATH)) { wcharPtr in
-                    FilePath.Component(platformString: wcharPtr)!
-                }
+        let name = withUnsafePointer(to: systemEntry.cFileName) { ptr in 
+            ptr.withMemoryRebound(to: WCHAR.self, capacity: Int(MAX_PATH)) { wcharPtr in
+                FilePath.Component(platformString: wcharPtr)!
             }
-            return FilePath(root: nil, relativePathStack.components + CollectionOfOne(name))
+        }
+        return FilePath(root: nil, relativePathStack.components + CollectionOfOne(name))
         #else
-            var path = FilePath(platformString: systemEntry.fts_path)
-            _ = path.removePrefix(rootPath)
-            return path
+        let nameLen = withUnsafeBytes(of: systemEntry.d_name) { $0.count }
+        let name = withUnsafePointer(to: systemEntry.d_name) { originalPtr in 
+            originalPtr.withMemoryRebound(to: CChar.self, capacity: nameLen) { pointer in
+                FilePath.Component(platformString: pointer)!
+            }
+        }
+        return FilePath(root: nil, relativePathStack.components + CollectionOfOne(name))
         #endif 
     }
 
@@ -266,15 +349,15 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     #else
 
     private func extractEntryType(from systemEntry: borrowing SystemEntryDataType) -> FileType {
-        return switch Int32(systemEntry.fts_info) {
-            case FTS_F:         .regular
-            case FTS_D:         .directory
-            case FTS_DOT:       .directory
-            case FTS_SL:        .symlink
-            case FTS_SLNONE:    .symlink
-            case FTS_DEFAULT:   .init(mode: systemEntry.fts_statp.pointee.st_mode)
-            case FTS_NSOK:      .unknown
-            default:            .unknown
+        return switch systemEntry.d_type {
+            case .init(DT_REG):     .regular
+            case .init(DT_DIR):     .directory
+            case .init(DT_LNK):     .symlink
+            case .init(DT_SOCK):    .socket
+            case .init(DT_BLK):     .block
+            case .init(DT_CHR):     .character
+            case .init(DT_FIFO):    .fifo
+            default:                .unknown
         }
     }
     
@@ -297,11 +380,19 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
         while let handle = findHandleStack.popLast() {
             try handle.close()
         }
-        // try SystemError.check()
 
         #else
 
-        try ftsStream.take()?.close()
+        defer {
+            // if any error occurs during closing the dir streams, we still need to continue closing the remaining ones,
+            // and in this case, we ignore any further errors
+            while let stream = entryStreamStack.popLast() {
+                try? stream.close()
+            }
+        }
+        while let stream = entryStreamStack.popLast() {
+            try stream.close()
+        }
 
         #endif
 

@@ -89,6 +89,7 @@ extension PlatformError {
         case remove(_ path: FilePath)
         case move(srcPath: FilePath, dstPath: FilePath)
         case copy(srcPath: FilePath, dstPath: FilePath)
+        case recursiveCopy(srcRootPath: FilePath, dstRootPath: FilePath)
         case readSymlink(_ path: FilePath)
         case recursiveResolveSymlink(_ path: FilePath)
         case readDirectory(_ path: FilePath)
@@ -129,6 +130,7 @@ extension PlatformError {
                 case .remove(let path): "remove(\(path))"
                 case .move(let srcPath, let dstPath): "move(\(srcPath) -> \(dstPath))"
                 case .copy(let srcPath, let dstPath): "copy(\(srcPath) -> \(dstPath))"
+                case .recursiveCopy(let srcRootPath, let dstRootPath): "recursiveCopy(\(srcRootPath) -> \(dstRootPath))"
                 case .readSymlink(let path): "readSymlink(\(path))"
                 case .recursiveResolveSymlink(let path): "recursiveResolveSymlink(\(path))"
                 case .readDirectory(let path): "readDirectory(\(path))"

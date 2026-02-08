@@ -100,22 +100,20 @@ extension FileSystem {
     }
 
 
-    public func copyItem(
+    public func copyItem<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
         at srcPath: FilePath, 
         to dstPath: FilePath, 
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite, 
-        symlinkOption: FileOperationOptions.CopyItemSymlinkOption = .copyLink
-    ) throws(PlatformError) {
-
-        let srcPath = try catchSystemError(operation: .copy(srcPath: srcPath, dstPath: dstPath)) { () throws(SystemError) in
-            // resolve symlink first if needed
-            symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
-        }
-    
-        try catchSystemError(operation: .copy(srcPath: srcPath, dstPath: dstPath)) { () throws(SystemError) in
-            try _copyItemNoFollow(from: srcPath, to: dstPath, overwrite: targetExistOption)
-        }
-
+        symlinkOption: FileOperationOptions.CopyItemSymlinkOption = .copyLink,
+        errorStrategy: ErrorStrategy = .abortOnError
+    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
+        return try _copyItemImpl(
+            at: srcPath, 
+            to: dstPath, 
+            onExistingTarget: targetExistOption, 
+            symlinkOption: symlinkOption, 
+            errorStrategy: errorStrategy
+        )
     }
 
 

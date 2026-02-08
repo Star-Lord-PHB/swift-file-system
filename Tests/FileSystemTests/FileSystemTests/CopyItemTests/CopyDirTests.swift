@@ -108,6 +108,53 @@ extension FileSystemTest.CopyFileTest {
     }
 
 
+    @Test("Dir -> Dir Dst (.overwrite, mispatch type)")
+    func copyDirToDirDstOverwriteWithMismatchType() async throws {
+        
+        let srcStructure = [
+            "file1.txt": .file(contents: "Serika is Cute!"),
+            "link1": .symlink(target: "./file1.txt"),
+            "a": [
+                "file2.txt": .file(contents: "Hoshino is Cute!"),
+                "link2": .symlink(target: "../file1.txt"),
+            ],
+            "c": [
+                "file3.txt": .file(contents: ""),
+            ]
+        ] as FileStructure
+
+        let dstStructure = [
+            "file1.txt": .file(contents: "Old Content"),                        
+            "oldFile.txt": .file(contents: "This file should remain."),         
+            "a": [                                                              
+                "file2.txt": .file(contents: "Old Content"),                    
+                "link2": .symlink(target: "../oldFile.txt"),                    
+            ],
+            "b": [                                                              
+                "extra.txt": .file(contents: "This directory should remain."),
+            ],
+            "c": .file(contents: "This file should cause the error")
+        ] as FileStructure
+
+        let srcDirPath = try makeFileStructure(at: "srcDir", structure: srcStructure)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let dstDirPath = try makeFileStructure(at: "dstDir", structure: dstStructure)
+
+        #if canImport(WinSDK)
+        let dirBExpectationExcludingSetting = [.fileTimes] as ExpectationCriterias
+        #else
+        let dirBExpectationExcludingSetting = [] as ExpectationCriterias
+        #endif
+
+        let error = try #require(throws: PlatformError.self) {
+            try FileSystem().copyItem(at: srcDirPath, to: dstDirPath, onExistingTarget: .overwrite)
+        }
+
+        #expect(error.code == .notADirectory)
+
+    }
+
+
     @Test("Dir -> Dir Dst (.skip)")
     func copyDirToDirDstSkip() async throws {
 
@@ -119,6 +166,9 @@ extension FileSystemTest.CopyFileTest {
                 "link2": .symlink(target: "../file1.txt"),
                 "file3.txt": .file(contents: "This file should not be copied."),
             ],
+            "c": [
+                "file4.txt": .file(contents: "This file should not be copied."),
+            ]
         ] as FileStructure
 
         let dstStructure = [
@@ -130,7 +180,8 @@ extension FileSystemTest.CopyFileTest {
             ],
             "b": [
                 "extra.txt": .file(contents: "This directory should remain."),
-            ]
+            ],
+            "c": .file(contents: "This file should remain."),                   // remain
         ] as FileStructure
 
         let srcDirPath = try makeFileStructure(at: "srcDir", structure: srcStructure)
@@ -156,7 +207,8 @@ extension FileSystemTest.CopyFileTest {
                     contents: [
                         "extra.txt": .item(expectation: .from(itemAt: dstDirPath.appending("b/extra.txt"))),
                     ]
-                )
+                ),
+                "c": .item(expectation: .from(itemAt: dstDirPath.appending("c"))),
             ]
         )
 
@@ -334,6 +386,93 @@ extension FileSystemTest.CopyFileTest {
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: linkTargetPath, toMatch: expectation2)
+
+    }
+
+}
+
+
+
+extension FileSystemTest.CopyFileTest {
+
+    @Test("Dir -> Dir Dst (.overwrite, collectErrors)")
+    func copyDirToDirDstOverwriteCollectErrors() async throws {
+        
+        let srcStructure = [
+            "file1.txt": .file(contents: "Serika is Cute!"),
+            "link1": .symlink(target: "./file1.txt"),
+            "a": [
+                "file2.txt": .file(contents: "Hoshino is Cute!"),
+                "link2": .symlink(target: "../file1.txt"),
+            ],
+            "file3.txt": .file(),
+            "c": [
+                "file4.txt": .file(contents: "should not be copied due to failure of copying the parent directory")
+            ]
+        ] as FileStructure
+
+        let dstStructure = [
+            "file1.txt": .file(contents: "Old Content"),                        // overwritten
+            "oldFile.txt": .file(contents: "This file should remain."),         // remain
+            "a": [                                                              // overwritten
+                "file2.txt": .file(contents: "Old Content"),                    // overwritten
+                "link2": .symlink(target: "../oldFile.txt"),                    // overwritten
+            ],
+            "b": [                                                              // remain (on Windows, its access time and permission may be changed)
+                "extra.txt": .file(contents: "This directory should remain."),
+            ],
+            "file3.txt": [:],                                                   // cause error due to type mismatch 
+            "c": .file()                                                        // cause error due to type mismatch 
+        ] as FileStructure
+
+        let srcDirPath = try makeFileStructure(at: "srcDir", structure: srcStructure)
+        try await Task.sleep(nanoseconds: 100_000_000)
+        let dstDirPath = try makeFileStructure(at: "dstDir", structure: dstStructure)
+
+        #if canImport(WinSDK)
+        let unchangedExistingDstItemExpectationExcludingSetting = [.fileTimes] as ExpectationCriterias
+        #else
+        let unchangedExistingDstItemExpectationExcludingSetting = [] as ExpectationCriterias
+        #endif
+
+        let expectation = try FileStructureExpectation.dir(
+            expectation: .from(itemAt: srcDirPath),
+            contents: [
+                "file1.txt": .item(expectation: .from(itemAt: srcDirPath.appending("file1.txt"))),
+                "link1": .item(expectation: .from(itemAt: srcDirPath.appending("link1"))),
+                "oldFile.txt": .item(expectation: .from(itemAt: dstDirPath.appending("oldFile.txt"))),
+                "a": .dir(
+                    expectation: .from(itemAt: srcDirPath.appending("a")),
+                    contents: [
+                        "file2.txt": .item(expectation: .from(itemAt: srcDirPath.appending("a/file2.txt"))),
+                        "link2": .item(expectation: .from(itemAt: srcDirPath.appending("a/link2"))),
+                    ]
+                ),
+                "b": .dir(
+                    expectation: .from(itemAt: dstDirPath.appending("b"), excluding: unchangedExistingDstItemExpectationExcludingSetting), 
+                    contents: [
+                        "extra.txt": .item(expectation: .from(itemAt: dstDirPath.appending("b/extra.txt"))),
+                    ]
+                ),
+                "file3.txt": .item(expectation: .from(itemAt: dstDirPath.appending("file3.txt"), excluding: unchangedExistingDstItemExpectationExcludingSetting)),
+                "c": .item(expectation: .from(itemAt: dstDirPath.appending("c"), excluding: unchangedExistingDstItemExpectationExcludingSetting))
+            ]
+        )
+
+        let errorReport = try #require(
+            FileSystem().copyItem(at: srcDirPath, to: dstDirPath, onExistingTarget: .overwrite, errorStrategy: .skipAndCollect)
+        )
+
+        try expectFileStructure(at: dstDirPath, toMatch: expectation)
+
+        try #require(errorReport.errors.count == 2)
+
+        let errorMap = errorReport.errors.reduce(into: [:]) { dict, error in
+            dict[error.itemRelativePath] = error.code
+        }
+
+        #expect(errorMap["file3.txt"]?.mappedErrorKind == .isADirectory)
+        #expect(errorMap["c"]?.mappedErrorKind == .notADirectory)
 
     }
 

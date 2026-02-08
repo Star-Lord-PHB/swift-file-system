@@ -587,8 +587,10 @@ extension InternalFS {
 
     #if canImport(WinSDK)
     @available(*, deprecated, message: "Not recomended on Windows for copying files, use copyRegularFileOrSymlink instead")
+    #elseif canImport(Darwin)   
+    @available(*, deprecated, message: "Not recomended on Darwin for copying files, use copyRegularFileWithMetaNoTimes instead")
     #endif 
-    package static func copyRegularFile(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(SystemError) {
+    package static func copyRegularFileContent(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(SystemError) {
 
         #if canImport(WinSDK)
 
@@ -612,7 +614,7 @@ extension InternalFS {
         #elseif canImport(Darwin)
 
         try execThrowingCFunction {
-            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ALL))
+            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_DATA))
         }
 
         #else 
@@ -663,6 +665,49 @@ extension InternalFS {
         #endif 
 
     }
+
+
+    #if canImport(Darwin)
+    
+    package static func copyRegularFileWithMetaNoTimes(
+        from srcHandle: borrowing UnsafeSystemHandle, 
+        to dstHandle: borrowing UnsafeSystemHandle
+    ) throws(SystemError) {
+        try execThrowingCFunction {
+            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ALL))
+        }
+    }
+
+
+    package static func copyItemWithMetaNoTimes(
+        from srcPath: FilePath, 
+        to dstPath: FilePath,
+        overwrite: Bool
+    ) throws(SystemError) {
+        try execThrowingCFunction {
+            srcPath.withPlatformString { srcPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    copyfile(srcPtr, dstPtr, nil, UInt32(COPYFILE_ALL | COPYFILE_NOFOLLOW | (overwrite ? 0 : COPYFILE_EXCL)))
+                }
+            }
+        }
+    }
+
+
+    package static func copyFileMetaNoTimes(
+        from srcPath: FilePath, 
+        to dstPath: FilePath
+    ) throws(SystemError) {
+        try execThrowingCFunction {
+            srcPath.withPlatformString { srcPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    copyfile(srcPtr, dstPtr, nil, UInt32(COPYFILE_METADATA | COPYFILE_NOFOLLOW))
+                }
+            }
+        }
+    }
+        
+    #endif
 
 
     #if canImport(WinSDK)

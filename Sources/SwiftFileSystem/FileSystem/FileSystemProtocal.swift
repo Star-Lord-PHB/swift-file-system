@@ -17,12 +17,13 @@ public protocol FileSystemProtocal: Sendable {
 
     func removeItem(at path: FilePath) throws(PlatformError)
 
-    func copyItem(
+    func copyItem<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
         at srcPath: FilePath, 
         to dstPath: FilePath, 
-        onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption,
-        symlinkOption: FileOperationOptions.CopyItemSymlinkOption
-    ) throws(PlatformError)
+        onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption, 
+        symlinkOption: FileOperationOptions.CopyItemSymlinkOption,
+        errorStrategy: ErrorStrategy
+    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError
 
     func moveItem(at srcPath: FilePath, to dstPath: FilePath, onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption) throws(PlatformError)
 
