@@ -64,7 +64,6 @@ extension FileSystemTest.ByteBufferTest {
     }
 
 
-    #if swift(>=6.2)
     @Test("Read / Write Non-Trival Value (Error)")
     func readWriteNonTrivialValue() async throws {
         
@@ -72,13 +71,12 @@ extension FileSystemTest.ByteBufferTest {
             var buffer = ByteBuffer()
             buffer.append(rawBytesOf: MyNonTrivialType())   // fatal error due to storing non-trivial type
         }
-
+        
         await #expect(processExitsWith: .failure) {
             let buffer = ByteBuffer(count: MemoryLayout<MyNonTrivialType>.size)
             _ = buffer.load(fromOffset: 0, as: MyNonTrivialType.self)   // fatal error due to loading non-trivial type
         }
-
+        
     }
-    #endif
 
 }

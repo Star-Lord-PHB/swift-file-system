@@ -3,6 +3,7 @@ import SystemPackage
 import Foundation
 @testable import SwiftFileSystem
 @testable import FileSystemCore
+@testable import SwiftFileSystemFoundationCompat
 
 #if canImport(WinSDK)
 import WinSDK

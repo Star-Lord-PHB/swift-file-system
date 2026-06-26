@@ -1,5 +1,4 @@
 import SystemPackage
-import Foundation
 import FileSystemCore
 
 
@@ -236,7 +235,7 @@ extension ReadFileHandleProtocol where Self: ~Copyable {
 
 public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
-    func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(PlatformError) -> Int64
+    func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64
 
     func resize(to size: Int64) throws(PlatformError)
 
@@ -248,7 +247,7 @@ public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
 extension WriteFileHandleProtocol where Self: ~Copyable {
 
-    public func write(_ data: some ContiguousBytes) throws(PlatformError) -> Int64 {
+    public func write(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
         try write(data, toOffset: nil)
     }
 
@@ -263,7 +262,8 @@ public typealias ReadWriteFileHandleProtocol = ReadFileHandleProtocol & WriteFil
 public protocol DirectoryHandleProtocol: ~Copyable, FileHandleProtocol {
 
     // MARK: TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
-    // associatedtype DirectoryEntrySequenceType: DirectoryEntrySequenceProtocol & ~Escapable & ~Copyable 
+    // associatedtype DirectoryEntryDirectSequenceType: DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable
+    // associatedtype DirectoryEntryRecursiveSequenceType: DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable
     typealias DirectoryEntryRecursiveSequenceType = any (DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable)
     typealias DirectoryEntryDirectSequenceType = any (DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable)
 

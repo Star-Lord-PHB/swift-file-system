@@ -1,6 +1,5 @@
 #if canImport(WinSDK)
 
-import Foundation
 import WinSDK
 import CFileSystem
 

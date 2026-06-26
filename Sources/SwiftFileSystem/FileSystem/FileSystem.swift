@@ -47,7 +47,7 @@ extension FileSystem {
                 creationPermissions: permission
             )
             if let content {
-                try content.withUnsafeBytesTypedThrow { (ptr) throws(SystemError) in 
+                try content.withUnsafeBytes { (ptr) throws(SystemError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }

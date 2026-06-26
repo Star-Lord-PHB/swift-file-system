@@ -92,7 +92,7 @@ extension DirectoryHandle {
         }
 
 
-        @_lifetime(copy self)
+        @_lifetime(borrow self)
         public func makeIterator() -> Iterator {
             return _overrideLifetime(
                 DirectoryEntryDirectIterator(unsafeSystemHandle: handle, path: path, options: options), 
@@ -115,7 +115,7 @@ extension DirectoryHandle {
         }
 
 
-        @_lifetime(copy self)
+        @_lifetime(borrow self)
         public func makeIterator() -> Iterator {
             return _overrideLifetime(
                 DirectoryEntryRecursiveIterator(path: path, options: options), 

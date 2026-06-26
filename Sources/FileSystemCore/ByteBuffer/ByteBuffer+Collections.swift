@@ -1,5 +1,4 @@
 import PlatformCLib
-import Foundation
 
 
 extension ByteBuffer: RandomAccessCollection, MutableCollection {
@@ -9,8 +8,8 @@ extension ByteBuffer: RandomAccessCollection, MutableCollection {
 
 
     @inlinable
-    public subscript(index: Int) -> UInt8 {
-        get { 
+    public subscript(index: Int) -> Byte {
+        get {
             preconditionValidIndex(index)
             return storage[indexInStorage(for: index)] 
         }
@@ -25,25 +24,10 @@ extension ByteBuffer: RandomAccessCollection, MutableCollection {
 
 
 
-extension ByteBuffer {
-
-    // 32 bytes inline buffer
-    @usableFromInline
-    typealias InlineBuffer = (
-        Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
-        Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
-        Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte,
-        Byte, Byte, Byte, Byte, Byte, Byte, Byte, Byte
-    )
-
-}
-
-
-
 extension ByteBuffer: RangeReplaceableCollection {
 
     @inlinable
-    public mutating func replaceSubrange<C>(_ subrange: Range<Int>, with newElements: C) where C : Collection, UInt8 == C.Element {
+    public mutating func replaceSubrange<C>(_ subrange: Range<Int>, with newElements: C) where C : Collection, Byte == C.Element {
 
         preconditionValidRange(subrange)
         
@@ -75,140 +59,19 @@ extension ByteBuffer: RangeReplaceableCollection {
 
         guard newElementsCount > 0 else { return }
 
-        let continuousStorageAvailable = newElements.withContiguousStorageIfAvailable { buffer in
-            storage.copyBytes(from: .init(buffer), toOffset: subrange.lowerBound)
-            return true
-        } ?? false
-
-        guard (_slowPath(!continuousStorageAvailable)) else { return }
-
-        if C.self is any ContiguousBytes {
-            (newElements as! any ContiguousBytes).withUnsafeBytes { buffer in 
-                storage.copyBytes(from: buffer, toOffset: subrange.lowerBound)
-            }
-            return
-        }
-
-        var inlineBuffer = InlineBuffer(
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0
-        )
-        var inlineBufferWrittenCount = 0
-        var writePtr = storage.pointer(to: subrange.lowerBound)
-        
-        for byte in newElements {
-
-            if inlineBufferWrittenCount == MemoryLayout<InlineBuffer>.size {
-                assert(
-                    writePtr + inlineBufferWrittenCount <= storage.baseAddress! + (subrange.lowerBound + newElementsCount),
-                    "writing beyond subrange"
-                )
-                Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in 
-                    writePtr.copyMemory(from: buffer.baseAddress!, byteCount: inlineBufferWrittenCount)
-                }
-                writePtr += inlineBufferWrittenCount
-                inlineBufferWrittenCount = 0
-            }
-
-            Swift.withUnsafeMutableBytes(of: &inlineBuffer) { buffer in 
-                buffer[inlineBufferWrittenCount] = byte
-            }
-            inlineBufferWrittenCount += 1
-
-        }
-
-        if inlineBufferWrittenCount > 0 {
-            Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in 
-                assert(
-                    writePtr + inlineBufferWrittenCount <= storage.baseAddress! + (subrange.lowerBound + newElementsCount), 
-                    "writing beyond subrange"
-                )
-                writePtr.copyMemory(from: buffer.baseAddress!, byteCount: inlineBufferWrittenCount)
-            }
-        }
+        _writeBytes(newElements, to: subrange.lowerBound)
 
     }
 
 
     @inlinable
-    public mutating func append<S>(contentsOf newElements: S) where S : Sequence, UInt8 == S.Element {
-
-        _assessForWrite()
-
-        let contiguousStorageAvailable = newElements.withContiguousStorageIfAvailable { buffer in
-            storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
-            storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
-            count += buffer.count
-            return true
-        } ?? false
-
-        guard (_slowPath(!contiguousStorageAvailable)) else { return }
-
-        if S.self is any ContiguousBytes {
-            (newElements as! any ContiguousBytes).withUnsafeBytes { buffer in
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
-                storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
-                count += buffer.count
-            }
-            return
-        }
-
-        // Try to pre-allocate enough capacity if possible base on the type of the sequence
-        switch S.self {
-            case is any RandomAccessCollection.Type: do {
-                let newElementsCount = (newElements as! any RandomAccessCollection).count
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + newElementsCount)
-            }
-            // MARK: TODO: Compare the performance of this case with the default case
-            // case is any Collection.Type: do {
-            //     let collectionNewElements = newElements as! any Collection
-            //     let newElementsCount = collectionNewElements.count
-            //     storage._allocateEnoughCapacityIfNeeded(forAdditional: newElementsCount)
-            //     newElements = collectionNewElements as! S
-            // }
-            default: do {
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + newElements.underestimatedCount)
-            }
-        }
-
-        var inlineBuffer = InlineBuffer(
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0
-        )
-        var inlineBufferWrittenCount = 0
-
-        for byte in newElements {
-            if inlineBufferWrittenCount == MemoryLayout<InlineBuffer>.size {
-                Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
-                    storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
-                    storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
-                    count += buffer.count
-                }
-                inlineBufferWrittenCount = 0
-            }
-            Swift.withUnsafeMutableBytes(of: &inlineBuffer) { buffer in
-                buffer[inlineBufferWrittenCount] = byte
-            }
-            inlineBufferWrittenCount += 1
-        }
-
-        if inlineBufferWrittenCount > 0 {
-            Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + inlineBufferWrittenCount)
-                storage.copyBytes(from: .init(rebasing: buffer.prefix(inlineBufferWrittenCount)), toOffset: endOffsetInStorage)
-                count += inlineBufferWrittenCount
-            }
-        }
-
+    public mutating func append<S>(contentsOf newElements: S) where S : Sequence, Byte == S.Element {
+        append(bytes: newElements)
     }
 
 
     @inlinable
-    public mutating func append(_ newElement: UInt8) {
+    public mutating func append(_ newElement: Byte) {
         _assessForWrite()
         storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + 1)
         storage[endOffsetInStorage] = newElement
@@ -222,14 +85,14 @@ extension ByteBuffer: RangeReplaceableCollection {
 extension ByteBuffer {
 
     @inlinable
-    public func withContiguousStorageIfAvailable<R: ~Copyable, E: Error>(_ body: (UnsafeBufferPointer<UInt8>) throws(E) -> R) throws(E) -> R? {
+    public func withContiguousStorageIfAvailable<R: ~Copyable, E: Error>(_ body: (UnsafeBufferPointer<Byte>) throws(E) -> R) throws(E) -> R? {
         return try withUnsafeBufferPointer(body)
     }
 
 
     @inlinable
     public mutating func withContiguousMutableStorageIfAvailable<R: ~Copyable, E: Error>(
-        _ body: (inout UnsafeMutableBufferPointer<UInt8>
+        _ body: (inout UnsafeMutableBufferPointer<Byte>
     ) throws(E) -> R) throws(E) -> R? {
         // _assessForWrite() will be called in the withUnsafeMutableBufferPointer method
         // so we don't need to call it here again
@@ -238,21 +101,37 @@ extension ByteBuffer {
 
 
     @inlinable
-    public func withUnsafeBufferPointer<R: ~Copyable, E: Error>(_ body: (UnsafeBufferPointer<UInt8>) throws(E) -> R) throws(E) -> R {
-        return try body(.init(rebasing: storage.buffer.assumingMemoryBound(to: UInt8.self)[rangeInStorage]))
+    public func withUnsafeBufferPointer<R: ~Copyable, E: Error>(_ body: (UnsafeBufferPointer<Byte>) throws(E) -> R) throws(E) -> R {
+        return try body(.init(rebasing: storage.buffer.assumingMemoryBound(to: Byte.self)[rangeInStorage]))
     }
 
 
     @inlinable
     public mutating func withUnsafeMutableBufferPointer<R: ~Copyable, E: Error>(
-        _ body: (inout UnsafeMutableBufferPointer<UInt8>
+        _ body: (inout UnsafeMutableBufferPointer<Byte>
     ) throws(E) -> R) throws(E) -> R {
         _assessForWrite()
-        var buffer = UnsafeMutableBufferPointer<UInt8>(rebasing: storage.buffer.assumingMemoryBound(to: UInt8.self)[rangeInStorage])
+        var buffer = UnsafeMutableBufferPointer<Byte>(rebasing: storage.buffer.assumingMemoryBound(to: Byte.self)[rangeInStorage])
         let result = try body(&buffer)
         precondition(UnsafeMutableRawPointer(buffer.baseAddress) == storage.buffer.baseAddress, "replacing the buffer is not allowed")
         precondition(buffer.count == count, "replacing the buffer is not allowed")
         return result
+    }
+    
+    
+    @inlinable
+    public func withUnsafeBytes<R: ~Copyable, E: Error>(_ body: (UnsafeRawBufferPointer) throws(E) -> R) throws(E) -> R {
+        try self.withUnsafeBufferPointer { (buffer) throws(E) in
+            try body(.init(buffer))
+        }
+    }
+    
+    
+    @inlinable
+    public mutating func withUnsafeMutableBytes<R: ~Copyable, E: Error>(_ body: (UnsafeMutableRawBufferPointer) throws(E) -> R) throws(E) -> R {
+        try self.withUnsafeMutableBufferPointer { (buffer) throws(E) in
+            try body(.init(buffer))
+        }
     }
 
 }

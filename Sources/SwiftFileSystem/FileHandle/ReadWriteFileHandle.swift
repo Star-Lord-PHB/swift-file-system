@@ -1,4 +1,3 @@
-import Foundation
 import SystemPackage
 import FileSystemCore
 
@@ -119,7 +118,7 @@ extension ReadWriteFileHandle {
 
         let lengthToRead = min(Int64(buffer.count), length ?? Int64(buffer.count))
 
-    #if canImport(WinSDK)
+        #if canImport(WinSDK)
 
         try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in
             if let offset {
@@ -141,7 +140,7 @@ extension ReadWriteFileHandle {
             }
         }
 
-    #else
+        #else
 
         try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in 
             if let offset {
@@ -155,7 +154,7 @@ extension ReadWriteFileHandle {
             }
         }
 
-    #endif
+        #endif
 
     }
 
@@ -165,11 +164,11 @@ extension ReadWriteFileHandle {
 
 extension ReadWriteFileHandle {
 
-    public func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
+    public func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
         
-    #if canImport(WinSDK)
+        #if canImport(WinSDK)
 
-        return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in 
+        return try data.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
             try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
@@ -188,9 +187,9 @@ extension ReadWriteFileHandle {
             }
         }
 
-    #else
+        #else
 
-        return try data.withUnsafeBytesTypedThrow { bufferPtr throws(PlatformError) in
+        return try data.withUnsafeBytes { bufferPtr throws(PlatformError) in
             try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 if let offset {
                     return try handle.pwrite(contentsOf: bufferPtr, to: offset)
@@ -200,7 +199,7 @@ extension ReadWriteFileHandle {
             }
         }
 
-    #endif 
+        #endif
 
     }
 

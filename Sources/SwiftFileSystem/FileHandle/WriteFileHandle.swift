@@ -1,4 +1,3 @@
-import Foundation
 import SystemPackage
 import FileSystemCore
 
@@ -115,11 +114,11 @@ extension WriteFileHandle {
 
 extension WriteFileHandle {
 
-    public func write(_ data: some ContiguousBytes, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
+    public func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
         
     #if canImport(WinSDK)
 
-        return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in 
+        return try data.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
             try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
@@ -140,7 +139,7 @@ extension WriteFileHandle {
 
     #else
 
-        return try data.withUnsafeBytesTypedThrow { bufferPtr throws(PlatformError) in
+        return try data.withUnsafeBytes { bufferPtr throws(PlatformError) in
             try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 if let offset {
                     return try handle.pwrite(contentsOf: bufferPtr, to: offset)

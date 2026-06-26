@@ -24,7 +24,6 @@ public struct UnsafeSystemHandle: ~Copyable {
     }
 
 
-    @inlinable
     public consuming func take() -> SystemHandleType {
         let handle = self.unsafeRawHandle
         discard self

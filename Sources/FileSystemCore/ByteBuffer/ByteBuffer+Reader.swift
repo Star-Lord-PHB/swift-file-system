@@ -1,4 +1,3 @@
-import Foundation
 
 
 extension ByteBuffer {
@@ -56,6 +55,39 @@ extension ByteBuffer {
 
             return ByteBuffer(storage.buffer[readOffset ..< readOffset + lengthToRead])
 
+        }
+        
+        
+        @inlinable
+        public mutating func readBytes<R, E: Error>(
+            upTo length: Int,
+            operation: (UnsafeRawBufferPointer) throws(E) -> R
+        ) throws(E) -> R {
+            
+            guard length > 0, remainingBytes > 0 else { return try operation(.init(start: nil, count: 0)) }
+            
+            let lengthToRead = Swift.min(remainingBytes, length)
+            defer { _readOffset += lengthToRead }
+            
+            return try operation(.init(rebasing: storage.buffer[readOffset ..< readOffset + lengthToRead]))
+            
+        }
+        
+        
+        @_lifetime(copy self)
+        @inlinable
+        public mutating func readSpan(upTo length: Int) -> RawSpan {
+            
+            guard length > 0, remainingBytes > 0 else { return .init() }
+            
+            let lengthToRead = Swift.min(remainingBytes, length)
+            defer { _readOffset += lengthToRead }
+            
+            return _overrideLifetime(
+                .init(_unsafeBytes: UnsafeRawBufferPointer(rebasing: storage.buffer[readOffset ..< readOffset + lengthToRead])),
+                copying: self
+            )
+            
         }
 
 
@@ -163,16 +195,18 @@ extension ByteBuffer.Reader {
         return self.read(as: Bool.self)
     }
 
-    @_lifetime(self: copy self)
     @inlinable
-    public mutating func readString(upTo byteCount: Int, encoding: String.Encoding = .utf8) -> String? {
+    public mutating func readString<Encoding: _UnicodeEncoding>(upTo byteCount: Int, encoding: Encoding.Type = UTF8.self) -> String? {
 
         guard byteCount > 0, remainingBytes >= 0 else { return nil }
 
         let byteCountToRead = Swift.min(remainingBytes, byteCount)
         defer { _readOffset += byteCountToRead }
 
-        return String(bytes: storage.buffer[readOffset ..< readOffset + byteCountToRead], encoding: encoding)
+        return String(
+            decoding: storage.buffer[readOffset ..< readOffset + byteCountToRead].assumingMemoryBound(to: Encoding.CodeUnit.self),
+            as: encoding
+        )
 
     }
 

@@ -164,20 +164,6 @@ extension ByteBuffer {
 
 
     @inlinable
-    public mutating func shrinkToFit() {
-        _assessForWrite()
-        storage.resize(forAtLeast: endOffsetInStorage)
-    }
-
-
-    @inlinable
-    public mutating func reserveCapacity(_ capacity: Int) {
-        _assessForWrite()
-        storage.allocateEnoughCapacityIfNeeded(for: startOffsetInStorage + capacity)
-    }
-
-
-    @inlinable
     func preconditionValidIndex(_ index: Int, file: StaticString = #file, line: UInt = #line) {
         precondition(index >= 0 && index < count, "Index out of bounds", file: file, line: line)
     }
@@ -187,222 +173,78 @@ extension ByteBuffer {
     func preconditionValidRange(_ range: Range<Int>, file: StaticString = #file, line: UInt = #line) {
         precondition(range.lowerBound >= 0 && range.upperBound <= count, "Range out of bounds", file: file, line: line)
     }
+    
+    
+    @inlinable
+    func _writeBytes<Bytes: Collection>(_ bytes: Bytes, to offset: Int) where Bytes.Element == Element {
+        
+        let hasContiguousStorage = bytes.withContiguousStorageIfAvailable { buffer in
+            storage.copyBytes(from: .init(buffer), toOffset: offset)
+            return true
+        } ?? false
+        
+        guard _slowPath(!hasContiguousStorage) else { return }
+        
+        var inlineBuffer = InlineBuffer(
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0
+        )
+        var inlineBufferWrittenCount = 0
+        var writePtr = storage.pointer(to: offset)
+        
+        for byte in bytes {
+            
+            if inlineBufferWrittenCount == MemoryLayout<InlineBuffer>.size {
+                assert(
+                    writePtr + inlineBufferWrittenCount <= storage.baseAddress! + count,
+                    "writing beyond the end of the buffer"
+                )
+                Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
+                    writePtr.copyMemory(from: buffer.baseAddress!, byteCount: inlineBufferWrittenCount)
+                }
+                writePtr += inlineBufferWrittenCount
+                inlineBufferWrittenCount = 0
+            }
+            
+            Swift.withUnsafeMutableBytes(of: &inlineBuffer) { buffer in
+                buffer[inlineBufferWrittenCount] = byte
+            }
+            inlineBufferWrittenCount += 1
+            
+        }
+        
+        if inlineBufferWrittenCount > 0 {
+            Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
+                assert(
+                    writePtr + inlineBufferWrittenCount <= storage.baseAddress! + count,
+                    "writing beyond subrange"
+                )
+                writePtr.copyMemory(from: buffer.baseAddress!, byteCount: inlineBufferWrittenCount)
+            }
+        }
+        
+    }
 
 }
 
 
 
 extension ByteBuffer {
-
+    
     @inlinable
-    public func load<T>(fromOffset offset: Int, as type: T.Type) -> T {
-        preconditionValidRange(offset ..< offset + MemoryLayout<T>.size)
-        return storage.buffer.loadUnaligned(fromByteOffset: offset, as: type)
-    }
-
-
-    @inlinable
-    public mutating func store<T>(rawBytesOf value: T, toOffset offset: Int) {
-        preconditionValidRange(offset ..< offset + MemoryLayout<T>.size)
+    public mutating func shrinkToFit() {
         _assessForWrite()
-        storage.buffer.storeBytes(of: value, toByteOffset: offset, as: T.self)
+        storage.resize(forAtLeast: endOffsetInStorage)
     }
-
-
+    
+    
     @inlinable
-    public mutating func store(_ bytes: UnsafeRawBufferPointer, toOffset offset: Int) {
-        preconditionValidRange(offset ..< offset + bytes.count)
+    public mutating func reserveCapacity(_ capacity: Int) {
         _assessForWrite()
-        storage.copyBytes(from: bytes, toOffset: offset)
+        storage.allocateEnoughCapacityIfNeeded(for: startOffsetInStorage + capacity)
     }
-
-
-    @inlinable
-    public mutating func store(_ bytes: UnsafeRawBufferPointer.SubSequence, toOffset offset: Int) {
-        preconditionValidRange(offset ..< offset + bytes.count)
-        _assessForWrite()
-        storage.copyBytes(from: .init(rebasing: bytes), toOffset: offset)
-    }
-
-
-    @inlinable
-    public mutating func append<T>(rawBytesOf value: T) {
-        _assessForWrite()
-        let valueSize = MemoryLayout<T>.size
-        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + valueSize)
-        storage.buffer.storeBytes(of: value, toByteOffset: endOffsetInStorage, as: T.self)
-        self.count += valueSize
-    }
-
+    
 }
 
-
-
-extension ByteBuffer {
-
-    public typealias Byte = UnsafeMutableRawBufferPointer.Element
-
-    @usableFromInline
-    final class Storage {
-
-        @usableFromInline var buffer: UnsafeMutableRawBufferPointer = .init(start: nil, count: 0)
-
-        @inlinable var capacity: Int { buffer.count }
-        @inlinable var baseAddress: UnsafeMutableRawPointer? { buffer.baseAddress }
-
-
-        @inlinable
-        init(capacity: Int) {
-            assertValidCapacity(capacity)
-            if capacity > 0 {
-                buffer = .init(start: malloc(capacity), count: capacity)
-            }
-        }
-
-
-        @inlinable
-        init(capacity: Int, zeroed: Bool) {
-            assertValidCapacity(capacity)
-            if capacity > 0 {
-                if zeroed {
-                    buffer = .init(start: calloc(capacity, MemoryLayout<Byte>.size), count: capacity)
-                } else {
-                    buffer = .init(start: malloc(capacity), count: capacity)
-                }
-            }
-        }
-
-
-        @inlinable
-        init(repeating value: Byte, count: Int) {
-            assertValidCapacity(count)
-            if count > 0 {
-                buffer = .init(start: malloc(count).initializeMemory(as: Byte.self, repeating: value, count: count), count: count)
-            }
-        }
-
-
-        deinit {
-            if let baseAddress = buffer.baseAddress {
-                PlatformCLib.free(baseAddress)
-            }
-        }
-
-
-        @inlinable
-        subscript(_ index: Int) -> Byte {
-            get { 
-                assertValidIndex(index)
-                return buffer[index]
-            }
-            set { 
-                assertValidIndex(index)
-                buffer[index] = newValue
-            }
-        }
-
-
-        @inlinable
-        subscript(_ range: Range<Int>) -> Slice<UnsafeMutableRawBufferPointer> {
-            assertValidRange(range)
-            return buffer[range]
-        }
-
-
-        @inlinable
-        func copyBytes(from buffer: UnsafeRawBufferPointer, toOffset offset: Int = 0) {
-            assertValidRange(offset ..< offset + buffer.count)
-            guard let destBaseAddress = self.buffer.baseAddress, let srcBaseAddress = buffer.baseAddress else { return }
-            destBaseAddress.advanced(by: offset).copyMemory(from: srcBaseAddress, byteCount: buffer.count)
-        }
-
-
-        @inlinable
-        func pointer(to index: Int) -> UnsafeMutableRawPointer {
-            assertValidIndex(index)
-            return buffer.baseAddress!.advanced(by: index)
-        }
-
-
-        @inlinable
-        func copy(range: Range<Int>) -> Storage {
-            let newStorage = Storage(capacity: recommendedCapacity(forAtLeast: range.count))
-            newStorage.copyBytes(from: .init(rebasing: buffer[range]))
-            return newStorage
-        }
-
-
-        @inlinable
-        func resize(toExactly capacity: Int) {
-            assertValidCapacity(capacity)
-            guard capacity != self.capacity else { return }
-            if capacity == 0 {
-                if let baseAddress = buffer.baseAddress {
-                    free(baseAddress)
-                }
-                buffer = .init(start: nil, count: 0)
-            } else {
-                buffer = .init(start: realloc(buffer.baseAddress, capacity), count: capacity)
-            }
-        }
-
-
-        @inlinable
-        func resize(forAtLeast capacity: Int) {
-            resize(toExactly: recommendedCapacity(forAtLeast: capacity))
-        }
-
-
-        @inlinable
-        func allocateEnoughCapacityIfNeeded(for bytes: Int) {
-            let requiredCapacity = recommendedCapacity(forAtLeast: bytes)
-            if requiredCapacity > capacity {
-                resize(toExactly: requiredCapacity)
-            }
-        }
-
-
-        @inlinable
-        func recommendedCapacity(forAtLeast n: Int) -> Int {
-
-            guard n > 0 else { return 0 }
-            guard n > 16 else { return 16 }
-
-            var n = n - 1
-
-            n |= n >> 1
-            n |= n >> 2
-            n |= n >> 4
-            n |= n >> 8
-            n |= n >> 16
-            if Int.bitWidth == 64 {
-                n |= n >> 32
-            }
-
-            if n < Int.max {
-                n = n + 1
-            }
-
-            return n
-
-        }
-
-
-        @inlinable
-        func assertValidIndex(_ index: Int, file: StaticString = #file, line: UInt = #line) {
-            assert(index >= 0 && index < capacity, "Index out of bounds", file: file, line: line)
-        }
-
-        @inlinable
-        func assertValidRange(_ range: Range<Int>, file: StaticString = #file, line: UInt = #line) {
-            assert(range.lowerBound >= 0 && range.upperBound <= capacity, "Range out of bounds", file: file, line: line)
-        }
-
-        @inlinable
-        func assertValidCapacity(_ capacity: Int, file: StaticString = #file, line: UInt = #line) {
-            assert(capacity >= 0, "Capacity must be non-negative", file: file, line: line)
-        }
-
-    }
-
-}

@@ -292,7 +292,6 @@ package struct UnsafeUnownedMutablePointer<Pointee: ~Copyable>: ~Escapable {
 extension UnsafeUnownedMutablePointer {
     package var pointee: Pointee {
         get { unsafeRawPtr.pointee }
-        @_lifetime(copy self)
         nonmutating set { unsafeRawPtr.pointee = newValue }
     }
 }

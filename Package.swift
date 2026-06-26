@@ -1,4 +1,4 @@
-// swift-tools-version: 6.0
+// swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 import PackageDescription
@@ -16,6 +16,10 @@ let package = Package(
             name: "FileSystemCore",
             targets: ["FileSystemCore"]
         ),
+        .library(
+            name: "SwiftFileSystemFoundationCompat",
+            targets: ["SwiftFileSystemFoundationCompat"]
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-system.git", from: "1.6.0"),
@@ -59,6 +63,9 @@ let package = Package(
             ]
         ),
         .target(
+            name: "SwiftFileSystemFoundationCompat",
+            dependencies: ["SwiftFileSystem"]),
+        .target(
             name: "CFileSystem",
             publicHeadersPath: ""
         ),
@@ -68,7 +75,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FileSystemTests",
-            dependencies: ["SwiftFileSystem"]
+            dependencies: ["SwiftFileSystem", "SwiftFileSystemFoundationCompat"]
         ),
     ]
 )
