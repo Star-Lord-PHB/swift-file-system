@@ -37,7 +37,7 @@ package enum InternalPlatformAPI {
 
         #else 
 
-        switch identity.kind {
+        switch identity.platformKind {
 
             case .user: do {
 
@@ -112,120 +112,255 @@ package enum InternalPlatformAPI {
         #endif 
 
     }
-
-
-    #if canImport(WinSDK)
-    package static func identity(forAccountName name: String) throws(SystemError) -> PlatformIdentity? {
+    
+    
+    package static func identity(
+        forAccountName name: String,
+        resolvePreference: PlatformIdentity.AccountNameResolvePreference = .preferUser
+    ) throws(SystemError) -> PlatformIdentity? {
+        
+        #if canImport(WinSDK)
         
         var sidSize = 0 as DWORD
         var domainSize = 0 as DWORD
         var use = SID_NAME_USE(0)
-
-        name.withCString(encodedAs: UTF16.self) { namePtr in 
+        
+        name.withCString(encodedAs: UTF16.self) { namePtr in
             _ = LookupAccountNameW(nil, namePtr, nil, &sidSize, nil, &domainSize, &use)
         }
         let error = GetLastError()
         guard error == ERROR_INSUFFICIENT_BUFFER else {
-            if error == ERROR_NONE_MAPPED { return nil }
+            if error == ERROR_NONE_MAPPED { return .none }
             throw SystemError(code: error) ?? .init(code: .extended(.unknown))!
         }
-
+        
         let sidBuffer = UnsafeMutableRawPointer.allocate(byteCount: Int(sidSize), alignment: MemoryLayout<UInt8>.alignment)
         let domainBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(domainSize))
         defer {
             domainBuffer.deallocate()
         }
-
+        
         do {
             try execThrowingCFunction {
-                name.withCString(encodedAs: UTF16.self) { namePtr in 
+                name.withCString(encodedAs: UTF16.self) { namePtr in
                     LookupAccountNameW(nil, namePtr, sidBuffer, &sidSize, domainBuffer, &domainSize, &use)
                 }
             }
         } catch let error where error.code.rawValue == DWORD(ERROR_NONE_MAPPED) {
             sidBuffer.deallocate()
-            return nil
+            return .none
         } catch {
             sidBuffer.deallocate()
             throw error
         }
-
-        return .init(rawId: .init(unsafeOwningPSid: sidBuffer, freeingFunc: { $0.deallocate() }))
-
-    }
-    #else 
-    package static func identity(forAccountName name: String, kind: PlatformIdentity.Kind) throws(SystemError) -> PlatformIdentity? {
-
-        switch kind {
-
-            case .user: do {
-
-                var pwd = passwd()
-                var size = sysconf(Int32(_SC_GETPW_R_SIZE_MAX))
-                if size <= 0 { size = 1024 }
-
-                var buffer = UnsafeMutablePointer<CChar>.allocate(capacity: size)
-                defer { buffer.deallocate() }
-                var result = nil as UnsafeMutablePointer<passwd>?
-
-                while true {
-
-                    let error = getpwnam_r(name, &pwd, buffer, size, &result)
-
-                    if error == 0 { break }
-                    if error == ERANGE {
-                        size *= 2
-                        buffer.deallocate()
-                        buffer = .allocate(capacity: size)
-                        continue
-                    }
-
-                    throw SystemError(code: error)!
-
+        
+        return .some(.init(
+            rawId: .init(unsafeOwningPSid: sidBuffer, freeingFunc: { $0.deallocate() }),
+            platformKind: .init(rawValue: use)
+        ))
+        
+        #else
+        
+        func queryUserIdentity(_ name: String) throws(SystemError) -> PlatformIdentity? {
+            
+            var pwd = passwd()
+            var size = sysconf(Int32(_SC_GETPW_R_SIZE_MAX))
+            if size <= 0 { size = 1024 }
+            
+            var buffer = UnsafeMutablePointer<CChar>.allocate(capacity: size)
+            defer { buffer.deallocate() }
+            var result = nil as UnsafeMutablePointer<passwd>?
+            
+            while true {
+                
+                let error = getpwnam_r(name, &pwd, buffer, size, &result)
+                
+                if error == 0 { break }
+                if error == ERANGE {
+                    size *= 2
+                    buffer.deallocate()
+                    buffer = .allocate(capacity: size)
+                    continue
                 }
-
-                guard result != nil else { return nil }
-
-                return PlatformIdentity(rawId: pwd.pw_uid, kind: .user)
-
+                
+                throw SystemError(code: error)!
+                
             }
-
-            case .group: do {
-
-                var grp = group()
-                var size = sysconf(Int32(_SC_GETGR_R_SIZE_MAX))
-                if size <= 0 { size = 1024 }
-
-                var buffer = UnsafeMutablePointer<CChar>.allocate(capacity: size)
-                defer { buffer.deallocate() }
-                var result = nil as UnsafeMutablePointer<group>?
-
-                while true {
-
-                    let error = getgrnam_r(name, &grp, buffer, size, &result)
-
-                    if error == 0 { break }
-                    if error == ERANGE {
-                        size *= 2
-                        buffer.deallocate()
-                        buffer = .allocate(capacity: size)
-                        continue
-                    }
-
-                    throw SystemError(code: error)!
-
-                }
-
-                guard result != nil else { return nil }
-
-                return PlatformIdentity(rawId: grp.gr_gid, kind: .group)
-
-            }
-
+            
+            guard result != nil else { return nil }
+            
+            return PlatformIdentity(rawId: pwd.pw_uid, platformKind: .user)
+            
         }
-
+        
+        func queryGroupIdentity(_ name: String) throws(SystemError) -> PlatformIdentity? {
+            
+            var grp = group()
+            var size = sysconf(Int32(_SC_GETGR_R_SIZE_MAX))
+            if size <= 0 { size = 1024 }
+            
+            var buffer = UnsafeMutablePointer<CChar>.allocate(capacity: size)
+            defer { buffer.deallocate() }
+            var result = nil as UnsafeMutablePointer<group>?
+            
+            while true {
+                
+                let error = getgrnam_r(name, &grp, buffer, size, &result)
+                
+                if error == 0 { break }
+                if error == ERANGE {
+                    size *= 2
+                    buffer.deallocate()
+                    buffer = .allocate(capacity: size)
+                    continue
+                }
+                
+                throw SystemError(code: error)!
+                
+            }
+            
+            guard result != nil else { return nil }
+            
+            return PlatformIdentity(rawId: grp.gr_gid, platformKind: .group)
+            
+        }
+        
+        switch resolvePreference {
+            case .preferUser:
+                if let id = try queryUserIdentity(name) {
+                    return id
+                } else if let id = try queryGroupIdentity(name) {
+                    return id
+                } else {
+                    return nil
+                }
+            case .preferGroup:
+                if let id = try queryGroupIdentity(name) {
+                    return id
+                } else if let id = try queryUserIdentity(name) {
+                    return id
+                } else {
+                    return nil
+                }
+        }
+        
+        #endif
+        
     }
-    #endif 
+
+
+//    #if canImport(WinSDK)
+//    package static func identity(forAccountName name: String) throws(SystemError) -> PlatformIdentity? {
+//        
+//        var sidSize = 0 as DWORD
+//        var domainSize = 0 as DWORD
+//        var use = SID_NAME_USE(0)
+//
+//        name.withCString(encodedAs: UTF16.self) { namePtr in 
+//            _ = LookupAccountNameW(nil, namePtr, nil, &sidSize, nil, &domainSize, &use)
+//        }
+//        let error = GetLastError()
+//        guard error == ERROR_INSUFFICIENT_BUFFER else {
+//            if error == ERROR_NONE_MAPPED { return nil }
+//            throw SystemError(code: error) ?? .init(code: .extended(.unknown))!
+//        }
+//
+//        let sidBuffer = UnsafeMutableRawPointer.allocate(byteCount: Int(sidSize), alignment: MemoryLayout<UInt8>.alignment)
+//        let domainBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(domainSize))
+//        defer {
+//            domainBuffer.deallocate()
+//        }
+//
+//        do {
+//            try execThrowingCFunction {
+//                name.withCString(encodedAs: UTF16.self) { namePtr in 
+//                    LookupAccountNameW(nil, namePtr, sidBuffer, &sidSize, domainBuffer, &domainSize, &use)
+//                }
+//            }
+//        } catch let error where error.code.rawValue == DWORD(ERROR_NONE_MAPPED) {
+//            sidBuffer.deallocate()
+//            return nil
+//        } catch {
+//            sidBuffer.deallocate()
+//            throw error
+//        }
+//
+//        return .init(rawId: .init(unsafeOwningPSid: sidBuffer, freeingFunc: { $0.deallocate() }))
+//
+//    }
+//    #else 
+//    package static func identity(forAccountName name: String, kind: PlatformIdentity.Kind) throws(SystemError) -> PlatformIdentity? {
+//
+//        switch kind {
+//
+//            case .user: do {
+//
+//                var pwd = passwd()
+//                var size = sysconf(Int32(_SC_GETPW_R_SIZE_MAX))
+//                if size <= 0 { size = 1024 }
+//
+//                var buffer = UnsafeMutablePointer<CChar>.allocate(capacity: size)
+//                defer { buffer.deallocate() }
+//                var result = nil as UnsafeMutablePointer<passwd>?
+//
+//                while true {
+//
+//                    let error = getpwnam_r(name, &pwd, buffer, size, &result)
+//
+//                    if error == 0 { break }
+//                    if error == ERANGE {
+//                        size *= 2
+//                        buffer.deallocate()
+//                        buffer = .allocate(capacity: size)
+//                        continue
+//                    }
+//
+//                    throw SystemError(code: error)!
+//
+//                }
+//
+//                guard result != nil else { return nil }
+//
+//                return PlatformIdentity(rawId: pwd.pw_uid, kind: .user)
+//
+//            }
+//
+//            case .group: do {
+//
+//                var grp = group()
+//                var size = sysconf(Int32(_SC_GETGR_R_SIZE_MAX))
+//                if size <= 0 { size = 1024 }
+//
+//                var buffer = UnsafeMutablePointer<CChar>.allocate(capacity: size)
+//                defer { buffer.deallocate() }
+//                var result = nil as UnsafeMutablePointer<group>?
+//
+//                while true {
+//
+//                    let error = getgrnam_r(name, &grp, buffer, size, &result)
+//
+//                    if error == 0 { break }
+//                    if error == ERANGE {
+//                        size *= 2
+//                        buffer.deallocate()
+//                        buffer = .allocate(capacity: size)
+//                        continue
+//                    }
+//
+//                    throw SystemError(code: error)!
+//
+//                }
+//
+//                guard result != nil else { return nil }
+//
+//                return PlatformIdentity(rawId: grp.gr_gid, kind: .group)
+//
+//            }
+//
+//        }
+//
+//    }
+//    #endif 
 
 
     package static func currentIdentity() throws(SystemError) -> PlatformIdentity {
@@ -240,12 +375,12 @@ package enum InternalPlatformAPI {
         let copiedSidBuffer = UnsafeMutableRawPointer.allocate(byteCount: Int(sidSize), alignment: MemoryLayout<SID>.alignment)
         copiedSidBuffer.copyMemory(from: tokenUserPtr.pointee.User.Sid, byteCount: Int(sidSize))
 
-        return .init(rawId: .init(unsafeOwningPSid: copiedSidBuffer, freeingFunc: { $0.deallocate() }))
+        return .init(rawId: .init(unsafeOwningPSid: copiedSidBuffer, freeingFunc: { $0.deallocate() }), platformKind: .user)
 
         #else 
 
         let uid = getuid()
-        return PlatformIdentity(rawId: uid, kind: .user)
+        return PlatformIdentity(rawId: uid, platformKind: .user)
 
         #endif
     

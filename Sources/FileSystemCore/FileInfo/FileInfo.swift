@@ -84,8 +84,8 @@ extension FileInfo {
         #endif
 
         self.permissions = .init(rawValue: stat.st_mode & 0o7777)
-        self.owner = .init(rawId: stat.st_uid, kind: .user)
-        self.group = .init(rawId: stat.st_gid, kind: .group)
+        self.owner = .init(rawId: stat.st_uid, platformKind: .user)
+        self.group = .init(rawId: stat.st_gid, platformKind: .group)
     }
     #endif
 

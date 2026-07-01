@@ -17,21 +17,16 @@ extension PlatformAPI {
             try InternalPlatformAPI.accountName(for: identity)
         }
     }
-
-
-    #if canImport(WinSDK)
-    public func identity(forAccountName name: String) throws(PlatformError) -> PlatformIdentity? {
+    
+    
+    public func identity(
+        forAccountName name: String,
+        resolvePreference: PlatformIdentity.AccountNameResolvePreference = .preferUser
+    ) throws(PlatformError) -> PlatformIdentity? {
         return try catchSystemError(operation: .queryIdentityfromName) { () throws(SystemError) in
-            try InternalPlatformAPI.identity(forAccountName: name)
+            try InternalPlatformAPI.identity(forAccountName: name, resolvePreference: resolvePreference)
         }
     }
-    #else 
-    public func identity(forAccountName name: String, kind: PlatformIdentity.Kind) throws(PlatformError) -> PlatformIdentity? {
-        return try catchSystemError(operation: .queryIdentityfromName) { () throws(SystemError) in
-            try InternalPlatformAPI.identity(forAccountName: name, kind: kind)
-        }
-    }
-    #endif 
 
 
     public func currentIdentity() throws(PlatformError) -> PlatformIdentity {

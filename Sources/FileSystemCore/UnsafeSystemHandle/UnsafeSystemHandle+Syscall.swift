@@ -407,8 +407,8 @@ extension UnsafeSystemHandle {
 
         if owner == nil && group == nil { return }
 
-        precondition(owner?.kind != .group, "owner identity must be of user kind")
-        precondition(group?.kind != .user, "group identity must be of group kind")
+        precondition(owner?.platformKind != .group, "owner identity must be of user kind")
+        precondition(group?.platformKind != .user, "group identity must be of group kind")
 
         try execThrowingCFunction {
             PlatformCLib.fchown(unsafeRawHandle, owner?.rawId ?? .init(bitPattern: -1), group?.rawId ?? .init(bitPattern: -1))
