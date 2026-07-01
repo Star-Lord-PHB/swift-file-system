@@ -1,11 +1,13 @@
 #if canImport(WinSDK)
 
 import PlatformCLib
+import struct SystemPackage.FilePermissions
+import struct SystemPackage.CModeT
 
 
 public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
-    fileprivate(set) var psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
+    package fileprivate(set) var psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
     fileprivate(set) var _dacl: WindowsRawAcl?
     fileprivate(set) var _sacl: WindowsRawAcl?
     fileprivate(set) var _owner: WindowsSid?
@@ -62,74 +64,6 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         
     }
 
-    package init(converting selfRelativeSd: borrowing WindowsSelfRelativeSecurityDescriptor) throws(SystemError) {
-
-        var psd = nil as UnsafeMutablePointer<SECURITY_DESCRIPTOR>?
-        var pdacl = nil as UnsafeMutablePointer<ACL>?
-        var psacl = nil as UnsafeMutablePointer<ACL>?
-        var owner = nil as UnsafeMutablePointer<SID>?
-        var group = nil as UnsafeMutablePointer<SID>?
-
-        var sdSize = 0 as DWORD
-        var daclSize = 0 as DWORD
-        var saclSize = 0 as DWORD
-        var ownerSize = 0 as DWORD
-        var groupSize = 0 as DWORD
-
-        precondition(
-            MakeAbsoluteSD(
-                selfRelativeSd.psd.unsafelyCastedMutableRawPtr, 
-                psd, &sdSize, 
-                pdacl, &daclSize, 
-                psacl, &saclSize, 
-                owner, &ownerSize, 
-                group, &groupSize
-            ) == false,
-            "MakeAbsoluteSD should fail due to insufficient buffer for the first call"
-        )
-
-        let errorCode = GetLastError()
-        guard errorCode == ERROR_INSUFFICIENT_BUFFER else {
-            throw SystemError(code: errorCode)!
-        }
-
-        psd = UnsafeMutablePointer<SECURITY_DESCRIPTOR>.allocate(capacity: Int(sdSize))
-
-        if daclSize > 0 {
-            pdacl = UnsafeMutablePointer<ACL>.allocate(capacity: Int(daclSize))
-        }
-
-        if saclSize > 0 {
-            psacl = UnsafeMutablePointer<ACL>.allocate(capacity: Int(saclSize))
-        }
-
-        if ownerSize > 0 {
-            owner = UnsafeMutablePointer<SID>.allocate(capacity: Int(ownerSize))
-        }
-
-        if groupSize > 0 {
-            group = UnsafeMutablePointer<SID>.allocate(capacity: Int(groupSize))
-        }
-
-        try execThrowingCFunction {
-            MakeAbsoluteSD(
-                selfRelativeSd.psd.unsafelyCastedMutableRawPtr, 
-                psd!, &sdSize, 
-                pdacl, &daclSize, psacl, &saclSize, 
-                owner, &ownerSize, group, &groupSize
-            )
-        }
-
-        self.init(
-            psd: .init(owningPointer: psd!, allocator: .swift), 
-            dacl: pdacl.map { .init(pacl: .init(owningPointer: $0, allocator: .swift)) }, 
-            sacl: psacl.map { .init(pacl: .init(owningPointer: $0, allocator: .swift)) }, 
-            owner: owner.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) }, 
-            group: group.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) }
-        )
-
-    }
-
     public init(
         unsafeOwningSdPtr: PSECURITY_DESCRIPTOR, 
         allocator: WindowsMemoryAllocatorType,
@@ -159,13 +93,12 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     public func makeSelfRelative() -> WindowsSelfRelativeSecurityDescriptor {
         do {
-            let selfRelativeSd = try WindowsAPI.makeSelfRelativeSecurityDescriptor(from: psd.unownedView().immutableCast())
-            return .init(psd: selfRelativeSd)
+            return try .init(converting: self)
         } catch {
             fatalError(
                 """
                 Unexpected failure when converting WindowsAbsoluteSecurityDescriptor to\
-                WindowsSelfRelativeSecurityDescriptor: \(error.code.description). This should not happen since the\
+                WindowsSelfRelativeSecurityDescriptor: \(error). This should not happen since the\
                 descriptor should have been validated. It can be a severe memory corruption issue (e.g.: the\
                 pointer used to initialize this type is unexpectedly mutated by some other owner) or a bug in\
                 the implementation.
@@ -235,10 +168,7 @@ extension WindowsAbsoluteSecurityDescriptor {
 
     public var control: WindowsSecurityDescriptorControl {
         get {
-            var revision = 0 as DWORD
-            var control = 0 as SECURITY_DESCRIPTOR_CONTROL
-            GetSecurityDescriptorControl(psd.unsafeRawPtr, &control, &revision)
-            return .init(unsafeRawValue: control)
+            return .make(unsafeExtractingFromPSD: psd.unownedView().immutableCast()).control
         }
         set {
             SetSecurityDescriptorControl(psd.unsafeRawPtr, .init(bitPattern: -1), newValue.rawValue)
@@ -305,6 +235,139 @@ extension WindowsAbsoluteSecurityDescriptor {
 
     public mutating func takeSacl() -> WindowsRawAcl? {
         return self.sacl.take()
+    }
+
+}
+
+
+
+extension WindowsAbsoluteSecurityDescriptor {
+
+    package init(converting selfRelativeSd: borrowing WindowsSelfRelativeSecurityDescriptor) throws(SystemError) {
+        try self.init(converting: selfRelativeSd.psd.unownedView())
+    }
+
+
+    package init(converting selfRelativeSdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) {
+        
+        var psd = nil as UnsafeMutablePointer<SECURITY_DESCRIPTOR>?
+        var pdacl = nil as UnsafeMutablePointer<ACL>?
+        var psacl = nil as UnsafeMutablePointer<ACL>?
+        var owner = nil as UnsafeMutablePointer<SID>?
+        var group = nil as UnsafeMutablePointer<SID>?
+
+        var sdSize = 0 as DWORD
+        var daclSize = 0 as DWORD
+        var saclSize = 0 as DWORD
+        var ownerSize = 0 as DWORD
+        var groupSize = 0 as DWORD
+
+        precondition(
+            MakeAbsoluteSD(
+                selfRelativeSdPtr.unsafelyCastedMutableRawPtr, 
+                psd, &sdSize, 
+                pdacl, &daclSize, 
+                psacl, &saclSize, 
+                owner, &ownerSize, 
+                group, &groupSize
+            ) == false,
+            "MakeAbsoluteSD should fail due to insufficient buffer for the first call"
+        )
+
+        let errorCode = GetLastError()
+        guard errorCode == ERROR_INSUFFICIENT_BUFFER else {
+            throw SystemError(code: errorCode)!
+        }
+
+        psd = UnsafeMutablePointer<SECURITY_DESCRIPTOR>.allocate(capacity: Int(sdSize))
+
+        if daclSize > 0 {
+            pdacl = UnsafeMutablePointer<ACL>.allocate(capacity: Int(daclSize))
+        }
+
+        if saclSize > 0 {
+            psacl = UnsafeMutablePointer<ACL>.allocate(capacity: Int(saclSize))
+        }
+
+        if ownerSize > 0 {
+            owner = UnsafeMutablePointer<SID>.allocate(capacity: Int(ownerSize))
+        }
+
+        if groupSize > 0 {
+            group = UnsafeMutablePointer<SID>.allocate(capacity: Int(groupSize))
+        }
+
+        try execThrowingCFunction {
+            MakeAbsoluteSD(
+                selfRelativeSdPtr.unsafelyCastedMutableRawPtr, 
+                psd!, &sdSize, 
+                pdacl, &daclSize, psacl, &saclSize, 
+                owner, &ownerSize, group, &groupSize
+            )
+        }
+
+        self.init(
+            psd: .init(owningPointer: psd!, allocator: .swift), 
+            dacl: pdacl.map { .init(pacl: .init(owningPointer: $0, allocator: .swift)) }, 
+            sacl: psacl.map { .init(pacl: .init(owningPointer: $0, allocator: .swift)) }, 
+            owner: owner.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) }, 
+            group: group.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) }
+        )
+
+    }
+
+
+    package static func makeForCurrentUser(fromPosixPermissions posixPermissions: FilePermissions, forDir: Bool = false) throws(SystemError) -> Self {
+
+        let processToken = try WindowsProcessToken.current()
+
+        let tokenUserPtr = try processToken.getUser()
+        let userSidPtr = tokenUserPtr.pointee.User.Sid
+
+        let groupSidPtr = try processToken.getPrimaryGroups()
+        let primaryGroupSid = groupSidPtr.pointee.PrimaryGroup
+
+        let userSidLength = GetLengthSid(userSidPtr)
+        let userSidBuffer = UnsafeOwnedRawAutoPointer.swiftAllocate(byteCount: Int(userSidLength), alignment: MemoryLayout<WCHAR>.alignment)
+        try execThrowingCFunction {
+            CopySid(userSidLength, userSidBuffer.unsafelyCastedMutableRawPtr, userSidPtr)
+        }
+
+        let groupSidLength = GetLengthSid(primaryGroupSid)
+        let groupSidBuffer = UnsafeOwnedRawAutoPointer.swiftAllocate(byteCount: Int(groupSidLength), alignment: MemoryLayout<WCHAR>.alignment)
+        try execThrowingCFunction {
+            CopySid(groupSidLength, groupSidBuffer.unsafelyCastedMutableRawPtr, primaryGroupSid)
+        }
+
+        let dacl = try WindowsRawAcl(
+            fromPosixPermissions: posixPermissions, 
+            ownerSidPtr: userSidPtr != nil ? .init(unownedResource: userSidPtr!) : nil,
+            groupSidPtr: primaryGroupSid != nil ? .init(unownedResource: primaryGroupSid!) : nil,
+            forDir: forDir
+        )
+
+        let securityDescriptorPtr = UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>.swiftAllocate(capacity: 1)
+        try execThrowingCFunction {
+            InitializeSecurityDescriptor(securityDescriptorPtr.unsafelyCastedMutableRawPtr, DWORD(SECURITY_DESCRIPTOR_REVISION))
+        }
+        try execThrowingCFunction {
+            SetSecurityDescriptorOwner(securityDescriptorPtr.unsafelyCastedMutableRawPtr, userSidBuffer.unsafelyCastedMutableRawPtr, false)
+        }
+        try execThrowingCFunction {
+            SetSecurityDescriptorGroup(securityDescriptorPtr.unsafelyCastedMutableRawPtr, groupSidBuffer.unsafelyCastedMutableRawPtr, false)
+        }
+        try execThrowingCFunction {
+            SetSecurityDescriptorDacl(securityDescriptorPtr.unsafelyCastedMutableRawPtr, true, dacl.pacl.unsafelyCastedMutableRawPtr, false)
+        }
+
+        return .init(
+            psd: securityDescriptorPtr, 
+            dacl: dacl, 
+            sacl: nil, 
+            owner: .init(psid: .init(owningResource: userSidBuffer)), 
+            group: .init(psid: .init(owningResource: groupSidBuffer))
+        )
+
     }
 
 }

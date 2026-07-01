@@ -1,6 +1,8 @@
 #if canImport(WinSDK)
 
 import PlatformCLib
+import struct SystemPackage.FilePermissions
+import struct SystemPackage.CModeT
 
 
 
@@ -31,18 +33,7 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
     }
 
     public func fullyParsedDescriptor() -> WindowsSecurityDescriptor {
-        do {
-            return try .init(unsafeFromSecurityDescriptorPtr: psd.unownedView())
-        } catch {
-            fatalError(
-                """
-                Unexpected failure when parsing WindowsSelfRelativeSecurityDescriptor: \(error.code.description).\
-                This should not happen since the descriptor should have been validated. It can be a severe memory\
-                corruption issue (e.g.: the pointer used to initialize this type is unexpectedly mutated by some\
-                other owner) or a bug in the implementation.
-                """
-            )
-        }
+        return .init(unsafeFromSecurityDescriptorPtr: psd.unownedView())
     }
 
     public func makeAbsolute() -> WindowsAbsoluteSecurityDescriptor {
@@ -67,27 +58,58 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
 
 extension WindowsSelfRelativeSecurityDescriptor {
 
-    public var dacl: WindowsRawAclView? {
-        .init(psd: psd.unownedView(), type: .dacl)
+    public var dacl: WindowsRawAclSnapshotView? {
+        .init(unsafeExtractingFromPSD: psd.unownedView(), type: .dacl)
     }
 
-    public var sacl: WindowsRawAclView? {
-        .init(psd: psd.unownedView(), type: .sacl)
+    public var sacl: WindowsRawAclSnapshotView? {
+        .init(unsafeExtractingFromPSD: psd.unownedView(), type: .sacl)
     }
 
     public var control: (control: WindowsSecurityDescriptorControl, revision: DWORD) {
-        let (control, revision) = try! WindowsAPI.getControl(from: psd.unownedView())
-        return (.init(unsafeRawValue: control), revision)
+        return WindowsSecurityDescriptorControl.make(unsafeExtractingFromPSD: psd.unownedView())
     }
 
-    public var owner: (sid: WindowsSid.View, defauted: Bool) {
-        let (ownerSidPtr, defaulted) = try! WindowsAPI.getOwnerSid(from: psd.unownedView())
-        return (.init(psid: ownerSidPtr), defaulted)
+    public var owner: (sid: WindowsSid.View, defaulted: Bool) {
+        return WindowsSid.View.make(unsafeExtractingOwnerFromPSD: psd.unownedView())
     }
 
-    public var group: (sid: WindowsSid.View, defauted: Bool) {
-        let (groupSidPtr, defaulted) = try! WindowsAPI.getGroupSid(from: psd.unownedView())
-        return (.init(psid: groupSidPtr), defaulted)
+    public var group: (sid: WindowsSid.View, defaulted: Bool) {
+        return WindowsSid.View.make(unsafeExtractingGroupFromPSD: psd.unownedView())
+    }
+
+}
+
+
+
+extension WindowsSelfRelativeSecurityDescriptor {
+
+    package init(converting absoluteDescriptor: borrowing WindowsAbsoluteSecurityDescriptor) throws(SystemError) {
+        try self.init(converting: absoluteDescriptor.psd.unownedView().immutableCast())
+    }
+
+
+    package init(converting absoluteDescriptor: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) {
+
+        var selfRelativeSDSize = 0 as DWORD
+        guard 
+            MakeSelfRelativeSD(absoluteDescriptor.unsafelyCastedMutableRawPtr, nil, &selfRelativeSDSize) == false, 
+            GetLastError() == ERROR_INSUFFICIENT_BUFFER 
+        else {
+            try SystemError.assertError()
+        }
+
+        let selfRelativeSDPtr = UnsafeOwnedRawAutoPointer.swiftAllocate(
+            byteCount: Int(selfRelativeSDSize), 
+            alignment: MemoryLayout<SECURITY_DESCRIPTOR>.alignment
+        ).assumingMemoryBound(to: SECURITY_DESCRIPTOR.self)
+
+        try execThrowingCFunction {
+            MakeSelfRelativeSD(absoluteDescriptor.unsafelyCastedMutableRawPtr, selfRelativeSDPtr.unsafelyCastedMutableRawPtr, &selfRelativeSDSize)
+        }
+
+        self.init(psd: selfRelativeSDPtr)
+
     }
 
 }

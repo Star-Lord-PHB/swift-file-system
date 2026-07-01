@@ -6,8 +6,6 @@ import PlatformCLib
 
 public struct WindowsSid: @unchecked Sendable {
 
-    // TODO: switch to raw pointer implementation to avoid reference counting overhead
-
     private class Storage {
         var psid: UnsafeOwnedAutoResource
         init(psid: consuming UnsafeOwnedAutoResource) {
@@ -33,11 +31,11 @@ public struct WindowsSid: @unchecked Sendable {
 
     package init(psid: consuming UnsafeOwnedAutoResource) {
         self.storage = .init(psid: psid)
-        precondition(self.isValid(), "Invalid SID pointer")
+        precondition(IsValidSid(storage.psid.unsafeResourcePtr), "Invalid SID pointer")
     }
 
     public init?(string: String) {
-        guard let sidPtr = try? WindowsAPI.stringToPsid(sidStr: string) else {
+        guard let sidPtr = try? Self.psid(fromString: string) else {
             return nil
         }
         self.init(psid: sidPtr)
@@ -48,22 +46,12 @@ public struct WindowsSid: @unchecked Sendable {
     }
 
     public var string: String {
-        return try! WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView())
-    }
-
-    fileprivate func isValid() -> Bool {
-        return IsValidSid(storage.psid.unsafeResourcePtr)
-    }
-
-    public func checkedString() -> Result<String, SystemError> {
-        return .init { () throws(SystemError) in
-            try WindowsAPI.pSidToString(sidPtr: storage.psid.unownedView()) 
-        }
+        return try! Self.string(fromPSid: storage.psid)
     }
 
     public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
         let result = try body(storage.psid.unsafeResourcePtr)
-        precondition(self.isValid(), "SID pointer corrupted")
+        precondition(IsValidSid(storage.psid.unsafeResourcePtr), "SID pointer corrupted")
         return result
     }
 
@@ -75,26 +63,16 @@ public struct WindowsSid: @unchecked Sendable {
         @_lifetime(copy psid)
         init(psid: UnsafeUnownedResource) {
             self.psid = psid
-            precondition(isValid(), "Invalid SID pointer")
+            precondition(IsValidSid(psid.unsafeResourcePtr), "Invalid SID pointer")
         }
 
         public var string: String {
-            return try! WindowsAPI.pSidToString(sidPtr: psid)
-        }
-
-        fileprivate func isValid() -> Bool {
-            return IsValidSid(psid.unsafeResourcePtr)
-        }
-
-        public func checkedString() -> Result<String, SystemError> {
-            return .init { () throws(SystemError) in
-                try WindowsAPI.pSidToString(sidPtr: psid)
-            }
+            return try! WindowsSid.string(fromPSid: psid)
         }
 
         public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
             let result = try body(psid.unsafeResourcePtr)
-            precondition(isValid(), "SID pointer corrupted")
+            precondition(IsValidSid(psid.unsafeResourcePtr), "SID pointer corrupted")
             return result
         }
 
@@ -106,12 +84,12 @@ public struct WindowsSid: @unchecked Sendable {
 extension WindowsSid: Equatable, Hashable {
 
     public static func == (lhs: WindowsSid, rhs: WindowsSid) -> Bool {
-        return WindowsAPI.equalSid(sid1: lhs.psid, sid2: rhs.psid)
+        return EqualSid(lhs.psid.unsafeResourcePtr, rhs.psid.unsafeResourcePtr)
     }
 
 
     public func hash(into hasher: inout Hasher) {
-        let length = WindowsAPI.getSidLength(sidPtr: psid)
+        let length = GetLengthSid(psid.unsafeResourcePtr)
         let bufferPtr = UnsafeRawBufferPointer(start: psid.unsafeResourcePtr, count: Int(length))
         hasher.combine(bytes: bufferPtr)
     }
@@ -123,12 +101,12 @@ extension WindowsSid: Equatable, Hashable {
 extension WindowsSid.View {
 
     public static func == (lhs: Self, rhs: Self) -> Bool {
-        return WindowsAPI.equalSid(sid1: lhs.psid, sid2: rhs.psid)
+        return EqualSid(lhs.psid.unsafeResourcePtr, rhs.psid.unsafeResourcePtr)
     }
 
 
     public func hash(into hasher: inout Hasher) {
-        let length = WindowsAPI.getSidLength(sidPtr: psid)
+        let length = GetLengthSid(psid.unsafeResourcePtr)
         let bufferPtr = UnsafeRawBufferPointer(start: psid.unsafeResourcePtr, count: Int(length))
         hasher.combine(bytes: bufferPtr)
     }
@@ -147,18 +125,128 @@ extension WindowsSid: CustomStringConvertible {
 
 extension WindowsSid {
 
-    public static var everyone: WindowsSid              { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinWorldSid)) }
-    public static var administrators: WindowsSid        { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinBuiltinAdministratorsSid)) }
-    public static var system: WindowsSid                { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinLocalSystemSid)) }
-    public static var authenticatedUsers: WindowsSid    { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinAuthenticatedUserSid)) }
-    public static var users: WindowsSid                 { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinBuiltinUsersSid)) }
-    public static var localService: WindowsSid          { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinLocalServiceSid)) }
-    public static var networkService: WindowsSid        { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinNetworkServiceSid)) }
-    public static var annonymous: WindowsSid            { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinAnonymousSid)) }
+    public static var everyone: WindowsSid              { try! createWellKnownSid(type: WinWorldSid) }
+    public static var administrators: WindowsSid        { try! createWellKnownSid(type: WinBuiltinAdministratorsSid) }
+    public static var system: WindowsSid                { try! createWellKnownSid(type: WinLocalSystemSid) }
+    public static var authenticatedUsers: WindowsSid    { try! createWellKnownSid(type: WinAuthenticatedUserSid) }
+    public static var users: WindowsSid                 { try! createWellKnownSid(type: WinBuiltinUsersSid) }
+    public static var localService: WindowsSid          { try! createWellKnownSid(type: WinLocalServiceSid) }
+    public static var networkService: WindowsSid        { try! createWellKnownSid(type: WinNetworkServiceSid) }
+    public static var annonymous: WindowsSid            { try! createWellKnownSid(type: WinAnonymousSid) }
 
-    public static var creatorOwner: WindowsSid          { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinCreatorOwnerSid)) }
-    public static var creatorGroup: WindowsSid          { .init(psid: try! WindowsAPI.createWellKnownSid(type: WinCreatorGroupSid)) }
+    public static var creatorOwner: WindowsSid          { try! createWellKnownSid(type: WinCreatorOwnerSid) }
+    public static var creatorGroup: WindowsSid          { try! createWellKnownSid(type: WinCreatorGroupSid) }
+
+
+    package static func createWellKnownSid(type: WELL_KNOWN_SID_TYPE, domainSid: UnsafeUnownedResource? = nil) throws(SystemError) -> Self {
+
+        // 256 bytes should be enough for any well-known SID
+        var buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: 256, alignment: MemoryLayout<UInt8>.alignment)
+        var size = DWORD(buffer.count)
+        do {
+            try execThrowingCFunction {
+                CreateWellKnownSid(type, domainSid?.unsafeResourcePtr, buffer.baseAddress!, &size)
+            }
+            return .init(psid: .init(owningResource: buffer.baseAddress!, freeingFunc: { $0.deallocate() }))
+        } catch let error where error.code == .system(.insufficientBuffer) {
+            // ignore this error and retry
+        }
+
+        buffer.deallocate()
+        buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: Int(size), alignment: MemoryLayout<UInt8>.alignment)
+        try execThrowingCFunction {
+            CreateWellKnownSid(type, domainSid?.unsafeResourcePtr, buffer.baseAddress!, &size)
+        }
+        return .init(psid: .init(owningResource: buffer.baseAddress!, freeingFunc: { $0.deallocate() }))
+
+    }
 
 }
+
+
+
+extension WindowsSid {
+
+    package static func string(fromPSid sidPtr: UnsafeUnownedResource) throws(SystemError) -> String {
+
+        var sidStrPtr = nil as LPWSTR?
+        try execThrowingCFunction {
+            ConvertSidToStringSidW(sidPtr.unsafeResourcePtr, &sidStrPtr)
+        }
+        guard let sidStrPtr else {
+            try SystemError.assertError()
+        }
+        defer { LocalFree(sidStrPtr) }
+
+        return String(decodingCString: sidStrPtr, as: UTF16.self)
+
+    }
+
+
+    package static func string(fromPSid sidPtr: borrowing UnsafeOwnedAutoResource) throws(SystemError) -> String {
+        return try string(fromPSid: sidPtr.unownedView())
+    }
+
+
+    package static func psid(fromString sidStr: String) throws(SystemError) -> UnsafeOwnedAutoResource {
+
+        var sidPtr = nil as PSID?
+        try execThrowingCFunction {
+            sidStr.withCString(encodedAs: UTF16.self) { sidStrPtr in 
+                ConvertStringSidToSidW(sidStrPtr, &sidPtr)
+            }
+        }
+
+        guard let sidPtr else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningResource: sidPtr, freeingFunc: { LocalFree($0) })
+
+    }
+
+}
+
+
+
+extension WindowsSid.View {
+
+    @_lifetime(copy psd)
+    package static func make(
+        unsafeExtractingOwnerFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>
+    ) -> (sid: Self, defaulted: Bool) {
+        
+        var ownerSidPtr = nil as PSID?
+        var ownerDefaulted = false as WindowsBool
+        GetSecurityDescriptorOwner(psd.unsafelyCastedMutableRawPtr, &ownerSidPtr, &ownerDefaulted)
+
+        guard let ownerSidPtr else {
+            fatalError("Failed to get owner SID from SECURITY_DESCRIPTOR")
+        }
+        
+        return (.init(psid: .init(unownedResource: ownerSidPtr)), ownerDefaulted.boolValue)
+
+    }
+
+
+    @_lifetime(copy psd)
+    package static func make(
+        unsafeExtractingGroupFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>
+    ) -> (sid: Self, defaulted: Bool) {
+        
+        var groupSidPtr = nil as PSID?
+        var groupDefaulted = false as WindowsBool
+        GetSecurityDescriptorGroup(psd.unsafelyCastedMutableRawPtr, &groupSidPtr, &groupDefaulted)
+
+        guard let groupSidPtr else {
+            fatalError("Failed to get group SID from SECURITY_DESCRIPTOR")
+        }
+        
+        return (.init(psid: .init(unownedResource: groupSidPtr)), groupDefaulted.boolValue)
+
+    }
+
+}
+
 
 #endif

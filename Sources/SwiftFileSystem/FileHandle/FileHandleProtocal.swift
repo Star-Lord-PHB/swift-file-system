@@ -158,8 +158,8 @@ extension FileHandleProtocol where Self: ~Copyable {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             #if canImport(WinSDK)
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
-                let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
-                try sysHandle.setSecurityInfo(.dacl, dacl: .init(pacl: daclPtr), sacl: nil, owner: nil, group: nil)
+                let dacl = try WindowsRawAcl.makeForCurrentUser(fromPosixPermissions: permissions)
+                try sysHandle.setSecurityInfo(.dacl, dacl: dacl, sacl: nil, owner: nil, group: nil)
             }
             #else     
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 

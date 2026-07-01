@@ -61,16 +61,16 @@ extension UnsafeSystemHandle {
         var securityAttributes = openOptions.securityAttributes
 
         // Set up security descriptor only when file creation may occur. 
-        let securityDescriptorPtr = if openOptions.creation != .never, let creationPermissions {
-            try WindowsAPI.securityDescriptor(fromPosixPermissions: creationPermissions)
+        let securityDescriptor = if openOptions.creation != .never, let creationPermissions {
+            try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: creationPermissions)
         } else {
-            nil as UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>?
+            nil as WindowsAbsoluteSecurityDescriptor?
         }
 
         // currently, borrowing switch is the only way to get the unsafeRawPtr in WindowsOwnedAPIPointer
-        switch securityDescriptorPtr {
-            case .some(let sdPtr):
-                securityAttributes.lpSecurityDescriptor = .init(sdPtr.unsafelyCastedMutableRawPtr)
+        switch securityDescriptor {
+            case .some(let sd):
+                securityAttributes.lpSecurityDescriptor = .init(sd.psd.unsafeRawPtr)
             case .none: break
         }
 

@@ -12,6 +12,7 @@ import Foundation
 
 extension ByteBuffer.Reader {
     
+    @_lifetime(self: copy self)
     @inlinable
     public mutating func readString(upTo byteCount: Int, encoding: String.Encoding) -> String? {
         self.readSpan(upTo: byteCount).withUnsafeBytes { buffer in

@@ -140,6 +140,20 @@ public struct WindowsSecurityDescriptorControl: Sendable, Equatable, Hashable, E
 }
 
 
+
+extension WindowsSecurityDescriptorControl {
+
+    package static func make(unsafeExtractingFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) -> (control: Self, revision: DWORD) {
+        var revision = 0 as DWORD
+        var control = 0 as SECURITY_DESCRIPTOR_CONTROL
+        GetSecurityDescriptorControl(psd.unsafelyCastedMutableRawPtr, &control, &revision)
+        return (.init(unsafeRawValue: control), revision)
+    }
+
+}
+
+
+
 public struct WindowsAccessMask: OptionSet, Sendable, Equatable, Hashable, CustomStringConvertible {
 
     @_alwaysEmitIntoClient

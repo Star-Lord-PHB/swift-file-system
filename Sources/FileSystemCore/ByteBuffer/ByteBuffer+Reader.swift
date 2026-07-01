@@ -58,6 +58,7 @@ extension ByteBuffer {
         }
         
         
+        @_lifetime(self: copy self)
         @inlinable
         public mutating func readBytes<R, E: Error>(
             upTo length: Int,
@@ -195,6 +196,7 @@ extension ByteBuffer.Reader {
         return self.read(as: Bool.self)
     }
 
+    @_lifetime(self: copy self)
     @inlinable
     public mutating func readString<Encoding: _UnicodeEncoding>(upTo byteCount: Int, encoding: Encoding.Type = UTF8.self) -> String? {
 

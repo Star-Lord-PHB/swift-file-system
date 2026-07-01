@@ -232,12 +232,11 @@ package enum InternalPlatformAPI {
 
         #if canImport(WinSDK)
 
-        let currentProcessToken = try WindowsAPI.getCurrentProcessTokenHandle()
-        let tokenUserPtr = try WindowsAPI.getTokenInformation(of: TokenUser, from: currentProcessToken, as: TOKEN_USER.self)
+        let tokenUserPtr = try WindowsProcessToken.current().getUser()
 
         // Ths SID in the tokenUserPtr is owned by that value, so we need to first copy it out 
 
-        let sidSize = WindowsAPI.getSidLength(sidPtr: .init(unownedResource: tokenUserPtr.pointee.User.Sid))
+        let sidSize = GetLengthSid(tokenUserPtr.pointee.User.Sid)
         let copiedSidBuffer = UnsafeMutableRawPointer.allocate(byteCount: Int(sidSize), alignment: MemoryLayout<SID>.alignment)
         copiedSidBuffer.copyMemory(from: tokenUserPtr.pointee.User.Sid, byteCount: Int(sidSize))
 

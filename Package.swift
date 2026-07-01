@@ -23,7 +23,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-system.git", from: "1.6.0"),
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.3.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         // .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")),
     ],
     targets: [
@@ -64,7 +64,11 @@ let package = Package(
         ),
         .target(
             name: "SwiftFileSystemFoundationCompat",
-            dependencies: ["SwiftFileSystem"]),
+            dependencies: ["SwiftFileSystem"],
+            swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+            ]
+        ),
         .target(
             name: "CFileSystem",
             publicHeadersPath: ""

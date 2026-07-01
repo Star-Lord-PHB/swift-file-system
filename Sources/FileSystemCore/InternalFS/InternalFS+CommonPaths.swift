@@ -127,12 +127,12 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
-        let tokenHandle = try WindowsAPI.getCurrentProcessTokenHandle()
+        let tokenHandle = try WindowsProcessToken.current()
 
         var pathBufferSize = DWORD(MAX_PATH)
         var pathBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(pathBufferSize))
 
-        if GetUserProfileDirectoryW(tokenHandle.unsafeResourcePtr, pathBuffer, &pathBufferSize) {
+        if GetUserProfileDirectoryW(tokenHandle.handle.unsafeResourcePtr, pathBuffer, &pathBufferSize) {
             return .init(platformString: pathBuffer)
         }
 
@@ -145,7 +145,7 @@ extension InternalFS {
         pathBuffer = .allocate(capacity: Int(pathBufferSize))
 
         try execThrowingCFunction {
-            GetUserProfileDirectoryW(tokenHandle.unsafeResourcePtr, pathBuffer, &pathBufferSize)
+            GetUserProfileDirectoryW(tokenHandle.handle.unsafeResourcePtr, pathBuffer, &pathBufferSize)
         }
 
         return .init(platformString: pathBuffer)

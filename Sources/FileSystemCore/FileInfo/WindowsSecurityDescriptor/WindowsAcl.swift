@@ -1,77 +1,68 @@
 #if canImport(WinSDK)
 
 import PlatformCLib
-import BasicContainers
+import struct SystemPackage.FilePermissions
+import struct SystemPackage.CModeT
 
 
-
-fileprivate protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
+public protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
     func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R
-    var isNull: Bool { get }
-    var aceCount: WORD { get }
-    subscript(_ index: Int) -> WindowsRawAceView { @_lifetime(borrow self) get }
-    func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E)
-    func map<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T]
-    func compactMap<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T]
-    func reduce<T: ~Copyable, E: Error>(
-        _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
-    ) throws(E) -> T
-    func reduce<T: ~Copyable, E: Error>(
-        into initialResult: consuming T, 
-        _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
-    ) throws(E) -> T
-    var first: WindowsRawAceView? { @_lifetime(borrow self) get }
-    @_lifetime(borrow self)
-    func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView?
 }
 
 
 
 extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
-    static func _isNull(_ self: borrowing Self) -> Bool {
+    public var revision: BYTE {
+        return self.withUnsafeNullablePACL { pacl in 
+            pacl?.pointee.AclRevision ?? BYTE(ACL_REVISION)
+        }
+    }
+
+    public var isNull: Bool {
         return self.withUnsafeNullablePACL { pacl in pacl == nil }
     }
 
-    static func _aceCount(_ self: borrowing Self) -> WORD {
+    public var aceCount: WORD {
         return self.withUnsafeNullablePACL { pacl in 
             pacl?.pointee.AceCount ?? 0
         }
     }
 
-    @_lifetime(borrow this)
-    static func _subscriptGet(_ this: borrowing Self, _ index: Int) -> WindowsRawAceView {
-        precondition(index >= 0 && index < Int(this.aceCount), "Index out of bounds")
-        let acePtr = this.withUnsafeNullablePACL { pacl in 
-            switch pacl {
-                case .some(let pacl): 
-                    var acePtr = nil as LPVOID?
-                    do throws(SystemError) {
-                        try execThrowingCFunction {
-                            GetAce(pacl, DWORD(index), &acePtr)
+    public subscript(_ index: Int) -> WindowsRawAceSnapshotView {
+        @_lifetime(borrow self)
+        get {
+            precondition(index >= 0 && index < Int(self.aceCount), "Index out of bounds")
+            let acePtr = self.withUnsafeNullablePACL { pacl in 
+                switch pacl {
+                    case .some(let pacl): 
+                        var acePtr = nil as LPVOID?
+                        do throws(SystemError) {
+                            try execThrowingCFunction {
+                                GetAce(pacl, DWORD(index), &acePtr)
+                            }
+                            guard let acePtr else {
+                                try SystemError.assertError()
+                            }
+                            return acePtr
+                        } catch {
+                            fatalError("Failed to get ACE at index \(index): \(error) (\(error.code))")
                         }
-                        guard let acePtr else {
-                            try SystemError.assertError()
-                        }
-                        return acePtr
-                    } catch {
-                        fatalError("Failed to get ACE at index \(index): \(error) (\(error.code))")
-                    }
-                case .none: fatalError("Index out of bounds")
+                    case .none: fatalError("Index out of bounds")
+                }
             }
+            return .init(pace: .init(unownedPointer: acePtr))
         }
-        return .init(pace: .init(unownedPointer: acePtr))
     }
 
-    static func _forEach<E: Error>(_ self: borrowing Self, _ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
+    public func forEach<E: Error>(_ body: (WindowsRawAceSnapshotView) throws(E) -> Void) throws(E) {
         for i in 0 ..< Int(self.aceCount) {
             try body(self[i])
         }
     }
 
 
-    static func _map<T, E: Error>(_ self: borrowing Self, _ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T] {
+    public func map<T, E: Error>(_ transform: (WindowsRawAceSnapshotView) throws(E) -> T) throws(E) -> [T] {
         var results = [T]()
         for i in 0 ..< Int(self.aceCount) {
             let result = try transform(self[i])
@@ -81,10 +72,9 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
-    static func _reduce<T: ~Copyable, E: Error>(
-        _ self: borrowing Self, 
+    public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
+        _ nextPartialResult: (consuming T, WindowsRawAceSnapshotView) throws(E) -> T
     ) throws(E) -> T {
         var result = initialResult
         for i in 0 ..< Int(self.aceCount) {
@@ -94,7 +84,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return result
     }
 
-    static func _compactMap<T, E: Error>(_ self: borrowing Self, _ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T] {
+    public func compactMap<T, E: Error>(_ transform: (WindowsRawAceSnapshotView) throws(E) -> T?) throws(E) -> [T] {
         var results = [T]()
         for i in 0 ..< Int(self.aceCount) {
             let aceView = self[i]
@@ -105,10 +95,9 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return results
     }
 
-    static func _reduce<T: ~Copyable, E: Error>(
-        _ self: borrowing Self, 
+    public func _reduce<T: ~Copyable, E: Error>(
         into initialResult: consuming T, 
-        _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
+        _ updateAccumulatingResult: (inout T, WindowsRawAceSnapshotView) throws(E) -> Void
     ) throws(E) -> T {
         var result = initialResult
         for i in 0 ..< Int(self.aceCount) {
@@ -118,17 +107,19 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return result
     }
 
-    @_lifetime(borrow this)
-    static func _first(_ this: borrowing Self) -> WindowsRawAceView? {
-        guard this.aceCount > 0 else { return nil }
-        return this[0]
+    public var first: WindowsRawAceSnapshotView? {
+        @_lifetime(borrow self)
+        get {
+            guard self.aceCount > 0 else { return nil }
+            return self[0]
+        }
     }
 
     
-    @_lifetime(borrow this)
-    static func _first(_ this: borrowing Self, where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
-        for i in 0 ..< Int(this.aceCount) {
-            let aceView = this[i]
+    @_lifetime(borrow self)
+    public func first(where predicate: (WindowsRawAceSnapshotView) throws -> Bool) rethrows -> WindowsRawAceSnapshotView? {
+        for i in 0 ..< Int(self.aceCount) {
+            let aceView = self[i]
             if try predicate(aceView) {
                 return aceView
             }
@@ -140,7 +131,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
 
 
-fileprivate protocol WindowsRawAclNotNullableAclProtocol: ~Copyable, ~Escapable, WindowRawAclProtocol {
+public protocol WindowsRawAclNotNullableAclProtocol: ~Copyable, ~Escapable, WindowRawAclProtocol {
     func withUnsafePACL<R: ~Copyable, E: Error>(_ operation: (PACL) throws(E) -> R) throws(E) -> R
 }
 
@@ -148,7 +139,7 @@ fileprivate protocol WindowsRawAclNotNullableAclProtocol: ~Copyable, ~Escapable,
 
 extension WindowsRawAclNotNullableAclProtocol where Self: ~Copyable & ~Escapable {
 
-    func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
+    public func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
         return try self.withUnsafePACL { (pacl: PACL) throws(E) in
             try operation(pacl)
         }
@@ -171,7 +162,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
 
     package init(pacl: consuming UnsafeOwnedAutoPointer<ACL>) {
         self.pacl = pacl
-        precondition(self.isValid(), "Invalid ACL pointer")
+        precondition(IsValidAcl(self.pacl.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
     }
 
     public init(entries: WindowsExplicitAccessArray = []) {
@@ -187,15 +178,15 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
         self.init(pacl: .init(owningPointer: unsafeOwningAclPtr, allocator: allocator.mappedInternalAllocatorType))
     }
 
-    fileprivate func isValid() -> Bool {
-        return IsValidAcl(pacl.unsafelyCastedMutableRawPtr)
-    }
-
     public mutating func addEntries(_ entries: WindowsExplicitAccessArray) {
         entries.withUnsafeRawExplicitAccessBuffer { ptr in
-            let newPacl = try! WindowsAPI.setEntriesInAcl(for: self.pacl, entires: .init(unownedBuffer: ptr))
+            let newPacl = try! Self.addEntries(.init(unownedBuffer: ptr), toAcl: self.pacl.unownedView())
             self = .init(pacl: newPacl)
         }
+    }
+
+    public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
+        return try operation(pacl.unsafelyCastedMutableRawPtr)
     }
 
     public static var emptyAcl: WindowsRawAcl { .init() }
@@ -210,110 +201,150 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
             self.pacl = pacl
         }
 
+        public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
+            return try operation(pacl.unsafelyCastedMutableRawPtr)
+        }
+
     }
 
 }
+
 
 
 extension WindowsRawAcl {
 
-    public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
-        return try operation(pacl.unsafelyCastedMutableRawPtr)
+    package static func makeForCurrentUser(fromPosixPermissions permissions: FilePermissions, forDir: Bool = false) throws(SystemError) -> Self {
+        
+        let processToken = try WindowsProcessToken.current()
+
+        let tokenUserPtr = try processToken.getUser()
+        let userSidPtr = tokenUserPtr.pointee.User.Sid
+
+        let groupSidPtr = try processToken.getPrimaryGroups()
+        let primaryGroupSid = groupSidPtr.pointee.PrimaryGroup
+
+        return try .init(
+            fromPosixPermissions: permissions, 
+            ownerSidPtr: userSidPtr == nil ? nil : .init(unownedResource: userSidPtr!), 
+            groupSidPtr: primaryGroupSid == nil ? nil : .init(unownedResource: primaryGroupSid!), 
+            forDir: forDir
+        )
+
     }
-    public var isNull: Bool { false }
-    public var aceCount: WORD { Self._aceCount(self) }
-    public subscript(_ index: Int) -> WindowsRawAceView {
-        @_lifetime(borrow self)
-        get {
-            Self._subscriptGet(self, index)
+
+
+    package init(
+        fromPosixPermissions permissions: FilePermissions, 
+        ownerSidPtr: UnsafeUnownedResource?,
+        groupSidPtr: UnsafeUnownedResource?,
+        forDir: Bool = false
+    ) throws(SystemError) {
+
+        let ownerPermissions = Self.windowsAcePermissionBits(fromPosixPermissionBits: permissions.rawValue >> 6, forDir: forDir)
+        let groupPermissions = Self.windowsAcePermissionBits(fromPosixPermissionBits: (permissions.rawValue >> 3) & 0b111, forDir: forDir)
+        let othersPermissions = Self.windowsAcePermissionBits(fromPosixPermissionBits: permissions.rawValue & 0b111, forDir: forDir)
+
+        let everyoneSidPtr = WindowsSid.everyone.psid
+
+        var daclEntries = [] as [EXPLICIT_ACCESSW]
+
+        do {
+            // Will always be added to the DACL even if no permissions are granted.
+            var entry = EXPLICIT_ACCESSW()
+            entry.grfAccessMode = GRANT_ACCESS
+            entry.grfAccessPermissions = ownerPermissions
+            if forDir {
+                entry.grfInheritance = DWORD(CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE)
+            }
+            entry.Trustee.TrusteeForm = TRUSTEE_IS_SID
+            entry.Trustee.TrusteeType = TRUSTEE_IS_USER
+            entry.Trustee.ptstrName = ownerSidPtr?.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
+            daclEntries.append(entry)
         }
-    }
-    public func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
-        try Self._forEach(self, body)
-    }
-    public func map<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T] {
-        return try Self._map(self, transform)
-    }
-    public func compactMap<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T] {
-        return try Self._compactMap(self, transform)
-    }
-    public func reduce<T: ~Copyable, E: Error>(
-        _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
-    ) throws(E) -> T {
-        return try Self._reduce(self, initialResult, nextPartialResult)
-    }
-    public func reduce<T: ~Copyable, E: Error>(
-        into initialResult: consuming T, 
-        _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
-    ) throws(E) -> T {
-        return try Self._reduce(self, into: initialResult, updateAccumulatingResult)
-    }
-    public var first: WindowsRawAceView? {
-        @_lifetime(borrow self)
-        get {
-            Self._first(self)
+
+        if groupPermissions != 0 {
+            var entry = EXPLICIT_ACCESSW()
+            entry.grfAccessMode = GRANT_ACCESS
+            entry.grfAccessPermissions = groupPermissions
+            if forDir {
+                entry.grfInheritance = DWORD(CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE)
+            }
+            entry.Trustee.TrusteeForm = TRUSTEE_IS_SID
+            entry.Trustee.TrusteeType = TRUSTEE_IS_GROUP
+            entry.Trustee.ptstrName = groupSidPtr?.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
+            daclEntries.append(entry)
         }
+
+        if othersPermissions != 0 {
+            var entry = EXPLICIT_ACCESSW()
+            entry.grfAccessMode = GRANT_ACCESS
+            entry.grfAccessPermissions = othersPermissions
+            if forDir {
+                entry.grfInheritance = DWORD(CONTAINER_INHERIT_ACE | OBJECT_INHERIT_ACE)
+            }
+            entry.Trustee.TrusteeForm = TRUSTEE_IS_SID
+            entry.Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP
+            entry.Trustee.ptstrName = everyoneSidPtr.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
+            daclEntries.append(entry)
+        }
+
+        self.pacl = try daclEntries.span.withUnsafeBufferPointer { (buffer) throws(SystemError) in 
+            try WindowsRawAcl.addEntries(.init(unownedBuffer: buffer), toAcl: nil)
+        }
+
     }
-    @_lifetime(borrow self)
-    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
-        return try Self._first(self, where: predicate)
+
+
+    private static func windowsAcePermissionBits(fromPosixPermissionBits bits: CModeT, forDir: Bool = false) -> DWORD {
+        var permissions = DWORD(0)
+        if bits & 0b100 != 0 {
+            permissions |= DWORD(FILE_READ_ATTRIBUTES | FILE_READ_EA | FILE_READ_DATA | STANDARD_RIGHTS_READ | SYNCHRONIZE)
+            if forDir {
+                permissions |= DWORD(FILE_LIST_DIRECTORY)
+            }
+        }
+        if bits & 0b010 != 0 {
+            permissions |= DWORD(FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_WRITE_DATA | FILE_APPEND_DATA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE | DELETE)
+            if forDir {
+                permissions |= DWORD(FILE_ADD_FILE | FILE_ADD_SUBDIRECTORY | FILE_DELETE_CHILD)
+            }
+        }
+        if bits & 0b001 != 0 {
+            permissions |= DWORD(FILE_EXECUTE | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE)
+            if forDir {
+                permissions |= DWORD(FILE_TRAVERSE)
+            }
+        }
+        return permissions
+    }
+
+
+    fileprivate static func addEntries(
+        _ entries: UnsafeUnownedBufferPointer<EXPLICIT_ACCESSW>?, 
+        toAcl acl: UnsafeUnownedPointer<ACL>?
+    ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
+        var newAclPtr = nil as PACL?
+        try execThrowingCFunction {
+            SetEntriesInAclW(
+                DWORD(entries?.count ?? 0), 
+                entries?.baseAddress?.unsafeMutableCast().unsafeRawPtr, 
+                acl?.unsafelyCastedMutableRawPtr,
+                &newAclPtr 
+            )
+        } onError: { (code) throws(SystemError) in
+            throw SystemError(code: code)!
+        }
+        guard let newAclPtr else {
+            try SystemError.assertError()
+        }
+        return .init(owningPointer: newAclPtr, allocator: .localAlloc)
     }
 
 }
 
 
 
-extension WindowsRawAcl.View {
-
-    public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
-        return try operation(pacl.unsafelyCastedMutableRawPtr)
-    }
-    public var isNull: Bool { false }
-    public var aceCount: WORD { Self._aceCount(self) }
-    public subscript(_ index: Int) -> WindowsRawAceView {
-        @_lifetime(borrow self)
-        get {
-            Self._subscriptGet(self, index)
-        }
-    }
-    public func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
-        try Self._forEach(self, body)
-    }
-    public func map<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T] {
-        return try Self._map(self, transform)
-    }
-    public func compactMap<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T] {
-        return try Self._compactMap(self, transform)
-    }
-    public func reduce<T: ~Copyable, E: Error>(
-        _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
-    ) throws(E) -> T {
-        return try Self._reduce(self, initialResult, nextPartialResult)
-    }
-    public func reduce<T: ~Copyable, E: Error>(
-        into initialResult: consuming T, 
-        _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
-    ) throws(E) -> T {
-        return try Self._reduce(self, into: initialResult, updateAccumulatingResult)
-    }
-    public var first: WindowsRawAceView? {
-        @_lifetime(borrow self)
-        get {
-            Self._first(self)
-        }
-    }
-    @_lifetime(borrow self)
-    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
-        return try Self._first(self, where: predicate)
-    }
-
-}
-
-
-
-public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
+public struct WindowsRawAclSnapshotView: ~Escapable, WindowRawAclProtocol {
 
     package let pacl: UnsafeUnownedPointer<ACL>?
     public let aclDefaulted: Bool
@@ -325,8 +356,41 @@ public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
         self.aclDefaulted = aclDefaulted
     }
 
+    @_lifetime(immortal)
+    public init(unsafeBorrowingAclPtr: PACL, aclDefaulted: Bool) {
+        self.pacl = .init(unownedPointer: unsafeBorrowingAclPtr)
+        self.aclDefaulted = aclDefaulted
+    }
+
+    public func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
+        return switch self.pacl {
+            case .some(let pacl): try operation(pacl.unsafelyCastedMutableRawPtr)
+            case .none: try operation(nil)
+        }
+    }
+
+    public func detach() -> WindowsRawAcl? {
+        do {
+            return .init(pacl: try WindowsRawAcl.addEntries(nil, toAcl: self.pacl))
+        } catch {
+            fatalError("Failed to copy ACL: \(error)")
+        }
+    }
+
+}
+
+
+
+extension WindowsRawAclSnapshotView {
+
+    @_lifetime(borrow psd)
+    package init?(unsafeExtractingFromPSD psd: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
+        self.init(unsafeExtractingFromPSD: psd.unownedView(), type: type)
+    }
+
+
     @_lifetime(copy psd)
-    package init?(psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
+    package init?(unsafeExtractingFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
         
         precondition(IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr), "Invalid SECURITY_DESCRIPTOR pointer")
         
@@ -349,73 +413,11 @@ public struct WindowsRawAclView: ~Escapable, WindowRawAclProtocol {
 
     }
 
-    @_lifetime(borrow psd)
-    package init?(psd: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
-        self.init(psd: psd.unownedView(), type: type)
-    }
-
-    @_lifetime(immortal)
-    public init(unsafeBorrowingAclPtr: PACL, aclDefaulted: Bool) {
-        self.pacl = .init(unownedPointer: unsafeBorrowingAclPtr)
-        self.aclDefaulted = aclDefaulted
-    }
-
 }
 
 
 
-extension WindowsRawAclView {
-
-    public func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
-        return switch self.pacl {
-            case .some(let pacl): try operation(pacl.unsafelyCastedMutableRawPtr)
-            case .none: try operation(nil)
-        }
-    }
-    public var isNull: Bool { Self._isNull(self) }
-    public var aceCount: WORD { Self._aceCount(self) }
-    public subscript(_ index: Int) -> WindowsRawAceView {
-        @_lifetime(borrow self)
-        get {
-            Self._subscriptGet(self, index) }
-    }
-    public func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
-        try Self._forEach(self, body)
-    }
-    public func map<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T] {
-        return try Self._map(self, transform)
-    }
-    public func compactMap<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T] {
-        return try Self._compactMap(self, transform)
-    }
-    public func reduce<T: ~Copyable, E: Error>(
-        _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
-    ) throws(E) -> T {
-        return try Self._reduce(self, initialResult, nextPartialResult)
-    }
-    public func reduce<T: ~Copyable, E: Error>(
-        into initialResult: consuming T, 
-        _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
-    ) throws(E) -> T {
-        return try Self._reduce(self, into: initialResult, updateAccumulatingResult)
-    }
-    public var first: WindowsRawAceView? {
-        @_lifetime(borrow self)
-        get {
-            Self._first(self)
-        }
-    }
-    @_lifetime(borrow self)
-    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
-        return try Self._first(self, where: predicate)
-    }
-
-}
-
-
-
-public struct WindowsRawAceView: ~Escapable {
+public struct WindowsRawAceSnapshotView: ~Escapable {
 
     package let pace: UnsafeUnownedRawPointer
 
@@ -478,163 +480,5 @@ public struct WindowsRawAceView: ~Escapable {
     }
 
 }
-
-
-
-public struct WindowsExplicitAccess: Sendable {
-    public var permission: WindowsAccessMask
-    public var accessMode: AccessMode
-    public var inheritance: Inheritance
-    public var trustee: RawTrustee
-
-    /// > Warning: 
-    /// > The provided EXPLICIT_ACCESSW value contains a unowned pointer to a SID, 
-    /// > MUST ensure that the WindowsExplicitAccess value outlives the lifetime of the EXPLICIT_ACCESSW value.
-    public func withUnsafeRawExplicitAccess<R: ~Copyable, E: Error>(_ operation: (EXPLICIT_ACCESSW) throws(E) -> R) throws(E) -> R {
-        var ea = EXPLICIT_ACCESSW()
-        ea.grfAccessPermissions = permission.rawValue
-        ea.grfAccessMode = accessMode.rawAccessMode
-        ea.grfInheritance = inheritance.rawValue
-        ea.Trustee = TRUSTEE_W(
-            pMultipleTrustee: nil,
-            MultipleTrusteeOperation: NO_MULTIPLE_TRUSTEE,
-            TrusteeForm: TRUSTEE_IS_SID,
-            TrusteeType: trustee.type.rawTrusteeType,
-            ptstrName: trustee.sid.psid.unsafeResourcePtr.assumingMemoryBound(to: WCHAR.self)
-        )
-        return try operation(ea)
-    }
-
-    public init(
-        permission: WindowsAccessMask, 
-        accessMode: AccessMode = .grantAccess, 
-        inheritance: Inheritance = .noInheritance, 
-        trustee: RawTrustee
-    ) {
-        self.permission = permission
-        self.accessMode = accessMode
-        self.inheritance = inheritance
-        self.trustee = trustee
-    }
-}
-
-
-
-extension WindowsExplicitAccess {
-
-    public enum AccessMode: ACCESS_MODE.RawValue, Sendable {
-        case notUsed, grantAccess, setAccess, denyAccess, revokeAccess
-        case setAuditSuccess, setAuditFailure
-        public var rawAccessMode: ACCESS_MODE { .init(rawValue: self.rawValue) }
-    }
-
-
-    public struct Inheritance: Sendable, OptionSet {
-
-        public let rawValue: DWORD
-
-        public init(rawValue: DWORD) {
-            self.rawValue = rawValue
-        }
-
-        public static let noInheritance: Inheritance = .init(rawValue: DWORD(NO_INHERITANCE))
-        public static let subFiles: Inheritance = .init(rawValue: DWORD(SUB_OBJECTS_ONLY_INHERIT))
-        public static let subContainers: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_ONLY_INHERIT))
-        public static let noPropagate: Inheritance = .init(rawValue: DWORD(INHERIT_NO_PROPAGATE))
-        public static let inheritOnly: Inheritance = .init(rawValue: DWORD(INHERIT_ONLY))
-
-        public static let allSubItems: Inheritance = .init(rawValue: DWORD(SUB_CONTAINERS_AND_OBJECTS_INHERIT))
-
-    }
-
-
-    public struct RawTrustee: Sendable {
-        public var sid: WindowsSid
-        public var type: TrusteeType
-        public init(sid: WindowsSid, type: TrusteeType) {
-            self.sid = sid
-            self.type = type
-        }
-
-        public static var everyone: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
-        public static var administrators: RawTrustee { .init(sid: .administrators, type: .group) }
-        public static var system: RawTrustee { .init(sid: .system, type: .user) }
-        public static var authenticatedUsers: RawTrustee { .init(sid: .authenticatedUsers, type: .wellKnownGroup) }
-        public static var users: RawTrustee { .init(sid: .users, type: .wellKnownGroup) }
-        public static var localService: RawTrustee { .init(sid: .localService, type: .wellKnownGroup) }
-        public static var networkService: RawTrustee { .init(sid: .networkService, type: .wellKnownGroup) }
-        public static var annonymous: RawTrustee { .init(sid: .annonymous, type: .wellKnownGroup) }
-        public static var creatorOwner: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
-        public static var creatorGroup: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
-
-    }
-
-
-    public enum TrusteeType: TRUSTEE_TYPE.RawValue, Sendable {
-        case unknown, user, group, domain, alias, wellKnownGroup, deleted, invalid, computer
-        public var rawTrusteeType: TRUSTEE_TYPE { .init(rawValue: self.rawValue) }
-    }
-
-}
-
-
-
-public struct WindowsExplicitAccessArray: ExpressibleByArrayLiteral, Sendable {
-
-    private var entries: [WindowsExplicitAccess]
-
-    public var count: Int { entries.count }
-
-    public var isEmpty: Bool { entries.isEmpty }
-
-    public init<S: Sequence>(_ entries: S) where S.Element == WindowsExplicitAccess {
-        self.entries = .init(entries)
-    }
-
-    public init(arrayLiteral elements: WindowsExplicitAccess...) {
-        self.entries = .init(elements)
-    }
-
-    public subscript(_ index: Int) -> WindowsExplicitAccess {
-        get { entries[index] }
-        set { entries[index] = newValue }
-    }
-
-    public mutating func append(_ entry: WindowsExplicitAccess) {
-        entries.append(entry)
-    }
-
-    public mutating func append(contentsOf newEntries: WindowsExplicitAccessArray) {
-        entries.append(contentsOf: newEntries.entries)
-    }
-
-    public mutating func append<S: Sequence>(contentsOf newEntries: S) where S.Element == WindowsExplicitAccess {
-        entries.append(contentsOf: newEntries)
-    }
-
-    public func withUnsafeRawExplicitAccessBuffer<R: ~Copyable, E: Error>(_ operation: (UnsafeBufferPointer<EXPLICIT_ACCESSW>) throws(E) -> R) throws(E) -> R {
-        let rawEntries = RigidArray<EXPLICIT_ACCESSW>(capacity: count) { outSpan in 
-            for i in 0 ..< count {
-                entries[i].withUnsafeRawExplicitAccess { rawEA in
-                    outSpan.append(rawEA)
-                }
-            }
-        }
-        return try rawEntries.span.withUnsafeBufferPointer(operation)
-    }
-
-    public func withUnsafeMutableRawExplicitAccessBuffer<R: ~Copyable, E: Error>(_ operation: (UnsafeMutableBufferPointer<EXPLICIT_ACCESSW>) throws(E) -> R) throws(E) -> R {
-        var rawEntries = RigidArray<EXPLICIT_ACCESSW>(capacity: count) { outSpan in 
-            for i in 0 ..< count {
-                entries[i].withUnsafeRawExplicitAccess { rawEA in
-                    outSpan.append(rawEA)
-                }
-            }
-        }
-        var mutableSpan = rawEntries.mutableSpan
-        return try mutableSpan.withUnsafeMutableBufferPointer(operation)
-    }
-
-} 
 
 #endif 

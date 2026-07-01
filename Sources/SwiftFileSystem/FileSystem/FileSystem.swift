@@ -230,11 +230,11 @@ extension FileSystem {
     public func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(PlatformError) {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             #if canImport(WinSDK)
-            let daclPtr = try WindowsAPI.dacl(fromPosixPermissions: permissions)
+            let dacl = try WindowsRawAcl.makeForCurrentUser(fromPosixPermissions: permissions)
             try InternalFS.setFileSecurityInfo(
                 forItemAt: path, 
                 setting: .dacl, 
-                dacl: .init(pacl: daclPtr), sacl: nil, owner: nil, group: nil
+                dacl: dacl, sacl: nil, owner: nil, group: nil
             )
             #else 
             try InternalFS.setFilePermissions(forItemAt: path, permissions: permissions)

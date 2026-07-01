@@ -5,6 +5,10 @@ import struct SwiftFileSystem.PlatformError
 import struct SwiftFileSystem.SystemError
 import func SwiftFileSystem.catchSystemError
 
+#if canImport(WinSDK)
+import struct SwiftFileSystem.WindowsOverlapped
+#endif
+
 
 
 extension WriteFileHandle {
@@ -14,22 +18,25 @@ extension WriteFileHandle {
         #if canImport(WinSDK)
         
         return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
+            let currentOffset = try self.currentOffset    // On Windows, accessing the currentOffset is not a blocking FS operation
+            let bytesWritten = try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 try withUnsafeSystemHandle { (handle) throws(SystemError) in
                     if let offset {
                         var overlapped = WindowsOverlapped(offset: offset)
                         let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
                         return try handle.waitForOverlappedResult(pendingOverlapped)
                     } else {
-                        let currentOffset = self.currentOffset    // On Windows, accessing the currentOffset is not a blocking FS operation
                         var overlapped = WindowsOverlapped(offset: currentOffset)
                         let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
                         let bytesWritten = try handle.waitForOverlappedResult(pendingOverlapped)
-                        try seek(to: Int64(bytesWritten), relativeTo: .current)     // On Windows, this `seek` operation is not a blocking FS operation
                         return Int64(bytesWritten)
                     }
                 }
             }
+            if offset == nil {
+                try seek(to: Int64(bytesWritten), relativeTo: .current)     // On Windows, this `seek` operation is not a blocking FS operation
+            }
+            return bytesWritten
         }
         
         #else
@@ -66,22 +73,25 @@ extension ReadWriteFileHandle {
         #if canImport(WinSDK)
         
         return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
+            let currentOffset = try self.currentOffset    // On Windows, accessing the currentOffset is not a blocking FS operation
+            let bytesWritten = try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
                 try withUnsafeSystemHandle { (handle) throws(SystemError) in
                     if let offset {
                         var overlapped = WindowsOverlapped(offset: offset)
                         let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
                         return try handle.waitForOverlappedResult(pendingOverlapped)
                     } else {
-                        let currentOffset = self.currentOffset    // On Windows, accessing the currentOffset is not a blocking FS operation
                         var overlapped = WindowsOverlapped(offset: currentOffset)
                         let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
                         let bytesWritten = try handle.waitForOverlappedResult(pendingOverlapped)
-                        try seek(to: Int64(bytesWritten), relativeTo: .current)     // On Windows, this `seek` operation is not a blocking FS operation
                         return Int64(bytesWritten)
                     }
                 }
             }
+            if offset == nil {
+                try seek(to: Int64(bytesWritten), relativeTo: .current)     // On Windows, this `seek` operation is not a blocking FS operation
+            }
+            return bytesWritten
         }
         
         #else

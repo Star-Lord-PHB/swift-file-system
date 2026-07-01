@@ -17,6 +17,16 @@ package struct UnsafeOwnedAutoResource: ~Copyable {
         self.freeingFunc = freeingFunc
     }
 
+    package init(owningResource ptr: consuming UnsafeOwnedRawAutoPointer) {
+        self.init(owningResource: ptr.unsafeMutableCast())
+    }
+
+    package init(owningResource ptr: consuming UnsafeOwnedMutableRawAutoPointer) {
+        let allocator = ptr.allocator
+        self.unsafeResourcePtr = ptr.take()
+        self.freeingFunc = { allocator.dealloc(pointer: $0) }
+    }
+
     deinit {
         if !free {
             freeingFunc(unsafeResourcePtr)

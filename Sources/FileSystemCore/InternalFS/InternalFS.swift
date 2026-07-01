@@ -342,14 +342,14 @@ package enum InternalFS {
 
         #if canImport(WinSDK)
 
-        let psd = try permissions.map { (p) throws(SystemError) in 
-            try WindowsAPI.securityDescriptor(fromPosixPermissions: p, forDir: true)
+        let sd = try permissions.map { (p) throws(SystemError) in 
+            try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: p, forDir: true)
         }
 
         var sa = SECURITY_ATTRIBUTES()
         sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
-        switch psd {
-            case .some(let psd):    sa.lpSecurityDescriptor = LPVOID(psd.unsafelyCastedMutableRawPtr)
+        switch sd {
+            case .some(let sd):     sa.lpSecurityDescriptor = LPVOID(sd.psd.unsafeRawPtr)
             case .none:             sa.lpSecurityDescriptor = nil
         }
 
