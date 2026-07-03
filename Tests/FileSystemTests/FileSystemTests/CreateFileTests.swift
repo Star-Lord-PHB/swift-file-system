@@ -24,6 +24,8 @@ extension FileSystemTest.CreateFileTest {
         try FileSystem().createFile(at: path)
 
         let info = try FileInfo(fileAt: path)
+        let permission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
+            .map(FilePermissions.init(rawValue:))
 
         #expect(info.type == .regular)
         #expect(info.size == 0)
@@ -31,7 +33,7 @@ extension FileSystemTest.CreateFileTest {
         #if canImport(WinSDK)
         // TODO: Check default permission on Windows
         #else 
-        #expect(info.permissions == [.ownerReadWrite, .groupRead, .otherRead])
+        #expect(permission == [.ownerReadWrite, .groupRead, .otherRead])
         #endif 
 
         #expect(try Data(contentsOf: .init(filePath: path.string)) == .init())
@@ -56,6 +58,8 @@ extension FileSystemTest.CreateFileTest {
         try FileSystem().createFile(at: path, replaceExisting: false, permission: permission, content: content)
 
         let info = try FileInfo(fileAt: path)
+        let newPermission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
+            .map(FilePermissions.init(rawValue:))
 
         #expect(info.type == .regular)
         #expect(info.size == UInt64(content.count))
@@ -63,7 +67,7 @@ extension FileSystemTest.CreateFileTest {
         #if canImport(WinSDK)
         // TODO: Check custom permission on Windows
         #else
-        #expect(info.permissions == expectedPermission)
+        #expect(newPermission == expectedPermission)
         #endif
 
         #expect(try Data(contentsOf: .init(filePath: path.string)) == Data(content))
@@ -75,11 +79,14 @@ extension FileSystemTest.CreateFileTest {
     func createFileDstExistReplaceExistingEmptyContent() async throws {
         
         let path = try makeFile(at: "file", contents: .init("Hello Swift!".utf8))
-        let prevInfo = try FileInfo(fileAt: path)
+        let prevPermission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
+            .map(FilePermissions.init(rawValue:))
 
         try FileSystem().createFile(at: path, replaceExisting: true)
 
         let info = try FileInfo(fileAt: path)
+        let permission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
+            .map(FilePermissions.init(rawValue:))
 
         #expect(info.type == .regular)
         #expect(info.size == 0)
@@ -88,7 +95,7 @@ extension FileSystemTest.CreateFileTest {
         #if canImport(WinSDK)
         // TODO: Check permission on Windows
         #else
-        #expect(info.permissions == prevInfo.permissions)
+        #expect(permission == prevPermission)
         #endif
 
     }
@@ -98,13 +105,16 @@ extension FileSystemTest.CreateFileTest {
     func createFileDstExistReplaceExistingCustomPermissionCustomContent() async throws {
         
         let path = try makeFile(at: "file", contents: .init("Hello Swift!".utf8))
-        let prevInfo = try FileInfo(fileAt: path)
+        let prevPermission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
+            .map(FilePermissions.init(rawValue:))
         let permission = [.ownerReadWriteExecute, .groupReadWrite] as FilePermissions
         let content = ByteBuffer("Serika is Cute".utf8)
 
         try FileSystem().createFile(at: path, replaceExisting: true, permission: permission, content: content)
 
         let info = try FileInfo(fileAt: path)
+        let newPermission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
+            .map(FilePermissions.init(rawValue:))
 
         #expect(info.type == .regular)
         #expect(info.size == UInt64(content.count))
@@ -114,7 +124,7 @@ extension FileSystemTest.CreateFileTest {
         // TODO: Check custom permission on Windows
         #else
         // when destination exists, the permission won't be updated
-        #expect(info.permissions == prevInfo.permissions)
+        #expect(newPermission == prevPermission)
         #endif
 
     }

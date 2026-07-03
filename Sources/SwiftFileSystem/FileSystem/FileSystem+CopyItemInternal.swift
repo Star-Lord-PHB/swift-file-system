@@ -42,7 +42,7 @@ extension FileSystem {
         #if canImport(WinSDK)
         let securityDescriptor: WindowsSelfRelativeSecurityDescriptor
         #else 
-        var permission: FilePermissions { info.permissions }
+        let permission: FilePermissions
         #endif
 
         // MARK: TODO: add platform specific extended attributes if necessary
@@ -60,16 +60,16 @@ extension FileSystem {
 
         #else 
 
-        let info = try handle.fileInfo()
+        let stat = try handle.fstat()
 
         #if canImport(Glibc) || canImport(Musl)
 
         let flags = try handle.fileInodeFlags()
-        return .init(info: info, attributes: flags)
+        return .init(info: .init(stat: stat), attributes: flags, permission: .init(rawValue: stat.st_mode))
 
         #else
 
-        return .init(info: info)
+        return .init(info: .init(stat: stat), permission: .init(rawValue: stat.st_mode))
 
         #endif 
 
@@ -89,7 +89,7 @@ extension FileSystem {
 
         #else 
 
-        let info = try InternalFS.getFileInfo(forItemAt: path)
+        let stat = try InternalFS.ulstat(path)
 
         #if canImport(Glibc) || canImport(Musl)
 
@@ -99,11 +99,11 @@ extension FileSystem {
             nil as CInterop.PosixInodeFlags?
         }
 
-        return .init(info: info, attributes: flags)
+        return .init(info: .init(stat: stat), attributes: flags, permission: .init(rawValue: stat.st_mode))
 
         #else
 
-        return .init(info: info)
+        return .init(info: .init(stat: stat), permission: .init(rawValue: stat.st_mode))
 
         #endif 
 
@@ -127,7 +127,7 @@ extension FileSystem {
 
         #else 
 
-        try handle.setPermissions(cachedAttrs.permission)
+        try handle.setPosixPermissions(cachedAttrs.permission)
 
         #if canImport(Glibc) || canImport(Musl)
         if let flags = cachedAttrs.attributes {
@@ -163,7 +163,7 @@ extension FileSystem {
         #else
 
         do {
-            try InternalFS.setFilePermissions(forItemAt: path, permissions: cachedAttrs.permission)
+            try InternalFS.setPosixPermissions(forItemAt: path, permissions: cachedAttrs.permission)
         } catch let error where error.kind == .unsupported {
             // ignore unsupported error on setting permission
         }

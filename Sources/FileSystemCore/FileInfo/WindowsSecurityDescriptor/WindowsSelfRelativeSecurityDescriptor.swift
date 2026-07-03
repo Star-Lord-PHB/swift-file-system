@@ -70,11 +70,11 @@ extension WindowsSelfRelativeSecurityDescriptor {
         return WindowsSecurityDescriptorControl.make(unsafeExtractingFromPSD: psd.unownedView())
     }
 
-    public var owner: (sid: WindowsSid.View, defaulted: Bool) {
+    public var owner: (sid: WindowsSid.View, defaulted: Bool)? {
         return WindowsSid.View.make(unsafeExtractingOwnerFromPSD: psd.unownedView())
     }
 
-    public var group: (sid: WindowsSid.View, defaulted: Bool) {
+    public var group: (sid: WindowsSid.View, defaulted: Bool)? {
         return WindowsSid.View.make(unsafeExtractingGroupFromPSD: psd.unownedView())
     }
 

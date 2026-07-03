@@ -269,64 +269,120 @@ extension FileSystemTest {
         static let attributes: Self = .init(rawValue: 1 << 5)
         static let size: Self = .init(rawValue: 1 << 6)
         static let contents: Self = .init(rawValue: 1 << 7)
+        static let owner: Self = .init(rawValue: 1 << 8)
+        static let group: Self = .init(rawValue: 1 << 9)
 
         static let fileTimes: Self = [.accessTime, .modificationTime, .creationTime]
 
     }
-
-
-    enum ItemExpectation {
-        case file(path: FilePath, info: FileInfo, contents: Data?, excludedCriteria: ExpectationCriterias = [])
-        case symlink(path: FilePath, info: FileInfo, target: FilePath, excludedCriteria: ExpectationCriterias = [])
-        case directory(path: FilePath, info: FileInfo, excludedCriteria: ExpectationCriterias = [])
-
-        var path: FilePath {
-            switch self {
-                case .file(let path, _, _, _): return path
-                case .symlink(let path, _, _, _): return path
-                case .directory(let path, _, _): return path
-            }
+    
+    
+    struct ItemExpectation {
+        
+        enum Content {
+            case fileContent(Data?)
+            case symlinkTarget(FilePath)
+            case dir
         }
-
-        var info: FileInfo {
-            switch self {
-                case .file(_, let info, _, _): return info
-                case .symlink(_, let info, _, _): return info
-                case .directory(_, let info, _): return info
-            }
-        }
-
-        var excludedCriteria: ExpectationCriterias {
-            switch self {
-                case .file(_, _, _, let excludedCriteria): return excludedCriteria
-                case .symlink(_, _, _, let excludedCriteria): return excludedCriteria
-                case .directory(_, _, let excludedCriteria): return excludedCriteria
-            }
-        }
-
+        
+        let path: FilePath
+        let info: FileInfo
+        let content: Content
+        
+        #if !canImport(WinSDK)
+        let permissions: FilePermissions
+        #endif
+        
+        let owner: PlatformIdentity
+        let group: PlatformIdentity
+        
+        let excludedCriteria: ExpectationCriterias
+        
         func preconditionSelfValid() {
-            switch self {
-                case .file(_, let info, _, _): precondition(info.type == .regular)
-                case .symlink(_, let info, _, _): precondition(info.type == .symlink)
-                case .directory(_, let info, _): precondition(info.type == .directory)
+            switch content {
+                case .fileContent(_): precondition(info.type == .regular)
+                case .symlinkTarget(_): precondition(info.type == .symlink)
+                case .dir: precondition(info.type == .directory)
             }
         }
-
+        
         static func from(itemAt path: FilePath, followSymlink: Bool = false, excluding excludedCriteria: ExpectationCriterias = []) throws -> Self {
             let type = try FileInfo(fileAt: path, followSymLink: followSymlink).type
+            let (owner, group) = try FileSystem().getOwner(forItemAt: path, followSymlink: followSymlink)
             switch type {
                 case .regular:
                     let contents = try Data(contentsOf: .init(filePath: path.string))
-                    return .file(path: path, info: try FileInfo(fileAt: path, followSymLink: true), contents: contents, excludedCriteria: excludedCriteria)
+                    #if canImport(WinSDK)
+                    return .init(
+                        path: path,
+                        info: try FileInfo(fileAt: path, followSymLink: true),
+                        content: .fileContent(contents),
+                        owner: owner,
+                        group: group,
+                        excludedCriteria: excludedCriteria
+                    )
+                    #else
+                    let permissions = try FileSystem().getPosixPermissions(forItemAt: path, followSymlink: true)
+                    return .init(
+                        path: path,
+                        info: try FileInfo(fileAt: path, followSymLink: true),
+                        content: .fileContent(contents),
+                        permissions: permissions,
+                        owner: owner,
+                        group: group,
+                        excludedCriteria: excludedCriteria
+                    )
+                    #endif
                 case .symlink:
                     let targetPath = FilePath(stringLiteral: try FileManager.default.destinationOfSymbolicLink(atPath: path.string))
-                    return .symlink(path: path, info: try FileInfo(fileAt: path, followSymLink: false), target: targetPath, excludedCriteria: excludedCriteria)
+                    #if canImport(WinSDK)
+                    return .init(
+                        path: path,
+                        info: try FileInfo(fileAt: path, followSymLink: false),
+                        content: .symlinkTarget(targetPath),
+                        owner: owner,
+                        group: group,
+                        excludedCriteria: excludedCriteria
+                    )
+                    #else
+                    let permissions = try FileSystem().getPosixPermissions(forItemAt: path, followSymlink: false)
+                    return .init(
+                        path: path,
+                        info: try FileInfo(fileAt: path, followSymLink: false),
+                        content: .symlinkTarget(targetPath),
+                        permissions: permissions,
+                        owner: owner,
+                        group: group,
+                        excludedCriteria: excludedCriteria
+                    )
+                    #endif
                 case .directory:
-                    return .directory(path: path, info: try FileInfo(fileAt: path, followSymLink: true), excludedCriteria: excludedCriteria)
+                    #if canImport(WinSDK)
+                    return .init(
+                        path: path,
+                        info: try FileInfo(fileAt: path, followSymLink: true),
+                        content: .dir,
+                        owner: owner,
+                        group: group,
+                        excludedCriteria: excludedCriteria
+                    )
+                    #else
+                    let permissions = try FileSystem().getPosixPermissions(forItemAt: path, followSymlink: true)
+                    return .init(
+                        path: path,
+                        info: try FileInfo(fileAt: path, followSymLink: true),
+                        content: .dir,
+                        permissions: permissions,
+                        owner: owner,
+                        group: group,
+                        excludedCriteria: excludedCriteria
+                    )
+                    #endif
                 default:
                     fatalError("Unsupported file type \(type) at path \(path)")
             }
         }
+        
     }
 
 
@@ -380,6 +436,10 @@ extension FileSystemTest {
         #endif 
 
         let info = try FileInfo(fileAt: path, followSymLink: followSymlink)
+        let (owner, group) = try FileSystem().getOwner(forItemAt: path, followSymlink: followSymlink)
+        #if !canImport(WinSDK)
+        let permissions = try FileSystem().getPosixPermissions(forItemAt: path, followSymlink: followSymlink)
+        #endif
 
         let comment = "when matching item at \(try testRelativePath(of: path)) to item at \(try testRelativePath(of: expectation.path))" as Comment
 
@@ -395,12 +455,17 @@ extension FileSystemTest {
         if !excludedCriteria.contains(.creationTime) {
             #expect(info.times.creation == expectation.info.times.creation, comment, sourceLocation: sourceLocation)
         }
-        // TODO: add permission comparison for Windows
         #if !canImport(WinSDK)
         if !excludedCriteria.contains(.permission) {
-            #expect(info.permissions == expectation.info.permissions, comment, sourceLocation: sourceLocation)
+            #expect(permissions == expectation.permissions, comment, sourceLocation: sourceLocation)
         }
-        #endif 
+        #endif
+        if !excludedCriteria.contains(.owner) {
+            #expect(owner == expectation.owner, comment, sourceLocation: sourceLocation)
+        }
+        if !excludedCriteria.contains(.group) {
+            #expect(group == expectation.group, comment, sourceLocation: sourceLocation)
+        }
         if !excludedCriteria.contains(.attributes) {
             #expect(info.attributes == expectation.info.attributes, comment, sourceLocation: sourceLocation)
             #expect(info.supportedAttributes == expectation.info.supportedAttributes, comment, sourceLocation: sourceLocation)
@@ -411,11 +476,11 @@ extension FileSystemTest {
         }
 
         if !excludedCriteria.contains(.contents) {
-            switch (info.type, expectation) {
-                case (.regular, .file(_, _, let expectedContents, _)): 
+            switch (info.type, expectation.content) {
+                case (.regular, .fileContent(let expectedContents)):
                     let content1 = try Data(contentsOf: .init(fileURLWithPath: path.string))
                     #expect(content1 == expectedContents, comment, sourceLocation: sourceLocation)
-                case (.symlink, .symlink(_, _, let expectedTarget, _)):
+                case (.symlink, .symlinkTarget(let expectedTarget)):
                     let target = try FileManager.default.destinationOfSymbolicLink(atPath: path.string)
                     #expect(target == expectedTarget.string, comment, sourceLocation: sourceLocation)
                 default: 

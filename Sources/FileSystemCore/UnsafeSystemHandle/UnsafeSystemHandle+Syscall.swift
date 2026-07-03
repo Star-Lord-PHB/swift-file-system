@@ -387,37 +387,6 @@ extension UnsafeSystemHandle {
 
     }
 
-
-    package func fchown(owner: PlatformIdentity?, group: PlatformIdentity?) throws(SystemError) {
-
-        #if canImport(WinSDK)
-
-        var settingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
-        if owner != nil {
-            settingMembers.insert(.owner)
-        }
-        if group != nil {
-            settingMembers.insert(.group)
-        }
-        guard !settingMembers.isEmpty else { return }
-        
-        try setSecurityInfo(settingMembers, dacl: nil, sacl: nil, owner: owner?.rawId, group: group?.rawId)
-
-        #else 
-
-        if owner == nil && group == nil { return }
-
-        precondition(owner?.platformKind != .group, "owner identity must be of user kind")
-        precondition(group?.platformKind != .user, "group identity must be of group kind")
-
-        try execThrowingCFunction {
-            PlatformCLib.fchown(unsafeRawHandle, owner?.rawId ?? .init(bitPattern: -1), group?.rawId ?? .init(bitPattern: -1))
-        }
-
-        #endif 
-
-    }
-
 }
 
 

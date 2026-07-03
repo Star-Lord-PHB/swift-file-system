@@ -168,3 +168,46 @@ extension FileSystemTest.FileInfoTest {
     }
 
 }
+
+
+
+extension FileSystemTest.FileInfoTest {
+    
+    @Test
+    func `Can Access Regular File`() async throws {
+        
+        let filePath = try makeFile(at: "file.txt")
+        
+        let canAccess1 = try FileSystem().canAccess(itemAt: filePath, for: [.read, .write])
+        #expect(canAccess1)
+        
+        #if !canImport(WinSDK)  // On Windows, file created by FileManager is also executable for some reason
+        let canAccess2 = try FileSystem().canAccess(itemAt: filePath, for: [.execute])
+        #expect(canAccess2 == false)
+        #endif
+        
+    }
+    
+    
+    @Test
+    func `Can Access Directory`() async throws {
+        
+        let dirPath = try makeDir(at: "dir")
+        
+        let canAccess = try FileSystem().canAccess(itemAt: dirPath, for: [.read, .write, .execute])
+        #expect(canAccess)
+        
+    }
+    
+    
+    @Test
+    func `Can Access Symbolic Link`() async throws {
+        
+        let linkPath = try makeSymlink(at: "link.lnk", pointingTo: "dst")
+        
+        let canAccess = try FileSystem().canAccess(itemAt: linkPath, for: [.read, .write, .execute], followSymlink: false)
+        #expect(canAccess)
+        
+    }
+    
+}

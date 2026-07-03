@@ -49,4 +49,10 @@ inline WCHAR* getReparseDataBufferSymbolicLinkPathBuffer(MAPPED_REPARSE_DATA_BUF
     return buffer->SymbolicLinkReparseBuffer.PathBuffer;
 }
 
+
+extern const ACCESS_MASK _FILE_GENERIC_READ;
+extern const ACCESS_MASK _FILE_GENERIC_WRITE;
+extern const ACCESS_MASK _FILE_GENERIC_EXECUTE;
+extern const ACCESS_MASK _FILE_ALL_ACCESS;
+
 #endif

@@ -65,3 +65,12 @@ package var RENAME_NOREPLACE: Int32 {
     Int32(_RENAME_NOREPLACE)
 }
 #endif 
+
+
+
+#if canImport(WinSDK)
+@usableFromInline package var FILE_GENERIC_READ: ACCESS_MASK { _FILE_GENERIC_READ }
+@usableFromInline package var FILE_GENERIC_WRITE: ACCESS_MASK { _FILE_GENERIC_WRITE }
+@usableFromInline package var FILE_GENERIC_EXECUTE: ACCESS_MASK { _FILE_GENERIC_EXECUTE }
+@usableFromInline package var FILE_ALL_ACCESS: ACCESS_MASK { _FILE_ALL_ACCESS }
+#endif

@@ -341,9 +341,14 @@ extension UnsafeSystemHandle {
 
     }
 
-    #else 
+    #else
+    
+    package func posixPermissions() throws(SystemError) -> FilePermissions {
+        return try .init(rawValue: fstat().st_mode)
+    }
+    
 
-    package func setPermissions(_ permissions: FilePermissions) throws(SystemError) {
+    package func setPosixPermissions(_ permissions: FilePermissions) throws(SystemError) {
         try execThrowingCFunction {
             fchmod(unsafeRawHandle, permissions.rawValue)
         }
@@ -351,4 +356,72 @@ extension UnsafeSystemHandle {
 
     #endif
 
+}
+
+
+
+extension UnsafeSystemHandle {
+    
+    package func owner() throws(SystemError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
+        
+        #if canImport(WinSDK)
+        
+        let sd = try securityInfo([.owner, .group])
+
+        guard let owner = sd.owner?.sid.detach() else {
+            fatalError("Fail to get the owner SID from SECURITY_DESCRIPTOR")
+        }
+        guard let group = sd.group?.sid.detach() else {
+            fatalError("Fail to get the group SID from SECURITY_DESCRIPTOR")
+        }
+        
+        return (
+            owner: .init(rawId: owner, platformKind: .user),
+            group: .init(rawId: group, platformKind: .group)
+        )
+        
+        #else
+        
+        let st = try fstat()
+        
+        return (
+            owner: .init(rawId: st.st_uid, platformKind: .user),
+            group: .init(rawId: st.st_gid, platformKind: .group)
+        )
+        
+        #endif
+        
+    }
+    
+    
+    package func fchown(owner: PlatformIdentity?, group: PlatformIdentity?) throws(SystemError) {
+        
+        #if canImport(WinSDK)
+        
+        var settingMembers = [] as FileOperationOptions.WindowsSecurityInfoMembers
+        if owner != nil {
+            settingMembers.insert(.owner)
+        }
+        if group != nil {
+            settingMembers.insert(.group)
+        }
+        guard !settingMembers.isEmpty else { return }
+        
+        try setSecurityInfo(settingMembers, dacl: nil, sacl: nil, owner: owner?.rawId, group: group?.rawId)
+        
+        #else
+        
+        if owner == nil && group == nil { return }
+        
+        precondition(owner?.platformKind != .group, "owner identity must be of user kind")
+        precondition(group?.platformKind != .user, "group identity must be of group kind")
+        
+        try execThrowingCFunction {
+            PlatformCLib.fchown(unsafeRawHandle, owner?.rawId ?? .init(bitPattern: -1), group?.rawId ?? .init(bitPattern: -1))
+        }
+        
+        #endif
+        
+    }
+    
 }

@@ -49,11 +49,9 @@ public protocol FileSystemProtocal: Sendable {
     func getInodeFlags(forItemAt path: FilePath) throws(PlatformError) -> CInt
 
     func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(PlatformError)
-    #endif 
-
-    func setPermissions(forItemAt path: FilePath, permissions: FilePermissions) throws(PlatformError)
-
-    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError)
+    #endif
+    
+    func canAccess(itemAt path: FilePath, for accessMode: FileOperationOptions.FileAccessMode, followSymlink: Bool) throws(PlatformError) -> Bool
 
     #if canImport(WinSDK)
     func getSecurityInfo(
@@ -68,7 +66,15 @@ public protocol FileSystemProtocal: Sendable {
         owner: PlatformIdentity?, 
         group: PlatformIdentity?
     ) throws(PlatformError)
-    #endif 
+    #else
+    func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> FilePermissions
+    
+    func setPosixPermissions(forItemAt path: FilePath, permissions: FilePermissions, followSymlink: Bool) throws(PlatformError)
+    #endif
+    
+    func getOwner(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity)
+    
+    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError)
 
 
     // MARK: File Handles

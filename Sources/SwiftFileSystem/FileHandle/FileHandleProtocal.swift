@@ -151,28 +151,37 @@ extension FileHandleProtocol where Self: ~Copyable {
         }
 
     }
-    #endif
-
-
-    public func setPermissions(_ permissions: FilePermissions) throws(PlatformError) {
+    #else
+    public func posixPermissions() throws(PlatformError) -> FilePermissions {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+                try sysHandle.posixPermissions()
+            }
+        }
+    }
+    
+    public func setPosixPermissions(_ permissions: FilePermissions) throws(PlatformError) {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            #if canImport(WinSDK)
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
-                let dacl = try WindowsRawAcl.makeForCurrentUser(fromPosixPermissions: permissions)
-                try sysHandle.setSecurityInfo(.dacl, dacl: dacl, sacl: nil, owner: nil, group: nil)
+                try sysHandle.setPosixPermissions(permissions)
             }
-            #else     
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
-                try sysHandle.setPermissions(permissions)
+        }
+    }
+    #endif
+    
+    
+    public func owner() throws(PlatformError) -> (owner: PlatformIdentity?, group: PlatformIdentity?) {
+        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in
+                try sysHandle.owner()
             }
-            #endif
         }
     }
 
 
     public func setOwner(owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError) {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in
                 try sysHandle.fchown(owner: owner, group: group)
             }
         }

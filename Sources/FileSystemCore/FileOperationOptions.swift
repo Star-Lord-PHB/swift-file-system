@@ -230,6 +230,17 @@ public enum FileOperationOptions {
         }
         
     }
+    
+    
+    public struct FileAccessMode: OptionSet, Sendable {
+        public let rawValue: Int8
+        public init(rawValue: Int8) {
+            self.rawValue = rawValue
+        }
+        public static let read: FileAccessMode = .init(rawValue: 1 << 0)
+        public static let write: FileAccessMode = .init(rawValue: 1 << 1)
+        public static let execute: FileAccessMode = .init(rawValue: 1 << 2)
+    }
 
 
     #if canImport(WinSDK)

@@ -75,6 +75,13 @@ public struct WindowsSid: @unchecked Sendable {
             precondition(IsValidSid(psid.unsafeResourcePtr), "SID pointer corrupted")
             return result
         }
+        
+        public func detach() -> WindowsSid {
+            let len = GetLengthSid(psid.unsafeResourcePtr)
+            let newPsid = UnsafeMutableRawPointer.allocate(byteCount: Int(len), alignment: MemoryLayout<WCHAR>.alignment)
+            CopySid(len, newPsid, psid.unsafeResourcePtr)
+            return .init(unsafeOwningPSid: newPsid, freeingFunc: { $0.deallocate() })
+        }
 
     }
 
@@ -214,15 +221,13 @@ extension WindowsSid.View {
     @_lifetime(copy psd)
     package static func make(
         unsafeExtractingOwnerFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>
-    ) -> (sid: Self, defaulted: Bool) {
+    ) -> (sid: Self, defaulted: Bool)? {
         
         var ownerSidPtr = nil as PSID?
         var ownerDefaulted = false as WindowsBool
         GetSecurityDescriptorOwner(psd.unsafelyCastedMutableRawPtr, &ownerSidPtr, &ownerDefaulted)
 
-        guard let ownerSidPtr else {
-            fatalError("Failed to get owner SID from SECURITY_DESCRIPTOR")
-        }
+        guard let ownerSidPtr else { return nil }
         
         return (.init(psid: .init(unownedResource: ownerSidPtr)), ownerDefaulted.boolValue)
 
@@ -232,15 +237,13 @@ extension WindowsSid.View {
     @_lifetime(copy psd)
     package static func make(
         unsafeExtractingGroupFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>
-    ) -> (sid: Self, defaulted: Bool) {
+    ) -> (sid: Self, defaulted: Bool)? {
         
         var groupSidPtr = nil as PSID?
         var groupDefaulted = false as WindowsBool
         GetSecurityDescriptorGroup(psd.unsafelyCastedMutableRawPtr, &groupSidPtr, &groupDefaulted)
 
-        guard let groupSidPtr else {
-            fatalError("Failed to get group SID from SECURITY_DESCRIPTOR")
-        }
+        guard let groupSidPtr else { return nil }
         
         return (.init(psid: .init(unownedResource: groupSidPtr)), groupDefaulted.boolValue)
 

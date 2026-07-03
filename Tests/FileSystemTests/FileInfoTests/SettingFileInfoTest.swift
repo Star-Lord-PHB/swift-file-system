@@ -219,7 +219,7 @@ extension FileSystemTest.SettingFileInfoTests {
 
         let filePath = try makeFile(at: "file")
 
-        try FileSystem().setPermissions(forItemAt: filePath, permissions: permissions)
+        try FileSystem().setPosixPermissions(forItemAt: filePath, permissions: permissions)
 
         let newPermissions = try #require(try FileManager.default.attributesOfItem(atPath: filePath.string)[.posixPermissions] as? Int16)
 
@@ -235,7 +235,7 @@ extension FileSystemTest.SettingFileInfoTests {
 
         let dirPath = try makeDir(at: "dir")
 
-        try FileSystem().setPermissions(forItemAt: dirPath, permissions: permissions)
+        try FileSystem().setPosixPermissions(forItemAt: dirPath, permissions: permissions)
 
         let newPermissions = try #require(try FileManager.default.attributesOfItem(atPath: dirPath.string)[.posixPermissions] as? Int16)
 
@@ -257,7 +257,7 @@ extension FileSystemTest.SettingFileInfoTests {
         #if canImport(Glibc) || canImport(Musl)
 
         do {
-            try FileSystem().setPermissions(forItemAt: symlinkPath, permissions: permissions)
+            try FileSystem().setPosixPermissions(forItemAt: symlinkPath, permissions: permissions, followSymlink: false)
             let newPermissions = try #require(try FileManager.default.attributesOfItem(atPath: symlinkPath.string)[.posixPermissions] as? Int16)
             #expect(newPermissions == permissions.rawValue)
         } catch let error as PlatformError where error.kind == .unsupported {
@@ -266,7 +266,7 @@ extension FileSystemTest.SettingFileInfoTests {
 
         #else
 
-        try FileSystem().setPermissions(forItemAt: symlinkPath, permissions: permissions)
+        try FileSystem().setPosixPermissions(forItemAt: symlinkPath, permissions: permissions, followSymlink: false)
         let newPermissions = try #require(try FileManager.default.attributesOfItem(atPath: symlinkPath.string)[.posixPermissions] as? Int16)
         #expect(newPermissions == permissions.rawValue)
         

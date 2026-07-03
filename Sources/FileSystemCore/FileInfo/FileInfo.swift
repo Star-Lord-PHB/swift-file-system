@@ -6,7 +6,6 @@ import CFileSystem
 
 public struct FileInfo: Sendable, Equatable, Hashable {
 
-    // public let path: FilePath
     public let size: UInt64
 
     public let type: FileType
@@ -14,12 +13,6 @@ public struct FileInfo: Sendable, Equatable, Hashable {
     public let times: FileTimes
 
     public let fileIdentifier: FileIdentifier
-
-    #if !canImport(WinSDK)
-    public let permissions: FilePermissions
-    public let owner: PlatformIdentity
-    public let group: PlatformIdentity
-    #endif
 
     public let attributes: PlatformFileAttributes
     public let supportedAttributes: PlatformFileAttributes
@@ -32,19 +25,15 @@ extension FileInfo: CustomStringConvertible {
 
     @inlinable
     public var description: String {
-        var str = """
-            File(\
-            type: \(type), size: \(size) bytes, \
-            last accessed: \(times.lastAccess), \
-            last modified: \(times.lastModification), \
-            last status changed: \(times.lastChange), \
-            \(times.creation.map { "created: \($0)," } ?? "") \
-            attributes: \(attributes))
-            """
-        #if !canImport(WinSDK)
-        str += ", permissions: \(permissions), owner: \(owner), group: \(group)"
-        #endif
-        return str
+        """
+        File(\
+        type: \(type), size: \(size) bytes, \
+        last accessed: \(times.lastAccess), \
+        last modified: \(times.lastModification), \
+        last status changed: \(times.lastChange), \
+        \(times.creation.map { "created: \($0)," } ?? "") \
+        attributes: \(attributes))
+        """
     }
 
 }
@@ -82,10 +71,6 @@ extension FileInfo {
         #else 
         self.supportedAttributes = .init(rawValue: stat.st_flags_mask)
         #endif
-
-        self.permissions = .init(rawValue: stat.st_mode & 0o7777)
-        self.owner = .init(rawId: stat.st_uid, platformKind: .user)
-        self.group = .init(rawId: stat.st_gid, platformKind: .group)
     }
     #endif
 

@@ -8,8 +8,8 @@ import WinSDK
 public struct WindowsSecurityDescriptor: Sendable, Equatable, Hashable {
 
     public let revision: BYTE
-    public let owner: String 
-    public let group: String
+    public let owner: String?
+    public let group: String?
     public let control: WindowsSecurityDescriptorControl
     public let dacl: WindowsACL?
     public let sacl: WindowsACL?
@@ -27,11 +27,17 @@ extension WindowsSecurityDescriptor {
         self.revision = BYTE(revision)
         self.control = control
 
-        let (ownerSidView, _) = WindowsSid.View.make(unsafeExtractingOwnerFromPSD: sdPtr)
-        self.owner = ownerSidView.string
-
-        let (groupSidView, _) = WindowsSid.View.make(unsafeExtractingGroupFromPSD: sdPtr)
-        self.group = groupSidView.string
+        if let (ownerSidView, _) = WindowsSid.View.make(unsafeExtractingOwnerFromPSD: sdPtr) {
+            self.owner = ownerSidView.string
+        } else {
+            self.owner = nil
+        }
+        
+        if let (groupSidView, _) = WindowsSid.View.make(unsafeExtractingGroupFromPSD: sdPtr) {
+            self.group = groupSidView.string
+        } else {
+            self.group = nil
+        }
 
         self.dacl = .init(unsafeSecurityDescriptorPtr: sdPtr, type: .dacl)
         self.sacl = .init(unsafeSecurityDescriptorPtr: sdPtr, type: .sacl)
@@ -49,8 +55,8 @@ extension WindowsSecurityDescriptor: CustomStringConvertible {
         """
         SecurityInfo(\
         revision: \(revision), \
-        owner: \(owner), \
-        group: \(group), \
+        owner: \(owner.map { $0.description } ?? "nil"), \
+        group: \(group.map { $0.description } ?? "nil"), \
         control: \(control), \
         dacl: \(dacl.map{ $0.description } ?? "nil"), \
         sacl: \(sacl.map{ $0.description } ?? "nil"))
