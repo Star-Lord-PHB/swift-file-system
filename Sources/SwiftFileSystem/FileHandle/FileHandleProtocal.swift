@@ -101,7 +101,7 @@ extension FileHandleProtocol where Self: ~Copyable {
 
     #if canImport(WinSDK)
     public func securityInfo(
-        _ members: FileOperationOptions.WindowsSecurityInfoMembers = .all
+        _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 

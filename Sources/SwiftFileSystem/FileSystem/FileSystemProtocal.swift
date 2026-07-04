@@ -36,27 +36,37 @@ public protocol FileSystemProtocal: Sendable {
     func destinationOfSymLink(at path: FilePath, recursive: Bool) throws(PlatformError) -> FilePath
 
 
-    // File Information Operations
+    // MARK: File Information Operations
 
-    func info(ofFileAt path: FilePath, followSymlinks: Bool) throws(PlatformError) -> FileInfo
+    func info(ofItemAt path: FilePath, followSymlinks: Bool) throws(PlatformError) -> FileInfo
 
-    func setTimes(forItemAt path: FilePath, accessTime: FileTimeSpec?, modificationTime: FileTimeSpec?, creationTime: FileTimeSpec?) throws(PlatformError)
+    func setTimes(
+        forItemAt path: FilePath,
+        accessTime: FileTimeSpec?,
+        modificationTime: FileTimeSpec?,
+        creationTime: FileTimeSpec?,
+        followSymlink: Bool
+    ) throws(PlatformError)
 
     
-    func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes) throws(PlatformError)
+    func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(PlatformError)
 
     #if canImport(Glibc) || canImport(Musl)
-    func getInodeFlags(forItemAt path: FilePath) throws(PlatformError) -> CInt
+    func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> CInt
 
-    func setInodeFlags(forItemAt path: FilePath, flags: CInt) throws(PlatformError)
+    func setInodeFlags(forItemAt path: FilePath, flags: CInt, followSymlink: Bool) throws(PlatformError)
     #endif
-    
+
+
+    // MARK: File Permission Operations
+
     func canAccess(itemAt path: FilePath, for accessMode: FileOperationOptions.FileAccessMode, followSymlink: Bool) throws(PlatformError) -> Bool
 
     #if canImport(WinSDK)
     func getSecurityInfo(
         forItemAt path: FilePath, 
-        querying: FileOperationOptions.WindowsSecurityInfoMembers
+        querying: FileOperationOptions.WindowsSecurityInfoMembers,
+        followSymlink: Bool
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
     
     func setSecurityInfo(
@@ -64,7 +74,8 @@ public protocol FileSystemProtocal: Sendable {
         dacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
         sacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
         owner: PlatformIdentity?, 
-        group: PlatformIdentity?
+        group: PlatformIdentity?,
+        followSymlink: Bool
     ) throws(PlatformError)
     #else
     func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> FilePermissions
@@ -74,7 +85,7 @@ public protocol FileSystemProtocal: Sendable {
     
     func getOwner(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity)
     
-    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError)
+    func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?, followSymlink: Bool) throws(PlatformError)
 
 
     // MARK: File Handles
@@ -89,6 +100,7 @@ public protocol FileSystemProtocal: Sendable {
 
 
     // MARK: Common Paths and Directories
+    
     func currentWorkingDirectoryPath() throws(PlatformError) -> FilePath
 
     func executablePath() throws(PlatformError) -> FilePath

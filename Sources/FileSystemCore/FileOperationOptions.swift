@@ -254,6 +254,7 @@ public enum FileOperationOptions {
         public static let dacl: Self = .init(rawValue: .init(DACL_SECURITY_INFORMATION))
         public static let sacl: Self = .init(rawValue: .init(SACL_SECURITY_INFORMATION))
         public static var all: Self { [.owner, .group, .dacl, .sacl] }
+        public static var allExceptSacl: Self { [.owner, .group, .dacl] }
     }
 
 

@@ -19,10 +19,11 @@ extension FileSystem {
     
     public func getSecurityInfo(
         forItemAt path: FilePath,
-        querying members: FileOperationOptions.WindowsSecurityInfoMembers = .all
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
+        followSymlink: Bool = true
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try InternalFS.getSecurityInfo(forItemAt: path, members: members)
+            try InternalFS.getSecurityInfo(forItemAt: path, members: members, followSymlink: followSymlink)
         }
     }
     
@@ -32,7 +33,8 @@ extension FileSystem {
         dacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange,
         sacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange,
         owner: PlatformIdentity? = nil,
-        group: PlatformIdentity? = nil
+        group: PlatformIdentity? = nil,
+        followSymlink: Bool = true
     ) throws(PlatformError) {
         
         var members = [] as FileOperationOptions.WindowsSecurityInfoMembers
@@ -57,7 +59,8 @@ extension FileSystem {
                 dacl: dacl.takeRawAcl(),
                 sacl: sacl.takeRawAcl(),
                 owner: owner?.rawId,
-                group: group?.rawId
+                group: group?.rawId,
+                followSymlink: followSymlink
             )
         } catch {
             throw PlatformError(systemError: error, operation: .setMeta(path))
@@ -93,9 +96,9 @@ extension FileSystem {
     }
     
     
-    public func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError) {
+    public func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?, followSymlink: Bool = true) throws(PlatformError) {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try InternalFS.chown(forItemAt: path, owner: owner, group: group)
+            try InternalFS.chown(forItemAt: path, owner: owner, group: group, followSymlink: followSymlink)
         }
     }
     

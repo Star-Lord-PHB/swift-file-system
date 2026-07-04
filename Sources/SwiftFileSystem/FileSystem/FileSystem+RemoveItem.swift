@@ -5,7 +5,23 @@ import FileSystemCore
 
 extension FileSystem {
 
-    func _removeDirectoryRecursive(at path: FilePath) throws(PlatformError) {
+    public func removeItem(at path: FilePath) throws(PlatformError) {
+
+        do {
+            try InternalFS.remove(itemAt: path)
+            return 
+        } catch let error where error.kind != .notEmptyDirectory {
+            throw PlatformError(systemError: error, operation: .remove(path))
+        } catch {
+            // do nothing
+        }
+
+        try _removeDirectoryRecursive(at: path)
+
+    }
+
+
+    fileprivate func _removeDirectoryRecursive(at path: FilePath) throws(PlatformError) {
 
         var enumerator = DirectoryEntryRecursiveEnumerator(path: path, doStat: false)
 

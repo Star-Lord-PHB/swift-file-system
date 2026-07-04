@@ -89,7 +89,8 @@ extension FileSystemTest.SettingFileInfoTests {
             forItemAt: symlinkPath,
             accessTime: access,
             modificationTime: modification,
-            creationTime: creation
+            creationTime: creation,
+            followSymlink: false
         )
 
         let newAttrs = try FileManager.default.attributesOfItem(atPath: symlinkPath.string)
@@ -185,7 +186,7 @@ extension FileSystemTest.SettingFileInfoTests {
         let linkExpectation = try ItemExpectation.from(itemAt: symlinkPath, followSymlink: false)
 
         let error = #expect(throws: PlatformError.self) {
-            try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr)    
+            try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr, followSymlink: false)
         }
 
         #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
@@ -195,7 +196,7 @@ extension FileSystemTest.SettingFileInfoTests {
 
         // On other platforms, setting attributes for symlink is supported
 
-        try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr)
+        try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr, followSymlink: false)
 
         let symlinkInfo = try FileInfo(fileAt: symlinkPath, followSymLink: false)
         #if canImport(WinSDK)

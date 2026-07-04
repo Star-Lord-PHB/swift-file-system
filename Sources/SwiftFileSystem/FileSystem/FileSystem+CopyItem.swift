@@ -2,6 +2,39 @@ import SystemPackage
 import FileSystemCore
 
 
+extension FileSystem {
+
+    public func copyItem<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
+        at srcPath: FilePath, 
+        to dstPath: FilePath, 
+        onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite, 
+        symlinkOption: FileOperationOptions.CopyItemSymlinkOption = .copyLink,
+        errorStrategy: ErrorStrategy = .abortOnError
+    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
+
+        var errorCollector = RecursiveCopyErrorCollector(srcRootPath: srcPath, dstRootPath: dstPath, strategy: errorStrategy)
+
+        do throws(RecursiveCopyAbortError) {
+
+            // resolve symlink first if needed
+            let resolvedSrcPath: FilePath
+            do {
+                resolvedSrcPath = symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
+            } catch {
+                try errorCollector.handleErrorAndAbort(error, itemRelativePath: .init())
+            }
+
+            try _copyItemNoFollow(from: resolvedSrcPath, to: dstPath, overwrite: targetExistOption, errorCollector: &errorCollector)
+
+        } catch { /* Abort errors are not necessary to be handled */ }
+
+        return try errorStrategy.reportError(errorCollector.report.value)
+
+    }
+
+}
+
+
 
 extension FileSystem {
 
@@ -82,8 +115,8 @@ extension FileSystem {
 
         #if canImport(WinSDK)
 
-        let info = try InternalFS.getFileInfo(forItemAt: path)
-        let sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl)
+        let info = try InternalFS.getFileInfo(forItemAt: path, followSymlink: false)
+        let sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl, followSymlink: false)
 
         return .init(info: info, securityDescriptor: sd)
 
@@ -93,8 +126,8 @@ extension FileSystem {
 
         #if canImport(Glibc) || canImport(Musl)
 
-        let flags = if info.type != .symlink {
-            try InternalFS.readFileInodeFlags(forItemAt: path)
+        let flags = if FileType(mode: stat.st_mode) != .symlink {
+            try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: false)
         } else {
             nil as CInterop.PosixInodeFlags?
         }
@@ -149,7 +182,7 @@ extension FileSystem {
         
         #if canImport(WinSDK)
 
-        try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes)
+        try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes, followSymlink: false)
 
         var absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
 
@@ -157,13 +190,14 @@ extension FileSystem {
             forItemAt: path, 
             setting: .dacl, 
             dacl: absoluteSd.takeDacl(), 
-            sacl: nil, owner: nil, group: nil
+            sacl: nil, owner: nil, group: nil,
+            followSymlink: false
         )
 
         #else
 
         do {
-            try InternalFS.setPosixPermissions(forItemAt: path, permissions: cachedAttrs.permission)
+            try InternalFS.setPosixPermissions(forItemAt: path, permissions: cachedAttrs.permission, followSymlink: false)
         } catch let error where error.kind == .unsupported {
             // ignore unsupported error on setting permission
         }
@@ -171,13 +205,13 @@ extension FileSystem {
         #if canImport(Glibc) || canImport(Musl)
         if let flags = cachedAttrs.attributes {
             do {
-                try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags)
+                try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags, followSymlink: false)
             } catch let error where error.kind == .unsupported || error.kind == .isADirectory {
                 // ignore unsupported error and is a dir error on setting inode flags
             }
         }
         #else
-        try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes)
+        try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes, followSymlink: false)
         #endif
 
         #endif 
@@ -244,35 +278,6 @@ extension FileSystem {
 
 
 extension FileSystem {
-
-    func _copyItemImpl<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
-        at srcPath: FilePath, 
-        to dstPath: FilePath, 
-        onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption, 
-        symlinkOption: FileOperationOptions.CopyItemSymlinkOption,
-        errorStrategy: ErrorStrategy
-    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
-
-        var errorCollector = RecursiveCopyErrorCollector(srcRootPath: srcPath, dstRootPath: dstPath, strategy: errorStrategy)
-
-        do throws(RecursiveCopyAbortError) {
-
-            // resolve symlink first if needed
-            let resolvedSrcPath: FilePath
-            do {
-                resolvedSrcPath = symlinkOption == .copyTarget ? try InternalFS.realpath(of: srcPath) : srcPath
-            } catch {
-                try errorCollector.handleErrorAndAbort(error, itemRelativePath: .init())
-            }
-
-            try _copyItemNoFollow(from: resolvedSrcPath, to: dstPath, overwrite: targetExistOption, errorCollector: &errorCollector)
-
-        } catch { /* Abort errors are not necessary to be handled */ }
-
-        return try errorStrategy.reportError(errorCollector.report.value)
-        
-    }
-
 
     fileprivate func _copyItemNoFollow<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
         from srcPath: FilePath, 
@@ -486,13 +491,13 @@ extension FileSystem {
         }
 
         do {
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
             #if canImport(Darwin)
             try InternalFS.copyFileMetaNoTimes(from: srcPath, to: dstTmpPath)
             #else
             try _writeCachedItemAttrsWithoutFileTime(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
             #endif
-            try InternalFS.setFileTimes(forItemAt: dstTmpPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime)
+            try InternalFS.setFileTimes(forItemAt: dstTmpPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime, followSymlink: false)
             if shouldRename {
                 try InternalFS.rename(itemAt: dstTmpPath, to: dstPath)
             }
@@ -557,9 +562,9 @@ extension FileSystem {
         }
 
         do {
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil)
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
             try _writeCachedItemAttrsWithoutFileTime(forItemAt: tmpDstPath, cachedAttrs: srcAttrs)
-            try InternalFS.setFileTimes(forItemAt: tmpDstPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime)
+            try InternalFS.setFileTimes(forItemAt: tmpDstPath, access: srcAttrs.accessTime, modification: srcAttrs.modificationTime, creation: srcAttrs.creationTime, followSymlink: false)
             if shouldRename {
                 try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
@@ -609,7 +614,7 @@ extension FileSystem {
                             throw SystemError(code: .unknown)!
                         }
                         if type == .directory {
-                            return .skipped(try? InternalFS.getFileTimes(fromItemAt: dstPath).lastAccess)
+                            return .skipped(try? InternalFS.getFileTimes(fromItemAt: dstPath, followSymlink: false).lastAccess)
                         } else {
                             return .skippedNonDir
                         }
@@ -714,10 +719,11 @@ extension FileSystem {
                             forItemAt: dstPath.appending(path.components), 
                             access: times.accessTime, 
                             modification: times.modificationTime, 
-                            creation: times.creationTime
+                            creation: times.creationTime,
+                            followSymlink: false
                         )
                     }
-                    try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: item.cachedSrcAccessTime, modification: nil)
+                    try? InternalFS.setFileTimes(forItemAt: srcPath.appending(path.components), access: item.cachedSrcAccessTime, modification: nil, followSymlink: false)
                     continue
                 case .entry(let e): 
                     entry = e   
@@ -764,9 +770,9 @@ extension FileSystem {
             assert(dirFileTimesStack.isEmpty == false, "Internal error: Unexpected empty dirFileTimesStack during dir traversal")
             if let item = dirFileTimesStack.popLast().flatMap(\.self) {
                 if let times = item.fileTimesToCopy {
-                    try? InternalFS.setFileTimes(forItemAt: dstPath, access: times.accessTime, modification: times.modificationTime, creation: times.creationTime)
+                    try? InternalFS.setFileTimes(forItemAt: dstPath, access: times.accessTime, modification: times.modificationTime, creation: times.creationTime, followSymlink: false)
                 }
-                try? InternalFS.setFileTimes(forItemAt: srcPath, access: item.cachedSrcAccessTime, modification: nil)
+                try? InternalFS.setFileTimes(forItemAt: srcPath, access: item.cachedSrcAccessTime, modification: nil, followSymlink: false)
             }
         }
 

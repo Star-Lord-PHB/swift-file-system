@@ -157,13 +157,20 @@ extension UnsafeSystemHandle {
 
             #if canImport(WinSDK)
 
+            var readMetaFlags: FlagType { .init(bitPattern: FILE_READ_ATTRIBUTES | READ_CONTROL) }
+            var writeMetaFlags: FlagType {
+                // Note: On Windows, READ_CONTROL is still required even when writing metadata such as DACL
+                .init(bitPattern: FILE_WRITE_ATTRIBUTES | WRITE_DAC | WRITE_OWNER | READ_CONTROL)
+            }
+            
             return switch access {
-                case .readOnly(metadataOnly: true):    FlagType(bitPattern: FILE_READ_ATTRIBUTES | READ_CONTROL)
-                case .readOnly:                        GENERIC_READ
-                case .writeOnly where append:          FlagType(bitPattern: FILE_APPEND_DATA)
-                case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE)
-                case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA)
-                case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE)
+                case .readOnly(metadataOnly: true):    readMetaFlags
+                case .readOnly:                        GENERIC_READ | readMetaFlags
+                case .writeOnly(metadataOnly: true):   writeMetaFlags
+                case .writeOnly where append:          FlagType(bitPattern: FILE_APPEND_DATA) | writeMetaFlags
+                case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE) | writeMetaFlags
+                case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA) | readMetaFlags | writeMetaFlags
+                case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE) | readMetaFlags | writeMetaFlags
                 case .none:                            0
             }
 
