@@ -4,9 +4,6 @@ import FileSystemCore
 
 public protocol FileSystemProtocal: Sendable {
 
-    init()
-
-
     // MARK: Basic Operations
 
     func itemExists(at path: FilePath, followSymlinks: Bool) -> Bool

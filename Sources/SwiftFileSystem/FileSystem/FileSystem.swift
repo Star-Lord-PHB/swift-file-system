@@ -2,7 +2,7 @@ import SystemPackage
 import FileSystemCore
 
 
-public final class FileSystem: FileSystemProtocal {
+public struct FileSystem: FileSystemProtocal {
 
     public init() {}
 

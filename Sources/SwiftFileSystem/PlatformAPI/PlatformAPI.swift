@@ -1,8 +1,7 @@
 import FileSystemCore
 
 
-
-public final class PlatformAPI: PlatformAPIProtocol {
+public struct PlatformAPI: PlatformAPIProtocol {
 
     public init() { }
 

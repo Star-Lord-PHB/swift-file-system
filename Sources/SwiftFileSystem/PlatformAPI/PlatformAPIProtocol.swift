@@ -1,9 +1,7 @@
 import FileSystemCore
 
 
-public protocol PlatformAPIProtocol {
-
-    init()
+public protocol PlatformAPIProtocol: Sendable {
 
     func accountName(for identity: PlatformIdentity) throws(PlatformError) -> String?
     
