@@ -119,11 +119,17 @@ extension FileSystemTest.SettingFileInfoTests {
     func settingFileAttributes() async throws {
         
         #if canImport(WinSDK)
-        let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
-        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        let attr = [.noDump, .isHidden] as PlatformFileAttributes
+        let attr = [.currentPlatform.isHidden, .currentPlatform.isReadOnly] as PlatformFileAttributes
+        #elseif canImport(Darwin)
+        let attr = [.currentPlatform.noDump, .currentPlatform.isHidden] as PlatformFileAttributes
+        #elseif os(FreeBSD)
+        let attr = [.currentPlatform.noDump, .currentPlatform.isHidden] as PlatformFileAttributes
+        #elseif os(OpenBSD)
+        let attr = [.currentPlatform.noDump] as PlatformFileAttributes
+        #elseif canImport(Glibc) || canImport(Musl)
+        let attr = [.currentPlatform.noDump] as PlatformFileAttributes
         #else 
-        let attr = [.noDump] as PlatformFileAttributes  // .isImmutable is not always supported on all fs, so not tested here
+        try Test.cancel("Platform without current file attribute support")
         #endif 
 
         let filePath = try makeFile(at: "file")
@@ -141,11 +147,17 @@ extension FileSystemTest.SettingFileInfoTests {
     func settingDirAttributes() async throws {
         
         #if canImport(WinSDK)
-        let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
-        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        let attr = [.noDump, .isHidden] as PlatformFileAttributes
+        let attr = [.currentPlatform.isHidden, .currentPlatform.isReadOnly] as PlatformFileAttributes
+        #elseif canImport(Darwin)
+        let attr = [.currentPlatform.noDump, .currentPlatform.isHidden] as PlatformFileAttributes
+        #elseif os(FreeBSD)
+        let attr = [.currentPlatform.noDump, .currentPlatform.isHidden] as PlatformFileAttributes
+        #elseif os(OpenBSD)
+        let attr = [.currentPlatform.noDump] as PlatformFileAttributes
+        #elseif canImport(Glibc) || canImport(Musl)
+        let attr = [.currentPlatform.noDump] as PlatformFileAttributes
         #else 
-        let attr = [.noDump] as PlatformFileAttributes
+        try Test.cancel("Platform without current file attribute support")
         #endif 
 
         let dirPath = try makeDir(at: "dir")
@@ -155,7 +167,7 @@ extension FileSystemTest.SettingFileInfoTests {
         let dirInfo = try FileInfo(fileAt: dirPath, followSymLink: false)
 
         #if canImport(WinSDK)
-        #expect(dirInfo.attributes == attr.union(.isDirectory))
+        #expect(dirInfo.attributes == attr.union(.currentPlatform.isDirectory))
         #else 
         #expect(dirInfo.attributes == attr)
         #endif 
@@ -167,11 +179,17 @@ extension FileSystemTest.SettingFileInfoTests {
     func settingSymlinkAttributes() async throws {
         
         #if canImport(WinSDK)
-        let attr = [.isHidden, .isReadOnly] as PlatformFileAttributes
-        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        let attr = [.noDump, .isHidden] as PlatformFileAttributes
+        let attr = [.currentPlatform.isHidden, .currentPlatform.isReadOnly] as PlatformFileAttributes
+        #elseif canImport(Darwin)
+        let attr = [.currentPlatform.noDump, .currentPlatform.isHidden] as PlatformFileAttributes
+        #elseif os(FreeBSD)
+        let attr = [.currentPlatform.noDump, .currentPlatform.isHidden] as PlatformFileAttributes
+        #elseif os(OpenBSD)
+        let attr = [.currentPlatform.noDump] as PlatformFileAttributes
+        #elseif canImport(Glibc) || canImport(Musl)
+        let attr = [.currentPlatform.noDump] as PlatformFileAttributes
         #else 
-        let attr = [.noDump] as PlatformFileAttributes
+        try Test.cancel("Platform without current file attribute support")
         #endif 
 
         let targetPath = try makeFile(at: "target")
@@ -200,7 +218,7 @@ extension FileSystemTest.SettingFileInfoTests {
 
         let symlinkInfo = try FileInfo(fileAt: symlinkPath, followSymLink: false)
         #if canImport(WinSDK)
-        #expect(symlinkInfo.attributes == attr.union(.isReparsePoint))
+        #expect(symlinkInfo.attributes == attr.union(.windows.isReparsePoint))
         #else
         #expect(symlinkInfo.attributes == attr)
         #endif 

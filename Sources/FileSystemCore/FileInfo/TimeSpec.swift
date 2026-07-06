@@ -3,7 +3,7 @@ import SystemPackage
 import CFileSystem
 
 #if canImport(Glibc) || canImport(Musl)
-import CDispatch
+import struct CSystem.timespec
 #endif
 
 

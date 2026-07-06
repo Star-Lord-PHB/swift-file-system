@@ -1,20 +1,93 @@
 import SystemPackage
 import CFileSystem
 
-#if canImport(WinSDK)
-import WinSDK
-#endif
 
+@usableFromInline
+protocol PlatformFileAttributesProtocol: Sendable, ExpressibleByArrayLiteral {}
 
-
-protocol PlatformFileAttributesProtocol: Sendable, OptionSet, Hashable, CustomStringConvertible where RawValue == RawBitType, Self.Element == Self {
-    associatedtype RawBitType: FixedWidthInteger
-    static var _allWithNameAsArray: [(Self, StaticString)]? { get }
-    static var _all: Self { get }
-}
 
 
 extension PlatformFileAttributesProtocol {
+
+    @usableFromInline static var _allWithNameAsArray: [(Self, StaticString)]? { nil }
+    @usableFromInline static var _all: Self { [] }
+
+    @usableFromInline
+    var _isReadOnly: Bool? {
+        get { nil }
+        set {  }
+    }
+    @usableFromInline
+    var _isImmutable: Bool? {
+        get { nil }
+        set { }
+    }
+    @usableFromInline
+    var _isCompressed: Bool? {
+        nil
+    }
+    @usableFromInline
+    var _isAppendOnly: Bool? {
+        get { nil }
+        set {  }
+    }
+    @usableFromInline
+    var _isEncrypted: Bool? {
+        nil
+    }
+
+}
+
+
+
+public struct PlatformFileAttributes: PlatformFileAttributesProtocol, OptionSet, Hashable {
+
+    @_alwaysEmitIntoClient
+    public var rawValue: CInterop.PlatformFileAttribute
+
+
+    @inlinable
+    public init(rawValue: CInterop.PlatformFileAttribute) {
+        self.rawValue = rawValue
+    }
+
+
+    @inlinable 
+    public var isReadOnly: Bool? {
+        get { _isReadOnly }
+        set { _isReadOnly = newValue }
+    }
+
+    @inlinable
+    public var isImmutable: Bool? {
+        get { _isImmutable }
+        set { _isImmutable = newValue }
+    }
+
+    @inlinable 
+    public var isCompressed: Bool? {
+        _isCompressed
+    }
+
+    @inlinable 
+    public var isAppendOnly: Bool? {
+        get { _isAppendOnly }
+        set { _isAppendOnly = newValue }
+    }
+
+    @inlinable 
+    public var isEncrypted: Bool? {
+        _isEncrypted
+    }
+
+
+    @inlinable public static var all: Self { _all }
+
+}
+
+
+
+extension PlatformFileAttributes: CustomStringConvertible {
 
     @inlinable
     public var description: String {
@@ -29,44 +102,30 @@ extension PlatformFileAttributesProtocol {
             return "0x\(String(rawValue, radix: 16))"
         }
     }
-
-
-    @inlinable
-    public static func | (left: Self, right: Self) -> Self {
-        .init(rawValue: left.rawValue | right.rawValue)
-    }
-
-
-    @usableFromInline static var _allWithNameAsArray: [(Self, StaticString)]? { nil }
-    @usableFromInline static var _all: Self { [] }
-    @inlinable public static var all: Self { _all }
-
+    
 }
 
 
 
-public struct PlatformFileAttributes: PlatformFileAttributesProtocol {
+extension PlatformFileAttributes {
 
-    public typealias RawBitType = CInterop.PlatformFileAttribute
+    public enum UnknownPlatform {}
 
-
-    @_alwaysEmitIntoClient
-    public var rawValue: RawBitType
-
+    #if canImport(Darwin)
+    public typealias CurrentPlatform = Darwin
+    #elseif os(FreeBSD)
+    public typealias CurrentPlatform = FreeBSD
+    #elseif os(OpenBSD)
+    public typealias CurrentPlatform = OpenBSD
+    #elseif canImport(Glibc) || canImport(Musl)
+    public typealias CurrentPlatform = Linux
+    #elseif canImport(WinSDK)
+    public typealias CurrentPlatform = Windows
+    #else 
+    public typealias CurrentPlatform = UnknownPlatform
+    #endif
 
     @inlinable
-    public init(rawValue: RawBitType) {
-        self.rawValue = rawValue
-    }
-
-
-    @inlinable
-    mutating func set(_ value: Bool, for attr: RawBitType) {
-        if value {
-            rawValue |= attr
-        } else {
-            rawValue &= ~attr
-        }
-    }
+    public static var currentPlatform: CurrentPlatform.Type { CurrentPlatform.self }
 
 }

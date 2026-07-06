@@ -2,9 +2,12 @@
 
 #define _GNU_SOURCE
 
+#if defined(__has_include) && __has_include(<linux/stat.h>)
+#include <linux/stat.h>
+#endif
+
 #include <sys/stat.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 
 struct StatCompat {
@@ -30,34 +33,44 @@ int systemFStatCompat(int32_t fd, struct StatCompat* outStat);
 int systemStatCompat(const char* path, int flags, struct StatCompat*const outStat);
 
 
-extern const int _STATX_ATTR_COMPRESSED;
-extern const bool HAS_STATX_ATTR_COMPRESSED;
+#ifndef STATX_ATTR_COMPRESSED
+#define STATX_ATTR_COMPRESSED 0x00000004
+#endif
 
-extern const int _STATX_ATTR_IMMUTABLE;
-extern const bool HAS_STATX_ATTR_IMMUTABLE;
+#ifndef STATX_ATTR_IMMUTABLE
+#define STATX_ATTR_IMMUTABLE 0x00000010
+#endif
 
-extern const int _STATX_ATTR_APPEND;
-extern const bool HAS_STATX_ATTR_APPEND;
+#ifndef STATX_ATTR_APPEND
+#define STATX_ATTR_APPEND 0x00000020
+#endif
 
-extern const int _STATX_ATTR_NODUMP;
-extern const bool HAS_STATX_ATTR_NODUMP;
+#ifndef STATX_ATTR_NODUMP
+#define STATX_ATTR_NODUMP 0x00000040
+#endif
 
-extern const int _STATX_ATTR_ENCRYPTED;
-extern const bool HAS_STATX_ATTR_ENCRYPTED;
+#ifndef STATX_ATTR_ENCRYPTED
+#define STATX_ATTR_ENCRYPTED 0x00000800
+#endif
 
-extern const int _STATX_ATTR_AUTOMOUNT;
-extern const bool HAS_STATX_ATTR_AUTOMOUNT;
+#ifndef STATX_ATTR_AUTOMOUNT
+#define STATX_ATTR_AUTOMOUNT 0x00001000
+#endif
 
-extern const int _STATX_ATTR_MOUNT_ROOT;
-extern const bool HAS_STATX_ATTR_MOUNT_ROOT;
+#ifndef STATX_ATTR_MOUNT_ROOT
+#define STATX_ATTR_MOUNT_ROOT 0x00002000
+#endif
 
-extern const int _STATX_ATTR_VERITY;
-extern const bool HAS_STATX_ATTR_VERITY;
+#ifndef STATX_ATTR_VERITY
+#define STATX_ATTR_VERITY 0x00100000
+#endif
 
-extern const int _STATX_ATTR_WRITE_ATOMIC;
-extern const bool HAS_STATX_ATTR_WRITE_ATOMIC;
+#ifndef STATX_ATTR_WRITE_ATOMIC
+#define STATX_ATTR_WRITE_ATOMIC 0x00400000
+#endif
 
-extern const int _STATX_ATTR_DAX;
-extern const bool HAS_STATX_ATTR_DAX;
+#ifndef STATX_ATTR_DAX
+#define STATX_ATTR_DAX 0x00200000
+#endif
 
 #endif // __linux__

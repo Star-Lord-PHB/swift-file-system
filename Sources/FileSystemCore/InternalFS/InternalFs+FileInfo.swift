@@ -375,7 +375,7 @@ extension InternalFS {
 
     }
 
-    #else 
+    #elseif canImport(Glibc) || canImport(Musl)
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
     package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(SystemError) {
@@ -400,12 +400,12 @@ extension InternalFS {
 
     package static func fileAttributesToInodeFlags(_ attributes: PlatformFileAttributes) -> CInterop.PosixInodeFlags {
         var inodeFlags = 0 as CInterop.PosixInodeFlags
-        if attributes.isCompressed { inodeFlags |= FS_COMPR_FL }
-        if attributes.isImmutable { inodeFlags |= FS_IMMUTABLE_FL }
-        if attributes.isAppendOnly { inodeFlags |= FS_APPEND_FL }
-        if attributes.noDump { inodeFlags |= FS_NODUMP_FL }
-        if attributes.isEncrypted { inodeFlags |= FS_ENCRYPT_FL }
-        if attributes.isVerityProtected { inodeFlags |= FS_VERITY_FL }
+        if attributes.contains(.linux.isCompressed) { inodeFlags |= FS_COMPR_FL }
+        if attributes.contains(.linux.isImmutable) { inodeFlags |= FS_IMMUTABLE_FL }
+        if attributes.contains(.linux.isAppendOnly) { inodeFlags |= FS_APPEND_FL }
+        if attributes.contains(.linux.noDump) { inodeFlags |= FS_NODUMP_FL }
+        if attributes.contains(.linux.isEncrypted) { inodeFlags |= FS_ENCRYPT_FL }
+        if attributes.contains(.linux.isVerityProtected) { inodeFlags |= FS_VERITY_FL }
         return inodeFlags
     }
 
