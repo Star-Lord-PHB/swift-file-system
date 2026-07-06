@@ -80,7 +80,7 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     #if canImport(Glibc) || canImport(Musl)
-    public func inodeFlags() throws(PlatformError) -> CInterop.PosixInodeFlags {
+    public func inodeFlags() throws(PlatformError) -> LinuxInodeFlags {
         try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.fileInodeFlags()
@@ -89,7 +89,7 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func setInodeFlags(_ flags: CInterop.PosixInodeFlags) throws(PlatformError) {
+    public func setInodeFlags(_ flags: LinuxInodeFlags) throws(PlatformError) {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.setFileInodeFlags(flags)

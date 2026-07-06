@@ -269,17 +269,17 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func fileInodeFlags() throws(SystemError) -> CInterop.PosixInodeFlags {
+    package func fileInodeFlags() throws(SystemError) -> LinuxInodeFlags {
         var flags: CInterop.PosixInodeFlags = 0
         try execThrowingCFunction {
             ioctl(unsafeRawHandle, _FS_IOC_GETFLAGS, &flags)
         }
-        return flags
+        return .init(rawValue: flags)
     }
 
 
-    package func setFileInodeFlags(_ flags: CInterop.PosixInodeFlags) throws(SystemError) {
-        var flags = flags
+    package func setFileInodeFlags(_ flags: LinuxInodeFlags) throws(SystemError) {
+        var flags = flags.rawValue
         try execThrowingCFunction {
             return ioctl(unsafeRawHandle, _FS_IOC_SETFLAGS, &flags)
         }

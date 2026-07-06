@@ -42,14 +42,14 @@ extension FileSystem {
 
 
     #if canImport(Glibc) || canImport(Musl)
-    public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> CInt {
+    public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> LinuxInodeFlags {
         try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: followSymlink)
         }
     }
 
 
-    public func setInodeFlags(forItemAt path: FilePath, flags: CInt, followSymlink: Bool = true) throws(PlatformError) {
+    public func setInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool = true) throws(PlatformError) {
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
             try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags, followSymlink: followSymlink)
         }

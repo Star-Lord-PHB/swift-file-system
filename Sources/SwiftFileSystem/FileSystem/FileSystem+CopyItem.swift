@@ -66,7 +66,7 @@ extension FileSystem {
 
         #if canImport(Glibc) || canImport(Musl)
         // on Linux, inode flags are not available for symlinks
-        let attributes: CInt?
+        let attributes: LinuxInodeFlags?
         #else
         // on other platforms, file flags should always be available
         var attributes: PlatformFileAttributes { info.attributes }
@@ -129,7 +129,7 @@ extension FileSystem {
         let flags = if FileType(mode: stat.st_mode) != .symlink {
             try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: false)
         } else {
-            nil as CInterop.PosixInodeFlags?
+            nil as LinuxInodeFlags?
         }
 
         return .init(info: .init(stat: stat), attributes: flags, permission: .init(rawValue: stat.st_mode))

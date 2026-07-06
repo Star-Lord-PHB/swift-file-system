@@ -383,14 +383,14 @@ extension InternalFS {
     }
 
 
-    package static func setFileInodeFlags(forItemAt path: FilePath, flags: CInterop.PosixInodeFlags, followSymlink: Bool) throws(SystemError) {
+    package static func setFileInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(SystemError) {
         let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: !followSymlink))
         try fd.setFileInodeFlags(flags)
         try fd.close()
     }
 
 
-    package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(SystemError) -> CInterop.PosixInodeFlags {
+    package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(SystemError) -> LinuxInodeFlags {
         let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: !followSymlink))
         let flags = try fd.fileInodeFlags()
         try fd.close()
@@ -398,14 +398,14 @@ extension InternalFS {
     }
 
 
-    package static func fileAttributesToInodeFlags(_ attributes: PlatformFileAttributes) -> CInterop.PosixInodeFlags {
-        var inodeFlags = 0 as CInterop.PosixInodeFlags
-        if attributes.contains(.linux.isCompressed) { inodeFlags |= FS_COMPR_FL }
-        if attributes.contains(.linux.isImmutable) { inodeFlags |= FS_IMMUTABLE_FL }
-        if attributes.contains(.linux.isAppendOnly) { inodeFlags |= FS_APPEND_FL }
-        if attributes.contains(.linux.noDump) { inodeFlags |= FS_NODUMP_FL }
-        if attributes.contains(.linux.isEncrypted) { inodeFlags |= FS_ENCRYPT_FL }
-        if attributes.contains(.linux.isVerityProtected) { inodeFlags |= FS_VERITY_FL }
+    package static func fileAttributesToInodeFlags(_ attributes: PlatformFileAttributes) -> LinuxInodeFlags {
+        var inodeFlags = [] as LinuxInodeFlags
+        if attributes.contains(.linux.isCompressed) { inodeFlags.insert(.compress) }
+        if attributes.contains(.linux.isImmutable) { inodeFlags.insert(.immutable) }
+        if attributes.contains(.linux.isAppendOnly) { inodeFlags.insert(.appendOnly) }
+        if attributes.contains(.linux.noDump) { inodeFlags.insert(.noDump) }
+        if attributes.contains(.linux.isEncrypted) { inodeFlags.insert(.encrypted) }
+        if attributes.contains(.linux.isVerityProtected) { inodeFlags.insert(.verityProtected) }
         return inodeFlags
     }
 
