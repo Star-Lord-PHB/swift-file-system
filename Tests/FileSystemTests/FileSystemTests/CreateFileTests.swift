@@ -55,7 +55,7 @@ extension FileSystemTest.CreateFileTest {
         #endif
         let content = ByteBuffer("Hello, World!".utf8)
 
-        try FileSystem().createFile(at: path, replaceExisting: false, permission: permission, content: content)
+        try FileSystem().createFile(at: path, replaceExisting: false, permissions: permission, content: content)
 
         let info = try FileInfo(fileAt: path)
         let newPermission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)
@@ -110,7 +110,7 @@ extension FileSystemTest.CreateFileTest {
         let permission = [.ownerReadWriteExecute, .groupReadWrite] as FilePermissions
         let content = ByteBuffer("Serika is Cute".utf8)
 
-        try FileSystem().createFile(at: path, replaceExisting: true, permission: permission, content: content)
+        try FileSystem().createFile(at: path, replaceExisting: true, permissions: permission, content: content)
 
         let info = try FileInfo(fileAt: path)
         let newPermission = try (FileManager.default.attributesOfItem(atPath: path.string)[.posixPermissions] as? CModeT)

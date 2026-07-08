@@ -112,8 +112,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     public func setSecurityInfo(
-        dacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
-        sacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
+        dacl: FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
+        sacl: FileOperationOptions.WindowsAclUpdateRequest = .noChange, 
         owner: PlatformIdentity? = nil, 
         group: PlatformIdentity? = nil
     ) throws(PlatformError) {
@@ -133,17 +133,12 @@ extension FileHandleProtocol where Self: ~Copyable {
 
         guard !members.isEmpty else { return }
 
-        var dacl = Optional<FileOperationOptions.WindowsAclUpdateRequest>.some(dacl)
-        var sacl = Optional<FileOperationOptions.WindowsAclUpdateRequest>.some(sacl)
-
         try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
-                let dacl = dacl.take() 
-                let sacl = sacl.take()  
+            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in  
                 try sysHandle.setSecurityInfo(
                     members, 
-                    dacl: dacl!.takeRawAcl(), 
-                    sacl: sacl!.takeRawAcl(), 
+                    dacl: dacl.aclView, 
+                    sacl: sacl.aclView, 
                     owner: owner?.rawId, 
                     group: group?.rawId
                 )

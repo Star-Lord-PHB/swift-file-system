@@ -6,7 +6,7 @@ import struct SystemPackage.CModeT
 
 
 public protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
-    func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R
+    func withUnsafePACL<R: ~Copyable, E: Error>(_ operation: (PACL) throws(E) -> R) throws(E) -> R
 }
 
 
@@ -14,55 +14,47 @@ public protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
 extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
     public var revision: BYTE {
-        return self.withUnsafeNullablePACL { pacl in 
-            pacl?.pointee.AclRevision ?? BYTE(ACL_REVISION)
+        return self.withUnsafePACL { pacl in 
+            pacl.pointee.AclRevision
         }
-    }
-
-    public var isNull: Bool {
-        return self.withUnsafeNullablePACL { pacl in pacl == nil }
     }
 
     public var aceCount: WORD {
-        return self.withUnsafeNullablePACL { pacl in 
-            pacl?.pointee.AceCount ?? 0
+        return self.withUnsafePACL { pacl in 
+            pacl.pointee.AceCount
         }
     }
 
-    public subscript(_ index: Int) -> WindowsRawAceSnapshotView {
+    public subscript(_ index: Int) -> WindowsRawAceView {
         @_lifetime(borrow self)
         get {
             precondition(index >= 0 && index < Int(self.aceCount), "Index out of bounds")
-            let acePtr = self.withUnsafeNullablePACL { pacl in 
-                switch pacl {
-                    case .some(let pacl): 
-                        var acePtr = nil as LPVOID?
-                        do throws(SystemError) {
-                            try execThrowingCFunction {
-                                GetAce(pacl, DWORD(index), &acePtr)
-                            }
-                            guard let acePtr else {
-                                try SystemError.assertError()
-                            }
-                            return acePtr
-                        } catch {
-                            fatalError("Failed to get ACE at index \(index): \(error) (\(error.code))")
-                        }
-                    case .none: fatalError("Index out of bounds")
+            let acePtr = self.withUnsafePACL { pacl in 
+                var acePtr = nil as LPVOID?
+                do throws(SystemError) {
+                    try execThrowingCFunction {
+                        GetAce(pacl, DWORD(index), &acePtr)
+                    }
+                    guard let acePtr else {
+                        try SystemError.assertError()
+                    }
+                    return acePtr
+                } catch {
+                    fatalError("Failed to get ACE at index \(index): \(error) (\(error.code))")
                 }
             }
             return .init(pace: .init(unownedPointer: acePtr))
         }
     }
 
-    public func forEach<E: Error>(_ body: (WindowsRawAceSnapshotView) throws(E) -> Void) throws(E) {
+    public func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
         for i in 0 ..< Int(self.aceCount) {
             try body(self[i])
         }
     }
 
 
-    public func map<T, E: Error>(_ transform: (WindowsRawAceSnapshotView) throws(E) -> T) throws(E) -> [T] {
+    public func map<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T] {
         var results = [T]()
         for i in 0 ..< Int(self.aceCount) {
             let result = try transform(self[i])
@@ -74,7 +66,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
     public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T, 
-        _ nextPartialResult: (consuming T, WindowsRawAceSnapshotView) throws(E) -> T
+        _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
     ) throws(E) -> T {
         var result = initialResult
         for i in 0 ..< Int(self.aceCount) {
@@ -84,7 +76,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return result
     }
 
-    public func compactMap<T, E: Error>(_ transform: (WindowsRawAceSnapshotView) throws(E) -> T?) throws(E) -> [T] {
+    public func compactMap<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T] {
         var results = [T]()
         for i in 0 ..< Int(self.aceCount) {
             let aceView = self[i]
@@ -97,7 +89,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
     public func _reduce<T: ~Copyable, E: Error>(
         into initialResult: consuming T, 
-        _ updateAccumulatingResult: (inout T, WindowsRawAceSnapshotView) throws(E) -> Void
+        _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
     ) throws(E) -> T {
         var result = initialResult
         for i in 0 ..< Int(self.aceCount) {
@@ -107,7 +99,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return result
     }
 
-    public var first: WindowsRawAceSnapshotView? {
+    public var first: WindowsRawAceView? {
         @_lifetime(borrow self)
         get {
             guard self.aceCount > 0 else { return nil }
@@ -117,7 +109,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
     
     @_lifetime(borrow self)
-    public func first(where predicate: (WindowsRawAceSnapshotView) throws -> Bool) rethrows -> WindowsRawAceSnapshotView? {
+    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
         for i in 0 ..< Int(self.aceCount) {
             let aceView = self[i]
             if try predicate(aceView) {
@@ -131,25 +123,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
 
 
-public protocol WindowsRawAclNotNullableAclProtocol: ~Copyable, ~Escapable, WindowRawAclProtocol {
-    func withUnsafePACL<R: ~Copyable, E: Error>(_ operation: (PACL) throws(E) -> R) throws(E) -> R
-}
-
-
-
-extension WindowsRawAclNotNullableAclProtocol where Self: ~Copyable & ~Escapable {
-
-    public func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
-        return try self.withUnsafePACL { (pacl: PACL) throws(E) in
-            try operation(pacl)
-        }
-    }
-
-}
-
-
-
-public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
+public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
 
     private(set) var pacl: UnsafeOwnedAutoPointer<ACL>
 
@@ -191,7 +165,7 @@ public struct WindowsRawAcl: ~Copyable, WindowsRawAclNotNullableAclProtocol {
 
     public static var emptyAcl: WindowsRawAcl { .init() }
 
-    public struct View: ~Escapable, WindowsRawAclNotNullableAclProtocol {
+    public struct View: ~Escapable, WindowRawAclProtocol {
 
         let pacl: UnsafeUnownedPointer<ACL>
 
@@ -344,36 +318,65 @@ extension WindowsRawAcl {
 
 
 
-public struct WindowsRawAclSnapshotView: ~Escapable, WindowRawAclProtocol {
+public enum WindowsRawAclState: ~Escapable {
 
-    package let pacl: UnsafeUnownedPointer<ACL>?
-    public let aclDefaulted: Bool
+    case absent
+    case null(defaulted: Bool)
+    case present(WindowsRawAcl.View, defaulted: Bool)
 
-    @_lifetime(copy pacl)
-    package init(pacl: UnsafeUnownedPointer<ACL>?, aclDefaulted: Bool) {
-        precondition(IsValidAcl(pacl?.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
-        self.pacl = pacl
-        self.aclDefaulted = aclDefaulted
+    public enum StateCase: Equatable {
+        case absent, null, present
     }
 
-    @_lifetime(immortal)
-    public init(unsafeBorrowingAclPtr: PACL, aclDefaulted: Bool) {
-        self.pacl = .init(unownedPointer: unsafeBorrowingAclPtr)
-        self.aclDefaulted = aclDefaulted
+    public var `case`: StateCase {
+        return switch self {
+            case .absent:  .absent
+            case .null:    .null
+            case .present: .present
+        }
     }
 
-    public func withUnsafeNullablePACL<R: ~Copyable, E: Error>(_ operation: (PACL?) throws(E) -> R) throws(E) -> R {
-        return switch self.pacl {
-            case .some(let pacl): try operation(pacl.unsafelyCastedMutableRawPtr)
-            case .none: try operation(nil)
+    public var value: WindowsRawAcl.View? {
+        @_lifetime(copy self)
+        get {
+             switch self {
+                case .absent, .null: return nil
+                case .present(let view, _): return view
+            }
+        }
+    }
+
+    public var defaulted: Bool? {
+        switch self {
+            case .absent: return nil
+            case .null(let defaulted): return defaulted
+            case .present(_, let defaulted): return defaulted
+        }
+    }
+
+    public var isAbsent: Bool {
+        switch self {
+            case .absent:         return true
+            case .present, .null: return false
+        }
+    }
+
+    public var isNull: Bool {
+        switch self {
+            case .absent, .present: return false
+            case .null: return true
         }
     }
 
     public func detach() -> WindowsRawAcl? {
-        do {
-            return .init(pacl: try WindowsRawAcl.addEntries(nil, toAcl: self.pacl))
-        } catch {
-            fatalError("Failed to copy ACL: \(error)")
+        switch self {
+            case .absent, .null: return nil
+            case .present(let view, _): 
+                do {
+                    return .init(pacl: try WindowsRawAcl.addEntries(nil, toAcl: view.pacl))
+                } catch {
+                    fatalError("Failed to copy ACL: \(error)")
+                }
         }
     }
 
@@ -381,16 +384,16 @@ public struct WindowsRawAclSnapshotView: ~Escapable, WindowRawAclProtocol {
 
 
 
-extension WindowsRawAclSnapshotView {
+extension WindowsRawAclState {
 
     @_lifetime(borrow psd)
-    package init?(unsafeExtractingFromPSD psd: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
+    package init(unsafeExtractingFromPSD psd: borrowing UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
         self.init(unsafeExtractingFromPSD: psd.unownedView(), type: type)
     }
 
 
     @_lifetime(copy psd)
-    package init?(unsafeExtractingFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
+    package init(unsafeExtractingFromPSD psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
         
         precondition(IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr), "Invalid SECURITY_DESCRIPTOR pointer")
         
@@ -403,13 +406,15 @@ extension WindowsRawAclSnapshotView {
             case .sacl: GetSecurityDescriptorSacl(psd.unsafelyCastedMutableRawPtr, &aclPresent, &aclPtr, &aclDefaulted)
         }
 
-        guard aclPresent.boolValue else { return nil }
-
-        self.pacl = switch aclPtr {
-            case .some(let aclPtr): .init(unownedPointer: aclPtr)
-            case .none: nil
+        guard aclPresent.boolValue else { 
+            self = .absent
+            return
         }
-        self.aclDefaulted = aclDefaulted.boolValue
+
+        switch aclPtr {
+            case .some(let aclPtr): self = .present(.init(pacl: .init(unownedPointer: aclPtr)), defaulted: aclDefaulted.boolValue)
+            case .none: self = .null(defaulted: aclDefaulted.boolValue)
+        }
 
     }
 
@@ -417,7 +422,7 @@ extension WindowsRawAclSnapshotView {
 
 
 
-public struct WindowsRawAceSnapshotView: ~Escapable {
+public struct WindowsRawAceView: ~Escapable {
 
     package let pace: UnsafeUnownedRawPointer
 

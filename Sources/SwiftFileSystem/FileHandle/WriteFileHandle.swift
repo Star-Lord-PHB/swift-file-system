@@ -35,7 +35,11 @@ public struct WriteFileHandle: ~Copyable, WriteFileHandleProtocol {
 
 extension WriteFileHandle {
 
-    public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForWriting = .editFile()) throws(PlatformError) {
+    public init(
+        forFileAt path: FilePath, 
+        options: FileOperationOptions.OpenForWriting = .editFile(), 
+        creationPermissions: FilePermissions? = nil
+    ) throws(PlatformError) {
 
         var openOptions = options.unsafeSystemFileOpenOptions()
 
@@ -46,16 +50,49 @@ extension WriteFileHandle {
         #endif
 
         let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
-            try UnsafeSystemHandle.open(
-                at: path, 
-                openOptions: openOptions,
-                creationPermissions: options.creationPermissions
-            )
+            try UnsafeSystemHandle.open(at: path, openOptions: openOptions, creationPermissions: creationPermissions)
         }
 
         self.init(unsafeSystemHandle: handle, path: path)
 
     }
+
+
+    #if canImport(WinSDK)
+    public init(
+        forFileAt path: FilePath, 
+        options: FileOperationOptions.OpenForWriting = .editFile(), 
+        creationPermissions: WindowsSecurityDescriptorView
+    ) throws(PlatformError) {
+
+        var openOptions = options.unsafeSystemFileOpenOptions()
+
+        openOptions.noBlocking = true
+
+        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+            try UnsafeSystemHandle.open(at: path, openOptions: openOptions, creationPermissions: creationPermissions)
+        }
+
+        self.init(unsafeSystemHandle: handle, path: path)
+
+    }
+
+    public init(
+        forFileAt path: FilePath, 
+        options: FileOperationOptions.OpenForWriting = .editFile(), 
+        creationPermissions: borrowing WindowsAbsoluteSecurityDescriptor
+    ) throws(PlatformError) {
+        try self.init(forFileAt: path, options: options, creationPermissions: creationPermissions.view)
+    }
+
+    public init(
+        forFileAt path: FilePath, 
+        options: FileOperationOptions.OpenForWriting = .editFile(), 
+        creationPermissions: borrowing WindowsSelfRelativeSecurityDescriptor
+    ) throws(PlatformError) {
+        try self.init(forFileAt: path, options: options, creationPermissions: creationPermissions.view)
+    }
+    #endif
 
 
     @discardableResult

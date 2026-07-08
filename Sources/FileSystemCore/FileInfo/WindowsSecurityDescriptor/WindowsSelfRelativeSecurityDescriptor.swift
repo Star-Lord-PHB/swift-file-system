@@ -22,6 +22,10 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
         )
     }
 
+    public var view: WindowsSecurityDescriptorView {
+        .init(psd: psd.unownedView())
+    }
+
     public func withUnsafeSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
         let result = try body(psd.unsafelyCastedMutableRawPtr)
         precondition(self.isValid(), "SECURITY_DESCRIPTOR pointer corrupted")
@@ -58,11 +62,11 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
 
 extension WindowsSelfRelativeSecurityDescriptor {
 
-    public var dacl: WindowsRawAclSnapshotView? {
+    public var dacl: WindowsRawAclState {
         .init(unsafeExtractingFromPSD: psd.unownedView(), type: .dacl)
     }
 
-    public var sacl: WindowsRawAclSnapshotView? {
+    public var sacl: WindowsRawAclState {
         .init(unsafeExtractingFromPSD: psd.unownedView(), type: .sacl)
     }
 

@@ -319,8 +319,8 @@ extension UnsafeSystemHandle {
 
     package func setSecurityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers,
-        dacl: consuming WindowsRawAcl?, 
-        sacl: consuming WindowsRawAcl?, 
+        dacl: WindowsRawAcl.View?, 
+        sacl: WindowsRawAcl.View?, 
         owner: WindowsSid?, 
         group: WindowsSid?
     ) throws(SystemError) {

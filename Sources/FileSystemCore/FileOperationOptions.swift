@@ -6,31 +6,8 @@ public enum FileOperationOptions {
 
     public enum CreateFile {
         case never
-        case createIfMissing(permissions: FilePermissions? = nil)
-        case assertMissing(permissions: FilePermissions? = nil)
-
-        var unsafeSystemCreationOptions: UnsafeSystemHandle.OpenOptions.CreationOptions {
-            switch self {
-                case .never:            .never
-                case .createIfMissing:  .createIfMissing
-                case .assertMissing:    .assertMissing
-            }
-        }
-
-        var creationPermissions: FilePermissions? {
-            switch self {
-                case .never:                            nil
-                #if !canImport(WinSDK)
-                // On Posix, when creating file is requested but no creation permissions are specified, 
-                // use default permissions 0o644 (rw-r--r--).
-                // On Windows, permissions will be inherited from parent directory, so no need to provide default permissions.
-                case .createIfMissing(.none):           [.ownerReadWrite, .groupRead, .otherRead]
-                case .assertMissing(.none):             [.ownerReadWrite, .groupRead, .otherRead]
-                #endif
-                case .createIfMissing(let permissions): permissions
-                case .assertMissing(let permissions):   permissions
-            }
-        }
+        case createIfMissing
+        case assertMissing
     }
 
 
@@ -95,11 +72,6 @@ public enum FileOperationOptions {
         public var noFollow: Bool
         public var closeOnExec: Bool
 
-        public var creationPermissions: FilePermissions? {
-            createFile.creationPermissions
-        }
-
-
         public init(
             createFile: CreateFile = .never, 
             truncate: Bool = false, 
@@ -118,9 +90,14 @@ public enum FileOperationOptions {
         package func unsafeSystemFileOpenOptions(
             platformAdditionalFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
         ) -> UnsafeSystemHandle.OpenOptions {
-            .init(
+            let creationOption = switch createFile {
+                case .never:            .never
+                case .createIfMissing:  .createIfMissing
+                case .assertMissing:    .assertMissing
+            } as UnsafeSystemHandle.OpenOptions.CreationOptions
+            return .init(
                 access: .writeOnly(), 
-                creation: createFile.unsafeSystemCreationOptions, 
+                creation: creationOption,
                 truncate: truncate, 
                 append: append, 
                 noFollow: noFollow, 
@@ -134,13 +111,12 @@ public enum FileOperationOptions {
             replaceExisting: Bool = true, 
             append: Bool = false, 
             noFollow: Bool = false, 
-            closeOnExec: Bool = true,
-            creationPermissions: FilePermissions? = nil
+            closeOnExec: Bool = true
         ) -> OpenForWriting {
             if replaceExisting {
-                .init(createFile: .createIfMissing(permissions: creationPermissions), truncate: true, append: append, noFollow: noFollow, closeOnExec: closeOnExec)
+                .init(createFile: .createIfMissing, truncate: true, append: append, noFollow: noFollow, closeOnExec: closeOnExec)
             } else {
-                .init(createFile: .assertMissing(permissions: creationPermissions), truncate: false, append: append, noFollow: noFollow, closeOnExec: closeOnExec)
+                .init(createFile: .assertMissing, truncate: false, append: append, noFollow: noFollow, closeOnExec: closeOnExec)
             }
         }
 
@@ -154,7 +130,7 @@ public enum FileOperationOptions {
             creationPermissions: FilePermissions? = nil
         ) -> OpenForWriting {
             .init(
-                createFile: createIfMissing ? .createIfMissing(permissions: creationPermissions) : .never, 
+                createFile: createIfMissing ? .createIfMissing : .never, 
                 truncate: truncate, 
                 append: append, 
                 noFollow: noFollow, 
@@ -257,17 +233,32 @@ public enum FileOperationOptions {
         public static var allExceptSacl: Self { [.owner, .group, .dacl] }
     }
 
-
-    public enum WindowsAclUpdateRequest: ~Copyable {
-        case replace(WindowsRawAcl)
+    public enum WindowsAclUpdateRequest: ~Escapable {
+        case replace(WindowsRawAcl.View)
         case remove
         case noChange
 
-        package consuming func takeRawAcl() -> WindowsRawAcl? {
-            switch consume self {
-                case .replace(let acl): acl
-                case .remove:           nil
-                case .noChange:         nil
+        @_lifetime(borrow acl)
+        public static func replace(_ acl: borrowing WindowsRawAcl) -> Self {
+            .replace(acl.view)
+        }
+
+        @_lifetime(copy acl)
+        public static func replace(_ acl: WindowsRawAclState) -> Self {
+            switch acl {
+                case .present(let view, _):  .replace(view)
+                case .absent, .null:         .remove
+            }
+        }
+
+        package var aclView: WindowsRawAcl.View? {
+            @_lifetime(copy self)
+            get {
+                switch consume self {
+                    case .replace(let acl): acl
+                    case .remove:           nil
+                    case .noChange:         nil
+                }
             }
         }
     }

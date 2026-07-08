@@ -61,17 +61,9 @@ extension UnsafeSystemHandle {
         var securityAttributes = openOptions.securityAttributes
 
         // Set up security descriptor only when file creation may occur. 
-        let securityDescriptor = if openOptions.creation != .never, let creationPermissions {
-            try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: creationPermissions)
-        } else {
-            nil as WindowsAbsoluteSecurityDescriptor?
-        }
-
-        // currently, borrowing switch is the only way to get the unsafeRawPtr in WindowsOwnedAPIPointer
-        switch securityDescriptor {
-            case .some(let sd):
-                securityAttributes.lpSecurityDescriptor = .init(sd.psd.unsafeRawPtr)
-            case .none: break
+        if openOptions.creation != .never, let creationPermissions {
+            let sd = try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: creationPermissions)
+            securityAttributes.lpSecurityDescriptor = .init(sd.psd.unsafeRawPtr)
         }
 
         let handle = path.withPlatformString { cStr in
@@ -115,6 +107,37 @@ extension UnsafeSystemHandle {
         #endif 
 
     }
+
+
+    #if canImport(WinSDK)
+    public static func open(
+        at path: FilePath, 
+        openOptions: OpenOptions = .init(), 
+        creationPermissions: WindowsSecurityDescriptorView
+    ) throws(SystemError) -> UnsafeSystemHandle {
+
+        var securityAttributes = openOptions.securityAttributes
+        securityAttributes.lpSecurityDescriptor = .init(creationPermissions.psd.unsafelyCastedMutableRawPtr)
+
+        let handle = path.withPlatformString { cStr in
+            CreateFileW(
+                cStr, 
+                openOptions.accessModeFlags, 
+                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), 
+                &securityAttributes, 
+                openOptions.creationFlags,
+                openOptions.openFlags,
+                nil
+            )
+        }
+        guard let handle, handle != INVALID_HANDLE_VALUE else {
+            try SystemError.assertError()
+        }
+
+        return .init(owningRawHandle: handle)
+
+    }
+    #endif 
 
 
     public static func openDir(at path: FilePath) throws(SystemError) -> UnsafeSystemHandle {

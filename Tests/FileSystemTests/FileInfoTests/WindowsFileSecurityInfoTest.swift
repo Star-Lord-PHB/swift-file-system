@@ -57,35 +57,33 @@ extension FileSystemTest.WindowsFileSecurityInfoTest {
         
         let filePath = try makeFile(at: "file")
 
-        let sid = WindowsSid.everyone
+        let trustee = WindowsExplicitAccess.RawTrustee.everyone
 
         let newSecurity = WindowsRawAcl(entries: [
             .init(
                 permission: [.readData, .writeData, .appendData, .execute, .traverse, .synchronize], 
                 accessMode: .grantAccess, 
-                trustee: .init(sid: sid, type: .group)
+                trustee: trustee
             ),
             .init(
                 permission: [.readControl, .readAttributes, .writeDAC, .writeAttributes], 
                 accessMode: .denyAccess,
-                trustee: .init(sid: sid, type: .group)
+                trustee: trustee
             )
         ])
 
         try FileSystem().setSecurityInfo(forItemAt: filePath, dacl: .replace(newSecurity))
 
         let sd = try FileSystem().getSecurityInfo(forItemAt: filePath)
+        
+        try #require(sd.dacl.case == .present, "DACL is nil after setting new security descriptor")
 
-        if sd.dacl == nil {
-            try #require(Bool(false), "DACL is nil after setting new security descriptor")
-        }
-
-        let dacl = sd.dacl!
+        let dacl = sd.dacl.value!
         
         let hasFirstSetAce = dacl.first { ace in 
             !ace.flags.contains(.inherited) 
                 && ace.type == .allow
-                && ace.permission.sid == sid.view
+                && ace.permission.sid == trustee.sid.view
                 && ace.permission.mask == [.readData, .writeData, .appendData, .execute, .traverse, .synchronize]
         } != nil
 
@@ -94,7 +92,7 @@ extension FileSystemTest.WindowsFileSecurityInfoTest {
         let hasSecondSetAce = dacl.first { ace in 
             !ace.flags.contains(.inherited) 
                 && ace.type == .deny
-                && ace.permission.sid == sid.view
+                && ace.permission.sid == trustee.sid.view
                 && ace.permission.mask == [.readControl, .readAttributes, .writeDAC, .writeAttributes]
         } != nil
 

@@ -30,8 +30,8 @@ extension FileSystem {
     
     public func setSecurityInfo(
         forItemAt path: FilePath,
-        dacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange,
-        sacl: consuming FileOperationOptions.WindowsAclUpdateRequest = .noChange,
+        dacl: FileOperationOptions.WindowsAclUpdateRequest = .noChange,
+        sacl: FileOperationOptions.WindowsAclUpdateRequest = .noChange,
         owner: PlatformIdentity? = nil,
         group: PlatformIdentity? = nil,
         followSymlink: Bool = true
@@ -51,19 +51,17 @@ extension FileSystem {
         if group != nil { members.insert(.group) }
         
         guard !members.isEmpty else { return }
-        
-        do {
-            try InternalFS.setFileSecurityInfo(
+
+        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
+            try InternalFS.setSecurityInfo(
                 forItemAt: path,
                 setting: members,
-                dacl: dacl.takeRawAcl(),
-                sacl: sacl.takeRawAcl(),
+                dacl: dacl.aclView,
+                sacl: sacl.aclView,
                 owner: owner?.rawId,
                 group: group?.rawId,
                 followSymlink: followSymlink
             )
-        } catch {
-            throw PlatformError(systemError: error, operation: .setMeta(path))
         }
         
     }

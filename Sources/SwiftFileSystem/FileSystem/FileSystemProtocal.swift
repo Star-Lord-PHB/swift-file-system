@@ -8,9 +8,16 @@ public protocol FileSystemProtocal: Sendable {
 
     func itemExists(at path: FilePath, followSymlinks: Bool) -> Bool
 
-    func createFile(at path: FilePath, replaceExisting: Bool, permission: FilePermissions?, content: ByteBuffer?) throws(PlatformError)
+    func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, content: ByteBuffer?) throws(PlatformError)
 
-    func createDirectory(at path: FilePath, withIntermediateDirectories: Bool) throws(PlatformError)
+    // note: the permission will only be applied to the leaf directory, not the intermediate directories
+    func createDirectory(at path: FilePath, withIntermediateDirectories: Bool, permissions: FilePermissions?) throws(PlatformError)
+
+    #if canImport(WinSDK)
+    func createFile(at path: FilePath, replaceExisting: Bool, permissions: WindowsSecurityDescriptorView, content: ByteBuffer?) throws(PlatformError)
+
+    func createDirectory(at path: FilePath, withIntermediateDirectories: Bool, permissions: WindowsSecurityDescriptorView) throws(PlatformError)
+    #endif
 
     func removeItem(at path: FilePath) throws(PlatformError)
 
@@ -109,3 +116,46 @@ public protocol FileSystemProtocal: Sendable {
     func cacheDirectoryPath() throws(PlatformError) -> FilePath
 
 }
+
+
+
+#if canImport(WinSDK)
+extension FileSystemProtocal {
+
+    public func createFile(
+        at path: FilePath, 
+        replaceExisting: Bool = false, 
+        permissions: borrowing WindowsAbsoluteSecurityDescriptor, 
+        content: ByteBuffer? = nil
+    ) throws(PlatformError) {
+        try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
+    }
+
+    public func createFile(
+        at path: FilePath, 
+        replaceExisting: Bool = false, 
+        permissions: borrowing WindowsSelfRelativeSecurityDescriptor, 
+        content: ByteBuffer? = nil
+    ) throws(PlatformError) {
+        try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
+    }
+
+
+    public func createDirectory(
+        at path: FilePath, 
+        withIntermediateDirectories: Bool = false, 
+        permissions: borrowing WindowsAbsoluteSecurityDescriptor
+    ) throws(PlatformError) {
+        try createDirectory(at: path, withIntermediateDirectories: withIntermediateDirectories, permissions: permissions.view)
+    }
+
+    public func createDirectory(
+        at path: FilePath, 
+        withIntermediateDirectories: Bool = false, 
+        permissions: borrowing WindowsSelfRelativeSecurityDescriptor
+    ) throws(PlatformError) {
+        try createDirectory(at: path, withIntermediateDirectories: withIntermediateDirectories, permissions: permissions.view)
+    }
+
+}
+#endif 

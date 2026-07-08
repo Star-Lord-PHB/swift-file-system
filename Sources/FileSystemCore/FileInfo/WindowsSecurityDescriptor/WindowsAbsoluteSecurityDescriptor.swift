@@ -17,50 +17,17 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, 
         dacl: consuming WindowsRawAcl?,
         sacl: consuming WindowsRawAcl?,
-        owner: consuming WindowsSid?,
-        group: consuming WindowsSid?
+        owner: WindowsSid?,
+        group: WindowsSid?
     ) {
-
-        precondition(IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr), "Invalid security descriptor")
-
-        var control = 0 as SECURITY_DESCRIPTOR_CONTROL
-        var revision = 0 as DWORD
-        precondition(
-            GetSecurityDescriptorControl(psd.unsafelyCastedMutableRawPtr, &control, &revision), 
-            "Failed to get security descriptor control"
-        )
-        precondition(
-            control & .init(SE_SELF_RELATIVE) == 0, 
-            "Attempting to initialize WindowsAbsoluteSecurityDescriptor using a pointer to a self-relative security descriptor"
-        )
-
-        switch dacl {
-            case .some(let acl): precondition(acl.pacl.unsafeRawPtr == psd.unsafeRawPtr.pointee.Dacl, "DACL pointer mismatch")
-            case .none: precondition(psd.unsafeRawPtr.pointee.Dacl == nil, "DACL pointer mismatch")
-        }
-
-        switch sacl {
-            case .some(let acl): precondition(acl.pacl.unsafeRawPtr == psd.unsafeRawPtr.pointee.Sacl, "SACL pointer mismatch")
-            case .none: precondition(psd.unsafeRawPtr.pointee.Sacl == nil, "SACL pointer mismatch")
-        }
-
-        switch owner {
-            case .some(let sid): 
-                precondition(psd.unsafeRawPtr.pointee.Owner == sid.psid.unsafeResourcePtr, "Owner SID pointer mismatch")
-            case .none: precondition(psd.unsafeRawPtr.pointee.Owner == nil, "Owner SID pointer mismatch")
-        }
-
-        switch group {
-            case .some(let sid): 
-                precondition(psd.unsafeRawPtr.pointee.Group == sid.psid.unsafeResourcePtr, "Group SID pointer mismatch")
-            case .none: precondition(psd.unsafeRawPtr.pointee.Group == nil, "Group SID pointer mismatch")
-        }
 
         self.psd = psd.unsafeMutableCast()
         self._dacl = dacl
         self._owner = owner
         self._group = group
         self._sacl = sacl
+
+        preconditionValid()
         
     }
 
@@ -69,8 +36,8 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         allocator: WindowsMemoryAllocatorType,
         pdacl: consuming WindowsRawAcl? = nil,
         psacl: consuming WindowsRawAcl? = nil,
-        owner: consuming WindowsSid? = nil,
-        group: consuming WindowsSid? = nil
+        owner: WindowsSid? = nil,
+        group: WindowsSid? = nil
     ) {
         self.init(
             psd: .init(
@@ -84,12 +51,28 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         )
     }
 
-    public init() {
+    public init(
+        control: WindowsSecurityDescriptorControl? = nil,
+        dacl: consuming WindowsRawAcl? = nil,
+        sacl: consuming WindowsRawAcl? = nil,
+        owner: WindowsSid? = nil,
+        group: WindowsSid? = nil
+    ) {
         let psd = UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>.swiftAllocate(capacity: 1)
         InitializeSecurityDescriptor(psd.unsafelyCastedMutableRawPtr, DWORD(SECURITY_DESCRIPTOR_REVISION))
-        self.init(psd: psd, dacl: nil, sacl: nil, owner: nil, group: nil)
+        if let control {
+            SetSecurityDescriptorControl(psd.unsafelyCastedMutableRawPtr, .init(bitPattern: -1), control.rawValue)
+        }
+        SetSecurityDescriptorDacl(psd.unsafelyCastedMutableRawPtr, true, dacl?.pacl.unsafelyCastedMutableRawPtr, false)
+        SetSecurityDescriptorSacl(psd.unsafelyCastedMutableRawPtr, true, sacl?.pacl.unsafelyCastedMutableRawPtr, false)
+        SetSecurityDescriptorOwner(psd.unsafelyCastedMutableRawPtr, owner?.psid.unsafeResourcePtr, false)
+        SetSecurityDescriptorGroup(psd.unsafelyCastedMutableRawPtr, group?.psid.unsafeResourcePtr, false)
+        self.init(psd: psd, dacl: dacl, sacl: sacl, owner: owner, group: group)
     }
 
+    public var view: WindowsSecurityDescriptorView {
+        .init(psd: psd.unownedView().immutableCast())
+    }
 
     public func makeSelfRelative() -> WindowsSelfRelativeSecurityDescriptor {
         do {
@@ -107,49 +90,41 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         }
     }
 
-    fileprivate func isValid() -> Bool {
+    fileprivate func preconditionValid(file: StaticString = #file, line: UInt = #line) {
 
-        guard IsValidSecurityDescriptor(psd.unsafeRawPtr) else {
-            return false
-        }
+        precondition(IsValidSecurityDescriptor(psd.unsafeRawPtr), "Invalid security descriptor", file: file, line: line)
 
-        guard self.control.contains(.selfRelative) == false else {
-            return false
-        }
+        precondition(self.control.contains(.selfRelative) == false, "SECURITY_DESCRIPTOR is self-relative, expected absolute", file: file, line: line)
 
         let dacl = switch dacl {
             case .some(let acl): acl.view
             case .none: nil as WindowsRawAcl.View?
         }
-        guard psd.pointee.Dacl == dacl?.pacl.unsafelyCastedMutableRawPtr else { return false }
+        precondition(psd.pointee.Dacl == dacl?.pacl.unsafelyCastedMutableRawPtr, "DACL pointer mismatch", file: file, line: line)
 
         let sacl = switch sacl {
             case .some(let acl): acl.view
             case .none: nil as WindowsRawAcl.View?
         }
-        guard psd.pointee.Sacl == sacl?.pacl.unsafelyCastedMutableRawPtr else { return false }
+        precondition(psd.pointee.Sacl == sacl?.pacl.unsafelyCastedMutableRawPtr, "SACL pointer mismatch", file: file, line: line)
 
-        switch owner {
-            case .some(let sid): 
-                guard psd.pointee.Owner == sid.psid.unsafeResourcePtr else { return false }
-            case .none:
-                guard psd.pointee.Owner == nil else { return false }
+        let sidPtr = switch owner {
+            case .some(let sid): sid.psid.unsafeResourcePtr
+            case .none: nil as UnsafeMutableRawPointer?
         }
+        precondition(psd.pointee.Owner == sidPtr, "Owner SID pointer mismatch", file: file, line: line)
 
-        switch group {
-            case .some(let sid): 
-                guard psd.pointee.Group == sid.psid.unsafeResourcePtr else { return false }
-            case .none:
-                guard psd.pointee.Group == nil else { return false }
+        let groupSidPtr = switch group {
+            case .some(let sid): sid.psid.unsafeResourcePtr
+            case .none: nil as UnsafeMutableRawPointer?
         }
-
-        return true
+        precondition(psd.pointee.Group == groupSidPtr, "Group SID pointer mismatch", file: file, line: line)
 
     }
 
     public func withUnsafeSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
         let result = try body(psd.unsafeRawPtr)
-        precondition(self.isValid(), "SECURITY_DESCRIPTOR pointer corrupted")
+        preconditionValid()
         return result
     }
 

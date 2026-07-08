@@ -315,10 +315,19 @@ package enum InternalFS {
 
         #if canImport(WinSDK)
 
-        let sd = try permissions.map { (p) throws(SystemError) in
-            try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: p, forDir: true)
+        var sa = SECURITY_ATTRIBUTES()
+        sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
+        if let permissions {
+            let sd = try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: permissions, forDir: true)
+            sa.lpSecurityDescriptor = LPVOID(sd.psd.unsafeRawPtr)
+
         }
-        try mkdir(at: path, permission: sd)
+
+        try execThrowingCFunction {
+            path.withPlatformString { pathPtr in
+                CreateDirectoryW(pathPtr, &sa)
+            }
+        }
 
         #else 
 
@@ -329,26 +338,19 @@ package enum InternalFS {
         }
 
         #endif
-
     }
 
 
     #if canImport(WinSDK)
-    package static func mkdir(at path: FilePath, permission: borrowing WindowsAbsoluteSecurityDescriptor?) throws(SystemError) {
-        
+    package static func mkdir(at path: FilePath, permissions: WindowsSecurityDescriptorView) throws(SystemError) {
         var sa = SECURITY_ATTRIBUTES()
         sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
-        switch permission {
-            case .some(let permission):    sa.lpSecurityDescriptor = LPVOID(permission.psd.unsafeRawPtr)
-            case .none:                    sa.lpSecurityDescriptor = nil
-        }
-        
+        sa.lpSecurityDescriptor = LPVOID(permissions.psd.unsafelyCastedMutableRawPtr)
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in
                 CreateDirectoryW(pathPtr, &sa)
             }
         }
-        
     }
     #endif
 
@@ -429,11 +431,11 @@ package enum InternalFS {
     #if !canImport(WinSDK)
     package static func makeFifo(
         at path: FilePath,
-        permission: FilePermissions = [.ownerReadWrite, .groupRead, .otherRead]
+        permissions: FilePermissions = [.ownerReadWrite, .groupRead, .otherRead]
     ) throws(SystemError) {
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in
-                mkfifo(pathPtr, permission.rawValue)
+                mkfifo(pathPtr, permissions.rawValue)
             }
         }
     }

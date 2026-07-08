@@ -38,13 +38,13 @@ extension FileSystem {
     }
 
 
-    public func createFile(at path: FilePath, replaceExisting: Bool = false, permission: FilePermissions? = nil, content: ByteBuffer? = nil) throws(PlatformError) {
+    public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: FilePermissions? = nil, content: ByteBuffer? = nil) throws(PlatformError) {
 
         try catchSystemError(operation: .createFile(path)) { () throws(SystemError) in 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
-                creationPermissions: permission
+                creationPermissions: permissions
             )
             if let content {
                 try content.withUnsafeBytes { (ptr) throws(SystemError) in 
@@ -57,11 +57,11 @@ extension FileSystem {
     }
 
 
-    public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false) throws(PlatformError) {
+    public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false, permissions: FilePermissions? = nil) throws(PlatformError) {
 
         if !withIntermediateDirectories {
             try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
-                try InternalFS.mkdir(at: path, permissions: nil)
+                try InternalFS.mkdir(at: path, permissions: permissions)
             }
             return
         }
@@ -74,14 +74,73 @@ extension FileSystem {
             components.append(component)
         }
 
+        guard !components.isEmpty else { return }
+
         try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
-            for component in components.reversed() {
+            for component in components.suffix(from: 1).reversed() {
                 path.append(component)
                 try InternalFS.mkdir(at: path, permissions: nil)
             }
+            // permission will only be applied to the leaf directory
+            path.append(components.first!)
+            try InternalFS.mkdir(at: path, permissions: permissions)
         }
 
     }
+
+
+    #if canImport(WinSDK)
+
+    public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: WindowsSecurityDescriptorView, content: ByteBuffer? = nil) throws(PlatformError) {
+
+        try catchSystemError(operation: .createFile(path)) { () throws(SystemError) in 
+            let handle = try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
+                creationPermissions: permissions
+            )
+            if let content {
+                try content.withUnsafeBytes { (ptr) throws(SystemError) in 
+                    _ = try handle.write(contentsOf: ptr)
+                }
+            }
+            try handle.close()
+        }
+
+    }
+
+    public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false, permissions: WindowsSecurityDescriptorView) throws(PlatformError) {
+
+        if !withIntermediateDirectories {
+            try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+                try InternalFS.mkdir(at: path, permissions: permissions)
+            }
+            return
+        }
+
+        var path = path
+        var components = [] as [FilePath.Component]
+
+        while let component = path.lastComponent, !itemExists(at: path) {
+            path.removeLastComponent()
+            components.append(component)
+        }
+
+        guard !components.isEmpty else { return }
+
+        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+            for component in components.suffix(from: 1).reversed() {
+                path.append(component)
+                try InternalFS.mkdir(at: path, permissions: nil)
+            }
+            // permission will only be applied to the leaf directory
+            path.append(components.first!)
+            try InternalFS.mkdir(at: path, permissions: permissions)
+        }
+
+    }
+
+    #endif
 
 
     // Unlike copyItem, moveItem will not merge directories and will not follow symlinks

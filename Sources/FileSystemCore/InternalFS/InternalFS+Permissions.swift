@@ -87,11 +87,11 @@ extension InternalFS {
 
     #if canImport(WinSDK)
 
-    package static func setFileSecurityInfo(
+    package static func setSecurityInfo(
         forItemAt path: FilePath, 
         setting members: FileOperationOptions.WindowsSecurityInfoMembers,
-        dacl: consuming WindowsRawAcl?, 
-        sacl: consuming WindowsRawAcl?, 
+        dacl: WindowsRawAcl.View?, 
+        sacl: WindowsRawAcl.View?, 
         owner: WindowsSid?, 
         group: WindowsSid?,
         followSymlink: Bool
@@ -244,7 +244,7 @@ extension InternalFS {
             settingMembers.insert(.group)
         }
         guard !settingMembers.isEmpty else { return }
-        try setFileSecurityInfo(
+        try setSecurityInfo(
             forItemAt: path, setting: settingMembers,
             dacl: nil, sacl: nil,
             owner: owner?.rawId, group: group?.rawId,

@@ -153,10 +153,7 @@ extension FileSystem {
         #if canImport(WinSDK)
 
         try handle.setFileAttributes(cachedAttrs.attributes)
-
-        var absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
-
-        try handle.setSecurityInfo(.dacl, dacl: absoluteSd.takeDacl(), sacl: nil, owner: nil, group: nil)
+        try handle.setSecurityInfo(.dacl, dacl: cachedAttrs.securityDescriptor.dacl.value, sacl: nil, owner: nil, group: nil)
 
         #else 
 
@@ -184,12 +181,10 @@ extension FileSystem {
 
         try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes, followSymlink: false)
 
-        var absoluteSd = try WindowsAbsoluteSecurityDescriptor(converting: cachedAttrs.securityDescriptor)
-
-        try InternalFS.setFileSecurityInfo(
+        try InternalFS.setSecurityInfo(
             forItemAt: path, 
             setting: .dacl, 
-            dacl: absoluteSd.takeDacl(), 
+            dacl: cachedAttrs.securityDescriptor.dacl.value, 
             sacl: nil, owner: nil, group: nil,
             followSymlink: false
         )

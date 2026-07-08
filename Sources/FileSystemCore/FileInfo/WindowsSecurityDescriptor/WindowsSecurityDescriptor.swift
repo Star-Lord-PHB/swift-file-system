@@ -107,14 +107,12 @@ extension WindowsSecurityDescriptor.WindowsACL {
 
     package init?(unsafeSecurityDescriptorPtr sdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
 
-        let aclView = WindowsRawAclSnapshotView.init(unsafeExtractingFromPSD: sdPtr, type: type)
+        let aclState = WindowsRawAclState(unsafeExtractingFromPSD: sdPtr, type: type)
 
-        guard let aclView, !aclView.isNull else {
-            return nil
-        }
+        guard case let .present(aclView, defaulted) = aclState else { return nil }
 
         self.revision = aclView.revision
-        self.isDefaulted = aclView.aclDefaulted
+        self.isDefaulted = defaulted
 
         self.aceList = aclView.map { aceView in 
             .init(
