@@ -15,7 +15,7 @@ extension ByteBuffer: RandomAccessCollection, MutableCollection {
         }
         set { 
             preconditionValidIndex(index)
-            _assessForWrite()
+            _accessForNoAppendWrite()
             storage[indexInStorage(for: index)] = newValue
         }
     }
@@ -30,36 +30,56 @@ extension ByteBuffer: RangeReplaceableCollection {
     public mutating func replaceSubrange<C>(_ subrange: Range<Int>, with newElements: C) where C : Collection, Byte == C.Element {
 
         preconditionValidRange(subrange)
-        
-        _assessForWrite()
 
-        let subrange = rangeInStorage(for: subrange)
+        let logicalSubrange = subrange
         let newElementsCount = newElements.count
+        let newCountRequired = count - logicalSubrange.count + newElementsCount
 
-        if newElementsCount != subrange.count {
+        // No changes made to the buffer in this case. COW not triggered
+        guard logicalSubrange.count != 0 || newElementsCount != 0 else { return }
 
-            let tailSegmentCurrentStartIndex = subrange.upperBound
-            let tailSegmentCount = count - tailSegmentCurrentStartIndex
+        let subrangeInOldStorage = rangeInStorage(for: logicalSubrange)
+        let leadingRangeInOldStorage = self.startOffsetInStorage ..< subrangeInOldStorage.lowerBound
+        let trailingRangeInOldStorage = subrangeInOldStorage.upperBound ..< self.endOffsetInStorage
 
-            let newCountRequired = count - subrange.count + newElementsCount
-            storage.allocateEnoughCapacityIfNeeded(for: newCountRequired)
+        if isNotUnique() {
 
-            if tailSegmentCount > 0 {
-                let tailSegmentDestStartIndex = subrange.lowerBound + newElementsCount
-                memmove(
-                    storage.pointer(to: tailSegmentDestStartIndex), 
-                    storage.pointer(to: tailSegmentCurrentStartIndex), 
-                    tailSegmentCount
-                )
-            }
+            let newStorage = Storage(capacityForAtLeast: newCountRequired, zeroed: false)
 
-            self.count = newCountRequired
+            newStorage[0...].copyBytes(from: self.storage[leadingRangeInOldStorage])
+            newStorage[(logicalSubrange.lowerBound + newElementsCount)...].copyBytes(from: self.storage[trailingRangeInOldStorage])
+
+            self.storage = newStorage
+            self.startOffsetInStorage = 0
+
+        } else if newCountRequired > storage.capacity {
+
+            let newBuffer = Storage.allocateBuffer(forAtLeast: newCountRequired)
+
+            newBuffer.copyBytes(from: self.storage[leadingRangeInOldStorage])
+            newBuffer[(logicalSubrange.lowerBound + newElementsCount)...].copyBytes(from: self.storage[trailingRangeInOldStorage])
+
+            self.storage.swapBuffer(newBuffer)
+            self.startOffsetInStorage = 0
+
+        } else if newCountRequired > capacity {
+
+            storage[0...].copyBytes(from: self.storage[leadingRangeInOldStorage])
+            storage[(subrangeInOldStorage.lowerBound + newElementsCount)...].copyBytes(from: self.storage[trailingRangeInOldStorage])
+
+            self.startOffsetInStorage = 0
+
+        } else if newElementsCount != logicalSubrange.count && trailingRangeInOldStorage.count > 0 {
+
+            storage[(subrangeInOldStorage.lowerBound + newElementsCount)...].copyBytes(from: self.storage[trailingRangeInOldStorage])
 
         }
 
+        self.count = newCountRequired
+
         guard newElementsCount > 0 else { return }
 
-        _writeBytes(newElements, to: subrange.lowerBound)
+        _writeBytes(newElements, to: logicalSubrange.lowerBound)
 
     }
 
@@ -72,8 +92,7 @@ extension ByteBuffer: RangeReplaceableCollection {
 
     @inlinable
     public mutating func append(_ newElement: Byte) {
-        _assessForWrite()
-        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + 1)
+        self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + 1)
         storage[endOffsetInStorage] = newElement
         count += 1
     }
@@ -110,10 +129,11 @@ extension ByteBuffer {
     public mutating func withUnsafeMutableBufferPointer<R: ~Copyable, E: Error>(
         _ body: (inout UnsafeMutableBufferPointer<Byte>
     ) throws(E) -> R) throws(E) -> R {
-        _assessForWrite()
+        _accessForNoAppendWrite()
         var buffer = UnsafeMutableBufferPointer<Byte>(rebasing: storage.buffer.assumingMemoryBound(to: Byte.self)[rangeInStorage])
+        let bufferCpy = buffer
         let result = try body(&buffer)
-        precondition(UnsafeMutableRawPointer(buffer.baseAddress) == storage.buffer.baseAddress, "replacing the buffer is not allowed")
+        precondition(buffer.baseAddress == bufferCpy.baseAddress, "replacing the buffer is not allowed")
         precondition(buffer.count == count, "replacing the buffer is not allowed")
         return result
     }

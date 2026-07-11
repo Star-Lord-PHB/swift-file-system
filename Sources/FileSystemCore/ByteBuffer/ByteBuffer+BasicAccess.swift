@@ -21,15 +21,15 @@ extension ByteBuffer {
     @inlinable
     public func load<T>(fromOffset offset: Int, as type: T.Type) -> T {
         preconditionValidRange(offset ..< offset + MemoryLayout<T>.size)
-        return storage.buffer.loadUnaligned(fromByteOffset: offset, as: type)
+        return storage.buffer.loadUnaligned(fromByteOffset: indexInStorage(for: offset), as: type)
     }
     
     
     @inlinable
     public mutating func store<T>(rawBytesOf value: T, toOffset offset: Int) {
         preconditionValidRange(offset ..< offset + MemoryLayout<T>.size)
-        _assessForWrite()
-        storage.buffer.storeBytes(of: value, toByteOffset: offset, as: T.self)
+        _accessForNoAppendWrite()
+        storage.buffer.storeBytes(of: value, toByteOffset: indexInStorage(for: offset), as: T.self)
     }
     
     
@@ -37,8 +37,11 @@ extension ByteBuffer {
     public mutating func store<Bytes: Collection>(bytes: Bytes, toOffset offset: Int) where Bytes.Element == Element {
         
         let byteCountToStore = bytes.count
+
         preconditionValidRange(offset ..< offset + byteCountToStore)
-        _assessForWrite()
+        guard byteCountToStore > 0 else { return }
+        
+        _accessForNoAppendWrite()
         
         _writeBytes(bytes, to: offset)
         
@@ -47,9 +50,8 @@ extension ByteBuffer {
     
     @inlinable
     public mutating func append<T>(rawBytesOf value: T) {
-        _assessForWrite()
         let valueSize = MemoryLayout<T>.size
-        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + valueSize)
+        self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + valueSize)
         storage.buffer.storeBytes(of: value, toByteOffset: endOffsetInStorage, as: T.self)
         self.count += valueSize
     }
@@ -58,11 +60,9 @@ extension ByteBuffer {
     @inlinable
     public mutating func append<Bytes: Sequence>(bytes: Bytes) where Bytes.Element == Element {
         
-        _assessForWrite()
-        
         let contiguousStorageAvailable = bytes.withContiguousStorageIfAvailable { buffer in
-            storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
-            storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
+            self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + buffer.count)
+            storage[endOffsetInStorage...].copyBytes(from: buffer)
             count += buffer.count
             return true
         } ?? false
@@ -73,17 +73,10 @@ extension ByteBuffer {
         switch Bytes.self {
             case is any RandomAccessCollection.Type: do {
                 let newElementsCount = (bytes as! any RandomAccessCollection).count
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + newElementsCount)
+                self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + newElementsCount)
             }
-            // MARK: TODO: Compare the performance of this case with the default case
-            // case is any Collection.Type: do {
-            //     let collectionNewElements = newElements as! any Collection
-            //     let newElementsCount = collectionNewElements.count
-            //     storage._allocateEnoughCapacityIfNeeded(forAdditional: newElementsCount)
-            //     newElements = collectionNewElements as! S
-            // }
             default: do {
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + bytes.underestimatedCount)
+                self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + bytes.underestimatedCount)
             }
         }
         
@@ -98,8 +91,8 @@ extension ByteBuffer {
         for byte in bytes {
             if inlineBufferWrittenCount == MemoryLayout<InlineBuffer>.size {
                 Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
-                    storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + buffer.count)
-                    storage.copyBytes(from: .init(buffer), toOffset: endOffsetInStorage)
+                    self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + buffer.count)
+                    storage[endOffsetInStorage...].copyBytes(from: buffer)
                     count += buffer.count
                 }
                 inlineBufferWrittenCount = 0
@@ -112,8 +105,8 @@ extension ByteBuffer {
         
         if inlineBufferWrittenCount > 0 {
             Swift.withUnsafeBytes(of: &inlineBuffer) { buffer in
-                storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + inlineBufferWrittenCount)
-                storage.copyBytes(from: .init(rebasing: buffer.prefix(inlineBufferWrittenCount)), toOffset: endOffsetInStorage)
+                self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + inlineBufferWrittenCount)
+                storage[endOffsetInStorage...].copyBytes(from: buffer.prefix(inlineBufferWrittenCount))
                 count += inlineBufferWrittenCount
             }
         }

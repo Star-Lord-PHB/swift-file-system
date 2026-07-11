@@ -6,8 +6,11 @@ extension ByteBuffer {
 
         @usableFromInline var storage: Storage
         public let count: Int
-
+        @usableFromInline let startOffsetInStorage: Int
         @usableFromInline var _readOffset: Int = 0
+
+        @inlinable
+        var readOffsetInStorage: Int { return startOffsetInStorage + _readOffset }
 
         @inlinable
         public var readOffset: Int { return _readOffset }
@@ -18,10 +21,10 @@ extension ByteBuffer {
 
         @_lifetime(immortal)
         @inlinable
-        init(storage: Storage, count: Int, startOffset: Int) {
+        init(storage: Storage, count: Int, startOffsetInStorage: Int) {
             self.storage = storage
             self.count = count
-            self._readOffset = startOffset
+            self.startOffsetInStorage = startOffsetInStorage
         }
 
 
@@ -30,7 +33,21 @@ extension ByteBuffer {
         public init(_ byteBuffer: borrowing ByteBuffer) {
             self.storage = byteBuffer.storage
             self.count = byteBuffer.count
-            self._readOffset = byteBuffer.startOffsetInStorage
+            self.startOffsetInStorage = byteBuffer.startOffsetInStorage
+        }
+
+
+        @inlinable 
+        func indexInStorage(_ logicalIndex: Int) -> Int {
+            precondition(logicalIndex >= 0 && logicalIndex <= count, "logicalIndex out of bounds")
+            return startOffsetInStorage + logicalIndex
+        }
+
+
+        @inlinable 
+        func rangeInStorage(_ logicalRange: Range<Int>) -> Range<Int> {
+            precondition(logicalRange.lowerBound >= 0 && logicalRange.upperBound <= count, "logicalRange out of bounds")
+            return (startOffsetInStorage + logicalRange.lowerBound) ..< (startOffsetInStorage + logicalRange.upperBound)
         }
 
 
@@ -40,7 +57,7 @@ extension ByteBuffer {
                 return nil
             }
             defer { _readOffset += 1 }
-            return storage[_readOffset]
+            return storage[readOffsetInStorage]
         }
 
 
@@ -53,7 +70,7 @@ extension ByteBuffer {
             let lengthToRead = Swift.min(remainingBytes, length)
             defer { _readOffset += lengthToRead }
 
-            return ByteBuffer(storage.buffer[readOffset ..< readOffset + lengthToRead])
+            return ByteBuffer(storage[readOffsetInStorage ..< readOffsetInStorage + lengthToRead])
 
         }
         
@@ -70,7 +87,7 @@ extension ByteBuffer {
             let lengthToRead = Swift.min(remainingBytes, length)
             defer { _readOffset += lengthToRead }
             
-            return try operation(.init(rebasing: storage.buffer[readOffset ..< readOffset + lengthToRead]))
+            return try operation(.init(rebasing: storage[readOffsetInStorage ..< readOffsetInStorage + lengthToRead]))
             
         }
         
@@ -85,7 +102,7 @@ extension ByteBuffer {
             defer { _readOffset += lengthToRead }
             
             return _overrideLifetime(
-                .init(_unsafeBytes: UnsafeRawBufferPointer(rebasing: storage.buffer[readOffset ..< readOffset + lengthToRead])),
+                .init(_unsafeBytes: UnsafeRawBufferPointer(rebasing: storage[readOffsetInStorage ..< readOffsetInStorage + lengthToRead])),
                 copying: self
             )
             
@@ -101,7 +118,7 @@ extension ByteBuffer {
             guard remainingBytes >= size else { return nil }
             defer { _readOffset += size }
             
-            return storage.buffer.baseAddress?.loadUnaligned(fromByteOffset: readOffset, as: T.self)
+            return storage.buffer.baseAddress?.loadUnaligned(fromByteOffset: readOffsetInStorage, as: T.self)
 
         }
 
@@ -123,6 +140,7 @@ extension ByteBuffer.Reader {
     @_lifetime(self: copy self)
     @inlinable
     public mutating func skip(_ length: Int) {
+        precondition(length >= 0, "skip length must be non-negative")
         _readOffset += Swift.min(remainingBytes, length)
     }
 
@@ -198,15 +216,17 @@ extension ByteBuffer.Reader {
 
     @_lifetime(self: copy self)
     @inlinable
-    public mutating func readString<Encoding: _UnicodeEncoding>(upTo byteCount: Int, encoding: Encoding.Type = UTF8.self) -> String? {
+    public mutating func readString<Encoding: _UnicodeEncoding>(upToCodeUnits codeUnitCount: Int, encoding: Encoding.Type = UTF8.self) -> String? {
 
-        guard byteCount > 0, remainingBytes >= 0 else { return nil }
+        guard codeUnitCount > 0, remainingBytes >= 0 else { return nil }
 
-        let byteCountToRead = Swift.min(remainingBytes, byteCount)
+        let codeUnitStride = MemoryLayout<Encoding.CodeUnit>.stride
+        let availableCodeUnitCount = remainingBytes / codeUnitStride
+        let byteCountToRead = Swift.min(availableCodeUnitCount, codeUnitCount) * codeUnitStride
         defer { _readOffset += byteCountToRead }
 
         return String(
-            decoding: storage.buffer[readOffset ..< readOffset + byteCountToRead].assumingMemoryBound(to: Encoding.CodeUnit.self),
+            decoding: storage.buffer[readOffsetInStorage ..< readOffsetInStorage + byteCountToRead].assumingMemoryBound(to: Encoding.CodeUnit.self),
             as: encoding
         )
 

@@ -33,7 +33,7 @@ extension ByteBuffer {
         @inlinable
         @_lifetime(&self)
         mutating get {
-            _assessForWrite()
+            _accessForNoAppendWrite()
             return _overrideLifetime(
                 MutableSpan<Byte>(_unsafeElements: .init(
                     start: storage.baseAddress?.advanced(by: startOffsetInStorage).assumingMemoryBound(to: Byte.self), 
@@ -49,7 +49,7 @@ extension ByteBuffer {
         @inlinable
         @_lifetime(&self)
         mutating get {
-            _assessForWrite()
+            _accessForNoAppendWrite()
             return _overrideLifetime(
                 MutableRawSpan(_unsafeBytes: .init(start: storage.baseAddress?.advanced(by: startOffsetInStorage), count: count)),
                 mutating: &self
@@ -91,9 +91,9 @@ extension ByteBuffer {
         initializingWith outputSpanInitializer: (inout OutputRawSpan) throws(E) -> Void
     ) throws(E) {
 
-        _assessForWrite()
+        precondition(additionalRawCapacity >= 0, "additionalRawCapacity to append must be non-negative")
 
-        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + additionalRawCapacity)
+        self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + additionalRawCapacity)
 
         let buffer = storage.buffer[endOffsetInStorage...]
         var outputSpan = OutputRawSpan(buffer: buffer, initializedCount: 0)
@@ -110,9 +110,9 @@ extension ByteBuffer {
         initializingWith outputSpanInitializer: (inout OutputSpan<Byte>) throws(E) -> Void
     ) throws(E) {
 
-        _assessForWrite()
+        precondition(additionalCapacity >= 0, "additionalCapacity to append must be non-negative")
 
-        storage.allocateEnoughCapacityIfNeeded(for: endOffsetInStorage + additionalCapacity)
+        self._ensureEnoughLogicalCapacityAndRebaseIfNeeded(for: count + additionalCapacity)
 
         let buffer = storage.buffer.assumingMemoryBound(to: Byte.self)[endOffsetInStorage...]
         var outputSpan = OutputSpan<Byte>(buffer: buffer, initializedCount: 0)

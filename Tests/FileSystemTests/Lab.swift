@@ -10,7 +10,7 @@ extension FileSystemTest {
 
     /// A collection of tests that are not actually testable. Mainly aimed at manual execution and verification.
     /// But of course, the tests can at least ensure that they run without crashing.
-    final class Lab: FileSystemTest {}
+    final class Lab: FSIsolatedTestCase {}
 
 }
 

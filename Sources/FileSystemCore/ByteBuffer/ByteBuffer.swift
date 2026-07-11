@@ -11,7 +11,7 @@ public struct ByteBuffer {
 
     @inlinable var endOffsetInStorage: Int { startOffsetInStorage + count }
     @inlinable var rangeInStorage: Range<Int> { startOffsetInStorage ..< endOffsetInStorage }
-    @inlinable public var capacity: Int { storage.capacity }
+    @inlinable public var capacity: Int { storage.capacity - startOffsetInStorage }
 
     @inlinable 
     public init() {
@@ -142,12 +142,100 @@ extension ByteBuffer: Equatable, Hashable {
 
 extension ByteBuffer {
 
+    @inlinable 
+    mutating func isNotUnique() -> Bool {
+        return !isKnownUniquelyReferenced(&storage)
+    }
+
+
+    @inlinable 
+    mutating func _accessForNoAppendWrite() {
+        guard isNotUnique() else { return }
+        let newStorage = Storage(capacityForAtLeast: count, zeroed: false)
+        newStorage.copyBytes(from: self.storage[rangeInStorage])
+        self.storage = newStorage
+        self.startOffsetInStorage = 0
+    }
+
+
     @inlinable
-    mutating func _assessForWrite() {
-        if !isKnownUniquelyReferenced(&storage) {
-            self.storage = storage.copy(range: rangeInStorage)
+    mutating func _ensureEnoughLogicalCapacityAndRebaseIfNeeded(for byteCount: Int, ensureUnique: Bool = true) {
+
+        if byteCount > storage.capacity {
+
+            let newBuffer = Storage.allocateBuffer(forAtLeast: byteCount)
+
+            newBuffer.copyBytes(from: storage[rangeInStorage])
+
+            if isNotUnique() {
+                self.storage = Storage(capacity: 0, zeroed: false)
+            }
+            self.storage.swapBuffer(newBuffer)
             self.startOffsetInStorage = 0
+
+        } else if byteCount > capacity {
+
+            if isNotUnique() {
+                let newStorage = Storage(capacityForAtLeast: byteCount, zeroed: false)
+                newStorage.copyBytes(from: storage[rangeInStorage])
+                self.storage = newStorage
+            } else {
+                storage.copyBytes(from: storage[rangeInStorage])
+            }
+            self.startOffsetInStorage = 0
+
+        } else if ensureUnique && isNotUnique() {
+
+            let newStorage = Storage(capacity: capacity, zeroed: false)
+            newStorage.copyBytes(from: storage[rangeInStorage])
+            self.storage = newStorage
+            self.startOffsetInStorage = 0
+
         }
+
+    }
+
+
+    @inlinable
+    mutating func _resizeStorageAndRebaseIfNeeded(toExactly newCapacity: Int, ensureUnique: Bool = true) {
+
+        if newCapacity != storage.capacity {
+
+            let newBuffer = newCapacity == 0 
+                ? UnsafeMutableRawBufferPointer(start: nil, count: 0) 
+                : Storage.allocateBuffer(byteCount: newCapacity)
+
+            let copyRange = startOffsetInStorage ..< startOffsetInStorage + Swift.min(newCapacity, count)
+            newBuffer.copyBytes(from: storage[copyRange])
+
+            if isNotUnique() {
+                self.storage = Storage(capacity: 0, zeroed: false)
+            }
+            self.storage.swapBuffer(newBuffer)
+
+            self.startOffsetInStorage = 0
+
+        } else if startOffsetInStorage != 0 {
+
+            if isNotUnique() {
+                let newStorage = Storage(capacity: storage.capacity, zeroed: false)
+                newStorage.copyBytes(from: storage[rangeInStorage])
+                self.storage = newStorage
+            } else {
+                storage.copyBytes(from: storage[rangeInStorage])
+            }
+
+            self.startOffsetInStorage = 0
+
+        } else if ensureUnique && isNotUnique() {
+
+            let newStorage = Storage(capacity: storage.capacity, zeroed: false)
+            newStorage.copyBytes(from: storage[rangeInStorage])
+            self.storage = newStorage
+            self.startOffsetInStorage = 0
+
+        }
+
     }
 
 
@@ -176,10 +264,12 @@ extension ByteBuffer {
     
     
     @inlinable
-    func _writeBytes<Bytes: Collection>(_ bytes: Bytes, to offset: Int) where Bytes.Element == Element {
+    func _writeBytes<Bytes: Collection>(_ bytes: Bytes, to logicalOffset: Int) where Bytes.Element == Element {
+
+        let offsetInStorage = indexInStorage(for: logicalOffset)
         
         let hasContiguousStorage = bytes.withContiguousStorageIfAvailable { buffer in
-            storage.copyBytes(from: .init(buffer), toOffset: offset)
+            storage[offsetInStorage...].copyBytes(from: buffer)
             return true
         } ?? false
         
@@ -192,7 +282,8 @@ extension ByteBuffer {
             0, 0, 0, 0, 0, 0, 0, 0
         )
         var inlineBufferWrittenCount = 0
-        var writePtr = storage.pointer(to: offset)
+        // only evaluate the writePtr when the bytes are not empty
+        lazy var writePtr = storage.pointer(to: offsetInStorage)
         
         for byte in bytes {
             
@@ -235,15 +326,16 @@ extension ByteBuffer {
     
     @inlinable
     public mutating func shrinkToFit() {
-        _assessForWrite()
-        storage.resize(forAtLeast: endOffsetInStorage)
+        guard count < storage.capacity else { return }
+        _resizeStorageAndRebaseIfNeeded(toExactly: count, ensureUnique: false)
     }
     
     
     @inlinable
     public mutating func reserveCapacity(_ capacity: Int) {
-        _assessForWrite()
-        storage.allocateEnoughCapacityIfNeeded(for: startOffsetInStorage + capacity)
+        guard capacity > self.capacity else { return }
+        let targetCapacity = Swift.max(capacity, Storage.recommendedCapacity(forAtLeast: count))
+        _resizeStorageAndRebaseIfNeeded(toExactly: targetCapacity)
     }
     
 }

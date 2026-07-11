@@ -13,7 +13,7 @@ extension ByteBuffer {
     @usableFromInline
     final class Storage {
         
-        @usableFromInline var buffer: UnsafeMutableRawBufferPointer = .init(start: nil, count: 0)
+        @_alwaysEmitIntoClient fileprivate(set) var buffer: UnsafeMutableRawBufferPointer = .init(start: nil, count: 0)
         
         @inlinable var capacity: Int { buffer.count }
         @inlinable var baseAddress: UnsafeMutableRawPointer? { buffer.baseAddress }
@@ -48,6 +48,20 @@ extension ByteBuffer {
                 buffer = .init(start: malloc(count).initializeMemory(as: Byte.self, repeating: value, count: count), count: count)
             }
         }
+
+
+        @inlinable 
+        init(capacityForAtLeast byteCount: Int, zeroed: Bool = false) {
+            precondition(byteCount >= 0, "Byte count must be non-negative")
+            let recommendedCapacity = Self.recommendedCapacity(forAtLeast: byteCount)
+            if recommendedCapacity > 0 {
+                if zeroed {
+                    buffer = .init(start: calloc(recommendedCapacity, MemoryLayout<Byte>.size), count: recommendedCapacity)
+                } else {
+                    buffer = .init(start: malloc(recommendedCapacity), count: recommendedCapacity)
+                }
+            }
+        }
         
         
         deinit {
@@ -75,13 +89,45 @@ extension ByteBuffer {
             assertValidRange(range)
             return buffer[range]
         }
+
+
+        @inlinable
+        subscript(_ range: PartialRangeFrom<Int>) -> Slice<UnsafeMutableRawBufferPointer> {
+            assertValidRange(range.lowerBound ..< range.lowerBound)
+            return buffer[range]
+        }
+
+
+        @inlinable
+        func swapBuffer(_ newBuffer: UnsafeMutableRawBufferPointer) {
+            if let baseAddress = buffer.baseAddress {
+                PlatformCLib.free(baseAddress)
+            }
+            buffer = newBuffer
+        }
         
         
         @inlinable
-        func copyBytes(from buffer: UnsafeRawBufferPointer, toOffset offset: Int = 0) {
-            assertValidRange(offset ..< offset + buffer.count)
-            guard let destBaseAddress = self.buffer.baseAddress, let srcBaseAddress = buffer.baseAddress else { return }
-            destBaseAddress.advanced(by: offset).copyMemory(from: srcBaseAddress, byteCount: buffer.count)
+        func copyBytes(from buffer: UnsafeRawBufferPointer) {
+            assertValidRange(0 ..< buffer.count)
+            guard 
+                let destBaseAddress = self.buffer.baseAddress, 
+                let srcBaseAddress = buffer.baseAddress 
+            else { return }
+            let byteCountToCopy = Swift.min(buffer.count, self.capacity)
+            destBaseAddress.copyMemory(from: srcBaseAddress, byteCount: byteCountToCopy)
+        }
+
+
+        @inlinable
+        func copyBytes(from buffer: Slice<UnsafeRawBufferPointer>) {
+            copyBytes(from: .init(rebasing: buffer))
+        }
+
+
+        @inlinable
+        func copyBytes(from buffer: Slice<UnsafeMutableRawBufferPointer>) {
+            copyBytes(from: .init(rebasing: buffer))
         }
         
         
@@ -93,45 +139,23 @@ extension ByteBuffer {
         
         
         @inlinable
-        func copy(range: Range<Int>) -> Storage {
-            let newStorage = Storage(capacity: recommendedCapacity(forAtLeast: range.count))
-            newStorage.copyBytes(from: .init(rebasing: buffer[range]))
-            return newStorage
+        func assertValidIndex(_ index: Int, file: StaticString = #file, line: UInt = #line) {
+            assert(index >= 0 && index < capacity, "Index out of bounds", file: file, line: line)
         }
         
-        
         @inlinable
-        func resize(toExactly capacity: Int) {
-            assertValidCapacity(capacity)
-            guard capacity != self.capacity else { return }
-            if capacity == 0 {
-                if let baseAddress = buffer.baseAddress {
-                    free(baseAddress)
-                }
-                buffer = .init(start: nil, count: 0)
-            } else {
-                buffer = .init(start: realloc(buffer.baseAddress, capacity), count: capacity)
-            }
+        func assertValidRange(_ range: Range<Int>, file: StaticString = #file, line: UInt = #line) {
+            assert(range.lowerBound >= 0 && range.upperBound <= capacity, "Range out of bounds", file: file, line: line)
         }
         
-        
         @inlinable
-        func resize(forAtLeast capacity: Int) {
-            resize(toExactly: recommendedCapacity(forAtLeast: capacity))
+        func assertValidCapacity(_ capacity: Int, file: StaticString = #file, line: UInt = #line) {
+            assert(capacity >= 0, "Capacity must be non-negative", file: file, line: line)
         }
-        
-        
+
+
         @inlinable
-        func allocateEnoughCapacityIfNeeded(for bytes: Int) {
-            let requiredCapacity = recommendedCapacity(forAtLeast: bytes)
-            if requiredCapacity > capacity {
-                resize(toExactly: requiredCapacity)
-            }
-        }
-        
-        
-        @inlinable
-        func recommendedCapacity(forAtLeast n: Int) -> Int {
+        static func recommendedCapacity(forAtLeast n: Int) -> Int {
             
             guard n > 0 else { return 0 }
             guard n > 16 else { return 16 }
@@ -154,21 +178,18 @@ extension ByteBuffer {
             return n
             
         }
-        
-        
-        @inlinable
-        func assertValidIndex(_ index: Int, file: StaticString = #file, line: UInt = #line) {
-            assert(index >= 0 && index < capacity, "Index out of bounds", file: file, line: line)
+
+
+        @inlinable 
+        static func allocateBuffer(byteCount: Int) -> UnsafeMutableRawBufferPointer {
+            return .init(start: malloc(byteCount), count: byteCount)
         }
-        
+
+
         @inlinable
-        func assertValidRange(_ range: Range<Int>, file: StaticString = #file, line: UInt = #line) {
-            assert(range.lowerBound >= 0 && range.upperBound <= capacity, "Range out of bounds", file: file, line: line)
-        }
-        
-        @inlinable
-        func assertValidCapacity(_ capacity: Int, file: StaticString = #file, line: UInt = #line) {
-            assert(capacity >= 0, "Capacity must be non-negative", file: file, line: line)
+        static func allocateBuffer(forAtLeast byteCount: Int) -> UnsafeMutableRawBufferPointer {
+            let recommendedCapacity = Self.recommendedCapacity(forAtLeast: byteCount)
+            return allocateBuffer(byteCount: recommendedCapacity)
         }
         
     }

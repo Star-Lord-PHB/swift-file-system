@@ -42,6 +42,7 @@ extension ReadWriteFileHandle {
     ) throws(PlatformError) {
 
         var openOptions = options.unsafeSystemFileOpenOptions()
+        openOptions.access = .readWrite()
 
         #if canImport(WinSDK)
         openOptions.noBlocking = true
@@ -66,6 +67,7 @@ extension ReadWriteFileHandle {
     ) throws(PlatformError) {
 
         var openOptions = options.unsafeSystemFileOpenOptions()
+        openOptions.access = .readWrite()
 
         openOptions.noBlocking = true
 
