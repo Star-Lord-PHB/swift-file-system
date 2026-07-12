@@ -12,7 +12,7 @@ public struct FileSystem: FileSystemProtocal {
 
 extension FileSystem {
 
-    public func itemExists(at path: FilePath, followSymlinks: Bool = false) -> Bool {
+    public func itemExists(at path: FilePath, followSymlinks: Bool = true) -> Bool {
 
         #if canImport(WinSDK)
 

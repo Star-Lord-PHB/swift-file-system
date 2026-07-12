@@ -38,7 +38,7 @@ extension FileSystemTest.ItemExistsTest {
         let targetFilePath = try makeFile(at: "target.txt")
         let symlinkPath = try makeSymlink(at: "symlink.txt", pointingTo: targetFilePath)
 
-        #expect(FileSystem().itemExists(at: symlinkPath))
+        #expect(FileSystem().itemExists(at: symlinkPath, followSymlinks: false))
 
     }
 
@@ -49,7 +49,7 @@ extension FileSystemTest.ItemExistsTest {
         let targetPath = makePath(at: "target")
         let symlinkPath = try makeSymlink(at: "symlink.txt", pointingTo: targetPath)
 
-        #expect(FileSystem().itemExists(at: symlinkPath))
+        #expect(FileSystem().itemExists(at: symlinkPath, followSymlinks: false))
 
     }
 
