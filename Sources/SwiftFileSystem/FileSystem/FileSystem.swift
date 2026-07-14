@@ -69,9 +69,16 @@ extension FileSystem {
         var path = path
         var components = [] as [FilePath.Component]
 
-        while let component = path.lastComponent, !itemExists(at: path) {
-            path.removeLastComponent()
-            components.append(component)
+        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+            loop: while let component = path.lastComponent {
+                switch try isNonSymlinkDirectory(at: path) {
+                    case true: break loop
+                    case false: throw .init(code: .fileExists)!
+                    case .none:
+                        path.removeLastComponent()
+                        components.append(component)
+                }
+            }
         }
 
         guard !components.isEmpty else { return }
@@ -121,9 +128,16 @@ extension FileSystem {
         var path = path
         var components = [] as [FilePath.Component]
 
-        while let component = path.lastComponent, !itemExists(at: path) {
-            path.removeLastComponent()
-            components.append(component)
+        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+            loop: while let component = path.lastComponent {
+                switch try isNonSymlinkDirectory(at: path) {
+                    case true: break loop
+                    case false: throw .init(code: .fileExists)!
+                    case .none:
+                        path.removeLastComponent()
+                        components.append(component)
+                }
+            }
         }
 
         guard !components.isEmpty else { return }
@@ -194,6 +208,29 @@ extension FileSystem {
                 try InternalFS.readlink(fromSymlinkAt: path)
             }
         }
+    }
+
+}
+
+
+
+extension FileSystem {
+
+    func isNonSymlinkDirectory(at path: FilePath) throws(SystemError) -> Bool? {
+        #if canImport(WinSDK)
+        do throws(SystemError) {
+            let attributes = try InternalFS.getFileAttributes(forItemAt: path, followSymlink: false)
+            return attributes.contains(.windows.isDirectory) && !attributes.contains(.windows.isReparsePoint)
+        } catch let error where error.kind == .notFound {
+            return nil
+        }
+        #else
+        do throws(SystemError) {
+            return try FileType(mode: InternalFS.ulstat(path).st_mode) == .directory
+        } catch let error where error.kind == .notFound {
+            return nil
+        }
+        #endif
     }
 
 }

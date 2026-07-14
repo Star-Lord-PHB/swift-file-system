@@ -344,7 +344,7 @@ extension UnsafeSystemHandle {
     #else
     
     package func posixPermissions() throws(SystemError) -> FilePermissions {
-        return try .init(rawValue: fstat().st_mode)
+        return try .init(rawValue: fstat().st_mode & 0o7777)
     }
     
 

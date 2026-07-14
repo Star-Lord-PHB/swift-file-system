@@ -55,9 +55,17 @@ extension FileSystemTestSupport {
             #if canImport(WinSDK)
                 let posixPermissions: FilePermissions? = nil
             #else
-                let posixPermissions = try FileSystem().getPosixPermissions(
-                    forItemAt: path,
-                    followSymlink: followSymlink
+                let permissionPath = followSymlink
+                    ? URL(filePath: path.string).resolvingSymlinksInPath().path
+                    : path.string
+                let attributes = try FileManager.default.attributesOfItem(
+                    atPath: permissionPath
+                )
+                guard let rawPermissions = attributes[.posixPermissions] as? NSNumber else {
+                    throw CocoaError(.fileReadUnknown)
+                }
+                let posixPermissions = FilePermissions(
+                    rawValue: CModeT(rawPermissions.uint16Value)
                 )
             #endif
 

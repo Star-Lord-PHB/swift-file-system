@@ -169,11 +169,8 @@ extension InternalFS {
         forItemAt path: FilePath,
         followSymlink: Bool
     ) throws(SystemError) -> FilePermissions {
-        if followSymlink {
-            return try .init(rawValue: ustat(path).st_mode)
-        } else {
-            return try .init(rawValue: ulstat(path).st_mode)
-        }
+        let mode = try followSymlink ? ustat(path).st_mode : ulstat(path).st_mode
+        return .init(rawValue: mode & 0o7777)
     }
     
 
