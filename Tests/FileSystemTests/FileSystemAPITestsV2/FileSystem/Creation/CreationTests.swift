@@ -39,9 +39,9 @@ extension FileSystemAPITests.CreationTests {
 
         try fileSystem.createFile(at: path)
 
-        let info = try FileInfo(fileAt: path)
-        #expect(info.type == .regular)
-        #expect(info.size == 0)
+        let metadata = try Support.ItemMetadata.capture(at: path)
+        #expect(metadata.type == .typeRegular)
+        #expect(metadata.size == 0)
         #expect(try Data(contentsOf: URL(filePath: path.string)).isEmpty)
 
     }
@@ -55,9 +55,9 @@ extension FileSystemAPITests.CreationTests {
 
         try fileSystem.createFile(at: path, content: content)
 
-        let info = try FileInfo(fileAt: path)
-        #expect(info.type == .regular)
-        #expect(info.size == UInt64(content.count))
+        let metadata = try Support.ItemMetadata.capture(at: path)
+        #expect(metadata.type == .typeRegular)
+        #expect(metadata.size == UInt64(content.count))
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data(content))
 
     }
@@ -75,9 +75,9 @@ extension FileSystemAPITests.CreationTests {
             content: content
         )
 
-        let info = try FileInfo(fileAt: path)
-        #expect(info.type == .regular)
-        #expect(info.size == UInt64(content.count))
+        let metadata = try Support.ItemMetadata.capture(at: path)
+        #expect(metadata.type == .typeRegular)
+        #expect(metadata.size == UInt64(content.count))
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data(content))
 
     }
@@ -90,9 +90,9 @@ extension FileSystemAPITests.CreationTests {
 
         try fileSystem.createFile(at: path, replaceExisting: true)
 
-        let info = try FileInfo(fileAt: path)
-        #expect(info.type == .regular)
-        #expect(info.size == 0)
+        let metadata = try Support.ItemMetadata.capture(at: path)
+        #expect(metadata.type == .typeRegular)
+        #expect(metadata.size == 0)
         #expect(try Data(contentsOf: URL(filePath: path.string)).isEmpty)
 
     }
@@ -106,9 +106,9 @@ extension FileSystemAPITests.CreationTests {
 
         try fileSystem.createFile(at: path, replaceExisting: true, content: newContent)
 
-        let info = try FileInfo(fileAt: path)
-        #expect(info.type == .regular)
-        #expect(info.size == UInt64(newContent.count))
+        let metadata = try Support.ItemMetadata.capture(at: path)
+        #expect(metadata.type == .typeRegular)
+        #expect(metadata.size == UInt64(newContent.count))
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data(newContent))
 
     }
@@ -157,7 +157,7 @@ extension FileSystemAPITests.CreationTests {
 
         try fileSystem.createDirectory(at: path)
 
-        #expect(try FileInfo(fileAt: path).type == .directory)
+        #expect(try Support.ItemMetadata.capture(at: path).type == .typeDirectory)
 
     }
 
@@ -207,9 +207,9 @@ extension FileSystemAPITests.CreationTests {
             withIntermediateDirectories: true
         )
 
-        #expect(try FileInfo(fileAt: first).type == .directory)
-        #expect(try FileInfo(fileAt: second).type == .directory)
-        #expect(try FileInfo(fileAt: leaf).type == .directory)
+        #expect(try Support.ItemMetadata.capture(at: first).type == .typeDirectory)
+        #expect(try Support.ItemMetadata.capture(at: second).type == .typeDirectory)
+        #expect(try Support.ItemMetadata.capture(at: leaf).type == .typeDirectory)
 
     }
 

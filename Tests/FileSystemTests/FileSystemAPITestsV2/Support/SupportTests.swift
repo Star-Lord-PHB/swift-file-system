@@ -36,31 +36,29 @@ struct FileSystemTestSupportTests {
     func `Fixture creation and tree snapshots preserve logical structure`() throws {
 
         let workspace = try Support.Workspace(keepArtifacts: false)
-        let fixture =
-            [
-                "file.txt": .file(contents: "root contents"),
-                "link": .symlink(target: "file.txt"),
-                "directory": [
-                    "nested.txt": .file(contents: "nested contents")
-                ],
-            ] as Support.Fixture
+        let fixture = [
+            "file.txt": .file(contents: "root contents"),
+            "link": .symlink(target: "file.txt"),
+            "dangling-link": .symlink(target: "missing.txt"),
+            "directory": [
+                "nested.txt": .file(contents: "nested contents")
+            ],
+        ] as Support.Fixture
 
         let source = try workspace.makeFixture(at: "source", fixture)
         let destination = try workspace.makeFixture(at: "destination", fixture)
         let snapshot = try Support.TreeSnapshot.capture(at: source)
 
-        #expect(snapshot.root.info.type == .directory)
-        #expect(snapshot.descendants.count == 4)
+        #expect(snapshot.root.metadata.type == .typeDirectory)
+        #expect(snapshot.descendants.count == 5)
         #expect(snapshot["file.txt"]?.payload == .file("root contents"))
         #expect(snapshot["link"]?.payload == .symlinkTarget("file.txt"))
-        #expect(snapshot["directory"]?.info.type == .directory)
+        #expect(snapshot["dangling-link"]?.payload == .symlinkTarget("missing.txt"))
+        #expect(snapshot["directory"]?.metadata.type == .typeDirectory)
         #expect(snapshot["directory/nested.txt"]?.payload == .file("nested contents"))
 
-        try Support.expectTree(
-            at: destination,
-            matches: snapshot,
-            using: .logicalContents
-        )
+        try Support.expectTree(at: source, matches: snapshot, using: .unchanged)
+        try Support.expectTree(at: destination, matches: snapshot, using: .logicalContents)
 
     }
 
@@ -71,6 +69,10 @@ struct FileSystemTestSupportTests {
         let path = try workspace.makeFile(at: "file.txt", contents: "contents")
         let snapshot = try Support.ItemSnapshot.capture(at: path)
 
+        #expect(Support.ItemComparisonPolicy.unchanged.fields.contains(.accessTime))
+        #expect(Support.ItemComparisonPolicy.unchanged.fields.contains(.statusChangeTime))
+        #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.accessTime))
+        #expect(!Support.ItemComparisonPolicy.copiedItem.fields.contains(.statusChangeTime))
         #expect(Support.ItemComparisonPolicy.unchanged.fields.contains(.creationTime))
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.creationTime))
         try Support.expectItem(at: path, matches: snapshot, using: .unchanged)

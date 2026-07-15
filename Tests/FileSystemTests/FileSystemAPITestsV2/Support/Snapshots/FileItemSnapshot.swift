@@ -1,5 +1,6 @@
 import Foundation
 import SystemPackage
+import Testing
 
 @testable import FileSystemCore
 @testable import SwiftFileSystem
@@ -14,9 +15,11 @@ extension FileSystemTestSupport {
 
         let path: FilePath
         let followsSymlink: Bool
-        let info: FileInfo
+        let metadata: ItemMetadata
         let payload: Payload
         let posixPermissions: FilePermissions?
+        let attributes: PlatformFileAttributes
+        let fileIdentifier: FileIdentifier
         let owner: PlatformIdentity
         let group: PlatformIdentity
 
@@ -25,64 +28,76 @@ extension FileSystemTestSupport {
             followSymlink: Bool = false,
             capturePayload: Bool = true
         ) throws -> ItemSnapshot {
-            let initialInfo = try FileInfo(fileAt: path, followSymLink: followSymlink)
+            let initialMetadata = try ItemMetadata.capture(
+                at: path,
+                followSymlink: followSymlink
+            )
 
             // Read content before taking the final metadata sample. This makes the
             // captured access time describe the state after snapshot observation.
-            let payload: Payload
-            if capturePayload {
-                switch initialInfo.type {
-                case .regular:
-                    payload = .file(try Data(contentsOf: URL(filePath: path.string)))
-
-                case .symlink:
-                    let target = try FileManager.default.destinationOfSymbolicLink(atPath: path.string)
-                    payload = .symlinkTarget(FilePath(target))
-
-                default:
-                    payload = .none
-                }
+            let payload: Payload = if capturePayload {
+                try Payload.capture(at: path, type: initialMetadata.type)
             } else {
-                payload = .notCaptured
+                .notCaptured
             }
 
-            let info = try FileInfo(fileAt: path, followSymLink: followSymlink)
+            let metadata = try ItemMetadata.capture(
+                at: path,
+                followSymlink: followSymlink
+            )
+            let fileInfo = try FileInfo(
+                fileAt: path,
+                followSymLink: followSymlink
+            )
             let (owner, group) = try FileSystem().getOwner(
                 forItemAt: path,
                 followSymlink: followSymlink
             )
 
-            #if canImport(WinSDK)
-                let posixPermissions: FilePermissions? = nil
-            #else
-                let permissionPath = followSymlink
-                    ? URL(filePath: path.string).resolvingSymlinksInPath().path
-                    : path.string
-                let attributes = try FileManager.default.attributesOfItem(
-                    atPath: permissionPath
-                )
-                guard let rawPermissions = attributes[.posixPermissions] as? NSNumber else {
-                    throw CocoaError(.fileReadUnknown)
-                }
-                let posixPermissions = FilePermissions(
-                    rawValue: CModeT(rawPermissions.uint16Value)
-                )
-            #endif
+            let posixPermissions = try capturePosixPermissions(
+                at: path,
+                followSymlink: followSymlink
+            )
 
-            return ItemSnapshot(
+            return .init(
                 path: path,
                 followsSymlink: followSymlink,
-                info: info,
+                metadata: metadata,
                 payload: payload,
                 posixPermissions: posixPermissions,
+                attributes: fileInfo.attributes,
+                fileIdentifier: fileInfo.fileIdentifier,
                 owner: owner,
                 group: group
             )
         }
 
+
+        static func capturePosixPermissions(
+            at path: FilePath,
+            followSymlink: Bool
+        ) throws -> FilePermissions? {
+            #if canImport(WinSDK)
+                nil
+            #else
+                let resolvedPath = followSymlink
+                    ? URL(filePath: path.string).resolvingSymlinksInPath().path(percentEncoded: false)
+                    : path.string
+                let fileManagerAttributes = try FileManager.default.attributesOfItem(
+                    atPath: resolvedPath
+                )
+                let rawPermissions = try #require(
+                    fileManagerAttributes[.posixPermissions] as? NSNumber
+                ).uint16Value
+                return FilePermissions(rawValue: CModeT(rawPermissions))
+            #endif
+        }
+
     }
 
 }
+
+
 
 extension FileSystemTestSupport.ItemSnapshot {
 
@@ -92,6 +107,30 @@ extension FileSystemTestSupport.ItemSnapshot {
         case symlinkTarget(FilePath)
         case notCaptured
         case none
+
+
+        static func capture(
+            at path: FilePath,
+            type: FileAttributeType
+        ) throws -> Payload {
+            switch type {
+            case .typeRegular:
+                .file(try Data(contentsOf: URL(filePath: path.string)))
+
+            case .typeSymbolicLink:
+                .symlinkTarget(
+                    .init(
+                        try FileManager.default.destinationOfSymbolicLink(
+                            atPath: path.string
+                        )
+                    )
+                )
+
+            default:
+                .none
+            }
+        }
+
 
         static func file(_ contents: String) -> Payload {
             .file(Data(contents.utf8))

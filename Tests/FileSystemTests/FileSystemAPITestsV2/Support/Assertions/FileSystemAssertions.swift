@@ -1,7 +1,9 @@
+import Foundation
 import SystemPackage
 import Testing
 
-@testable import FileSystemCore
+import SwiftFileSystem
+
 
 extension FileSystemTestSupport {
 
@@ -11,15 +13,11 @@ extension FileSystemTestSupport {
         using policy: ItemComparisonPolicy,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
-        let actual = try ItemSnapshot.capture(
+        try expectItem(
             at: path,
-            followSymlink: expected.followsSymlink,
-            capturePayload: policy.fields.contains(.payload)
-        )
-        expectItemSnapshot(
-            actual,
             matches: expected,
             using: policy,
+            context: nil,
             sourceLocation: sourceLocation
         )
     }
@@ -55,23 +53,34 @@ extension FileSystemTestSupport {
         matches expectation: TreeExpectation,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
-        let capturesPayload =
-            expectation.root.policy.fields.contains(.payload)
-            || expectation.descendants.values.contains { $0.policy.fields.contains(.payload) }
-        let actual = try TreeSnapshot.capture(
+        try expectItem(
             at: path,
-            capturePayload: capturesPayload
-        )
-
-        expectItemSnapshot(
-            actual.root,
             matches: expectation.root.snapshot,
             using: expectation.root.policy,
+            context: "at tree root \(path)",
             sourceLocation: sourceLocation
         )
 
+        for (relativePath, expectedItem) in expectation.descendants {
+
+            let actualPath = path.appending(relativePath.components)
+
+            guard try itemExistsWithoutFollowingSymlink(at: actualPath) else { continue }
+
+            try expectItem(
+                at: actualPath,
+                matches: expectedItem.snapshot,
+                using: expectedItem.policy,
+                context: "at relative path \(relativePath)",
+                sourceLocation: sourceLocation
+            )
+
+        }
+
+        // Enumerating directories can update access metadata. Do it only after
+        // every expected item has had its metadata and payload checked.
         let expectedPaths = Set(expectation.descendants.keys)
-        let actualPaths = Set(actual.descendants.keys)
+        let actualPaths = try descendantPaths(at: path)
         let missingPaths = expectedPaths.subtracting(actualPaths).sorted { $0.string < $1.string }
         let unexpectedPaths = actualPaths.subtracting(expectedPaths).sorted { $0.string < $1.string }
 
@@ -85,128 +94,155 @@ extension FileSystemTestSupport {
             "Unexpected filesystem entries: \(unexpectedPaths.map(\.string))",
             sourceLocation: sourceLocation
         )
-
-        for relativePath in expectedPaths.intersection(actualPaths).sorted(by: { $0.string < $1.string }) {
-            let actualItem = actual.descendants[relativePath]!
-            let expectedItem = expectation.descendants[relativePath]!
-            expectItemSnapshot(
-                actualItem,
-                matches: expectedItem.snapshot,
-                using: expectedItem.policy,
-                context: "at relative path \(relativePath)",
-                sourceLocation: sourceLocation
-            )
-        }
     }
 
-    private static func expectItemSnapshot(
-        _ actual: ItemSnapshot,
+    private static func expectItem(
+        at path: FilePath,
         matches expected: ItemSnapshot,
         using policy: ItemComparisonPolicy,
         context: String? = nil,
         sourceLocation: SourceLocation
-    ) {
+    ) throws {
         let fields = policy.fields
-        let pathContext = context ?? "at \(actual.path), matching snapshot from \(expected.path)"
+        let pathContext = context ?? "at \(path), matching snapshot from \(expected.path)"
         let comment = Comment(rawValue: pathContext)
 
+        // Capture every requested metadata field before observing payload. Reading
+        // regular-file contents may update access time.
+        let metadata = try ItemMetadata.capture(
+            at: path,
+            followSymlink: expected.followsSymlink
+        )
+        let fileInfo = fields.contains(.attributes) || fields.contains(.fileIdentifier)
+            ? try FileInfo(fileAt: path, followSymLink: expected.followsSymlink)
+            : nil
+        let ownership = fields.contains(.owner) || fields.contains(.group)
+            ? try FileSystem().getOwner(forItemAt: path, followSymlink: expected.followsSymlink)
+            : nil
+
         if fields.contains(.type) {
-            #expect(actual.info.type == expected.info.type, comment, sourceLocation: sourceLocation)
+            #expect(metadata.type == expected.metadata.type, comment, sourceLocation: sourceLocation)
         }
-        if fields.contains(.payload) {
-            #expect(actual.payload == expected.payload, comment, sourceLocation: sourceLocation)
-        }
-        if fields.contains(.size), expected.info.type != .directory {
-            #expect(actual.info.size == expected.info.size, comment, sourceLocation: sourceLocation)
+        if fields.contains(.size), expected.metadata.type != .typeDirectory {
+            #expect(metadata.size == expected.metadata.size, comment, sourceLocation: sourceLocation)
         }
         if fields.contains(.accessTime) {
-            #expect(
-                fileTime(
-                    actual.info.times.lastAccess, equals: expected.info.times.lastAccess,
-                    toleranceNanoseconds: policy.timeToleranceNanoseconds),
-                comment,
-                sourceLocation: sourceLocation
+            expectDateEquals(
+                metadata.times.access, expected.metadata.times.access,
+                toleranceNanoseconds: policy.timeToleranceNanoseconds,
+                comment: comment, sourceLocation: sourceLocation
             )
         }
         if fields.contains(.modificationTime) {
-            #expect(
-                fileTime(
-                    actual.info.times.lastModification, equals: expected.info.times.lastModification,
-                    toleranceNanoseconds: policy.timeToleranceNanoseconds),
-                comment,
-                sourceLocation: sourceLocation
+            expectDateEquals(
+                metadata.times.modification, expected.metadata.times.modification,
+                toleranceNanoseconds: policy.timeToleranceNanoseconds,
+                comment: comment, sourceLocation: sourceLocation
             )
         }
         if fields.contains(.statusChangeTime) {
-            #expect(
-                fileTime(
-                    actual.info.times.lastChange, equals: expected.info.times.lastChange,
-                    toleranceNanoseconds: policy.timeToleranceNanoseconds),
-                comment,
-                sourceLocation: sourceLocation
+            expectDateEquals(
+                metadata.times.statusChange, expected.metadata.times.statusChange,
+                toleranceNanoseconds: policy.timeToleranceNanoseconds,
+                comment: comment, sourceLocation: sourceLocation
             )
         }
         if fields.contains(.creationTime) {
-            #expect(
-                optionalFileTime(
-                    actual.info.times.creation, equals: expected.info.times.creation,
-                    toleranceNanoseconds: policy.timeToleranceNanoseconds),
-                comment,
-                sourceLocation: sourceLocation
+            expectDateEquals(
+                metadata.times.creation, expected.metadata.times.creation,
+                toleranceNanoseconds: policy.timeToleranceNanoseconds,
+                comment: comment, sourceLocation: sourceLocation
             )
         }
         if fields.contains(.posixPermissions) {
-            #expect(actual.posixPermissions == expected.posixPermissions, comment, sourceLocation: sourceLocation)
+            let posixPermissions = try ItemSnapshot.capturePosixPermissions(at: path, followSymlink: expected.followsSymlink)
+            #expect(posixPermissions == expected.posixPermissions, comment, sourceLocation: sourceLocation)
         }
         if fields.contains(.attributes) {
-            #expect(actual.info.attributes == expected.info.attributes, comment, sourceLocation: sourceLocation)
-        }
-        if fields.contains(.supportedAttributes) {
-            #expect(
-                actual.info.supportedAttributes == expected.info.supportedAttributes,
-                comment,
-                sourceLocation: sourceLocation
-            )
+            #expect(fileInfo!.attributes == expected.attributes, comment, sourceLocation: sourceLocation)
         }
         if fields.contains(.owner) {
-            #expect(actual.owner == expected.owner, comment, sourceLocation: sourceLocation)
+            #expect(ownership!.owner == expected.owner, comment, sourceLocation: sourceLocation)
         }
         if fields.contains(.group) {
-            #expect(actual.group == expected.group, comment, sourceLocation: sourceLocation)
+            #expect(ownership!.group == expected.group, comment, sourceLocation: sourceLocation)
         }
         if fields.contains(.fileIdentifier) {
             #expect(
-                actual.info.fileIdentifier == expected.info.fileIdentifier,
+                fileInfo!.fileIdentifier == expected.fileIdentifier,
                 comment,
                 sourceLocation: sourceLocation
             )
         }
-    }
-
-    private static func optionalFileTime(
-        _ lhs: FileTimeSpec?,
-        equals rhs: FileTimeSpec?,
-        toleranceNanoseconds: Int
-    ) -> Bool {
-        switch (lhs, rhs) {
-        case (.none, .none):
-            true
-        case (.some(let lhs), .some(let rhs)):
-            fileTime(lhs, equals: rhs, toleranceNanoseconds: toleranceNanoseconds)
-        default:
-            false
+        if fields.contains(.payload) {
+            let payload = try ItemSnapshot.Payload.capture(
+                at: path,
+                type: metadata.type
+            )
+            #expect(payload == expected.payload, comment, sourceLocation: sourceLocation)
         }
     }
 
-    private static func fileTime(
-        _ lhs: FileTimeSpec,
-        equals rhs: FileTimeSpec,
-        toleranceNanoseconds: Int
-    ) -> Bool {
-        let secondsDelta = Double(lhs.seconds) - Double(rhs.seconds)
-        let nanosecondsDelta = Double(lhs.nanoseconds) - Double(rhs.nanoseconds)
-        let totalDelta = abs(secondsDelta * 1_000_000_000 + nanosecondsDelta)
-        return totalDelta <= Double(toleranceNanoseconds)
+    private static func itemExistsWithoutFollowingSymlink(at path: FilePath) throws -> Bool {
+        do {
+            _ = try FileManager.default.attributesOfItem(atPath: path.string)
+            return true
+        } catch let error as CocoaError 
+        where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
+            return false
+        }
+    }
+
+    private static func descendantPaths(
+        at rootPath: FilePath
+    ) throws -> Set<FilePath> {
+        var paths = Set<FilePath>()
+        try collectDescendantPaths(
+            root: rootPath,
+            relativePath: nil,
+            into: &paths
+        )
+        return paths
+    }
+
+    private static func collectDescendantPaths(
+        root: FilePath,
+        relativePath: FilePath?,
+        into paths: inout Set<FilePath>
+    ) throws {
+        let absolutePath = relativePath.map { root.appending($0.components) } ?? root
+        let attributes = try FileManager.default.attributesOfItem(
+            atPath: absolutePath.string
+        )
+        guard attributes[.type] as? FileAttributeType == .typeDirectory else {
+            return
+        }
+
+        let names = try FileManager.default.contentsOfDirectory(
+            atPath: absolutePath.string
+        )
+        for name in names {
+            let childRelativePath = relativePath?.appending(name) ?? FilePath(name)
+            paths.insert(childRelativePath)
+            try collectDescendantPaths(
+                root: root,
+                relativePath: childRelativePath,
+                into: &paths
+            )
+        }
+    }
+
+    private static func expectDateEquals(
+        _ lhs: Date?, _ rhs: Date?, toleranceNanoseconds: Int,
+        comment: Comment? = nil, sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        switch (lhs, rhs) {
+        case (.some(let lhs), .some(let rhs)):
+            let delta = abs(lhs.timeIntervalSinceReferenceDate - rhs.timeIntervalSinceReferenceDate)
+            #expect(delta <= Double(toleranceNanoseconds) / 1_000_000_000, comment, sourceLocation: sourceLocation)
+        default:
+            #expect(lhs == rhs, comment, sourceLocation: sourceLocation)
+        }
     }
 
 }

@@ -1,8 +1,6 @@
 import Foundation
 import SystemPackage
 
-@testable import FileSystemCore
-
 /// A recursive filesystem snapshot keyed by paths relative to its root.
 extension FileSystemTestSupport {
 
@@ -21,7 +19,7 @@ extension FileSystemTestSupport {
         ) throws -> TreeSnapshot {
             var descendants = [FilePath: ItemSnapshot]()
             let root = try captureDirectoryOrItem(
-                at: rootPath,
+                root: rootPath,
                 relativePath: nil,
                 capturePayload: capturePayload,
                 descendants: &descendants
@@ -30,21 +28,25 @@ extension FileSystemTestSupport {
         }
 
         private static func captureDirectoryOrItem(
-            at absolutePath: FilePath,
+            root: FilePath,
             relativePath: FilePath?,
             capturePayload: Bool,
             descendants: inout [FilePath: ItemSnapshot]
         ) throws -> ItemSnapshot {
-            let initialInfo = try FileInfo(fileAt: absolutePath, followSymLink: false)
 
-            if initialInfo.type == .directory {
+            let absolutePath = relativePath.map { root.appending($0.components) } ?? root
+
+            let initialMetadata = try ItemMetadata.capture(
+                at: absolutePath,
+                followSymlink: false
+            )
+
+            if initialMetadata.type == .typeDirectory {
                 let names = try FileManager.default.contentsOfDirectory(atPath: absolutePath.string)
                 for name in names.sorted() {
-                    let component = FilePath.Component(name)!
-                    let childAbsolutePath = absolutePath.appending(component)
-                    let childRelativePath = relativePath?.appending(component) ?? FilePath(name)
+                    let childRelativePath = relativePath?.appending(name) ?? FilePath(name)
                     let child = try captureDirectoryOrItem(
-                        at: childAbsolutePath,
+                        root: root,
                         relativePath: childRelativePath,
                         capturePayload: capturePayload,
                         descendants: &descendants
@@ -59,6 +61,7 @@ extension FileSystemTestSupport {
                 at: absolutePath,
                 capturePayload: capturePayload
             )
+
         }
 
     }
