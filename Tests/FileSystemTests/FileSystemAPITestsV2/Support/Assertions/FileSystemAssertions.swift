@@ -7,6 +7,14 @@ import SwiftFileSystem
 
 extension FileSystemTestSupport {
 
+    static func expectItemExistNoFollow(at path: FilePath, sourceLocation: SourceLocation = #_sourceLocation) throws {
+        #expect(try itemExistsNoFollow(at: path), "Expected item to exist at \(path)", sourceLocation: sourceLocation)
+    }
+
+    static func expectItemNotExistNoFollow(at path: FilePath, sourceLocation: SourceLocation = #_sourceLocation) throws {
+        #expect(try !itemExistsNoFollow(at: path), "Expected item to not exist at \(path)", sourceLocation: sourceLocation)
+    }
+
     static func expectItem(
         at path: FilePath,
         matches expected: ItemSnapshot,
@@ -65,7 +73,7 @@ extension FileSystemTestSupport {
 
             let actualPath = path.appending(relativePath.components)
 
-            guard try itemExistsWithoutFollowingSymlink(at: actualPath) else { continue }
+            guard try itemExistsNoFollow(at: actualPath) else { continue }
 
             try expectItem(
                 at: actualPath,
@@ -183,16 +191,6 @@ extension FileSystemTestSupport {
         }
     }
 
-    private static func itemExistsWithoutFollowingSymlink(at path: FilePath) throws -> Bool {
-        do {
-            _ = try FileManager.default.attributesOfItem(atPath: path.string)
-            return true
-        } catch let error as CocoaError 
-        where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
-            return false
-        }
-    }
-
     private static func descendantPaths(
         at rootPath: FilePath
     ) throws -> Set<FilePath> {
@@ -229,6 +227,16 @@ extension FileSystemTestSupport {
                 relativePath: childRelativePath,
                 into: &paths
             )
+        }
+    }
+
+    static func itemExistsNoFollow(at path: FilePath) throws -> Bool {
+        do {
+            _ = try FileManager.default.attributesOfItem(atPath: path.string)
+            return true
+        } catch let error as CocoaError 
+        where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
+            return false
         }
     }
 
