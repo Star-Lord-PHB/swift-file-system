@@ -359,7 +359,10 @@ package enum InternalFS {
 
         #if canImport(WinSDK)
 
-        let attr = dstPath.withPlatformString { dstPathPtr in 
+        let pathToInspect = dstPath.isRelative
+            ? linkPath.removingLastComponent().appending(dstPath.components)
+            : dstPath
+        let attr = pathToInspect.withPlatformString { dstPathPtr in
             GetFileAttributesW(dstPathPtr)
         }
 
