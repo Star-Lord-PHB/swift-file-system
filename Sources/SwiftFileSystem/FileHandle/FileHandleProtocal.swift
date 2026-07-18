@@ -26,7 +26,7 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
 
 
-    public func type() throws(PlatformError) -> FileType {
+    public func type() throws(PlatformError) -> FileSystemCore.FileType {
         try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
             try self.withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
                 try sysHandle.type()

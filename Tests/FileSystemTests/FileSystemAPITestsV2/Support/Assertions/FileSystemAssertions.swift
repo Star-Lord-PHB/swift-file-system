@@ -240,7 +240,7 @@ extension FileSystemTestSupport {
         }
     }
 
-    private static func expectDateEquals(
+    static func expectDateEquals(
         _ lhs: Date?, _ rhs: Date?, toleranceNanoseconds: Int,
         comment: Comment? = nil, sourceLocation: SourceLocation = #_sourceLocation
     ) {

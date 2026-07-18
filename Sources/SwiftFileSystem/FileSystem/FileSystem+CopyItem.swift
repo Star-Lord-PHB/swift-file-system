@@ -49,7 +49,7 @@ extension FileSystem {
 
         let info: FileInfo
 
-        var type: FileType { info.type }
+        var type: FileSystemCore.FileType { info.type }
 
         var fileTimes: CachedFileTimes {
             .init(
@@ -126,7 +126,7 @@ extension FileSystem {
 
         #if canImport(Glibc) || canImport(Musl)
 
-        let flags = if FileType(mode: stat.st_mode) != .symlink {
+        let flags = if FileSystemCore.FileType(mode: stat.st_mode) != .symlink {
             try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: false)
         } else {
             nil as LinuxInodeFlags?

@@ -45,7 +45,7 @@ extension PlatformError {
     }
 
 
-    public init?(code: CInterop.ErrorCode, operation: Operation, underlyingError: (any Error)? = nil) {
+    public init?(code: PlatformInteropTypes.ErrorCode, operation: Operation, underlyingError: (any Error)? = nil) {
         self.init(code: .system(.init(rawValue: code)), operation: operation, underlyingError: underlyingError)
     }
 

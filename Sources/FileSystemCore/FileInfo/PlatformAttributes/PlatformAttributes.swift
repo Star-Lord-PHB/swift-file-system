@@ -1,4 +1,3 @@
-import SystemPackage
 import CFileSystem
 
 
@@ -43,11 +42,11 @@ extension PlatformFileAttributesProtocol {
 public struct PlatformFileAttributes: PlatformFileAttributesProtocol, OptionSet, Hashable {
 
     @_alwaysEmitIntoClient
-    public var rawValue: CInterop.PlatformFileAttribute
+    public var rawValue: PlatformInteropTypes.FileAttribute
 
 
     @inlinable
-    public init(rawValue: CInterop.PlatformFileAttribute) {
+    public init(rawValue: PlatformInteropTypes.FileAttribute) {
         self.rawValue = rawValue
     }
 

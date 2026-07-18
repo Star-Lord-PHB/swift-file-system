@@ -1,23 +1,23 @@
-import SystemPackage
 import PlatformCLib
 
 
 
-extension CInterop {
+/// Types used at native platform API boundaries.
+public enum PlatformInteropTypes {
 
     #if canImport(WinSDK)
-    public typealias PlatformFileTime = FILETIME
+    public typealias FileTime = FILETIME
     #else
-    public typealias PlatformFileTime = timespec
+    public typealias FileTime = timespec
     #endif
 
 
     #if canImport(Glibc) || canImport(Musl)
-    public typealias PlatformFileAttribute = UInt64
+    public typealias FileAttribute = UInt64
     #elseif canImport(WinSDK)
-    public typealias PlatformFileAttribute = DWORD
-    #else 
-    public typealias PlatformFileAttribute = UInt32
+    public typealias FileAttribute = DWORD
+    #else
+    public typealias FileAttribute = UInt32
     #endif
 
 
@@ -31,7 +31,7 @@ extension CInterop {
     #else
     public typealias FileId = UInt64
     public typealias DeviceId = UInt32
-    #endif 
+    #endif
 
     #if canImport(WinSDK)
     public typealias ErrorCode = DWORD
@@ -41,13 +41,13 @@ extension CInterop {
 
 
     /// A direct wrapper of the stat structure of each platform.
-    /// 
-    /// Mainly aimed at providing relative uniform access to the properties and eliminating 
-    /// the name differences between platforms. 
-    /// 
-    /// However, this type does not works very well on Windows due to limited support of stat 
-    /// structure on Windows. It does works, but most of the properties may not be meaningful. 
-    /// Thus on Windows, it is just provided to support the unified stat function call, but not 
+    ///
+    /// Mainly aimed at providing relative uniform access to the properties and eliminating
+    /// the name differences between platforms.
+    ///
+    /// However, this type does not works very well on Windows due to limited support of stat
+    /// structure on Windows. It does works, but most of the properties may not be meaningful.
+    /// Thus on Windows, it is just provided to support the unified stat function call, but not
     /// for serious file metadata access. For that, use the ``InternalFS/InternalRawFileInfo`` type
     package struct Stat {
 
@@ -55,13 +55,13 @@ extension CInterop {
         package typealias PlatformStat = _stat64
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         package typealias PlatformStat = stat
-        #else 
+        #else
         package typealias PlatformStat = StatCompat
         #endif
 
         #if canImport(WinSDK)
         package typealias Time = Int64
-        #else 
+        #else
         package typealias Time = timespec
         #endif
 
@@ -81,7 +81,7 @@ extension CInterop {
         #if !canImport(WinSDK)
         package var st_uid: UInt32 { platformStat.st_uid }
         package var st_gid: UInt32 { platformStat.st_gid }
-        #endif 
+        #endif
 
         package var st_atim: Time {
             #if canImport(WinSDK)
@@ -113,9 +113,13 @@ extension CInterop {
             #endif
         }
 
-        #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
-        package var st_btim: Time {
+        #if canImport(Darwin) || os(FreeBSD)
+        package var st_btim: Time? {
             return platformStat.st_birthtimespec
+        }
+        #elseif os(OpenBSD)
+        package var st_btim: Time? {
+            return nil
         }
         #elseif !canImport(WinSDK)
         package var st_btim: Time? {

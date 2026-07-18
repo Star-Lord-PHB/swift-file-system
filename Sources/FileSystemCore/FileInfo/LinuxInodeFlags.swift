@@ -2,15 +2,14 @@
 
 import PlatformCLib
 import struct SystemPackage.FilePath
-import enum SystemPackage.CInterop
 
 
 public struct LinuxInodeFlags: Sendable, OptionSet, Hashable {
 
-    public let rawValue: CInterop.PosixInodeFlags
+    public let rawValue: PlatformInteropTypes.PosixInodeFlags
 
     @inlinable
-    public init(rawValue: CInterop.PosixInodeFlags) {
+    public init(rawValue: PlatformInteropTypes.PosixInodeFlags) {
         self.rawValue = rawValue
     }
 

@@ -1,5 +1,4 @@
 import PlatformCLib
-import SystemPackage
 import CFileSystem
 
 #if canImport(Glibc) || canImport(Musl)
@@ -41,7 +40,7 @@ public struct FileTimeSpec: Sendable, Equatable, Hashable {
     #endif
 
     @inlinable
-    public var platformFileTime: CInterop.PlatformFileTime {
+    public var platformFileTime: PlatformInteropTypes.FileTime {
         #if canImport(WinSDK)
         var filetime = FILETIME()
         let hundredNanoSeconds = UInt64(seconds) * 10_000_000 + UInt64(nanoseconds) / 100
@@ -104,10 +103,10 @@ public struct FileTimes: Sendable, Equatable, Hashable {
 extension FileTimes {
 
     public init(
-        lastAccess: CInterop.PlatformFileTime,
-        lastModification: CInterop.PlatformFileTime,
-        lastChange: CInterop.PlatformFileTime,
-        creation: CInterop.PlatformFileTime?
+        lastAccess: PlatformInteropTypes.FileTime,
+        lastModification: PlatformInteropTypes.FileTime,
+        lastChange: PlatformInteropTypes.FileTime,
+        creation: PlatformInteropTypes.FileTime?
     ) {
         self.init(
             lastAccess: .init(platformFileTime: lastAccess), 

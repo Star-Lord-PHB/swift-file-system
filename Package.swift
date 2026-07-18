@@ -22,7 +22,7 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-system.git", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-system.git", from: "1.7.2"),
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         // .package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")),
     ],

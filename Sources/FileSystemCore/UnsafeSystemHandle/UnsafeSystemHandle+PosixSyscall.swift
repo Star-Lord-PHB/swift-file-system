@@ -66,9 +66,9 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func fstat() throws(SystemError) -> CInterop.Stat {
+    package func fstat() throws(SystemError) -> PlatformInteropTypes.Stat {
 
-        var st = CInterop.Stat.PlatformStat()
+        var st = PlatformInteropTypes.Stat.PlatformStat()
 
         #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         try execThrowingCFunction {
@@ -85,4 +85,4 @@ extension UnsafeSystemHandle {
     }
 
 }
-#endif 
+#endif

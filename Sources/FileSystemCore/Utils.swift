@@ -53,7 +53,7 @@ extension String {
 
 extension FilePath {
 
-    package func withPlatformStringTypedThrow<R: ~Copyable, E: Error>(_ body: (UnsafePointer<CInterop.PlatformChar>) throws(E) -> R) throws(E) -> R {
+    package func withPlatformStringTypedThrow<R: ~Copyable, E: Error>(_ body: (UnsafePointer<SystemPackage.CInterop.PlatformChar>) throws(E) -> R) throws(E) -> R {
         do {
             var result: R?
             try self.withPlatformString { ptr in 

@@ -43,26 +43,17 @@ extension FileInfo: CustomStringConvertible {
 extension FileInfo {
 
     #if !canImport(WinSDK)
-    package init(stat: CInterop.Stat) {
+    package init(stat: PlatformInteropTypes.Stat) {
         self.type = .init(mode: stat.st_mode)
         self.size = .init(stat.st_size)
         self.fileIdentifier = .init(fileId: stat.st_ino, deviceId: stat.st_dev)
 
-        #if canImport(Glibc) || canImport(Musl)
         self.times = .init(
             lastAccess: .init(platformFileTime: stat.st_atim), 
             lastModification: .init(platformFileTime: stat.st_mtim), 
             lastChange: .init(platformFileTime: stat.st_ctim), 
             creation: stat.st_btim.map { .init(platformFileTime: $0) }
         )
-        #else
-        self.times = .init(
-            lastAccess: .init(platformFileTime: stat.st_atim), 
-            lastModification: .init(platformFileTime: stat.st_mtim), 
-            lastChange: .init(platformFileTime: stat.st_ctim), 
-            creation: .init(platformFileTime: stat.st_btim)
-        )
-        #endif
 
         self.attributes = .init(rawValue: stat.st_flags)
 

@@ -270,7 +270,7 @@ extension UnsafeSystemHandle {
 
 
     package func fileInodeFlags() throws(SystemError) -> LinuxInodeFlags {
-        var flags: CInterop.PosixInodeFlags = 0
+        var flags: PlatformInteropTypes.PosixInodeFlags = 0
         try execThrowingCFunction {
             ioctl(unsafeRawHandle, _FS_IOC_GETFLAGS, &flags)
         }

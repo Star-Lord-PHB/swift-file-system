@@ -1,5 +1,4 @@
 import PlatformCLib
-import SystemPackage
 
 
 
@@ -21,7 +20,7 @@ public enum PlatformErrorCode: Sendable, Equatable, Hashable {
         }
     }
 
-    public var rawValue: CInterop.ErrorCode? {
+    public var rawValue: PlatformInteropTypes.ErrorCode? {
         switch self {
             case .system(let systemErrorCode): systemErrorCode.rawValue
             case .extended: nil
@@ -44,10 +43,10 @@ extension PlatformErrorCode {
         #endif
 
 
-        public let rawValue: CInterop.ErrorCode
+        public let rawValue: PlatformInteropTypes.ErrorCode
 
 
-        public init(rawValue: CInterop.ErrorCode) {
+        public init(rawValue: PlatformInteropTypes.ErrorCode) {
             self.rawValue = rawValue
         }
 

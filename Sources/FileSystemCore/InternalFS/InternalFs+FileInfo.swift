@@ -6,9 +6,9 @@ import SystemPackage
 
 extension InternalFS {
     
-    package static func ustat(_ path: FilePath) throws(SystemError) -> CInterop.Stat {
+    package static func ustat(_ path: FilePath) throws(SystemError) -> PlatformInteropTypes.Stat {
         
-        var st = CInterop.Stat.PlatformStat()
+        var st = PlatformInteropTypes.Stat.PlatformStat()
         
         #if canImport(WinSDK)
         try execThrowingCFunction {
@@ -36,9 +36,9 @@ extension InternalFS {
     
     
     #if !canImport(WinSDK)
-    package static func ulstat(_ path: FilePath) throws(SystemError) -> CInterop.Stat {
+    package static func ulstat(_ path: FilePath) throws(SystemError) -> PlatformInteropTypes.Stat {
         
-        var st = CInterop.Stat.PlatformStat()
+        var st = PlatformInteropTypes.Stat.PlatformStat()
         
         #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         try execThrowingCFunction {

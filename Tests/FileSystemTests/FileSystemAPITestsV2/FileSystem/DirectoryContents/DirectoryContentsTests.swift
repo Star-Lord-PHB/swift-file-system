@@ -29,7 +29,7 @@ extension FileSystemAPITests.DirectoryContentsTests {
 
     private func entry(
         _ path: FilePath,
-        type: FileType,
+        type: FileSystemCore.FileType,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws -> DirectoryEntry {
         try #require(

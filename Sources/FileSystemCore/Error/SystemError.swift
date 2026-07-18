@@ -1,10 +1,9 @@
 import PlatformCLib
-import SystemPackage
 
 
 public struct SystemError: Error, Equatable, CustomStringConvertible {
 
-    public typealias Code = CInterop.ErrorCode
+    public typealias Code = PlatformInteropTypes.ErrorCode
     public static let successCode: Code = PlatformErrorCode.SystemErrorCode.success.rawValue
 
     public let code: PlatformErrorCode

@@ -226,7 +226,7 @@ extension FileSystem {
         }
         #else
         do throws(SystemError) {
-            return try FileType(mode: InternalFS.ulstat(path).st_mode) == .directory
+            return try FileSystemCore.FileType(mode: InternalFS.ulstat(path).st_mode) == .directory
         } catch let error where error.kind == .notFound {
             return nil
         }
