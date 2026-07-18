@@ -2,7 +2,7 @@ import PlatformCLib
 import SystemPackage
 
 
-public enum FileType: Sendable, Equatable, Hashable {
+public enum FileKind: Sendable, Equatable, Hashable {
     case regular
     case directory
     case symlink
@@ -15,7 +15,7 @@ public enum FileType: Sendable, Equatable, Hashable {
 
 
 
-extension FileType: CustomStringConvertible {
+extension FileKind: CustomStringConvertible {
 
     @inlinable
     public var description: String {
@@ -36,7 +36,7 @@ extension FileType: CustomStringConvertible {
 
 
 #if !canImport(WinSDK)
-extension FileType {
+extension FileKind {
 
     @inlinable
     public init(mode: mode_t) {

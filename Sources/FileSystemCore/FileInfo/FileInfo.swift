@@ -8,7 +8,7 @@ public struct FileInfo: Sendable, Equatable, Hashable {
 
     public let size: UInt64
 
-    public let type: FileType
+    public let type: FileKind
 
     public let times: FileTimes
 

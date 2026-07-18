@@ -110,7 +110,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private func extractType(from systemEntry: borrowing SystemEntryDataType) -> FileType {
+    private func extractType(from systemEntry: borrowing SystemEntryDataType) -> FileKind {
 
         #if canImport(WinSDK)
 
@@ -124,7 +124,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
             .directory
         } else {
             .regular
-        } as FileType
+        } as FileKind
 
         #else
 
@@ -137,7 +137,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
             case .init(DT_CHR):     .character
             case .init(DT_FIFO):    .fifo
             default:                .unknown
-        } as FileType
+        } as FileKind
         
         #endif
 

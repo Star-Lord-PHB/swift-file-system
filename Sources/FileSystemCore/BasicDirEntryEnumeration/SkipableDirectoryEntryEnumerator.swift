@@ -333,7 +333,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
 
     #if canImport(WinSDK)
 
-    private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileType {
+    private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileKind {
         let fileAttributes = systemEntry.dwFileAttributes
         let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
 
@@ -348,7 +348,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
 
     #else
 
-    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType) -> FileType {
+    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType) -> FileKind {
         return switch systemEntry.d_type {
             case .init(DT_REG):     .regular
             case .init(DT_DIR):     .directory

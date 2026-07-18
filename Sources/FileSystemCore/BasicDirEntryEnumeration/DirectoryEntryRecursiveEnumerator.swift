@@ -250,7 +250,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     #if canImport(WinSDK)
 
-    private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileType {
+    private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileKind {
         let fileAttributes = systemEntry.dwFileAttributes
         let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
 
@@ -265,7 +265,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     #else
 
-    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType) -> FileType {
+    private func extractEntryType(from systemEntry: borrowing SystemEntryDataType) -> FileKind {
         return switch Int32(systemEntry.fts_info) {
             case FTS_F:         .regular
             case FTS_D:         .directory

@@ -58,7 +58,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    package func type() throws(SystemError) -> FileType {
+    package func type() throws(SystemError) -> FileKind {
 
         #if canImport(WinSDK)
 
@@ -81,7 +81,7 @@ extension UnsafeSystemHandle {
 
 
     #if canImport(WinSDK)
-    fileprivate func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileType {
+    fileprivate func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileKind {
 
         SetLastError(DWORD(NO_ERROR))
         let fileTypeFlags = GetFileType(unsafeRawHandle)

@@ -82,7 +82,7 @@ extension InternalFS {
                     .directory
                 } else {
                     .regular
-                } as FileType
+                } as FileKind
 
                 return .init(
                     size: .init(infoByName.EndOfFile.QuadPart), 
@@ -132,7 +132,7 @@ extension InternalFS {
 // - MARK: File Type
 extension InternalFS {
 
-    package static func type(ofItemAt path: FilePath) throws(SystemError) -> FileType {
+    package static func type(ofItemAt path: FilePath) throws(SystemError) -> FileKind {
         
         #if canImport(WinSDK)
 
