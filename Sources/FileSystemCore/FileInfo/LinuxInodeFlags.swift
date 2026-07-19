@@ -49,7 +49,7 @@ extension LinuxInodeFlags {
     @inlinable public static var inlineData: Self { .init(rawValue: FS_INLINE_DATA_FL) }
     @inlinable public static var projectInherit: Self { .init(rawValue: FS_PROJINHERIT_FL) }
     @inlinable public static var caseInsensitive: Self { .init(rawValue: FS_CASEFOLD_FL) }
-    @inlinable public static var reservedForExt2: Self { .init(rawValue: .init(FS_RESERVED_FL)) }
+    @inlinable public static var reservedForExt2: Self { .init(rawValue: .init(bitPattern: FS_RESERVED_FL)) }
 
 
     @inlinable public static var all: Self {[
