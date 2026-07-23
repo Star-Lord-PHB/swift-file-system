@@ -242,7 +242,7 @@ extension UnsafeSystemHandle {
             LastAccessTime: .init(QuadPart: -1), 
             LastWriteTime: .init(QuadPart: -1), 
             ChangeTime: .init(QuadPart: -1), 
-            FileAttributes: attributes.rawValue
+            FileAttributes: attributes.normalized.rawValue
         )
 
         try execThrowingCFunction {

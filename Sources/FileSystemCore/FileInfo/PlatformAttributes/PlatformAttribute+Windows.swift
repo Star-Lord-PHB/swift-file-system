@@ -73,6 +73,18 @@ extension PlatformFileAttributes {
 
 extension PlatformFileAttributes {
 
+    // Win32 uses FILE_ATTRIBUTE_NORMAL to represent an otherwise empty attribute
+    // set, while a zero FILE_BASIC_INFO value means that attributes are unchanged.
+    package var normalized: Self {
+        guard !isEmpty else { return .windows.isNormal }
+        var normalized = self
+        if normalized != .windows.isNormal {
+            normalized.remove(.windows.isNormal)
+        }
+        return normalized
+    }
+
+
     @usableFromInline
     static var _allWithNameAsArray: [(PlatformFileAttributes, StaticString)]? {
         [

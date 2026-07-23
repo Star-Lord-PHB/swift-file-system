@@ -359,7 +359,7 @@ extension InternalFS {
 
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in 
-                SetFileAttributesW(pathPtr, attributes.rawValue)
+                SetFileAttributesW(pathPtr, attributes.normalized.rawValue)
             }
         }
 
