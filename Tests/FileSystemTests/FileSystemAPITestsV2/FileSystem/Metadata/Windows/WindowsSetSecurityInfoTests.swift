@@ -7,13 +7,24 @@ import SwiftFileSystem
 
 extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
+    private func captureSecurity(
+        at path: FilePath,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> Support.ItemMetadata.Security {
+        try Support.ItemMetadata.captureSecurity(
+            at: path,
+            sourceLocation: sourceLocation
+        )
+    }
+
+
     private func prepareProtectedDacl(
         at path: FilePath,
         followSymlink: Bool = true,
         secondaryPermission: WindowsAccessMask? = nil,
         inheritance: WindowsExplicitAccess.Inheritance = .noInheritance
     ) throws {
-        let dacl = Support.makeWindowsTestDacl(
+        let dacl = makeWindowsTestDacl(
             secondaryPermission: secondaryPermission,
             inheritance: inheritance
         )
@@ -31,16 +42,19 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
         try prepareProtectedDacl(at: path)
-        let securityBeforeSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
-        let replacementDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericRead)
+        let securityBeforeSet = try captureSecurity(at: path)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericRead)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(forItemAt: path, dacl: .replace(replacementDacl))
 
-        let securityAfterSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityAfterSet = try captureSecurity(at: path)
         #expect(securityAfterSet.owner == securityBeforeSet.owner)
         #expect(securityAfterSet.group == securityBeforeSet.group)
-        Support.expectWindowsAcl(securityAfterSet.dacl, matches: expectedDacl)
+        Support.expectWindowsAcl(
+            securityAfterSet.permissions.dacl,
+            matches: expectedDacl
+        )
 
     }
 
@@ -50,8 +64,8 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeDirectory(at: "directory")
         try prepareProtectedDacl(at: path, inheritance: .allSubItems)
-        let securityBeforeSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
-        let replacementDacl = Support.makeWindowsTestDacl(
+        let securityBeforeSet = try captureSecurity(at: path)
+        let replacementDacl = makeWindowsTestDacl(
             secondaryPermission: .genericRead,
             inheritance: .allSubItems
         )
@@ -59,10 +73,13 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         try fileSystem.setSecurityInfo(forItemAt: path, dacl: .replace(replacementDacl))
 
-        let securityAfterSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityAfterSet = try captureSecurity(at: path)
         #expect(securityAfterSet.owner == securityBeforeSet.owner)
         #expect(securityAfterSet.group == securityBeforeSet.group)
-        Support.expectWindowsAcl(securityAfterSet.dacl, matches: expectedDacl)
+        Support.expectWindowsAcl(
+            securityAfterSet.permissions.dacl,
+            matches: expectedDacl
+        )
 
     }
 
@@ -72,15 +89,15 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
         try prepareProtectedDacl(at: path)
-        let securityBeforeSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityBeforeSet = try captureSecurity(at: path)
 
         try fileSystem.setSecurityInfo(forItemAt: path, dacl: .remove)
 
-        let securityAfterSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityAfterSet = try captureSecurity(at: path)
         #expect(securityAfterSet.owner == securityBeforeSet.owner)
         #expect(securityAfterSet.group == securityBeforeSet.group)
-        #expect(securityAfterSet.dacl.state == .null)
-        #expect(securityAfterSet.dacl.aces.isEmpty)
+        #expect(securityAfterSet.permissions.dacl.state == .null)
+        #expect(securityAfterSet.permissions.dacl.aces.isEmpty)
 
     }
 
@@ -89,11 +106,11 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `No-change update preserves security`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let securityBeforeSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityBeforeSet = try captureSecurity(at: path)
 
         try fileSystem.setSecurityInfo(forItemAt: path)
 
-        let securityAfterSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityAfterSet = try captureSecurity(at: path)
         Support.expectWindowsSecurity(securityAfterSet, matches: securityBeforeSet)
 
     }
@@ -104,20 +121,24 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
         try prepareProtectedDacl(at: path)
-        let securityBeforeSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
-        let currentOwner = try #require(securityBeforeSet.owner)
+        let securityBeforeSet = try captureSecurity(at: path)
         guard 
-            let replacementOwner = try Support.replacementOwner(excluding: currentOwner) 
+            let replacementOwner = try Support.replacementOwner(
+                excluding: securityBeforeSet.owner.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate assignable owner")
         }
 
         try fileSystem.setSecurityInfo(forItemAt: path, owner: replacementOwner)
 
-        let securityAfterSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
-        #expect(securityAfterSet.owner == replacementOwner.rawId)
+        let securityAfterSet = try captureSecurity(at: path)
+        #expect(securityAfterSet.owner == replacementOwner)
         #expect(securityAfterSet.group == securityBeforeSet.group)
-        Support.expectWindowsAcl(securityAfterSet.dacl, matches: securityBeforeSet.dacl)
+        Support.expectWindowsAcl(
+            securityAfterSet.permissions.dacl,
+            matches: securityBeforeSet.permissions.dacl
+        )
 
     }
 
@@ -127,20 +148,24 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
         try prepareProtectedDacl(at: path)
-        let securityBeforeSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
-        let currentGroup = try #require(securityBeforeSet.group)
+        let securityBeforeSet = try captureSecurity(at: path)
         guard 
-            let replacementGroup = try Support.replacementGroup(excluding: currentGroup) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: securityBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
 
         try fileSystem.setSecurityInfo(forItemAt: path, group: replacementGroup)
 
-        let securityAfterSet = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let securityAfterSet = try captureSecurity(at: path)
         #expect(securityAfterSet.owner == securityBeforeSet.owner)
-        #expect(securityAfterSet.group == replacementGroup.rawId)
-        Support.expectWindowsAcl(securityAfterSet.dacl, matches: securityBeforeSet.dacl)
+        #expect(securityAfterSet.group == replacementGroup)
+        Support.expectWindowsAcl(
+            securityAfterSet.permissions.dacl,
+            matches: securityBeforeSet.permissions.dacl
+        )
 
     }
 
@@ -152,15 +177,18 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         try prepareProtectedDacl(at: target, secondaryPermission: .genericRead)
         try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: .genericWrite)
-        let linkSecurityBeforeSet = try Support.captureWindowsSecurity(at: link, followSymlink: false)
-        let replacementDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericExecute)
+        let linkSecurityBeforeSet = try captureSecurity(at: link)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(forItemAt: link, dacl: .replace(replacementDacl))
 
-        let targetSecurityAfterSet = try Support.captureWindowsSecurity(at: target, followSymlink: true)
-        let linkSecurityAfterSet = try Support.captureWindowsSecurity(at: link, followSymlink: false)
-        Support.expectWindowsAcl(targetSecurityAfterSet.dacl, matches: expectedDacl)
+        let targetSecurityAfterSet = try captureSecurity(at: target)
+        let linkSecurityAfterSet = try captureSecurity(at: link)
+        Support.expectWindowsAcl(
+            targetSecurityAfterSet.permissions.dacl,
+            matches: expectedDacl
+        )
         Support.expectWindowsSecurity(linkSecurityAfterSet, matches: linkSecurityBeforeSet)
 
     }
@@ -173,11 +201,8 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         try prepareProtectedDacl(at: target, secondaryPermission: .genericRead)
         try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: .genericWrite)
-        let targetSecurityBeforeSet = try Support.captureWindowsSecurity(
-            at: target,
-            followSymlink: true
-        )
-        let replacementDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericExecute)
+        let targetSecurityBeforeSet = try captureSecurity(at: target)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(
@@ -186,10 +211,13 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
             followSymlink: false
         )
 
-        let targetSecurityAfterSet = try Support.captureWindowsSecurity(at: target, followSymlink: true)
-        let linkSecurityAfterSet = try Support.captureWindowsSecurity(at: link, followSymlink: false)
+        let targetSecurityAfterSet = try captureSecurity(at: target)
+        let linkSecurityAfterSet = try captureSecurity(at: link)
         Support.expectWindowsSecurity(targetSecurityAfterSet, matches: targetSecurityBeforeSet)
-        Support.expectWindowsAcl(linkSecurityAfterSet.dacl, matches: expectedDacl)
+        Support.expectWindowsAcl(
+            linkSecurityAfterSet.permissions.dacl,
+            matches: expectedDacl
+        )
 
     }
 
@@ -199,7 +227,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
         try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: .genericRead)
-        let replacementDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericExecute)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(
@@ -208,8 +236,11 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
             followSymlink: false
         )
 
-        let linkSecurityAfterSet = try Support.captureWindowsSecurity(at: link, followSymlink: false)
-        Support.expectWindowsAcl(linkSecurityAfterSet.dacl, matches: expectedDacl)
+        let linkSecurityAfterSet = try captureSecurity(at: link)
+        Support.expectWindowsAcl(
+            linkSecurityAfterSet.permissions.dacl,
+            matches: expectedDacl
+        )
 
     }
 
@@ -218,14 +249,14 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `Default DACL set fails for dangling symlink`() throws {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkSecurityBeforeSet = try Support.captureWindowsSecurity(at: link, followSymlink: false)
+        let linkSecurityBeforeSet = try captureSecurity(at: link)
 
         let error = #expect(throws: PlatformError.self) {
-            let replacementDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericExecute)
+            let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
             try fileSystem.setSecurityInfo(forItemAt: link, dacl: .replace(replacementDacl))
         }
 
-        let linkSecurityAfterSet = try Support.captureWindowsSecurity(at: link, followSymlink: false)
+        let linkSecurityAfterSet = try captureSecurity(at: link)
         #expect(error?.kind == .notFound)
         Support.expectWindowsSecurity(linkSecurityAfterSet, matches: linkSecurityBeforeSet)
 
@@ -238,7 +269,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            let replacementDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericRead)
+            let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericRead)
             try fileSystem.setSecurityInfo(forItemAt: path, dacl: .replace(replacementDacl))
         }
 

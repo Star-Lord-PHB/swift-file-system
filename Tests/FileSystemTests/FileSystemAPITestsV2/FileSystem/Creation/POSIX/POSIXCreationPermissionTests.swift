@@ -1,6 +1,5 @@
 #if !canImport(WinSDK)
 
-import Foundation
 import SystemPackage
 import Testing
 import SwiftFileSystem
@@ -19,6 +18,8 @@ extension FileSystemAPITests.CreationTests {
 
     @Suite("POSIX permissions")
     struct POSIXPermissionTests {
+
+        typealias Support = FileSystemAPITests.Support
 
         let fileSystem = FileSystem()
         let workspace: Support.Workspace
@@ -54,18 +55,12 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
             result == 0,
             "Failed to create permission probe with errno \(errno)"
         )
-        return try permissions(at: probe)
+        return try capturePermissions(at: probe)
     }
 
 
-    private func permissions(at path: FilePath) throws -> FilePermissions {
-        let attributes = try FileManager.default.attributesOfItem(
-            atPath: path.string
-        )
-        let permissions = try #require(
-            attributes[.posixPermissions] as? NSNumber
-        )
-        return FilePermissions(rawValue: CModeT(permissions.uint16Value))
+    private func capturePermissions(at path: FilePath) throws -> FilePermissions {
+        try Support.ItemMetadata.captureSecurity(at: path).permissions
     }
 
 
@@ -78,7 +73,7 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
         try fileSystem.createFile(at: path)
 
         #expect(
-            try permissions(at: path)
+            try capturePermissions(at: path)
                 == defaultFilePermissions.intersection(mask)
         )
 
@@ -97,7 +92,7 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
             permissions: requested
         )
 
-        #expect(try permissions(at: path) == requested.intersection(mask))
+        #expect(try capturePermissions(at: path) == requested.intersection(mask))
 
     }
 
@@ -120,7 +115,7 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
             permissions: requested
         )
 
-        #expect(try permissions(at: path) == initial)
+        #expect(try capturePermissions(at: path) == initial)
 
     }
 
@@ -134,7 +129,7 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
         try fileSystem.createDirectory(at: path)
 
         #expect(
-            try permissions(at: path)
+            try capturePermissions(at: path)
                 == defaultDirectoryPermissions.intersection(mask)
         )
 
@@ -153,7 +148,7 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
             permissions: requested
         )
 
-        #expect(try permissions(at: path) == requested.intersection(mask))
+        #expect(try capturePermissions(at: path) == requested.intersection(mask))
 
     }
 
@@ -174,9 +169,9 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
         )
 
         let expectedIntermediate = defaultDirectoryPermissions.intersection(mask)
-        #expect(try permissions(at: firstIntermediate) == expectedIntermediate)
-        #expect(try permissions(at: secondIntermediate) == expectedIntermediate)
-        #expect(try permissions(at: leaf) == requested.intersection(mask))
+        #expect(try capturePermissions(at: firstIntermediate) == expectedIntermediate)
+        #expect(try capturePermissions(at: secondIntermediate) == expectedIntermediate)
+        #expect(try capturePermissions(at: leaf) == requested.intersection(mask))
 
     }
 
@@ -199,7 +194,7 @@ extension FileSystemAPITests.CreationTests.POSIXPermissionTests {
             permissions: requested
         )
 
-        #expect(try permissions(at: path) == initial)
+        #expect(try capturePermissions(at: path) == initial)
 
     }
 

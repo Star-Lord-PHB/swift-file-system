@@ -10,6 +10,8 @@ extension FileSystemAPITests {
     @Suite("Common paths")
     struct CommonPathsTests {
 
+        typealias Support = FileSystemAPITests.Support
+
         let fileSystem = FileSystem()
 
     }
@@ -59,8 +61,16 @@ extension FileSystemAPITests.CommonPathsTests {
             return
         }
 
-        let actualID = try FileInfo(fileAt: actual, followSymLink: true).fileIdentifier
-        let expectedID = try FileInfo(fileAt: expected, followSymLink: true).fileIdentifier
+        let actualID = try Support.ItemMetadata.captureIdentifier(
+            at: actual,
+            followSymlink: true,
+            sourceLocation: sourceLocation
+        )
+        let expectedID = try Support.ItemMetadata.captureIdentifier(
+            at: expected,
+            followSymlink: true,
+            sourceLocation: sourceLocation
+        )
         #expect(actualID == expectedID, comment, sourceLocation: sourceLocation)
     }
 

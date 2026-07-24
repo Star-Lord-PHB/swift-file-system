@@ -1,8 +1,6 @@
-import Foundation
 import SystemPackage
 import Testing
 import SwiftFileSystem
-import SwiftFileSystemFoundationCompat
 
 
 
@@ -28,54 +26,32 @@ extension FileInfoAPITests {
 
 extension FileInfoAPITests.QueryTests {
 
-    private var timeToleranceNanoseconds: Int {
-        #if canImport(WinSDK)
-            100_000
-        #else
-            1_000
-        #endif
-    }
-
-
-    private var accessTimeToleranceNanoseconds: Int {
-        #if canImport(WinSDK)
-            1_000_000_000
-        #else
-            timeToleranceNanoseconds
-        #endif
-    }
-
-
     private func expectFileTimeEquals(
         _ actual: FileTimes,
         _ expected: Support.ItemMetadata.Times,
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        Support.expectDateEquals(
-            actual.lastAccess.date,
+        Support.expectTimestampEquals(
+            .init(fileTimeSpec: actual.lastAccess),
             expected.access,
-            toleranceNanoseconds: accessTimeToleranceNanoseconds,
             comment: "Access time",
             sourceLocation: sourceLocation
         )
-        Support.expectDateEquals(
-            actual.lastModification.date,
+        Support.expectTimestampEquals(
+            .init(fileTimeSpec: actual.lastModification),
             expected.modification,
-            toleranceNanoseconds: timeToleranceNanoseconds,
             comment: "Modification time",
             sourceLocation: sourceLocation
         )
-        Support.expectDateEquals(
-            actual.lastChange.date,
+        Support.expectTimestampEquals(
+            .init(fileTimeSpec: actual.lastChange),
             expected.statusChange,
-            toleranceNanoseconds: timeToleranceNanoseconds,
             comment: "Status change time",
             sourceLocation: sourceLocation
         )
-        Support.expectDateEquals(
-            actual.creation?.date,
+        Support.expectTimestampEquals(
+            actual.creation.map { .init(fileTimeSpec: $0) },
             expected.creation,
-            toleranceNanoseconds: timeToleranceNanoseconds,
             comment: "Creation time",
             sourceLocation: sourceLocation
         )
@@ -123,7 +99,7 @@ extension FileInfoAPITests.QueryTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let info = try FileInfo(fileAt: link)
-        let expected = try Support.ItemMetadata.capture(at: link)
+        let expected = try Support.ItemMetadata.capture(at: target)
 
         #expect(info.type == .regular)
         #expect(info.size == expected.size)

@@ -28,16 +28,23 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
+    private func captureOwnership(
+        at path: FilePath
+    ) throws -> Support.ItemMetadata.Security.Ownership {
+        try Support.ItemMetadata.captureSecurity(at: path).ownership
+    }
+
+
     @Test
     func `File ownership query matches Win32`() throws {
 
         let path = try workspace.makeFile(at: "file")
 
         let actual = try fileSystem.getOwner(forItemAt: path)
-        let expected = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let expected = try captureOwnership(at: path)
 
-        #expect(actual.owner.rawId == expected.owner)
-        #expect(actual.group.rawId == expected.group)
+        #expect(actual.owner == expected.owner)
+        #expect(actual.group == expected.group)
 
     }
 
@@ -48,10 +55,10 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let path = try workspace.makeDirectory(at: "directory")
 
         let actual = try fileSystem.getOwner(forItemAt: path)
-        let expected = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let expected = try captureOwnership(at: path)
 
-        #expect(actual.owner.rawId == expected.owner)
-        #expect(actual.group.rawId == expected.group)
+        #expect(actual.owner == expected.owner)
+        #expect(actual.group == expected.group)
 
     }
 
@@ -63,10 +70,10 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let actual = try fileSystem.getOwner(forItemAt: link)
-        let expected = try Support.captureWindowsOwnership(at: link, followSymlink: true)
+        let expected = try captureOwnership(at: target)
 
-        #expect(actual.owner.rawId == expected.owner)
-        #expect(actual.group.rawId == expected.group)
+        #expect(actual.owner == expected.owner)
+        #expect(actual.group == expected.group)
 
     }
 
@@ -81,10 +88,10 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             forItemAt: link,
             followSymlink: false
         )
-        let expected = try Support.captureWindowsOwnership(at: link, followSymlink: false)
+        let expected = try captureOwnership(at: link)
 
-        #expect(actual.owner.rawId == expected.owner)
-        #expect(actual.group.rawId == expected.group)
+        #expect(actual.owner == expected.owner)
+        #expect(actual.group == expected.group)
 
     }
 
@@ -98,10 +105,10 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             forItemAt: link,
             followSymlink: false
         )
-        let expected = try Support.captureWindowsOwnership(at: link, followSymlink: false)
+        let expected = try captureOwnership(at: link)
 
-        #expect(actual.owner.rawId == expected.owner)
-        #expect(actual.group.rawId == expected.group)
+        #expect(actual.owner == expected.owner)
+        #expect(actual.group == expected.group)
 
     }
 
@@ -147,9 +154,11 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
     func `Setting owner preserves group`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let ownershipBeforeSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipBeforeSet = try captureOwnership(at: path)
         guard 
-            let replacementOwner = try Support.replacementOwner(excluding: ownershipBeforeSet.owner)
+            let replacementOwner = try Support.replacementOwner(
+                excluding: ownershipBeforeSet.owner.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate assignable owner")
         }
@@ -160,8 +169,8 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             group: nil
         )
 
-        let ownershipAfterSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
-        #expect(ownershipAfterSet.owner == replacementOwner.rawId)
+        let ownershipAfterSet = try captureOwnership(at: path)
+        #expect(ownershipAfterSet.owner == replacementOwner)
         #expect(ownershipAfterSet.group == ownershipBeforeSet.group)
 
     }
@@ -171,9 +180,11 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
     func `Setting group preserves owner`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let ownershipBeforeSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipBeforeSet = try captureOwnership(at: path)
         guard 
-            let replacementGroup = try Support.replacementGroup(excluding: ownershipBeforeSet.group) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: ownershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
@@ -184,9 +195,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             group: replacementGroup
         )
 
-        let ownershipAfterSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipAfterSet = try captureOwnership(at: path)
         #expect(ownershipAfterSet.owner == ownershipBeforeSet.owner)
-        #expect(ownershipAfterSet.group == replacementGroup.rawId)
+        #expect(ownershipAfterSet.group == replacementGroup)
 
     }
 
@@ -195,9 +206,11 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
     func `Setting dir group preserves owner`() throws {
 
         let path = try workspace.makeDirectory(at: "directory")
-        let ownershipBeforeSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipBeforeSet = try captureOwnership(at: path)
         guard 
-            let replacementGroup = try Support.replacementGroup(excluding: ownershipBeforeSet.group) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: ownershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
@@ -208,9 +221,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             group: replacementGroup
         )
 
-        let ownershipAfterSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipAfterSet = try captureOwnership(at: path)
         #expect(ownershipAfterSet.owner == ownershipBeforeSet.owner)
-        #expect(ownershipAfterSet.group == replacementGroup.rawId)
+        #expect(ownershipAfterSet.group == replacementGroup)
 
     }
 
@@ -219,11 +232,11 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
     func `Nil owner and group leave ownership unchanged`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let ownershipBeforeSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipBeforeSet = try captureOwnership(at: path)
 
         try fileSystem.setOwner(forItemAt: path, owner: nil, group: nil)
 
-        let ownershipAfterSet = try Support.captureWindowsOwnership(at: path, followSymlink: true)
+        let ownershipAfterSet = try captureOwnership(at: path)
         #expect(ownershipAfterSet.owner == ownershipBeforeSet.owner)
         #expect(ownershipAfterSet.group == ownershipBeforeSet.group)
 
@@ -235,16 +248,12 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetOwnershipBeforeSet = try Support.captureWindowsOwnership(
-            at: target,
-            followSymlink: true
-        )
-        let linkOwnershipBeforeSet = try Support.captureWindowsOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let targetOwnershipBeforeSet = try captureOwnership(at: target)
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         guard 
-            let replacementGroup = try Support.replacementGroup(excluding: targetOwnershipBeforeSet.group) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: targetOwnershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
@@ -255,10 +264,10 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             group: replacementGroup
         )
 
-        let targetOwnershipAfterSet = try Support.captureWindowsOwnership(at: target, followSymlink: true)
-        let linkOwnershipAfterSet = try Support.captureWindowsOwnership(at: link, followSymlink: false)
+        let targetOwnershipAfterSet = try captureOwnership(at: target)
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(targetOwnershipAfterSet.owner == targetOwnershipBeforeSet.owner)
-        #expect(targetOwnershipAfterSet.group == replacementGroup.rawId)
+        #expect(targetOwnershipAfterSet.group == replacementGroup)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
         #expect(linkOwnershipAfterSet.group == linkOwnershipBeforeSet.group)
 
@@ -270,16 +279,12 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetOwnershipBeforeSet = try Support.captureWindowsOwnership(
-            at: target,
-            followSymlink: true
-        )
-        let linkOwnershipBeforeSet = try Support.captureWindowsOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let targetOwnershipBeforeSet = try captureOwnership(at: target)
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         guard 
-            let replacementGroup = try Support.replacementGroup(excluding: linkOwnershipBeforeSet.group) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: linkOwnershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
@@ -291,12 +296,12 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             followSymlink: false
         )
 
-        let targetOwnershipAfterSet = try Support.captureWindowsOwnership(at: target, followSymlink: true)
-        let linkOwnershipAfterSet = try Support.captureWindowsOwnership(at: link, followSymlink: false)
+        let targetOwnershipAfterSet = try captureOwnership(at: target)
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(targetOwnershipAfterSet.owner == targetOwnershipBeforeSet.owner)
         #expect(targetOwnershipAfterSet.group == targetOwnershipBeforeSet.group)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
-        #expect(linkOwnershipAfterSet.group == replacementGroup.rawId)
+        #expect(linkOwnershipAfterSet.group == replacementGroup)
 
     }
 
@@ -305,12 +310,11 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
     func `No-follow ownership set handles dangling symlink`() throws {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkOwnershipBeforeSet = try Support.captureWindowsOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         guard 
-            let replacementGroup = try Support.replacementGroup(excluding: linkOwnershipBeforeSet.group)
+            let replacementGroup = try Support.replacementGroup(
+                excluding: linkOwnershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
@@ -322,12 +326,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             followSymlink: false
         )
 
-        let linkOwnershipAfterSet = try Support.captureWindowsOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
-        #expect(linkOwnershipAfterSet.group == replacementGroup.rawId)
+        #expect(linkOwnershipAfterSet.group == replacementGroup)
 
     }
 
@@ -336,10 +337,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
     func `Default ownership set fails for dangling symlink`() throws {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkOwnershipBeforeSet = try Support.captureWindowsOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         let currentUser = try Support.currentUserIdentity()
 
         let error = #expect(throws: PlatformError.self) {
@@ -350,10 +348,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
             )
         }
 
-        let linkOwnershipAfterSet = try Support.captureWindowsOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(error?.kind == .notFound)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
         #expect(linkOwnershipAfterSet.group == linkOwnershipBeforeSet.group)

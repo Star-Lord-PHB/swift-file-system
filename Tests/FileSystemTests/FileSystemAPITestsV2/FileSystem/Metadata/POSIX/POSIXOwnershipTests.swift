@@ -30,61 +30,10 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
 
-    private static let rootGroupIDs: [UInt32] = {
-        setgrent()
-        defer { endgrent() }
-
-        var groupIDs = [UInt32]()
-        while let group = getgrent() {
-            groupIDs.append(UInt32(group.pointee.gr_gid))
-        }
-        return groupIDs
-    }()
-
-
-    private func nativeOwnership(
-        at path: FilePath,
-        followSymlink: Bool
-    ) throws -> (owner: PlatformIdentity, group: PlatformIdentity) {
-        let metadata = try Stat(
-            path,
-            followTargetSymlink: followSymlink
-        )
-        return (
-            owner: .init(
-                rawId: metadata.userID.rawValue,
-                platformKind: .user
-            ),
-            group: .init(
-                rawId: metadata.groupID.rawValue,
-                platformKind: .group
-            )
-        )
-    }
-
-
-    private func alternateGroup(excluding excludedID: UInt32) throws -> PlatformIdentity? {
-        if geteuid() == 0 {
-            return Self.rootGroupIDs
-                .first(where: { $0 != excludedID })
-                .map { .init(rawId: $0, platformKind: .group) }
-        }
-
-        let groupCount = getgroups(0, nil)
-        try #require(groupCount >= 0)
-
-        var groups = [gid_t](
-            repeating: 0,
-            count: Int(groupCount)
-        )
-        let fetchedCount = groups.withUnsafeMutableBufferPointer { buffer in
-            getgroups(groupCount, buffer.baseAddress)
-        }
-        try #require(fetchedCount == groupCount)
-
-        return groups
-            .first(where: { UInt32($0) != excludedID })
-            .map { .init(rawId: UInt32($0), platformKind: .group) }
+    private func captureOwnership(
+        at path: FilePath
+    ) throws -> Support.ItemMetadata.Security.Ownership {
+        try Support.ItemMetadata.captureSecurity(at: path).ownership
     }
 
 
@@ -94,7 +43,7 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
         let path = try workspace.makeFile(at: "file")
 
         let actual = try fileSystem.getOwner(forItemAt: path)
-        let expected = try nativeOwnership(at: path, followSymlink: true)
+        let expected = try captureOwnership(at: path)
 
         #expect(actual.owner == expected.owner)
         #expect(actual.group == expected.group)
@@ -108,7 +57,7 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
         let path = try workspace.makeDirectory(at: "directory")
 
         let actual = try fileSystem.getOwner(forItemAt: path)
-        let expected = try nativeOwnership(at: path, followSymlink: true)
+        let expected = try captureOwnership(at: path)
 
         #expect(actual.owner == expected.owner)
         #expect(actual.group == expected.group)
@@ -123,7 +72,7 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let actual = try fileSystem.getOwner(forItemAt: link)
-        let expected = try nativeOwnership(at: link, followSymlink: true)
+        let expected = try captureOwnership(at: target)
 
         #expect(actual.owner == expected.owner)
         #expect(actual.group == expected.group)
@@ -141,7 +90,7 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
             forItemAt: link,
             followSymlink: false
         )
-        let expected = try nativeOwnership(at: link, followSymlink: false)
+        let expected = try captureOwnership(at: link)
 
         #expect(actual.owner == expected.owner)
         #expect(actual.group == expected.group)
@@ -158,7 +107,7 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
             forItemAt: link,
             followSymlink: false
         )
-        let expected = try nativeOwnership(at: link, followSymlink: false)
+        let expected = try captureOwnership(at: link)
 
         #expect(actual.owner == expected.owner)
         #expect(actual.group == expected.group)
@@ -206,16 +155,18 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
     func `Setting group preserves owner`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let ownershipBeforeSet = try nativeOwnership(at: path, followSymlink: true)
+        let ownershipBeforeSet = try captureOwnership(at: path)
         guard 
-            let replacementGroup = try alternateGroup(excluding: ownershipBeforeSet.group.rawId)
+            let replacementGroup = try Support.replacementGroup(
+                excluding: ownershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("No alternate group is available to the current process")
         }
 
         try fileSystem.setOwner(forItemAt: path, owner: nil, group: replacementGroup)
 
-        let ownershipAfterSet = try nativeOwnership(at: path, followSymlink: true)
+        let ownershipAfterSet = try captureOwnership(at: path)
         #expect(ownershipAfterSet.owner == ownershipBeforeSet.owner)
         #expect(ownershipAfterSet.group == replacementGroup)
 
@@ -227,24 +178,20 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetOwnershipBeforeSet = try nativeOwnership(
-            at: target,
-            followSymlink: true
-        )
-        let linkOwnershipBeforeSet = try nativeOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let targetOwnershipBeforeSet = try captureOwnership(at: target)
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         guard 
-            let replacementGroup = try alternateGroup(excluding: targetOwnershipBeforeSet.group.rawId) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: targetOwnershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("No alternate group is available to the current process")
         }
 
         try fileSystem.setOwner(forItemAt: link, owner: nil, group: replacementGroup)
 
-        let targetOwnershipAfterSet = try nativeOwnership(at: target, followSymlink: true)
-        let linkOwnershipAfterSet = try nativeOwnership(at: link, followSymlink: false)
+        let targetOwnershipAfterSet = try captureOwnership(at: target)
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(targetOwnershipAfterSet.owner == targetOwnershipBeforeSet.owner)
         #expect(targetOwnershipAfterSet.group == replacementGroup)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
@@ -258,16 +205,12 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetOwnershipBeforeSet = try nativeOwnership(
-            at: target,
-            followSymlink: true
-        )
-        let linkOwnershipBeforeSet = try nativeOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let targetOwnershipBeforeSet = try captureOwnership(at: target)
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         guard 
-            let replacementGroup = try alternateGroup(excluding: linkOwnershipBeforeSet.group.rawId) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: linkOwnershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("No alternate group is available to the current process")
         }
@@ -279,8 +222,8 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
             followSymlink: false
         )
 
-        let targetOwnershipAfterSet = try nativeOwnership(at: target, followSymlink: true)
-        let linkOwnershipAfterSet = try nativeOwnership(at: link, followSymlink: false)
+        let targetOwnershipAfterSet = try captureOwnership(at: target)
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(targetOwnershipAfterSet.owner == targetOwnershipBeforeSet.owner)
         #expect(targetOwnershipAfterSet.group == targetOwnershipBeforeSet.group)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
@@ -293,12 +236,11 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
     func `No-follow ownership set handles dangling symlink`() throws {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkOwnershipBeforeSet = try nativeOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
         guard 
-            let replacementGroup = try alternateGroup(excluding: linkOwnershipBeforeSet.group.rawId) 
+            let replacementGroup = try Support.replacementGroup(
+                excluding: linkOwnershipBeforeSet.group.rawId
+            )
         else {
             try Test.cancel("No alternate group is available to the current process")
         }
@@ -310,10 +252,7 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
             followSymlink: false
         )
 
-        let linkOwnershipAfterSet = try nativeOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
         #expect(linkOwnershipAfterSet.group == replacementGroup)
 
@@ -324,19 +263,13 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
     func `Default ownership set fails for dangling symlink`() throws {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkOwnershipBeforeSet = try nativeOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipBeforeSet = try captureOwnership(at: link)
 
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setOwner(forItemAt: link, owner: nil, group: linkOwnershipBeforeSet.group)
         }
 
-        let linkOwnershipAfterSet = try nativeOwnership(
-            at: link,
-            followSymlink: false
-        )
+        let linkOwnershipAfterSet = try captureOwnership(at: link)
         #expect(error?.kind == .notFound)
         #expect(linkOwnershipAfterSet.owner == linkOwnershipBeforeSet.owner)
         #expect(linkOwnershipAfterSet.group == linkOwnershipBeforeSet.group)
@@ -348,11 +281,11 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
     func `Nil owner and group leave ownership unchanged`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let ownershipBeforeSet = try nativeOwnership(at: path, followSymlink: true)
+        let ownershipBeforeSet = try captureOwnership(at: path)
 
         try fileSystem.setOwner(forItemAt: path, owner: nil, group: nil)
 
-        let ownershipAfterSet = try nativeOwnership(at: path, followSymlink: true)
+        let ownershipAfterSet = try captureOwnership(at: path)
         #expect(ownershipAfterSet.owner == ownershipBeforeSet.owner)
         #expect(ownershipAfterSet.group == ownershipBeforeSet.group)
 

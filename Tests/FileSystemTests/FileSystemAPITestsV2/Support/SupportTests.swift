@@ -75,7 +75,46 @@ struct FileSystemTestSupportTests {
         #expect(!Support.ItemComparisonPolicy.copiedItem.fields.contains(.statusChangeTime))
         #expect(Support.ItemComparisonPolicy.unchanged.fields.contains(.creationTime))
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.creationTime))
+        #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.permissions))
         try Support.expectItem(at: path, matches: snapshot, using: .unchanged)
+
+    }
+
+
+    @Test
+    func `FileTimeSpec conversion preserves timestamp precision`() {
+
+        let timestamp = Support.ItemMetadata.Timestamp(
+            secondsSinceUnixEpoch: 1_765_432_100,
+            nanoseconds: 123_456_700
+        )
+
+        #expect(
+            Support.ItemMetadata.Timestamp(
+                fileTimeSpec: timestamp.fileTimeSpec
+            ) == timestamp
+        )
+
+    }
+
+
+    @Test
+    func `FileTimeSpec conversion accounts for platform epoch`() {
+
+        #if canImport(WinSDK)
+        let platformSecondsAtUnixEpoch = 11_644_473_600
+        #else
+        let platformSecondsAtUnixEpoch = 0
+        #endif
+        let timestamp = Support.ItemMetadata.Timestamp(
+            fileTimeSpec: .init(
+                seconds: platformSecondsAtUnixEpoch,
+                nanoseconds: 0
+            )
+        )
+
+        #expect(timestamp.secondsSinceUnixEpoch == 0)
+        #expect(timestamp.nanoseconds == 0)
 
     }
 

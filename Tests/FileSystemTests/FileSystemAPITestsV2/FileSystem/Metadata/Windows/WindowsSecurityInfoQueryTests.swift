@@ -28,6 +28,43 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
+    func makeWindowsTestDacl(
+        secondaryPermission: WindowsAccessMask? = nil,
+        inheritance: WindowsExplicitAccess.Inheritance = .noInheritance
+    ) -> WindowsRawAcl {
+        var entries = [
+            WindowsExplicitAccess(
+                permission: .genericAll,
+                inheritance: inheritance,
+                trustee: .everyone
+            )
+        ]
+        if let secondaryPermission {
+            entries.append(
+                WindowsExplicitAccess(
+                    permission: secondaryPermission,
+                    inheritance: inheritance,
+                    trustee: .users
+                )
+            )
+        }
+        return WindowsRawAcl(entries: .init(entries))
+    }
+
+
+    private func captureSecuritySnapshot(
+        at path: FilePath,
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> Support.WindowsSecuritySnapshot {
+        try Support.captureWindowsSecuritySnapshot(
+            at: path,
+            querying: members,
+            sourceLocation: sourceLocation
+        )
+    }
+
+
     @Test
     func `Default file query matches Win32`() throws {
 
@@ -35,7 +72,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: path)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let expected = try captureSecuritySnapshot(at: path)
 
         Support.expectWindowsSecurity(actual, matches: expected)
 
@@ -49,7 +86,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: path)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(at: path, followSymlink: true)
+        let expected = try captureSecuritySnapshot(at: path)
 
         Support.expectWindowsSecurity(actual, matches: expected)
 
@@ -64,10 +101,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: path, querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(
+        let expected = try captureSecuritySnapshot(
             at: path,
-            querying: members,
-            followSymlink: true
+            querying: members
         )
 
         Support.expectWindowsSecurity(actual, matches: expected, comparing: members)
@@ -83,10 +119,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: path, querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(
+        let expected = try captureSecuritySnapshot(
             at: path,
-            querying: members,
-            followSymlink: true
+            querying: members
         )
 
         Support.expectWindowsSecurity(actual, matches: expected, comparing: members)
@@ -102,10 +137,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: path, querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(
+        let expected = try captureSecuritySnapshot(
             at: path,
-            querying: members,
-            followSymlink: true
+            querying: members
         )
 
         Support.expectWindowsSecurity(actual, matches: expected, comparing: members)
@@ -118,15 +152,15 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericRead)
-        let linkDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericWrite)
+        let targetDacl = makeWindowsTestDacl(secondaryPermission: .genericRead)
+        let linkDacl = makeWindowsTestDacl(secondaryPermission: .genericWrite)
         try Support.setProtectedNativeWindowsDacl(targetDacl, at: target, followSymlink: true)
         try Support.setProtectedNativeWindowsDacl(linkDacl, at: link, followSymlink: false)
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: link)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(at: target, followSymlink: true)
-        let linkSecurity = try Support.captureWindowsSecurity(at: link, followSymlink: false)
+        let expected = try captureSecuritySnapshot(at: target)
+        let linkSecurity = try captureSecuritySnapshot(at: link)
 
         Support.expectWindowsSecurity(actual, matches: expected)
         #expect(actual.dacl != linkSecurity.dacl)
@@ -139,15 +173,15 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericRead)
-        let linkDacl = Support.makeWindowsTestDacl(secondaryPermission: .genericWrite)
+        let targetDacl = makeWindowsTestDacl(secondaryPermission: .genericRead)
+        let linkDacl = makeWindowsTestDacl(secondaryPermission: .genericWrite)
         try Support.setProtectedNativeWindowsDacl(targetDacl, at: target, followSymlink: true)
         try Support.setProtectedNativeWindowsDacl(linkDacl, at: link, followSymlink: false)
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: link, followSymlink: false)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(at: link, followSymlink: false)
-        let targetSecurity = try Support.captureWindowsSecurity(at: target, followSymlink: true)
+        let expected = try captureSecuritySnapshot(at: link)
+        let targetSecurity = try captureSecuritySnapshot(at: target)
 
         Support.expectWindowsSecurity(actual, matches: expected)
         #expect(actual.dacl != targetSecurity.dacl)
@@ -162,7 +196,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let descriptor = try fileSystem.getSecurityInfo(forItemAt: link, followSymlink: false)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
-        let expected = try Support.captureWindowsSecurity(at: link, followSymlink: false)
+        let expected = try captureSecuritySnapshot(at: link)
 
         Support.expectWindowsSecurity(actual, matches: expected)
 

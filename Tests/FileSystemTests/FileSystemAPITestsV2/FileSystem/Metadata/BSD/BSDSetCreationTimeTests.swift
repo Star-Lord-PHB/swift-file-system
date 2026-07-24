@@ -1,9 +1,7 @@
 #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
-import Foundation
 import Testing
 import SwiftFileSystem
-import SwiftFileSystemFoundationCompat
 
 
 
@@ -30,28 +28,22 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
-    private var timeToleranceNanoseconds: Int {
-        1_000
-    }
-
-
     private func shiftedTime(
-        from date: Date,
-        by seconds: TimeInterval
+        from timestamp: Support.ItemMetadata.Timestamp,
+        by seconds: Int64
     ) -> FileTimeSpec {
-        .init(from: date.addingTimeInterval(seconds))
+        timestamp.adding(seconds: seconds).fileTimeSpec
     }
 
 
     private func expectCreationTime(
-        _ actual: Date?,
-        equals expected: Date?,
+        _ actual: Support.ItemMetadata.Timestamp?,
+        equals expected: Support.ItemMetadata.Timestamp?,
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        Support.expectDateEquals(
+        Support.expectTimestampEquals(
             actual,
             expected,
-            toleranceNanoseconds: timeToleranceNanoseconds,
             comment: "Creation time",
             sourceLocation: sourceLocation
         )
@@ -59,14 +51,13 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
 
     private func expectModificationTime(
-        _ actual: Date?,
-        equals expected: Date?,
+        _ actual: Support.ItemMetadata.Timestamp,
+        equals expected: Support.ItemMetadata.Timestamp,
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        Support.expectDateEquals(
+        Support.expectTimestampEquals(
             actual,
             expected,
-            toleranceNanoseconds: timeToleranceNanoseconds,
             comment: "Modification time",
             sourceLocation: sourceLocation
         )
@@ -77,10 +68,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
     func `Sets earlier file creation and newer modification`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let timesBeforeSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
-        )
+        let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
         guard let creationTimeBeforeSet = timesBeforeSet.creation else {
             try Test.cancel("Creation time is unavailable on this platform")
         }
@@ -99,12 +87,15 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
             creationTime: requestedCreationTime
         )
 
-        let timesAfterSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
+        let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
+        expectCreationTime(
+            timesAfterSet.creation,
+            equals: .init(fileTimeSpec: requestedCreationTime)
         )
-        expectCreationTime(timesAfterSet.creation, equals: requestedCreationTime.date)
-        expectModificationTime(timesAfterSet.modification, equals: requestedModificationTime.date)
+        expectModificationTime(
+            timesAfterSet.modification,
+            equals: .init(fileTimeSpec: requestedModificationTime)
+        )
 
     }
 
@@ -113,10 +104,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
     func `Sets earlier dir creation and newer modification`() throws {
 
         let path = try workspace.makeDirectory(at: "directory")
-        let timesBeforeSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
-        )
+        let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
         guard let creationTimeBeforeSet = timesBeforeSet.creation else {
             try Test.cancel("Creation time is unavailable on this platform")
         }
@@ -135,12 +123,15 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
             creationTime: requestedCreationTime
         )
 
-        let timesAfterSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
+        let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
+        expectCreationTime(
+            timesAfterSet.creation,
+            equals: .init(fileTimeSpec: requestedCreationTime)
         )
-        expectCreationTime(timesAfterSet.creation, equals: requestedCreationTime.date)
-        expectModificationTime(timesAfterSet.modification, equals: requestedModificationTime.date)
+        expectModificationTime(
+            timesAfterSet.modification,
+            equals: .init(fileTimeSpec: requestedModificationTime)
+        )
 
     }
 
@@ -150,14 +141,8 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetTimesBeforeSet = try Support.ItemMetadata.Times.capture(
-            at: target,
-            followSymlink: true
-        )
-        let linkTimesBeforeSet = try Support.ItemMetadata.Times.capture(
-            at: link,
-            followSymlink: false
-        )
+        let targetTimesBeforeSet = try Support.ItemMetadata.Times.capture(at: target)
+        let linkTimesBeforeSet = try Support.ItemMetadata.Times.capture(at: link)
         guard let linkCreationTimeBeforeSet = linkTimesBeforeSet.creation else {
             try Test.cancel("Creation time is unavailable on this platform")
         }
@@ -177,16 +162,16 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
             followSymlink: false
         )
 
-        let linkTimesAfterSet = try Support.ItemMetadata.Times.capture(
-            at: link,
-            followSymlink: false
+        let linkTimesAfterSet = try Support.ItemMetadata.Times.capture(at: link)
+        let targetTimesAfterSet = try Support.ItemMetadata.Times.capture(at: target)
+        expectCreationTime(
+            linkTimesAfterSet.creation,
+            equals: .init(fileTimeSpec: requestedCreationTime)
         )
-        let targetTimesAfterSet = try Support.ItemMetadata.Times.capture(
-            at: target,
-            followSymlink: true
+        expectModificationTime(
+            linkTimesAfterSet.modification,
+            equals: .init(fileTimeSpec: requestedModificationTime)
         )
-        expectCreationTime(linkTimesAfterSet.creation, equals: requestedCreationTime.date)
-        expectModificationTime(linkTimesAfterSet.modification, equals: requestedModificationTime.date)
         #expect(targetTimesAfterSet == targetTimesBeforeSet)
 
     }
@@ -196,10 +181,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
     func `Earlier modification also moves creation`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let timesBeforeSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
-        )
+        let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
         guard let creationTimeBeforeSet = timesBeforeSet.creation else {
             try Test.cancel("Creation time is unavailable on this platform")
         }
@@ -213,12 +195,15 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
             modificationTime: requestedModificationTime
         )
 
-        let timesAfterSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
+        let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
+        expectCreationTime(
+            timesAfterSet.creation,
+            equals: .init(fileTimeSpec: requestedModificationTime)
         )
-        expectCreationTime(timesAfterSet.creation, equals: requestedModificationTime.date)
-        expectModificationTime(timesAfterSet.modification, equals: requestedModificationTime.date)
+        expectModificationTime(
+            timesAfterSet.modification,
+            equals: .init(fileTimeSpec: requestedModificationTime)
+        )
 
     }
 
@@ -227,10 +212,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
     func `Later creation request preserves creation but updates modification`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let timesBeforeSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
-        )
+        let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
         guard let creationTimeBeforeSet = timesBeforeSet.creation else {
             try Test.cancel("Creation time is unavailable on this platform")
         }
@@ -244,12 +226,12 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
             creationTime: requestedCreationTime
         )
 
-        let timesAfterSet = try Support.ItemMetadata.Times.capture(
-            at: path,
-            followSymlink: true
-        )
+        let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
         expectCreationTime(timesAfterSet.creation, equals: creationTimeBeforeSet)
-        expectModificationTime(timesAfterSet.modification, equals: requestedCreationTime.date)
+        expectModificationTime(
+            timesAfterSet.modification,
+            equals: .init(fileTimeSpec: requestedCreationTime)
+        )
 
     }
 

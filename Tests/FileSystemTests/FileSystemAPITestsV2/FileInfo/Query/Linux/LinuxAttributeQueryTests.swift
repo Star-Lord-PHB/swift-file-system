@@ -29,29 +29,6 @@ extension FileInfoAPITests.QueryTests {
 
 extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
 
-    private struct NativeAttributes {
-        let attributes: UInt64
-        let supportedAttributes: UInt64
-    }
-
-
-    private func nativeAttributes(
-        at path: FilePath,
-        followSymlink: Bool,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws -> NativeAttributes {
-        var metadata = StatCompat()
-        let flags = followSymlink ? CInt(0) : CInt(AT_SYMLINK_NOFOLLOW)
-        let result = path.withPlatformString { pathPointer in
-            systemStatCompat(pathPointer, flags, &metadata)
-        }
-        try #require(result == 0, sourceLocation: sourceLocation)
-        return .init(
-            attributes: metadata.st_attributes,
-            supportedAttributes: metadata.st_attributes_mask
-        )
-    }
-
 
     @Test
     func `Regular file attrs match statx`() throws {
@@ -59,10 +36,10 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
         let path = try workspace.makeFile(at: "file")
 
         let info = try FileInfo(fileAt: path)
-        let expected = try nativeAttributes(at: path, followSymlink: true)
+        let expected = try Support.ItemMetadata.captureAttributes(at: path)
 
-        #expect(info.attributes.rawValue == expected.attributes)
-        #expect(info.supportedAttributes.rawValue == expected.supportedAttributes)
+        #expect(info.attributes == expected.values)
+        #expect(info.supportedAttributes == expected.supported)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))
 
     }
@@ -74,10 +51,10 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
         let path = try workspace.makeDirectory(at: "directory")
 
         let info = try FileInfo(fileAt: path)
-        let expected = try nativeAttributes(at: path, followSymlink: true)
+        let expected = try Support.ItemMetadata.captureAttributes(at: path)
 
-        #expect(info.attributes.rawValue == expected.attributes)
-        #expect(info.supportedAttributes.rawValue == expected.supportedAttributes)
+        #expect(info.attributes == expected.values)
+        #expect(info.supportedAttributes == expected.supported)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))
 
     }
@@ -90,10 +67,10 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let info = try FileInfo(fileAt: link, followSymLink: false)
-        let expected = try nativeAttributes(at: link, followSymlink: false)
+        let expected = try Support.ItemMetadata.captureAttributes(at: link)
 
-        #expect(info.attributes.rawValue == expected.attributes)
-        #expect(info.supportedAttributes.rawValue == expected.supportedAttributes)
+        #expect(info.attributes == expected.values)
+        #expect(info.supportedAttributes == expected.supported)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))
 
     }

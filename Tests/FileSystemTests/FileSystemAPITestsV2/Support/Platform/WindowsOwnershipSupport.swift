@@ -8,67 +8,6 @@ import SwiftFileSystem
 
 extension FileSystemTestSupport {
 
-    struct WindowsOwnership {
-
-        let owner: WindowsSid
-        let group: WindowsSid
-
-    }
-
-
-    static func captureWindowsOwnership(
-        at path: FilePath,
-        followSymlink: Bool,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws -> WindowsOwnership {
-        let noFollowFlag = followSymlink
-            ? DWORD(0)
-            : DWORD(FILE_FLAG_OPEN_REPARSE_POINT)
-        let openFlags = DWORD(FILE_FLAG_BACKUP_SEMANTICS) | noFollowFlag
-        let handle = path.withPlatformString { pathPointer in
-            CreateFileW(
-                pathPointer,
-                DWORD(READ_CONTROL),
-                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE),
-                nil,
-                DWORD(OPEN_EXISTING),
-                openFlags,
-                nil
-            )
-        }
-        try #require(handle != INVALID_HANDLE_VALUE, sourceLocation: sourceLocation)
-        defer { CloseHandle(handle) }
-
-        var ownerSid = nil as PSID?
-        var groupSid = nil as PSID?
-        var descriptor = nil as PSECURITY_DESCRIPTOR?
-        let result = GetSecurityInfo(
-            handle,
-            SE_FILE_OBJECT,
-            DWORD(OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION),
-            &ownerSid,
-            &groupSid,
-            nil,
-            nil,
-            &descriptor
-        )
-        try #require(result == ERROR_SUCCESS, sourceLocation: sourceLocation)
-        let descriptor = try #require(descriptor, sourceLocation: sourceLocation)
-        defer { LocalFree(descriptor) }
-
-        return WindowsOwnership(
-            owner: try copyWindowsSid(
-                try #require(ownerSid, sourceLocation: sourceLocation),
-                sourceLocation: sourceLocation
-            ),
-            group: try copyWindowsSid(
-                try #require(groupSid, sourceLocation: sourceLocation),
-                sourceLocation: sourceLocation
-            )
-        )
-    }
-
-
     static func replacementOwner(
         excluding excludedOwner: WindowsSid,
         sourceLocation: SourceLocation = #_sourceLocation

@@ -6,15 +6,9 @@ extension FileSystemTestSupport {
     struct ItemComparisonPolicy: Sendable {
 
         var fields: ComparisonFields
-        var timeToleranceNanoseconds: Int
 
-        init(
-            fields: ComparisonFields,
-            timeToleranceNanoseconds: Int = 0
-        ) {
-            precondition(timeToleranceNanoseconds >= 0)
+        init(fields: ComparisonFields) {
             self.fields = fields
-            self.timeToleranceNanoseconds = timeToleranceNanoseconds
         }
 
         /// Type and logical content only; suitable for tests that do not promise
@@ -31,17 +25,15 @@ extension FileSystemTestSupport {
         /// File identity and status-change time must differ for a newly copied item
         /// and therefore are not included.
         static var copiedItem: Self {
-            var fields: ComparisonFields = [
+            let fields: ComparisonFields = [
                 .logicalContents,
                 .accessTime,
                 .modificationTime,
                 .creationTime,
                 .attributes,
+                .permissions,
                 .ownership,
             ]
-            if PlatformCapabilities.supportsPosixPermissions {
-                fields.insert(.posixPermissions)
-            }
             return .init(fields: fields)
         }
 
@@ -71,7 +63,7 @@ extension FileSystemTestSupport.ItemComparisonPolicy {
         static let modificationTime = Self(rawValue: 1 << 4)
         static let statusChangeTime = Self(rawValue: 1 << 5)
         static let creationTime = Self(rawValue: 1 << 6)
-        static let posixPermissions = Self(rawValue: 1 << 7)
+        static let permissions = Self(rawValue: 1 << 7)
         static let attributes = Self(rawValue: 1 << 8)
         static let owner = Self(rawValue: 1 << 9)
         static let group = Self(rawValue: 1 << 10)
@@ -91,7 +83,7 @@ extension FileSystemTestSupport.ItemComparisonPolicy {
         static let all: Self = [
             .logicalContents,
             .fileTimes,
-            .posixPermissions,
+            .permissions,
             .attributes,
             .ownership,
             .fileIdentifier,

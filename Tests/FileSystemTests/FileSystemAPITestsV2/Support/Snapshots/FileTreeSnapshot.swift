@@ -1,5 +1,6 @@
 import Foundation
 import SystemPackage
+import Testing
 
 /// A recursive filesystem snapshot keyed by paths relative to its root.
 extension FileSystemTestSupport {
@@ -15,14 +16,16 @@ extension FileSystemTestSupport {
 
         static func capture(
             at rootPath: FilePath,
-            capturePayload: Bool = true
+            capturePayload: Bool = true,
+            sourceLocation: SourceLocation = #_sourceLocation
         ) throws -> TreeSnapshot {
             var descendants = [FilePath: ItemSnapshot]()
             let root = try captureDirectoryOrItem(
                 root: rootPath,
                 relativePath: nil,
                 capturePayload: capturePayload,
-                descendants: &descendants
+                descendants: &descendants,
+                sourceLocation: sourceLocation
             )
             return TreeSnapshot(root: root, descendants: descendants)
         }
@@ -31,14 +34,16 @@ extension FileSystemTestSupport {
             root: FilePath,
             relativePath: FilePath?,
             capturePayload: Bool,
-            descendants: inout [FilePath: ItemSnapshot]
+            descendants: inout [FilePath: ItemSnapshot],
+            sourceLocation: SourceLocation
         ) throws -> ItemSnapshot {
 
             let absolutePath = relativePath.map { root.appending($0.components) } ?? root
 
             let initialMetadata = try ItemMetadata.capture(
                 at: absolutePath,
-                followSymlink: false
+                followSymlink: false,
+                sourceLocation: sourceLocation
             )
 
             if initialMetadata.type == .typeDirectory {
@@ -49,7 +54,8 @@ extension FileSystemTestSupport {
                         root: root,
                         relativePath: childRelativePath,
                         capturePayload: capturePayload,
-                        descendants: &descendants
+                        descendants: &descendants,
+                        sourceLocation: sourceLocation
                     )
                     descendants[childRelativePath] = child
                 }
@@ -59,7 +65,8 @@ extension FileSystemTestSupport {
             // directory itself only after its children have been observed.
             return try ItemSnapshot.capture(
                 at: absolutePath,
-                capturePayload: capturePayload
+                capturePayload: capturePayload,
+                sourceLocation: sourceLocation
             )
 
         }

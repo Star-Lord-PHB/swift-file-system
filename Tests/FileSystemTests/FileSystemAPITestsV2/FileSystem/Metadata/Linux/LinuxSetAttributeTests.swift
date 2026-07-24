@@ -29,19 +29,6 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
 
-    private func nativeAttributes(
-        at path: FilePath,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws -> PlatformFileAttributes {
-        var metadata = StatCompat()
-        let result = path.withPlatformString { pathPointer in
-            systemStatCompat(pathPointer, 0, &metadata)
-        }
-        try #require(result == 0, sourceLocation: sourceLocation)
-        return .init(rawValue: metadata.st_attributes)
-    }
-
-
     @Test
     func `Sets file noDump attribute`() throws {
 
@@ -52,7 +39,10 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
             attributes: [.linux.noDump]
         )
 
-        #expect(try nativeAttributes(at: path).contains(.linux.noDump))
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: path).values
+                .contains(.linux.noDump)
+        )
 
     }
 
@@ -67,7 +57,10 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
             attributes: [.linux.noDump]
         )
 
-        #expect(try nativeAttributes(at: path).contains(.linux.noDump))
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: path).values
+                .contains(.linux.noDump)
+        )
 
     }
 
@@ -78,7 +71,9 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
         let path = try workspace.makeFile(at: "file")
         let flagsBeforeSet = try Support.captureNativeInodeFlags(at: path)
         try Support.setNativeInodeFlags(flagsBeforeSet.union(.noDump), at: path)
-        var requestedAttributes = try nativeAttributes(at: path)
+        var requestedAttributes = try Support.ItemMetadata.captureAttributes(
+            at: path
+        ).values
         try #require(requestedAttributes.remove(.linux.noDump) != nil)
 
         try fileSystem.setAttributes(
@@ -86,7 +81,10 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
             attributes: requestedAttributes
         )
 
-        #expect(try nativeAttributes(at: path) == requestedAttributes)
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: path).values
+                == requestedAttributes
+        )
 
     }
 
@@ -102,7 +100,10 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
             attributes: [.linux.noDump]
         )
 
-        #expect(try nativeAttributes(at: target).contains(.linux.noDump))
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: target).values
+                .contains(.linux.noDump)
+        )
 
     }
 
@@ -112,7 +113,9 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetAttributesBeforeSet = try nativeAttributes(at: target)
+        let targetAttributesBeforeSet = try Support.ItemMetadata.captureAttributes(
+            at: target
+        ).values
 
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setAttributes(
@@ -123,7 +126,10 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
         }
 
         #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
-        #expect(try nativeAttributes(at: target) == targetAttributesBeforeSet)
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: target).values
+                == targetAttributesBeforeSet
+        )
 
     }
 

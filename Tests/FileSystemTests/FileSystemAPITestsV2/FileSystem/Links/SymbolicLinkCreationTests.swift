@@ -49,10 +49,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
     func `Creates an absolute symlink to a file`() throws {
 
         let target = try workspace.makeFile(at: "target", contents: "target contents")
-        let targetSnapshot = try Support.ItemSnapshot.capture(
-            at: target,
-            followSymlink: true
-        )
+        let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
         let link = workspace.path("link")
 
         try fileSystem.createSymLink(at: link, pointingTo: target)
@@ -61,7 +58,8 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         try Support.expectItem(
             at: link,
             matches: targetSnapshot,
-            using: followedTargetPolicy
+            using: followedTargetPolicy,
+            followSymlink: true
         )
 
     }
@@ -76,10 +74,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
                 "file": .file(contents: "target contents")
             ]
         )
-        let targetSnapshot = try Support.ItemSnapshot.capture(
-            at: target,
-            followSymlink: true
-        )
+        let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
         let storedTarget = FilePath("target")
         let link = workspace.path("container/link")
 
@@ -89,7 +84,8 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         try Support.expectItem(
             at: link,
             matches: targetSnapshot,
-            using: followedTargetPolicy
+            using: followedTargetPolicy,
+            followSymlink: true
         )
 
     }
@@ -103,10 +99,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
             at: "target-link",
             pointingTo: target
         )
-        let targetSnapshot = try Support.ItemSnapshot.capture(
-            at: target,
-            followSymlink: true
-        )
+        let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
         let link = workspace.path("link")
 
         try fileSystem.createSymLink(at: link, pointingTo: targetLink)
@@ -115,7 +108,8 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         try Support.expectItem(
             at: link,
             matches: targetSnapshot,
-            using: followedTargetPolicy
+            using: followedTargetPolicy,
+            followSymlink: true
         )
 
     }

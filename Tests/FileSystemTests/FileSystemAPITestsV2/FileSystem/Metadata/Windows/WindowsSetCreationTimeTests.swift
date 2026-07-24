@@ -34,9 +34,8 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
     }
 
 
-    private var sampleCreationTimeTicks: Int64 {
-        Int64(sampleCreationTime.seconds) * 10_000_000
-            + Int64(sampleCreationTime.nanoseconds / 100)
+    private var sampleCreationTimestamp: Support.ItemMetadata.Timestamp {
+        .init(fileTimeSpec: sampleCreationTime)
     }
 
 
@@ -44,23 +43,17 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
     func `Sets file creation time`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let infoBeforeSet = try Support.captureWindowsBasicInfo(
-            at: path,
-            followSymlink: true
-        )
+        let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
 
         try fileSystem.setTimes(
             forItemAt: path,
             creationTime: sampleCreationTime
         )
 
-        let infoAfterSet = try Support.captureWindowsBasicInfo(
-            at: path,
-            followSymlink: true
-        )
-        #expect(infoAfterSet.creationTime == sampleCreationTimeTicks)
-        #expect(infoAfterSet.accessTime == infoBeforeSet.accessTime)
-        #expect(infoAfterSet.modificationTime == infoBeforeSet.modificationTime)
+        let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
+        #expect(timesAfterSet.creation == sampleCreationTimestamp)
+        #expect(timesAfterSet.access == timesBeforeSet.access)
+        #expect(timesAfterSet.modification == timesBeforeSet.modification)
 
     }
 
@@ -69,23 +62,17 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
     func `Sets dir creation time`() throws {
 
         let path = try workspace.makeDirectory(at: "directory")
-        let infoBeforeSet = try Support.captureWindowsBasicInfo(
-            at: path,
-            followSymlink: true
-        )
+        let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
 
         try fileSystem.setTimes(
             forItemAt: path,
             creationTime: sampleCreationTime
         )
 
-        let infoAfterSet = try Support.captureWindowsBasicInfo(
-            at: path,
-            followSymlink: true
-        )
-        #expect(infoAfterSet.creationTime == sampleCreationTimeTicks)
-        #expect(infoAfterSet.accessTime == infoBeforeSet.accessTime)
-        #expect(infoAfterSet.modificationTime == infoBeforeSet.modificationTime)
+        let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
+        #expect(timesAfterSet.creation == sampleCreationTimestamp)
+        #expect(timesAfterSet.access == timesBeforeSet.access)
+        #expect(timesAfterSet.modification == timesBeforeSet.modification)
 
     }
 
@@ -95,26 +82,17 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let linkInfoBeforeSet = try Support.captureWindowsBasicInfo(
-            at: link,
-            followSymlink: false
-        )
+        let linkTimesBeforeSet = try Support.ItemMetadata.Times.capture(at: link)
 
         try fileSystem.setTimes(
             forItemAt: link,
             creationTime: sampleCreationTime
         )
 
-        let targetInfoAfterSet = try Support.captureWindowsBasicInfo(
-            at: target,
-            followSymlink: true
-        )
-        let linkInfoAfterSet = try Support.captureWindowsBasicInfo(
-            at: link,
-            followSymlink: false
-        )
-        #expect(targetInfoAfterSet.creationTime == sampleCreationTimeTicks)
-        #expect(linkInfoAfterSet.creationTime == linkInfoBeforeSet.creationTime)
+        let targetTimesAfterSet = try Support.ItemMetadata.Times.capture(at: target)
+        let linkTimesAfterSet = try Support.ItemMetadata.Times.capture(at: link)
+        #expect(targetTimesAfterSet.creation == sampleCreationTimestamp)
+        #expect(linkTimesAfterSet.creation == linkTimesBeforeSet.creation)
 
     }
 
@@ -124,10 +102,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetInfoBeforeSet = try Support.captureWindowsBasicInfo(
-            at: target,
-            followSymlink: true
-        )
+        let targetTimesBeforeSet = try Support.ItemMetadata.Times.capture(at: target)
 
         try fileSystem.setTimes(
             forItemAt: link,
@@ -135,16 +110,10 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
             followSymlink: false
         )
 
-        let linkInfoAfterSet = try Support.captureWindowsBasicInfo(
-            at: link,
-            followSymlink: false
-        )
-        let targetInfoAfterSet = try Support.captureWindowsBasicInfo(
-            at: target,
-            followSymlink: true
-        )
-        #expect(linkInfoAfterSet.creationTime == sampleCreationTimeTicks)
-        #expect(targetInfoAfterSet == targetInfoBeforeSet)
+        let linkTimesAfterSet = try Support.ItemMetadata.Times.capture(at: link)
+        let targetTimesAfterSet = try Support.ItemMetadata.Times.capture(at: target)
+        #expect(linkTimesAfterSet.creation == sampleCreationTimestamp)
+        #expect(targetTimesAfterSet == targetTimesBeforeSet)
 
     }
 
@@ -163,11 +132,8 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
             followSymlink: false
         )
 
-        let linkInfoAfterSet = try Support.captureWindowsBasicInfo(
-            at: link,
-            followSymlink: false
-        )
-        #expect(linkInfoAfterSet.creationTime == sampleCreationTimeTicks)
+        let linkTimesAfterSet = try Support.ItemMetadata.Times.capture(at: link)
+        #expect(linkTimesAfterSet.creation == sampleCreationTimestamp)
 
     }
 

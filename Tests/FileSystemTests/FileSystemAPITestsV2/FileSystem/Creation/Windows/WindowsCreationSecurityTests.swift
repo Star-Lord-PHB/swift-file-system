@@ -1,5 +1,6 @@
 #if canImport(WinSDK)
 
+import WinSDK
 import Testing
 import SwiftFileSystem
 
@@ -9,6 +10,8 @@ extension FileSystemAPITests.CreationTests {
 
     @Suite("Windows security")
     struct WindowsSecurityTests {
+
+        typealias Support = FileSystemAPITests.Support
 
         let fileSystem = FileSystem()
         let workspace: Support.Workspace
@@ -26,24 +29,36 @@ extension FileSystemAPITests.CreationTests {
 
 extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
 
-    private func makeSampleTargetSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
-        let dacl = WindowsRawAcl(entries: [
+    private func makeSampleTargetDacl() -> WindowsRawAcl {
+        .init(entries: [
             .init(permission: .genericAll, trustee: .everyone)
         ])
+    }
+
+
+    private func makeSampleTargetSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
         return WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: dacl
+            dacl: makeSampleTargetDacl()
         )
     }
 
 
-    private func makeSampleInheritableParentSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
-        let dacl = WindowsRawAcl(entries: [
-            .init(permission: .genericAll, inheritance: .allSubItems, trustee: .everyone)
+    private func makeSampleInheritableParentDacl() -> WindowsRawAcl {
+        .init(entries: [
+            .init(
+                permission: .genericAll,
+                inheritance: .allSubItems,
+                trustee: .everyone
+            )
         ])
+    }
+
+
+    private func makeSampleInheritableParentSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
         return WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: dacl
+            dacl: makeSampleInheritableParentDacl()
         )
     }
 
@@ -52,18 +67,24 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
         at path: FilePath,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
-        let trustee = WindowsExplicitAccess.RawTrustee.everyone
-        let descriptor = try FileSystem().getSecurityInfo(forItemAt: path)
-        #expect(descriptor.control.control.contains(.daclProtected), sourceLocation: sourceLocation)
-        try #require(descriptor.dacl.case == .present, sourceLocation: sourceLocation)
+        let security = try Support.ItemMetadata.captureSecurity(
+            at: path,
+            sourceLocation: sourceLocation
+        )
+        let expectedDacl = try Support.parseWindowsRawAcl(
+            makeSampleTargetDacl(),
+            sourceLocation: sourceLocation
+        )
 
-        let dacl = descriptor.dacl.value!
-        try #require(dacl.aceCount == 1, sourceLocation: sourceLocation)
-        let ace = dacl[0]
-        #expect(!ace.flags.contains(.inherited), sourceLocation: sourceLocation)
-        #expect(ace.type == .allow, sourceLocation: sourceLocation)
-        #expect(ace.permission.sid.string == trustee.sid.string, sourceLocation: sourceLocation)
-        #expect(ace.permission.mask == .genericAll, sourceLocation: sourceLocation)
+        #expect(
+            security.permissions.isProtected,
+            sourceLocation: sourceLocation
+        )
+        Support.expectWindowsAcl(
+            security.permissions.dacl,
+            matches: expectedDacl,
+            sourceLocation: sourceLocation
+        )
     }
 
 
@@ -71,56 +92,38 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
         at path: FilePath,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
-        let trustee = WindowsExplicitAccess.RawTrustee.everyone
-        let descriptor = try FileSystem().getSecurityInfo(forItemAt: path)
-        #expect(descriptor.owner?.sid.string != nil, sourceLocation: sourceLocation)
-        #expect(descriptor.group?.sid.string != nil, sourceLocation: sourceLocation)
-        try #require(descriptor.dacl.case == .present, sourceLocation: sourceLocation)
+        let security = try Support.ItemMetadata.captureSecurity(
+            at: path,
+            sourceLocation: sourceLocation
+        )
+        let expectedDacl = try Support.parseWindowsRawAcl(
+            makeSampleInheritableParentDacl(),
+            sourceLocation: sourceLocation
+        )
+        let actualAce = try #require(
+            security.permissions.dacl.aces.first,
+            sourceLocation: sourceLocation
+        )
+        let expectedAce = try #require(
+            expectedDacl.aces.first,
+            sourceLocation: sourceLocation
+        )
 
-        let dacl = descriptor.dacl.value!
-        try #require(dacl.aceCount == 1, sourceLocation: sourceLocation)
-        let ace = dacl[0]
-        #expect(ace.flags.contains(.inherited), sourceLocation: sourceLocation)
-        #expect(ace.type == .allow, sourceLocation: sourceLocation)
-        #expect(ace.permission.sid.string == trustee.sid.string, sourceLocation: sourceLocation)
-        #expect(ace.permission.mask == .genericAll, sourceLocation: sourceLocation)
-    }
-
-
-    private func expectSecurityExactEquals(
-        _ actual: borrowing WindowsSelfRelativeSecurityDescriptor,
-        _ expected: borrowing WindowsSelfRelativeSecurityDescriptor,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) {
-        #expect(actual.control.revision == expected.control.revision, sourceLocation: sourceLocation)
-        #expect(actual.control.control == expected.control.control, sourceLocation: sourceLocation)
-
-        #expect(actual.owner?.sid.string == expected.owner?.sid.string, sourceLocation: sourceLocation)
-        #expect(actual.owner?.defaulted == expected.owner?.defaulted, sourceLocation: sourceLocation)
-
-        #expect(actual.group?.sid.string == expected.group?.sid.string, sourceLocation: sourceLocation)
-        #expect(actual.group?.defaulted == expected.group?.defaulted, sourceLocation: sourceLocation)
-
-        #expect(actual.dacl.case == expected.dacl.case, sourceLocation: sourceLocation)
-        #expect(actual.dacl.defaulted == expected.dacl.defaulted, sourceLocation: sourceLocation)
-
-        let actualDACL = actual.dacl.value
-        let expectedDACL = expected.dacl.value
-
-        #expect(actualDACL?.revision == expectedDACL?.revision, sourceLocation: sourceLocation)
-        #expect(actualDACL?.aceCount == expectedDACL?.aceCount, sourceLocation: sourceLocation)
-
-        let aceCount = Int(min(actualDACL?.aceCount ?? 0, expectedDACL?.aceCount ?? 0))
-        for index in 0 ..< aceCount {
-            let actualACE = actualDACL![index]
-            let expectedACE = expectedDACL![index]
-            let comment = "DACL ACE at index \(index)" as Comment
-            #expect(actualACE.type == expectedACE.type, comment, sourceLocation: sourceLocation)
-            #expect(actualACE.flags == expectedACE.flags, comment, sourceLocation: sourceLocation)
-            #expect(actualACE.size == expectedACE.size, comment, sourceLocation: sourceLocation)
-            #expect(actualACE.permission.mask == expectedACE.permission.mask, comment, sourceLocation: sourceLocation)
-            #expect(actualACE.permission.sid.string == expectedACE.permission.sid.string, comment, sourceLocation: sourceLocation)
-        }
+        #expect(security.permissions.dacl.state == .present, sourceLocation: sourceLocation)
+        #expect(security.permissions.dacl.aces.count == 1, sourceLocation: sourceLocation)
+        #expect(
+            actualAce.flags & BYTE(INHERITED_ACE) != 0,
+            sourceLocation: sourceLocation
+        )
+        #expect(actualAce.type == expectedAce.type, sourceLocation: sourceLocation)
+        #expect(actualAce.size == expectedAce.size, sourceLocation: sourceLocation)
+        #expect(
+            actualAce.bytes.dropFirst(MemoryLayout<ACE_HEADER>.size)
+                .elementsEqual(
+                    expectedAce.bytes.dropFirst(MemoryLayout<ACE_HEADER>.size)
+                ),
+            sourceLocation: sourceLocation
+        )
     }
 
 
@@ -193,7 +196,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
             permissions: makeSampleTargetSecurityDescriptor()
         )
 
-        let securityBeforeReplace = try fileSystem.getSecurityInfo(forItemAt: path)
+        let securityBeforeReplace = try Support.ItemMetadata.captureSecurity(at: path)
 
         let replacementSecurity = WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
@@ -208,8 +211,11 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
             permissions: replacementSecurity
         )
 
-        let securityAfterReplace = try fileSystem.getSecurityInfo(forItemAt: path)
-        expectSecurityExactEquals(securityAfterReplace, securityBeforeReplace)
+        let securityAfterReplace = try Support.ItemMetadata.captureSecurity(at: path)
+        Support.expectWindowsSecurity(
+            securityAfterReplace,
+            matches: securityBeforeReplace
+        )
 
     }
 
@@ -223,7 +229,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
             permissions: makeSampleTargetSecurityDescriptor()
         )
 
-        let securityBeforeCreation = try fileSystem.getSecurityInfo(forItemAt: path)
+        let securityBeforeCreation = try Support.ItemMetadata.captureSecurity(at: path)
 
         let replacementSecurity = WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
@@ -238,8 +244,11 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
             permissions: replacementSecurity
         )
 
-        let securityAfterCreation = try fileSystem.getSecurityInfo(forItemAt: path)
-        expectSecurityExactEquals(securityAfterCreation, securityBeforeCreation)
+        let securityAfterCreation = try Support.ItemMetadata.captureSecurity(at: path)
+        Support.expectWindowsSecurity(
+            securityAfterCreation,
+            matches: securityBeforeCreation
+        )
 
     }
 

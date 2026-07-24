@@ -30,15 +30,6 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
 
-    private func nativeAttributes(
-        at path: FilePath,
-        followSymlink: Bool = true
-    ) throws -> PlatformFileAttributes {
-        let metadata = try Stat(path, followTargetSymlink: followSymlink)
-        return .init(rawValue: metadata.flags.rawValue)
-    }
-
-
     private func setNativeAttributes(
         _ attributes: PlatformFileAttributes,
         at path: FilePath,
@@ -52,7 +43,11 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
         }
         try #require(result == 0, sourceLocation: sourceLocation)
         try #require(
-            nativeAttributes(at: path, followSymlink: followSymlink) == attributes,
+            Support.ItemMetadata.captureAttributes(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            ).values == attributes,
             sourceLocation: sourceLocation
         )
     }
@@ -66,7 +61,10 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
 
         try fileSystem.setAttributes(forItemAt: path, attributes: requestedAttributes)
 
-        #expect(try nativeAttributes(at: path) == requestedAttributes)
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: path).values
+                == requestedAttributes
+        )
 
     }
 
@@ -79,7 +77,10 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
 
         try fileSystem.setAttributes(forItemAt: path, attributes: requestedAttributes)
 
-        #expect(try nativeAttributes(at: path) == requestedAttributes)
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: path).values
+                == requestedAttributes
+        )
 
     }
 
@@ -92,7 +93,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
 
         try fileSystem.setAttributes(forItemAt: path, attributes: [])
 
-        #expect(try nativeAttributes(at: path).isEmpty)
+        #expect(try Support.ItemMetadata.captureAttributes(at: path).values.isEmpty)
 
     }
 
@@ -103,18 +104,19 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
         let requestedAttributes: PlatformFileAttributes = [.bsd.noDump]
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let linkAttributesBeforeSet = try nativeAttributes(
-            at: link,
-            followSymlink: false
-        )
+        let linkAttributesBeforeSet = try Support.ItemMetadata.captureAttributes(
+            at: link
+        ).values
 
         try fileSystem.setAttributes(forItemAt: link, attributes: requestedAttributes)
 
-        let linkAttributesAfterSet = try nativeAttributes(
-            at: link,
-            followSymlink: false
+        let linkAttributesAfterSet = try Support.ItemMetadata.captureAttributes(
+            at: link
+        ).values
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: target).values
+                == requestedAttributes
         )
-        #expect(try nativeAttributes(at: target) == requestedAttributes)
         #expect(linkAttributesAfterSet == linkAttributesBeforeSet)
 
     }
@@ -126,7 +128,9 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
         let requestedAttributes: PlatformFileAttributes = [.bsd.noDump]
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetAttributesBeforeSet = try nativeAttributes(at: target)
+        let targetAttributesBeforeSet = try Support.ItemMetadata.captureAttributes(
+            at: target
+        ).values
 
         try fileSystem.setAttributes(
             forItemAt: link,
@@ -134,8 +138,13 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
             followSymlink: false
         )
 
-        let targetAttributesAfterSet = try nativeAttributes(at: target)
-        #expect(try nativeAttributes(at: link, followSymlink: false) == requestedAttributes)
+        let targetAttributesAfterSet = try Support.ItemMetadata.captureAttributes(
+            at: target
+        ).values
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: link).values
+                == requestedAttributes
+        )
         #expect(targetAttributesAfterSet == targetAttributesBeforeSet)
 
     }
@@ -153,7 +162,10 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
             followSymlink: false
         )
 
-        #expect(try nativeAttributes(at: link, followSymlink: false) == requestedAttributes)
+        #expect(
+            try Support.ItemMetadata.captureAttributes(at: link).values
+                == requestedAttributes
+        )
 
     }
 
@@ -163,19 +175,17 @@ extension FileSystemAPITests.MetadataTests.BSDSetAttributeTests {
 
         let requestedAttributes: PlatformFileAttributes = [.bsd.noDump]
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkAttributesBeforeSet = try nativeAttributes(
-            at: link,
-            followSymlink: false
-        )
+        let linkAttributesBeforeSet = try Support.ItemMetadata.captureAttributes(
+            at: link
+        ).values
 
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setAttributes(forItemAt: link, attributes: requestedAttributes)
         }
 
-        let linkAttributesAfterSet = try nativeAttributes(
-            at: link,
-            followSymlink: false
-        )
+        let linkAttributesAfterSet = try Support.ItemMetadata.captureAttributes(
+            at: link
+        ).values
         #expect(error?.kind == .notFound)
         #expect(linkAttributesAfterSet == linkAttributesBeforeSet)
 

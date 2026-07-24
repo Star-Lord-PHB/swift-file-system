@@ -2,6 +2,7 @@ import Foundation
 import PlatformCLib
 import SystemPackage
 import Testing
+import SwiftFileSystem
 
 
 
@@ -15,12 +16,16 @@ extension FileSystemTestSupport {
 
         let type: FileAttributeType
         let size: UInt64
+        let identifier: FileIdentifier
+        let attributes: Attributes
+        let security: Security
         let times: Times
 
 
         static func capture(
             at path: FilePath,
-            followSymlink: Bool = true
+            followSymlink: Bool = false,
+            sourceLocation: SourceLocation = #_sourceLocation
         ) throws -> ItemMetadata {
             let url = followSymlink
                 ? URL(filePath: path.string).resolvingSymlinksInPath()
@@ -29,14 +34,41 @@ extension FileSystemTestSupport {
                 atPath: url.path
             )
 
-            let times = try Times.capture(at: path, followSymlink: followSymlink)
-
-            let foundationType = try #require(fileManagerAttributes[.type] as? FileAttributeType)
-            let size = try #require(fileManagerAttributes[.size] as? NSNumber)
+            let foundationType = try #require(
+                fileManagerAttributes[.type] as? FileAttributeType,
+                sourceLocation: sourceLocation
+            )
+            let size = try #require(
+                fileManagerAttributes[.size] as? NSNumber,
+                sourceLocation: sourceLocation
+            )
+            let identifier = try captureIdentifier(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            )
+            let attributes = try captureAttributes(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            )
+            let security = try captureSecurity(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            )
+            let times = try Times.capture(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            )
 
             return .init(
                 type: foundationType,
                 size: size.uint64Value,
+                identifier: identifier,
+                attributes: attributes,
+                security: security,
                 times: times
             )
         }
@@ -51,20 +83,29 @@ extension FileSystemTestSupport.ItemMetadata {
 
     struct Times: Equatable, Sendable {
 
-        let access: Date?
-        let modification: Date?
-        let statusChange: Date?
-        let creation: Date?
+        let access: Timestamp
+        let modification: Timestamp
+        let statusChange: Timestamp
+        let creation: Timestamp?
 
 
         static func capture(
             at path: FilePath,
-            followSymlink: Bool
+            followSymlink: Bool = false,
+            sourceLocation: SourceLocation = #_sourceLocation
         ) throws -> Times {
             #if canImport(WinSDK)
-            try captureWindowsTimes(at: path, followSymlink: followSymlink)
+            try captureWindowsTimes(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            )
             #else
-            try capturePOSIXTimes(at: path, followSymlink: followSymlink)
+            try capturePOSIXTimes(
+                at: path,
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
+            )
             #endif
         }
 
@@ -79,32 +120,39 @@ extension FileSystemTestSupport.ItemMetadata.Times {
 
     private static func capturePOSIXTimes(
         at path: FilePath,
-        followSymlink: Bool
+        followSymlink: Bool,
+        sourceLocation: SourceLocation
     ) throws -> Self {
         let metadata = try Stat(path, followTargetSymlink: followSymlink)
 
         return .init(
-            access: date(from: metadata.st_atim),
-            modification: date(from: metadata.st_mtim),
-            statusChange: date(from: metadata.st_ctim),
-            creation: try creationDate(
+            access: .init(platformTime: metadata.st_atim),
+            modification: .init(platformTime: metadata.st_mtim),
+            statusChange: .init(platformTime: metadata.st_ctim),
+            creation: try creationTimestamp(
                 at: path,
                 followSymlink: followSymlink,
-                metadata: metadata
+                metadata: metadata,
+                sourceLocation: sourceLocation
             )
         )
     }
 
 
-    private static func creationDate(
+    private static func creationTimestamp(
         at path: FilePath,
         followSymlink: Bool,
-        metadata: Stat
-    ) throws -> Date? {
+        metadata: Stat,
+        sourceLocation: SourceLocation
+    ) throws -> FileSystemTestSupport.ItemMetadata.Timestamp? {
         #if canImport(Darwin) || os(FreeBSD)
-        date(from: metadata.st_birthtim)
+        .init(platformTime: metadata.st_birthtim)
         #elseif canImport(Glibc) || canImport(Musl)
-        try linuxCreationDate(at: path, followSymlink: followSymlink)
+        try linuxCreationTimestamp(
+            at: path,
+            followSymlink: followSymlink,
+            sourceLocation: sourceLocation
+        )
         #elseif os(OpenBSD)
         nil
         #else
@@ -114,25 +162,21 @@ extension FileSystemTestSupport.ItemMetadata.Times {
 
 
     #if canImport(Glibc) || canImport(Musl)
-    private static func linuxCreationDate(
+    private static func linuxCreationTimestamp(
         at path: FilePath,
-        followSymlink: Bool
-    ) throws -> Date? {
+        followSymlink: Bool,
+        sourceLocation: SourceLocation
+    ) throws -> FileSystemTestSupport.ItemMetadata.Timestamp? {
         var metadata = StatCompat()
         let flags = followSymlink ? CInt(0) : CInt(AT_SYMLINK_NOFOLLOW)
         let result = path.withPlatformString { pathPointer in
             systemStatCompat(pathPointer, flags, &metadata)
         }
-        try #require(result == 0)
+        try #require(result == 0, sourceLocation: sourceLocation)
         guard metadata.has_btime != 0 else { return nil }
-        return date(from: metadata.st_btim)
+        return .init(platformTime: metadata.st_btim)
     }
     #endif
-
-
-    private static func date(from value: timespec) -> Date {
-        .init(timeIntervalSince1970: TimeInterval(value.tv_sec) + TimeInterval(value.tv_nsec) / 1_000_000_000)
-    }
 
 }
 #endif
@@ -144,7 +188,8 @@ extension FileSystemTestSupport.ItemMetadata.Times {
 
     private static func captureWindowsTimes(
         at path: FilePath,
-        followSymlink: Bool
+        followSymlink: Bool,
+        sourceLocation: SourceLocation
     ) throws -> Self {
         let noFollowFlag = followSymlink
             ? DWORD(0)
@@ -161,7 +206,10 @@ extension FileSystemTestSupport.ItemMetadata.Times {
                 nil
             )
         }
-        try #require(handle != INVALID_HANDLE_VALUE)
+        try #require(
+            handle != INVALID_HANDLE_VALUE,
+            sourceLocation: sourceLocation
+        )
         defer { CloseHandle(handle) }
 
         var metadata = FILE_BASIC_INFO()
@@ -171,21 +219,16 @@ extension FileSystemTestSupport.ItemMetadata.Times {
                 FileBasicInfo,
                 &metadata,
                 DWORD(MemoryLayout<FILE_BASIC_INFO>.size)
-            )
+            ),
+            sourceLocation: sourceLocation
         )
 
         return .init(
-            access: date(from: metadata.LastAccessTime),
-            modification: date(from: metadata.LastWriteTime),
-            statusChange: date(from: metadata.ChangeTime),
-            creation: date(from: metadata.CreationTime)
+            access: .init(platformTime: metadata.LastAccessTime),
+            modification: .init(platformTime: metadata.LastWriteTime),
+            statusChange: .init(platformTime: metadata.ChangeTime),
+            creation: .init(platformTime: metadata.CreationTime)
         )
-    }
-
-
-    private static func date(from value: LARGE_INTEGER) -> Date {
-        let secondsSince1601 = TimeInterval(value.QuadPart) / 10_000_000
-        return .init(timeIntervalSince1970: secondsSince1601 - 11_644_473_600)
     }
 
 }

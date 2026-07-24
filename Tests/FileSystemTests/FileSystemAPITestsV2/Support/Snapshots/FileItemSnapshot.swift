@@ -14,23 +14,19 @@ extension FileSystemTestSupport {
     struct ItemSnapshot: Equatable, Sendable {
 
         let path: FilePath
-        let followsSymlink: Bool
         let metadata: ItemMetadata
         let payload: Payload
-        let posixPermissions: FilePermissions?
-        let attributes: PlatformFileAttributes
-        let fileIdentifier: FileIdentifier
-        let owner: PlatformIdentity
-        let group: PlatformIdentity
 
         static func capture(
             at path: FilePath,
             followSymlink: Bool = false,
-            capturePayload: Bool = true
+            capturePayload: Bool = true,
+            sourceLocation: SourceLocation = #_sourceLocation
         ) throws -> ItemSnapshot {
             let initialMetadata = try ItemMetadata.capture(
                 at: path,
-                followSymlink: followSymlink
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
             )
 
             // Read content before taking the final metadata sample. This makes the
@@ -43,54 +39,15 @@ extension FileSystemTestSupport {
 
             let metadata = try ItemMetadata.capture(
                 at: path,
-                followSymlink: followSymlink
-            )
-            let fileInfo = try FileInfo(
-                fileAt: path,
-                followSymLink: followSymlink
-            )
-            let (owner, group) = try FileSystem().getOwner(
-                forItemAt: path,
-                followSymlink: followSymlink
-            )
-
-            let posixPermissions = try capturePosixPermissions(
-                at: path,
-                followSymlink: followSymlink
+                followSymlink: followSymlink,
+                sourceLocation: sourceLocation
             )
 
             return .init(
                 path: path,
-                followsSymlink: followSymlink,
                 metadata: metadata,
-                payload: payload,
-                posixPermissions: posixPermissions,
-                attributes: fileInfo.attributes,
-                fileIdentifier: fileInfo.fileIdentifier,
-                owner: owner,
-                group: group
+                payload: payload
             )
-        }
-
-
-        static func capturePosixPermissions(
-            at path: FilePath,
-            followSymlink: Bool
-        ) throws -> FilePermissions? {
-            #if canImport(WinSDK)
-                nil
-            #else
-                let resolvedPath = followSymlink
-                    ? URL(filePath: path.string).resolvingSymlinksInPath().path(percentEncoded: false)
-                    : path.string
-                let fileManagerAttributes = try FileManager.default.attributesOfItem(
-                    atPath: resolvedPath
-                )
-                let rawPermissions = try #require(
-                    fileManagerAttributes[.posixPermissions] as? NSNumber
-                ).uint16Value
-                return FilePermissions(rawValue: CModeT(rawPermissions))
-            #endif
         }
 
     }

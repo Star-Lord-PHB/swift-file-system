@@ -30,11 +30,8 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
 
-    private func nativePermissions(
-        at path: FilePath,
-        followSymlink: Bool = true
-    ) throws -> FilePermissions {
-        try Stat(path, followTargetSymlink: followSymlink).permissions
+    private func capturePermissions(at path: FilePath) throws -> FilePermissions {
+        try Support.ItemMetadata.captureSecurity(at: path).permissions
     }
 
 
@@ -57,7 +54,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         try setFoundationPermissions(expected, at: path)
 
         let actual = try fileSystem.getPosixPermissions(forItemAt: path)
-        let nativeValue = try nativePermissions(at: path)
+        let nativeValue = try capturePermissions(at: path)
 
         #expect(actual == nativeValue)
 
@@ -72,7 +69,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         try setFoundationPermissions(expected, at: path)
 
         let actual = try fileSystem.getPosixPermissions(forItemAt: path)
-        let nativeValue = try nativePermissions(at: path)
+        let nativeValue = try capturePermissions(at: path)
 
         #expect(actual == nativeValue)
 
@@ -87,7 +84,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let actual = try fileSystem.getPosixPermissions(forItemAt: link)
-        let expected = try nativePermissions(at: link)
+        let expected = try capturePermissions(at: target)
 
         #expect(actual == expected)
 
@@ -104,7 +101,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
             forItemAt: link,
             followSymlink: false
         )
-        let expected = try nativePermissions(at: link, followSymlink: false)
+        let expected = try capturePermissions(at: link)
 
         #expect(actual == expected)
 
@@ -120,7 +117,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
             forItemAt: link,
             followSymlink: false
         )
-        let expected = try nativePermissions(at: link, followSymlink: false)
+        let expected = try capturePermissions(at: link)
 
         #expect(actual == expected)
 
@@ -168,7 +165,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
 
         try fileSystem.setPosixPermissions(forItemAt: path, permissions: requestedPermissions)
 
-        #expect(try nativePermissions(at: path) == requestedPermissions)
+        #expect(try capturePermissions(at: path) == requestedPermissions)
 
     }
 
@@ -181,7 +178,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
 
         try fileSystem.setPosixPermissions(forItemAt: path, permissions: requestedPermissions)
 
-        #expect(try nativePermissions(at: path) == requestedPermissions)
+        #expect(try capturePermissions(at: path) == requestedPermissions)
 
     }
 
@@ -192,15 +189,12 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let requestedPermissions = FilePermissions(rawValue: 0o640)
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let linkPermissionsBeforeSet = try nativePermissions(
-            at: link,
-            followSymlink: false
-        )
+        let linkPermissionsBeforeSet = try capturePermissions(at: link)
 
         try fileSystem.setPosixPermissions(forItemAt: link, permissions: requestedPermissions)
 
-        #expect(try nativePermissions(at: target) == requestedPermissions)
-        #expect(try nativePermissions(at: link, followSymlink: false) == linkPermissionsBeforeSet)
+        #expect(try capturePermissions(at: target) == requestedPermissions)
+        #expect(try capturePermissions(at: link) == linkPermissionsBeforeSet)
 
     }
 
@@ -212,7 +206,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let target = try workspace.makeFile(at: "target")
         try setFoundationPermissions(.init(rawValue: 0o640), at: target)
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        let targetPermissionsBeforeSet = try nativePermissions(at: target)
+        let targetPermissionsBeforeSet = try capturePermissions(at: target)
 
         do {
             try fileSystem.setPosixPermissions(
@@ -220,7 +214,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
                 permissions: requestedPermissions,
                 followSymlink: false
             )
-            #expect(try nativePermissions(at: link, followSymlink: false) == requestedPermissions)
+            #expect(try capturePermissions(at: link) == requestedPermissions)
         } catch {
             #if canImport(Glibc) || canImport(Musl)
                 let platformError = try #require(error as? PlatformError)
@@ -230,7 +224,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
             #endif
         }
 
-        #expect(try nativePermissions(at: target) == targetPermissionsBeforeSet)
+        #expect(try capturePermissions(at: target) == targetPermissionsBeforeSet)
 
     }
 
@@ -247,7 +241,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
                 permissions: requestedPermissions,
                 followSymlink: false
             )
-            #expect(try nativePermissions(at: link, followSymlink: false) == requestedPermissions)
+            #expect(try capturePermissions(at: link) == requestedPermissions)
         } catch {
             #if canImport(Glibc) || canImport(Musl)
                 let platformError = try #require(error as? PlatformError)
@@ -265,17 +259,14 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
 
         let requestedPermissions = FilePermissions(rawValue: 0o640)
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        let linkPermissionsBeforeSet = try nativePermissions(
-            at: link,
-            followSymlink: false
-        )
+        let linkPermissionsBeforeSet = try capturePermissions(at: link)
 
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setPosixPermissions(forItemAt: link, permissions: requestedPermissions)
         }
 
         #expect(error?.kind == .notFound)
-        #expect(try nativePermissions(at: link, followSymlink: false) == linkPermissionsBeforeSet)
+        #expect(try capturePermissions(at: link) == linkPermissionsBeforeSet)
 
     }
 

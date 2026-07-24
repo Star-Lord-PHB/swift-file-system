@@ -8,37 +8,30 @@ import SwiftFileSystem
 
 extension FileSystemTestSupport {
 
-    enum WindowsAclState: Equatable {
-
+    enum WindowsAclState: Equatable, Sendable {
         case absent
         case null
         case present
-
     }
 
 
-    struct WindowsAceSnapshot: Equatable {
-
+    struct WindowsAceSnapshot: Equatable, Sendable {
         let type: BYTE
         let flags: BYTE
         let size: WORD
         let bytes: [UInt8]
-
     }
 
 
-    struct WindowsAclSnapshot: Equatable {
-
+    struct WindowsAclSnapshot: Equatable, Sendable {
         let state: WindowsAclState
         let defaulted: Bool?
         let revision: BYTE?
         let aces: [WindowsAceSnapshot]
-
     }
 
 
-    struct WindowsSecuritySnapshot: Equatable {
-
+    struct WindowsSecuritySnapshot: Equatable, Sendable {
         let revision: DWORD
         let control: SECURITY_DESCRIPTOR_CONTROL
         let owner: WindowsSid?
@@ -47,7 +40,6 @@ extension FileSystemTestSupport {
         let groupDefaulted: Bool?
         let dacl: WindowsAclSnapshot
         let sacl: WindowsAclSnapshot
-
     }
 
 }
@@ -56,34 +48,10 @@ extension FileSystemTestSupport {
 
 extension FileSystemTestSupport {
 
-    static func makeWindowsTestDacl(
-        secondaryPermission: WindowsAccessMask? = nil,
-        inheritance: WindowsExplicitAccess.Inheritance = .noInheritance
-    ) -> WindowsRawAcl {
-        var entries = [
-            WindowsExplicitAccess(
-                permission: .genericAll,
-                inheritance: inheritance,
-                trustee: .everyone
-            )
-        ]
-        if let secondaryPermission {
-            entries.append(
-                WindowsExplicitAccess(
-                    permission: secondaryPermission,
-                    inheritance: inheritance,
-                    trustee: .users
-                )
-            )
-        }
-        return WindowsRawAcl(entries: .init(entries))
-    }
-
-
-    static func captureWindowsSecurity(
+    static func captureWindowsSecuritySnapshot(
         at path: FilePath,
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
-        followSymlink: Bool,
+        followSymlink: Bool = false,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws -> WindowsSecuritySnapshot {
         var desiredAccess = DWORD(READ_CONTROL)
@@ -257,6 +225,19 @@ extension FileSystemTestSupport {
     }
 
 
+    static func expectWindowsSecurity(
+        _ actual: ItemMetadata.Security,
+        matches expected: ItemMetadata.Security,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        expectWindowsSecurity(
+            actual.windowsSnapshot,
+            matches: expected.windowsSnapshot,
+            sourceLocation: sourceLocation
+        )
+    }
+
+
     static func expectWindowsAcl(
         _ actual: WindowsAclSnapshot,
         matches expected: WindowsAclSnapshot,
@@ -302,10 +283,8 @@ extension FileSystemTestSupport {
 extension FileSystemTestSupport {
 
     private enum RawWindowsAclType {
-
         case dacl
         case sacl
-
     }
 
 
