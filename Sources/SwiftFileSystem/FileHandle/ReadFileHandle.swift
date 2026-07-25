@@ -14,6 +14,7 @@ public struct ReadFileHandle: ~Copyable, ReadFileHandleProtocol {
     #if canImport(WinSDK)
     // On windows, there is not direct way to allow random access (similar to pread in POSIX) 
     // while allowing accessing with system file pointer. So we track the current offset manually.
+    // Here this mutex is not used for thread safety, but to allow mutable states within nonmutating methods
     private let _currentOffset: Mutex<Int64> = Mutex(0)
     public var currentOffset: Int64 {
         get throws(PlatformError) {
@@ -63,23 +64,23 @@ extension ReadFileHandle {
 
         switch whence {
             case .beginning:
-                return _currentOffset.withLock { 
-                    $0 = offset 
-                    return $0
+                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
+                    currentOffset = try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
+                    return currentOffset
                 }
             case .current:
-                return _currentOffset.withLock { 
-                    $0 += offset 
-                    return $0
+                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
+                    currentOffset = try trySeek(from: currentOffset, by: offset, operation: .seekHandle(originalPath: path))
+                    return currentOffset
                 }
             case .end:
                 var size = LARGE_INTEGER(QuadPart: 0)
                 try execThrowingCFunction(operation: .seekHandle(originalPath: path)) {
                     GetFileSizeEx(handle.unsafeRawHandle, &size)
                 }
-                return _currentOffset.withLock {
-                    $0 = size.QuadPart + offset
-                    return $0
+                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
+                    currentOffset = try trySeek(from: size.QuadPart, by: offset, operation: .seekHandle(originalPath: path))
+                    return currentOffset
                 }
         }
 
@@ -112,47 +113,57 @@ extension ReadFileHandle {
 
 extension ReadFileHandle {
 
-    public func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) {
+    @discardableResult
+    public func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) -> Int64 {
 
         let lengthToRead = min(Int64(buffer.count), length ?? Int64(buffer.count))
 
-    #if canImport(WinSDK)
+        #if canImport(WinSDK)
 
-        try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in
+        if let offset, offset < 0 {
+            throw .init(code: .invalidInput, operation: .readHandle(originalPath: path))!
+        }
+
+        return try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in
+            do throws(SystemError) {
+                if let offset {
+                    return try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                        var overlapped = WindowsOverlapped(offset: offset)
+                        let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
+                        return try handle.waitForOverlappedResult(pendingOverlapped)
+                    }
+                } else {
+                    let currentOffset = _currentOffset.withLock(\.self)
+                    let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                        var overlapped = WindowsOverlapped(offset: currentOffset)
+                        let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped) 
+                        return try handle.waitForOverlappedResult(pendingOverlapped)
+                    }
+                    _currentOffset.withLock {
+                        $0 = currentOffset + bytesRead
+                    }
+                    return bytesRead
+                }
+            } catch let error where error.code == .system(.handleEOF) {
+                return 0
+            }
+        }
+
+        #else
+
+        return try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in 
             if let offset {
                 try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    var overlapped = WindowsOverlapped(offset: offset)
-                    let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
-                    _ = try handle.waitForOverlappedResult(pendingOverlapped)
+                    try handle.pread(into: bufferPtr, from: offset, length: lengthToRead)
                 }
             } else {
-                let currentOffset = _currentOffset.withLock(\.self)
-                let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    var overlapped = WindowsOverlapped(offset: currentOffset)
-                    let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped) 
-                    return try handle.waitForOverlappedResult(pendingOverlapped)
-                }
-                _currentOffset.withLock {
-                    $0 = currentOffset + bytesRead
+                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                    try handle.read(into: bufferPtr, length: lengthToRead)
                 }
             }
         }
 
-    #else
-
-        try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in 
-            if let offset {
-                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    _ = try handle.pread(into: bufferPtr, from: offset, length: lengthToRead)
-                }
-            } else {
-                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
-                    _ = try handle.read(into: bufferPtr, length: lengthToRead)
-                }
-            }
-        }
-
-    #endif
+        #endif
 
     }
 

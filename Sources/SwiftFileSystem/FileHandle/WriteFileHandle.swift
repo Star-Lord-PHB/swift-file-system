@@ -99,26 +99,26 @@ extension WriteFileHandle {
     public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64 {
 
         #if canImport(WinSDK)
-        
+
         switch whence {
             case .beginning:
-                return _currentOffset.withLock { 
-                    $0 = offset 
-                    return $0
+                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
+                    currentOffset = try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
+                    return currentOffset
                 }
             case .current:
-                return _currentOffset.withLock { 
-                    $0 += offset 
-                    return $0
+                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
+                    currentOffset = try trySeek(from: currentOffset, by: offset, operation: .seekHandle(originalPath: path))
+                    return currentOffset
                 }
             case .end:
                 var size = LARGE_INTEGER(QuadPart: 0)
                 try execThrowingCFunction(operation: .seekHandle(originalPath: path)) {
                     GetFileSizeEx(handle.unsafeRawHandle, &size)
                 }
-                return _currentOffset.withLock {
-                    $0 = size.QuadPart + offset
-                    return $0
+                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
+                    currentOffset = try trySeek(from: size.QuadPart, by: offset, operation: .seekHandle(originalPath: path))
+                    return currentOffset
                 }
         }
 
@@ -154,6 +154,10 @@ extension WriteFileHandle {
     public func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
         
     #if canImport(WinSDK)
+
+        if let offset, offset < 0 {
+            throw .init(code: .invalidInput, operation: .writeHandle(originalPath: path))!
+        }
 
         return try data.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
             try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in

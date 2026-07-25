@@ -190,6 +190,22 @@ extension PlatformErrorCode {
         #endif
     }
 
+    public static var invalidInput: PlatformErrorCode {
+        #if canImport(WinSDK)
+        return .system(.badArguments)
+        #else
+        return .system(.invalidArgument)
+        #endif
+    }
+
+    public static var arithmeticOverflow: PlatformErrorCode {
+        #if canImport(WinSDK)
+        return .system(.arithmeticOverflow)
+        #else
+        return .system(.valueTooLarge)
+        #endif
+    }
+
     public static var unknown: PlatformErrorCode {
         .extended(.unknown)
     }
@@ -215,6 +231,7 @@ extension PlatformErrorCode {
             case noEnoughSpace
             case nameTooLong
             case unsupported
+            case arithmeticOverflow
 
             case unknown
 
@@ -238,6 +255,7 @@ extension PlatformErrorCode {
         public static var nameTooLong: Kind { .init(.nameTooLong) } 
         public static var unsupported: Kind { .init(.unsupported) }
         public static var unknown: Kind { .init(.unknown) }
+        public static var arithmeticOverflow: Kind { .init(.arithmeticOverflow) }
 
     }
 

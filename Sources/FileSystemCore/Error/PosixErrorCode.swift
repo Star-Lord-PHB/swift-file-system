@@ -67,6 +67,7 @@ extension PlatformErrorCode.SystemErrorCode {
             case .noEnoughSpace: .noEnoughSpace
             case .fileNameTooLong: .nameTooLong
             case .operationNotSupported: .unsupported
+            case .valueTooLarge: .arithmeticOverflow
             default: .unknown
         }
     }

@@ -199,8 +199,23 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
 
     public var currentOffset: Int64 {
         get throws(PlatformError) {
-            try seek(to: 0, relativeTo: .current)
+            do {
+                return try seek(to: 0, relativeTo: .current)
+            } catch {
+                throw .init(code: error.code, operation: .readHandleOffset(originalPath: path), underlyingError: error.underlyingError)!
+            }
         }
+    }
+
+
+    func trySeek(from offset: Int64, by amount: Int64, operation: @autoclosure () -> PlatformError.Operation) throws(PlatformError) -> Int64 {
+        let (result, overflow) = offset.addingReportingOverflow(amount)
+        if overflow {
+            throw .init(code: .arithmeticOverflow, operation: operation())!
+        } else if result < 0 {
+            throw .init(code: .invalidInput, operation: operation())!
+        }
+        return result
     }
 
 }
@@ -209,7 +224,8 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
 
 public protocol ReadFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
-    func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError)
+    @discardableResult
+    func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) -> Int64
 
 }
 
@@ -229,7 +245,8 @@ extension ReadFileHandleProtocol where Self: ~Copyable {
 
     public func read(fromOffset offset: Int64? = nil, length: Int64) throws(PlatformError) -> ByteBuffer {
         var buffer = ByteBuffer(count: Int(length))
-        try read(fromOffset: offset, length: length, into: &buffer)
+        let bytesRead = try read(fromOffset: offset, length: length, into: &buffer)
+        buffer.removeLast(Int(Int64(buffer.count) - bytesRead))
         return buffer
     }
 

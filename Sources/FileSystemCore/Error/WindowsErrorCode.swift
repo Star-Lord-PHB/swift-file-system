@@ -33,6 +33,7 @@ extension PlatformErrorCode.SystemErrorCode {
     @inlinable public static var badArguments: Self { .init(rawValue: .init(ERROR_BAD_ARGUMENTS)) }
     @inlinable public static var notSupported: Self { .init(rawValue: .init(ERROR_NOT_SUPPORTED)) }
     @inlinable public static var insufficientBuffer: Self { .init(rawValue: .init(ERROR_INSUFFICIENT_BUFFER)) }
+    @inlinable public static var arithmeticOverflow: Self { .init(rawValue: .init(ERROR_ARITHMETIC_OVERFLOW)) }
 
 
     public var mappedErrorKind: PlatformErrorCode.Kind {
@@ -47,6 +48,7 @@ extension PlatformErrorCode.SystemErrorCode {
             case .diskFull: .noEnoughSpace
             case .fileNameTooLong: .nameTooLong
             case .notSupported: .unsupported
+            case .arithmeticOverflow: .arithmeticOverflow
             default: .unknown
         }
     }
