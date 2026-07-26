@@ -68,20 +68,17 @@ public enum FileOperationOptions {
 
         public var createFile: CreateFile
         public var truncate: Bool 
-        public var append: Bool
         public var noFollow: Bool
         public var closeOnExec: Bool
 
         public init(
             createFile: CreateFile = .never, 
             truncate: Bool = false, 
-            append: Bool = false, 
             noFollow: Bool = false, 
             closeOnExec: Bool = true
         ) {
             self.createFile = createFile
             self.truncate = truncate
-            self.append = append
             self.noFollow = noFollow
             self.closeOnExec = closeOnExec
         }
@@ -99,7 +96,6 @@ public enum FileOperationOptions {
                 access: .writeOnly(), 
                 creation: creationOption,
                 truncate: truncate, 
-                append: append, 
                 noFollow: noFollow, 
                 closeOnExec: closeOnExec, 
                 platformAdditionalRawFlags: platformAdditionalFlags
@@ -109,14 +105,13 @@ public enum FileOperationOptions {
 
         public static func newFile(
             replaceExisting: Bool = true, 
-            append: Bool = false, 
             noFollow: Bool = false, 
             closeOnExec: Bool = true
         ) -> OpenForWriting {
             if replaceExisting {
-                .init(createFile: .createIfMissing, truncate: true, append: append, noFollow: noFollow, closeOnExec: closeOnExec)
+                .init(createFile: .createIfMissing, truncate: true, noFollow: noFollow, closeOnExec: closeOnExec)
             } else {
-                .init(createFile: .assertMissing, truncate: false, append: append, noFollow: noFollow, closeOnExec: closeOnExec)
+                .init(createFile: .assertMissing, truncate: false, noFollow: noFollow, closeOnExec: closeOnExec)
             }
         }
 
@@ -124,7 +119,6 @@ public enum FileOperationOptions {
         public static func editFile(
             createIfMissing: Bool = true, 
             truncate: Bool = false, 
-            append: Bool = false, 
             noFollow: Bool = false, 
             closeOnExec: Bool = true,
             creationPermissions: FilePermissions? = nil
@@ -132,7 +126,6 @@ public enum FileOperationOptions {
             .init(
                 createFile: createIfMissing ? .createIfMissing : .never, 
                 truncate: truncate, 
-                append: append, 
                 noFollow: noFollow, 
                 closeOnExec: closeOnExec
             )
