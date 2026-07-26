@@ -163,7 +163,7 @@ extension UnsafeSystemHandle {
                 .init(bitPattern: FILE_WRITE_ATTRIBUTES | WRITE_DAC | WRITE_OWNER | READ_CONTROL)
             }
             
-            return switch access {
+            var flags = switch access {
                 case .readOnly(metadataOnly: true):    readMetaFlags
                 case .readOnly:                        GENERIC_READ | readMetaFlags
                 case .writeOnly(metadataOnly: true):   writeMetaFlags
@@ -173,6 +173,12 @@ extension UnsafeSystemHandle {
                 case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE) | readMetaFlags | writeMetaFlags
                 case .none:                            0
             }
+
+            if truncate {
+                flags |= FlagType(bitPattern: GENERIC_WRITE)
+            }
+
+            return flags
 
             #else
 

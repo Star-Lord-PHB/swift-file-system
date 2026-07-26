@@ -98,6 +98,8 @@ public protocol FileSystemProtocal: Sendable {
 
     func withFileHandle<R: ~Copyable>(forWritingAt path: FilePath, option: FileOperationOptions.OpenForWriting, body: (borrowing WriteFileHandle) throws -> R) throws -> R
 
+    func withFileHandle<R: ~Copyable>(forAppendingAt path: FilePath, option: FileOperationOptions.OpenForWriting, body: (borrowing AppendHandle) throws -> R) throws -> R
+
     func withFileHandle<R: ~Copyable>(forUpdatingAt path: FilePath, option: FileOperationOptions.OpenForWriting, body: (borrowing ReadWriteFileHandle) throws -> R) throws -> R
 
     func withDirHandle<R: ~Copyable>(at path: FilePath, options: FileOperationOptions.OpenForDirectory, body: (borrowing DirectoryHandle) throws -> R) throws -> R
@@ -158,4 +160,4 @@ extension FileSystemProtocal {
     }
 
 }
-#endif 
+#endif

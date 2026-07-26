@@ -276,6 +276,15 @@ extension WriteFileHandleProtocol where Self: ~Copyable {
 
 
 
+public protocol AppendableFileHandleProtocol: ~Copyable, FileHandleProtocol {
+
+    @discardableResult
+    func append(_ data: ByteBuffer) throws(PlatformError) -> Int64
+
+}
+
+
+
 public typealias ReadWriteFileHandleProtocol = ReadFileHandleProtocol & WriteFileHandleProtocol
 
 

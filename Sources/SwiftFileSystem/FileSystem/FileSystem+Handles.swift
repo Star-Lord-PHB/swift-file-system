@@ -47,6 +47,28 @@ extension FileSystem {
 
 
     public func withFileHandle<R: ~Copyable>(
+        forAppendingAt path: FilePath,
+        option: FileOperationOptions.OpenForWriting,
+        body: (borrowing AppendHandle) throws -> R
+    ) throws -> R {
+
+        let handle = try AppendHandle(forFileAt: path, options: option)
+
+        let result: R
+        do {
+            result = try body(handle)
+        } catch {
+            try? handle.close()
+            throw error
+        }
+
+        try handle.close()
+        return result
+
+    }
+
+
+    public func withFileHandle<R: ~Copyable>(
         forUpdatingAt path: FilePath, 
         option: FileOperationOptions.OpenForWriting, 
         body: (borrowing ReadWriteFileHandle) throws -> R
