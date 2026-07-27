@@ -205,7 +205,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
             switch Int32(entry.fts_info) {
                 case FTS_NS:
                     return .entryError(path, .init(code: entry.fts_errno)!)
-                case FTS_ERR where entry.fts_level > prevLevel:
+                case FTS_ERR where entry.fts_level < prevLevel:
                     return .leavingDir(path, .init(code: entry.fts_errno)!)
                 case FTS_ERR:
                     return .entryError(path, .init(code: entry.fts_errno)!)

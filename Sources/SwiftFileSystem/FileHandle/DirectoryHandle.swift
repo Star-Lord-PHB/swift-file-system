@@ -23,10 +23,20 @@ extension DirectoryHandle {
     public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(PlatformError) { 
 
         let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
-            try UnsafeSystemHandle.open(
+            let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: options.unsafeSystemFileOpenOptions()
             )
+
+            #if canImport(WinSDK)
+            let type = try handle.type()
+            guard type == .directory || type == .symlink else {
+                try? handle.close()
+                throw SystemError(code: .notADirectory)!
+            }
+            #endif
+
+            return handle
         }
 
         self.init(unsafeSystemHandle: handle, path: path)
