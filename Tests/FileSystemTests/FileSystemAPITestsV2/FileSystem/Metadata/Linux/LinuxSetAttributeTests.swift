@@ -125,7 +125,7 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
             )
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
         #expect(
             try Support.ItemMetadata.captureAttributes(at: target).values
                 == targetAttributesBeforeSet
@@ -164,7 +164,7 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
             )
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
 
     }
 

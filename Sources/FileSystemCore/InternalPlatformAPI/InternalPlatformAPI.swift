@@ -3,7 +3,7 @@ import PlatformCLib
 
 package enum InternalPlatformAPI {
 
-    package static func accountName(for identity: PlatformIdentity) throws(SystemError) -> String? {
+    package static func accountName(for identity: PlatformIdentity) throws(LowLevelError) -> String? {
 
         #if canImport(WinSDK)
 
@@ -15,7 +15,7 @@ package enum InternalPlatformAPI {
         let error = GetLastError()
         guard error == ERROR_INSUFFICIENT_BUFFER else {
             if error == ERROR_NONE_MAPPED { return nil }
-            throw SystemError(code: error) ?? .init(code: .extended(.unknown))!
+            throw .init(rawSystemCode: error) ?? .unknown
         }
 
         let nameBuffer = UnsafeMutablePointer<WCHAR>.allocate(capacity: Int(nameSize))
@@ -29,7 +29,7 @@ package enum InternalPlatformAPI {
             try execThrowingCFunction {
                 LookupAccountSidW(nil, identity.rawId.psid.unsafeResourcePtr, nameBuffer, &nameSize, domainBuffer, &domainSize, &use)
             }
-        } catch let error where error.code.rawValue == DWORD(ERROR_NONE_MAPPED) {
+        } catch let error where error.systemCode?.rawValue == DWORD(ERROR_NONE_MAPPED) {
             return nil
         }
 
@@ -61,7 +61,7 @@ package enum InternalPlatformAPI {
                         continue
                     }
 
-                    throw SystemError(code: error)!
+                    throw .init(rawSystemCode: error)!
 
                 }
 
@@ -95,7 +95,7 @@ package enum InternalPlatformAPI {
                         continue
                     }
 
-                    throw SystemError(code: error)!
+                    throw .init(rawSystemCode: error)!
 
                 }
 
@@ -117,7 +117,7 @@ package enum InternalPlatformAPI {
     package static func identity(
         forAccountName name: String,
         resolvePreference: PlatformIdentity.AccountNameResolvePreference = .preferUser
-    ) throws(SystemError) -> PlatformIdentity? {
+    ) throws(LowLevelError) -> PlatformIdentity? {
         
         #if canImport(WinSDK)
         
@@ -131,7 +131,7 @@ package enum InternalPlatformAPI {
         let error = GetLastError()
         guard error == ERROR_INSUFFICIENT_BUFFER else {
             if error == ERROR_NONE_MAPPED { return .none }
-            throw SystemError(code: error) ?? .init(code: .extended(.unknown))!
+            throw .init(rawSystemCode: error) ?? .unknown
         }
         
         let sidBuffer = UnsafeMutableRawPointer.allocate(byteCount: Int(sidSize), alignment: MemoryLayout<UInt8>.alignment)
@@ -146,7 +146,7 @@ package enum InternalPlatformAPI {
                     LookupAccountNameW(nil, namePtr, sidBuffer, &sidSize, domainBuffer, &domainSize, &use)
                 }
             }
-        } catch let error where error.code.rawValue == DWORD(ERROR_NONE_MAPPED) {
+        } catch let error where error.systemCode?.rawValue == DWORD(ERROR_NONE_MAPPED) {
             sidBuffer.deallocate()
             return .none
         } catch {
@@ -161,7 +161,7 @@ package enum InternalPlatformAPI {
         
         #else
         
-        func queryUserIdentity(_ name: String) throws(SystemError) -> PlatformIdentity? {
+        func queryUserIdentity(_ name: String) throws(LowLevelError) -> PlatformIdentity? {
             
             var pwd = passwd()
             var size = sysconf(Int32(_SC_GETPW_R_SIZE_MAX))
@@ -183,7 +183,7 @@ package enum InternalPlatformAPI {
                     continue
                 }
                 
-                throw SystemError(code: error)!
+                throw .init(rawSystemCode: error)!
                 
             }
             
@@ -193,7 +193,7 @@ package enum InternalPlatformAPI {
             
         }
         
-        func queryGroupIdentity(_ name: String) throws(SystemError) -> PlatformIdentity? {
+        func queryGroupIdentity(_ name: String) throws(LowLevelError) -> PlatformIdentity? {
             
             var grp = group()
             var size = sysconf(Int32(_SC_GETGR_R_SIZE_MAX))
@@ -215,7 +215,7 @@ package enum InternalPlatformAPI {
                     continue
                 }
                 
-                throw SystemError(code: error)!
+                throw .init(rawSystemCode: error)!
                 
             }
             
@@ -249,7 +249,7 @@ package enum InternalPlatformAPI {
     }
 
 
-    package static func currentIdentity() throws(SystemError) -> PlatformIdentity {
+    package static func currentIdentity() throws(LowLevelError) -> PlatformIdentity {
 
         #if canImport(WinSDK)
 
@@ -277,7 +277,7 @@ package enum InternalPlatformAPI {
     package static func effectiveAccessMask(
         for identity: PlatformIdentity, 
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
-    ) throws(SystemError) -> WindowsAccessMask {
+    ) throws(LowLevelError) -> WindowsAccessMask {
         
         var authResourceManager = nil as AUTHZ_RESOURCE_MANAGER_HANDLE?
         try execThrowingCFunction {
@@ -288,7 +288,7 @@ package enum InternalPlatformAPI {
             )
         }
         guard let authResourceManager else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
         defer { AuthzFreeResourceManager(authResourceManager) }
 
@@ -297,7 +297,7 @@ package enum InternalPlatformAPI {
             AuthzInitializeContextFromSid(0, identity.rawId.psid.unsafeResourcePtr, authResourceManager, nil, LUID(), nil, &authClientContext)
         } 
         guard let authClientContext else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
         defer { AuthzFreeContext(authClientContext) }
 
@@ -323,8 +323,8 @@ package enum InternalPlatformAPI {
             }
         }
 
-        guard error == SystemError.successCode else {
-            throw SystemError(code: error)!
+        guard error == LowLevelError.successCode else {
+            throw .init(rawSystemCode: error)!
         }
 
         var genericMapping = GENERIC_MAPPING(

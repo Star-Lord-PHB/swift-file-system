@@ -18,8 +18,8 @@ public protocol FileHandleProtocol: ~Copyable {
 extension FileHandleProtocol where Self: ~Copyable {
 
     public func fileInfo() throws(PlatformError) -> FileInfo {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.fileInfo()
             }
         }
@@ -27,8 +27,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     public func type() throws(PlatformError) -> FileKind {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try self.withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try self.withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.type()
             }
         }
@@ -36,8 +36,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     public func fileTimes() throws(PlatformError) -> FileTimes {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.fileTimes()
             }
         }
@@ -49,8 +49,8 @@ extension FileHandleProtocol where Self: ~Copyable {
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
     ) throws(PlatformError) {
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.setFileTimes(access: access, modification: modification, creation: creation)
             }
         }
@@ -58,8 +58,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     public func fileAttributes() throws(PlatformError) -> PlatformFileAttributes {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.fileAttributes()
             }
         }
@@ -70,8 +70,8 @@ extension FileHandleProtocol where Self: ~Copyable {
         #if canImport(Glibc) || canImport(Musl)
         try self.setInodeFlags(InternalFS.fileAttributesToInodeFlags(attributes))
         #else 
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.setFileAttributes(attributes)
             }
         }
@@ -81,8 +81,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
     #if canImport(Glibc) || canImport(Musl)
     public func inodeFlags() throws(PlatformError) -> LinuxInodeFlags {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.fileInodeFlags()
             }
         }
@@ -90,8 +90,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     public func setInodeFlags(_ flags: LinuxInodeFlags) throws(PlatformError) {
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.setFileInodeFlags(flags)
             }
         }
@@ -103,8 +103,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
-        return try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        return try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.securityInfo(members)
             }
         }
@@ -133,8 +133,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
         guard !members.isEmpty else { return }
 
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in  
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in  
                 try sysHandle.setSecurityInfo(
                     members, 
                     dacl: dacl.aclView, 
@@ -148,16 +148,16 @@ extension FileHandleProtocol where Self: ~Copyable {
     }
     #else
     public func posixPermissions() throws(PlatformError) -> FilePermissions {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.posixPermissions()
             }
         }
     }
     
     public func setPosixPermissions(_ permissions: FilePermissions) throws(PlatformError) {
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in 
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
                 try sysHandle.setPosixPermissions(permissions)
             }
         }
@@ -166,8 +166,8 @@ extension FileHandleProtocol where Self: ~Copyable {
     
     
     public func owner() throws(PlatformError) -> (owner: PlatformIdentity?, group: PlatformIdentity?) {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in
                 try sysHandle.owner()
             }
         }
@@ -175,8 +175,8 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
     public func setOwner(owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError) {
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(SystemError) in
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in
                 try sysHandle.fchown(owner: owner, group: group)
             }
         }
@@ -202,7 +202,7 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
             do {
                 return try seek(to: 0, relativeTo: .current)
             } catch {
-                throw .init(code: error.code, operation: .readHandleOffset(originalPath: path), underlyingError: error.underlyingError)!
+                throw .init(cause: error.cause, operation: .readHandleOffset(originalPath: path))
             }
         }
     }
@@ -211,9 +211,9 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
     func trySeek(from offset: Int64, by amount: Int64, operation: @autoclosure () -> PlatformError.Operation) throws(PlatformError) -> Int64 {
         let (result, overflow) = offset.addingReportingOverflow(amount)
         if overflow {
-            throw .init(code: .arithmeticOverflow, operation: operation())!
+            throw .init(lowLevelError: .init(kind: .arithmeticOverflow), operation: operation())
         } else if result < 0 {
-            throw .init(code: .invalidInput, operation: operation())!
+            throw .init(lowLevelError: .init(kind: .invalidInput), operation: operation())
         }
         return result
     }

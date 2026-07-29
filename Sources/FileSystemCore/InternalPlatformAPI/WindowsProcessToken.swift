@@ -16,13 +16,13 @@ package struct WindowsProcessToken: ~Copyable {
     package func getTokenInformation<T>(
         of tokenInfoClass: TOKEN_INFORMATION_CLASS, 
         as type: T.Type = T.self
-    ) throws(SystemError) -> UnsafeOwnedAutoPointer<T> {
+    ) throws(LowLevelError) -> UnsafeOwnedAutoPointer<T> {
         var size = 0 as DWORD
         guard 
             GetTokenInformation(handle.unsafeResourcePtr, tokenInfoClass, nil, 0, &size) == false, 
             GetLastError() == ERROR_INSUFFICIENT_BUFFER 
         else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
         let infoPtr = UnsafeOwnedRawAutoPointer
             .swiftAllocate(byteCount: Int(size), alignment: MemoryLayout<T>.alignment)
@@ -39,11 +39,11 @@ package struct WindowsProcessToken: ~Copyable {
 
 extension WindowsProcessToken {
 
-    package func getUser() throws(SystemError) -> UnsafeOwnedAutoPointer<TOKEN_USER> {
+    package func getUser() throws(LowLevelError) -> UnsafeOwnedAutoPointer<TOKEN_USER> {
         return try getTokenInformation(of: TokenUser)
     }
 
-    package func getPrimaryGroups() throws(SystemError) -> UnsafeOwnedAutoPointer<TOKEN_PRIMARY_GROUP> {
+    package func getPrimaryGroups() throws(LowLevelError) -> UnsafeOwnedAutoPointer<TOKEN_PRIMARY_GROUP> {
         return try getTokenInformation(of: TokenPrimaryGroup)
     }
 
@@ -55,13 +55,13 @@ extension WindowsProcessToken {
 
 extension WindowsProcessToken {
 
-    package static func current() throws(SystemError) -> Self {
+    package static func current() throws(LowLevelError) -> Self {
         var processToken = nil as HANDLE?
         try execThrowingCFunction {
             OpenProcessToken(GetCurrentProcess(), DWORD(TOKEN_QUERY), &processToken)
         }
         guard let processToken else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
         return .init(handle: .init(owningResource: processToken, freeingFunc: { CloseHandle($0) }))
     }

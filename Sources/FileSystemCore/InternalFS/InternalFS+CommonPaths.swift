@@ -9,7 +9,7 @@ import MachO.dyld
 
 extension InternalFS {
 
-    package static func currentWorkingDirectoryPath() throws(SystemError) -> FilePath {
+    package static func currentWorkingDirectoryPath() throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
 
@@ -21,7 +21,7 @@ extension InternalFS {
         let requiredSize = PlatformCLib.GetCurrentDirectoryW(DWORD(MAX_PATH), buffer)
 
         guard requiredSize > 0 else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
 
         if requiredSize <= DWORD(MAX_PATH) {
@@ -34,7 +34,7 @@ extension InternalFS {
         SetLastError(0)
 
         guard PlatformCLib.GetCurrentDirectoryW(requiredSize, buffer) != 0 else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
 
         return .init(platformString: buffer)
@@ -51,7 +51,7 @@ extension InternalFS {
                 buffer.deallocate()
                 buffer = .allocate(capacity: newCount)
             } else {
-                throw SystemError(code: errorCode)!
+                throw LowLevelError(rawSystemCode: errorCode)!
             }
         }
 
@@ -62,7 +62,7 @@ extension InternalFS {
     }
 
 
-    package static func tmpDirectoryPath() throws(SystemError) -> FilePath {
+    package static func tmpDirectoryPath() throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
 
@@ -71,7 +71,7 @@ extension InternalFS {
 
         let requiredSize = PlatformCLib.GetTempPathW(DWORD(MAX_PATH + 1), buffer)
         guard requiredSize > 0 else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
 
         if requiredSize <= DWORD(MAX_PATH + 1) {
@@ -82,7 +82,7 @@ extension InternalFS {
         buffer = .allocate(capacity: Int(requiredSize))
 
         guard PlatformCLib.GetTempPathW(requiredSize, buffer) != 0 else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
 
         return .init(platformString: buffer)
@@ -92,14 +92,14 @@ extension InternalFS {
         errno = 0
         let sizeNeeded = confstr(_CS_DARWIN_USER_TEMP_DIR, nil, 0)
         guard sizeNeeded > 0 else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
 
         let buffer = UnsafeMutablePointer<CChar>.allocate(capacity: sizeNeeded)
         defer { buffer.deallocate() }
 
         guard confstr(_CS_DARWIN_USER_TEMP_DIR, buffer, sizeNeeded) > 0 else {
-            try SystemError.assertError(fallbackToUnknownError: true)
+            try LowLevelError.assertError(fallbackToUnknownError: true)
         }
 
         return .init(platformString: buffer)
@@ -123,7 +123,7 @@ extension InternalFS {
     }
 
 
-    package static func homeDirectoryPath() throws(SystemError) -> FilePath {
+    package static func homeDirectoryPath() throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
 
@@ -138,7 +138,7 @@ extension InternalFS {
 
         let error = GetLastError()
         if error != ERROR_INSUFFICIENT_BUFFER {
-            throw SystemError(code: error)!
+            throw .init(rawSystemCode: error)!
         }
 
         pathBuffer.deallocate()
@@ -173,11 +173,11 @@ extension InternalFS {
                 continue
             }
 
-            throw SystemError(code: error)!
+            throw LowLevelError(rawSystemCode: error)!
 
         }
 
-        if result == nil { throw SystemError(code: .extended(.unknown))! }
+        if result == nil { throw .unknown }
 
         return .init(platformString: pwd.pw_dir)
         
@@ -186,7 +186,7 @@ extension InternalFS {
     }
 
 
-    package static func executablePath() throws(SystemError) -> FilePath {
+    package static func executablePath() throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
 
@@ -197,7 +197,7 @@ extension InternalFS {
         while true {
             let length = GetModuleFileNameW(nil, buffer, bufferSize)
             guard length > 0 else {
-                try SystemError.assertError(fallbackToUnknownError: true)
+                try LowLevelError.assertError(fallbackToUnknownError: true)
             }
             if length < bufferSize {
                 return .init(platformString: buffer)
@@ -221,7 +221,8 @@ extension InternalFS {
         buffer = .allocate(capacity: Int(bufferSize))
 
         guard _NSGetExecutablePath(buffer, &bufferSize) == 0 else {
-            throw SystemError(code: .extended(.unknown))!
+            // This function should only fail when the buffer size is not large enough
+            throw .unknown
         }
 
         return try realpath(of: .init(platformString: buffer))
@@ -235,7 +236,7 @@ extension InternalFS {
     }
 
 
-    package static func cacheDirectoryPath() throws(SystemError) -> FilePath {
+    package static func cacheDirectoryPath() throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
 
@@ -253,7 +254,7 @@ extension InternalFS {
             }
 
             guard lengthRequired > 0 else {
-                try SystemError.assertError(fallbackToUnknownError: true)
+                try LowLevelError.assertError(fallbackToUnknownError: true)
             }
 
             if lengthRequired < DWORD(MAX_PATH) {
@@ -268,12 +269,12 @@ extension InternalFS {
             }
 
             guard length > 0 && length < lengthRequired else {
-                try SystemError.assertError(fallbackToUnknownError: true)
+                try LowLevelError.assertError(fallbackToUnknownError: true)
             }
 
             return .init(platformString: pathBuffer)
 
-        } catch where error.code.rawValue == DWORD(ERROR_ENVVAR_NOT_FOUND) {
+        } catch where error.systemCode?.rawValue == DWORD(ERROR_ENVVAR_NOT_FOUND) {
             return try homeDirectoryPath().appending("AppData").appending("Local")
         }
 

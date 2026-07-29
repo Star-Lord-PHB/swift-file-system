@@ -91,7 +91,7 @@ extension FileSystemTest.RemoveItemTest {
             try FileSystem().removeItem(at: path)
         }
 
-        #expect(error?.code == .fileNotFound)
+        #expect(error?.kind == .notFound)
 
     }
 

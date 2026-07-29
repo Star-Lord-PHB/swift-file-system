@@ -10,7 +10,7 @@ extension InternalFS {
     #elseif canImport(Darwin)   
     @available(*, deprecated, message: "Not recomended on Darwin for copying files, use copyRegularFileWithMetaNoTimes instead")
     #endif 
-    package static func copyRegularFileContent(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(SystemError) {
+    package static func copyRegularFileContent(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -18,12 +18,12 @@ extension InternalFS {
 
         while true {
 
-            let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
+            let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(LowLevelError) in
                 try srcHandle.read(into: ptr)
             }
             guard bytesRead > 0 else { break }
 
-            try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
+            try buffer.withUnsafeBytes { (ptr) throws(LowLevelError) in
                 _ = try dstHandle.write(contentsOf: ptr)
             }
 
@@ -54,7 +54,7 @@ extension InternalFS {
             }
             // EINTR (interrupted) can be ignored and simply retry
             guard byteCopied >= 0 || errno != EINTR else {
-                try SystemError.assertError()
+                try LowLevelError.assertError()
             }
             guard byteCopied > 0 else { break }
 
@@ -67,12 +67,12 @@ extension InternalFS {
             while true {
                 // manual copy, only used when copy_file_range is not available
 
-                let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(SystemError) in
+                let bytesRead = try buffer.withUnsafeMutableBytes { (ptr) throws(LowLevelError) in
                     try srcHandle.read(into: ptr)
                 }
                 guard bytesRead > 0 else { break }
 
-                try buffer.withUnsafeBytes { (ptr) throws(SystemError) in
+                try buffer.withUnsafeBytes { (ptr) throws(LowLevelError) in
                     _ = try dstHandle.write(contentsOf: ptr)
                 }
 
@@ -92,7 +92,7 @@ extension InternalFS {
     package static func copyRegularFileWithMetaNoTimes(
         from srcHandle: borrowing UnsafeSystemHandle, 
         to dstHandle: borrowing UnsafeSystemHandle
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         try execThrowingCFunction {
             fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ALL))
         }
@@ -103,7 +103,7 @@ extension InternalFS {
         from srcPath: FilePath, 
         to dstPath: FilePath,
         overwrite: Bool
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         try execThrowingCFunction {
             srcPath.withPlatformString { srcPtr in 
                 dstPath.withPlatformString { dstPtr in 
@@ -117,7 +117,7 @@ extension InternalFS {
     package static func copyFileMetaNoTimes(
         from srcPath: FilePath, 
         to dstPath: FilePath
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         try execThrowingCFunction {
             srcPath.withPlatformString { srcPtr in 
                 dstPath.withPlatformString { dstPtr in 
@@ -132,7 +132,7 @@ extension InternalFS {
 
     #if canImport(WinSDK)
 
-    package static func copyRegularFileOrSymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(SystemError) {
+    package static func copyRegularFileOrSymlink(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(LowLevelError) {
 
         let flags = DWORD(COPY_FILE_COPY_SYMLINK) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
 
@@ -150,7 +150,7 @@ extension InternalFS {
     /// > Warning: 
     /// > May fail on older Windows system, check ERROR_INVALID_PARAMETER and ERROR_NOT_SUPPORTED for that
     /// > and fallback to manual copy if needed
-    package static func copyDirectory(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(SystemError) {
+    package static func copyDirectory(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool) throws(LowLevelError) {
 
         let flags = DWORD(COPY_FILE_DIRECTORY) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
 

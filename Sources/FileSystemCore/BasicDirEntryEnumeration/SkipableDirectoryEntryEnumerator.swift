@@ -10,9 +10,9 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
 
     package enum Element {
         case entry(DirectoryEntry)
-        case leavingDir(FilePath, SystemError?)
-        case entryError(FilePath, SystemError)
-        case subTreeError(FilePath, SystemError)
+        case leavingDir(FilePath, LowLevelError?)
+        case entryError(FilePath, LowLevelError)
+        case subTreeError(FilePath, LowLevelError)
 
         package var path: FilePath {
             switch self {
@@ -71,7 +71,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     }
 
 
-    package mutating func next(skipCurrentDir: Bool = false) throws(SystemError) -> Element? {
+    package mutating func next(skipCurrentDir: Bool = false) throws(LowLevelError) -> Element? {
 
         guard !ended else { return nil }
     
@@ -90,7 +90,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     }
 
 
-    private mutating func _next(skipCurrentDir: Bool = false) throws(SystemError) -> Element? {
+    private mutating func _next(skipCurrentDir: Bool = false) throws(LowLevelError) -> Element? {
 
         guard !ended else { return nil }
 
@@ -364,7 +364,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     #endif 
 
 
-    private mutating func _clean() throws(SystemError) {
+    private mutating func _clean() throws(LowLevelError) {
 
         guard !ended else { return }
 
@@ -399,7 +399,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     }
 
 
-    private mutating func endIter() throws(SystemError) {
+    private mutating func endIter() throws(LowLevelError) {
         #if canImport(WinSDK)
         defer {
             findHandleStack.removeAll()

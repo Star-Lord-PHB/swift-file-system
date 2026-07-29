@@ -181,7 +181,7 @@ class FSIsolatedTestCase {
             GetFileAttributesExW(pathPtr, GetFileExInfoStandard, &info)
         }
         guard success else {
-            throw SystemError(code: .system(.init(rawValue: GetLastError())))!
+            throw LowLevelError.fromLastError()!
         }
         let accessTimeSpec = info.ftLastAccessTime
         let totalNanoseconds = ((UInt64(accessTimeSpec.dwHighDateTime) << 32) | UInt64(accessTimeSpec.dwLowDateTime)) * 100

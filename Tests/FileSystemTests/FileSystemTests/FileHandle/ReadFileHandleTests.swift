@@ -69,7 +69,7 @@ extension FileSystemTest.ReadFileHandleTests {
             _ = try ReadFileHandle(forFileAt: path)
         }
 
-        #expect(error.code == .fileNotFound)
+        #expect(error.kind == .notFound)
 
     }
 
@@ -99,7 +99,7 @@ extension FileSystemTest.ReadFileHandleTests {
             try handle.read(length: 10)
         }
 
-        #expect(error.code == .isADirectory)
+        #expect(error.systemCode == .isADirectory)
 
     }
     #endif 

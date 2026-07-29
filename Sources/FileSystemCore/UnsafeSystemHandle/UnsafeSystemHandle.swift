@@ -36,14 +36,14 @@ public struct UnsafeSystemHandle: ~Copyable {
     }
 
 
-    public consuming func close() throws(SystemError) {
+    public consuming func close() throws(LowLevelError) {
         let handle = self.unsafeRawHandle
         discard self
         try Self._close(handle)
     }
 
 
-    private static func _close(_ handle: SystemHandleType) throws(SystemError) {
+    private static func _close(_ handle: SystemHandleType) throws(LowLevelError) {
 
         #if canImport(WinSDK)
         try execThrowingCFunction {
@@ -59,11 +59,11 @@ public struct UnsafeSystemHandle: ~Copyable {
 
 
     #if !canImport(WinSDK)
-    public mutating func setNonBlocking(_ value: Bool) throws(SystemError) {
+    public mutating func setNonBlocking(_ value: Bool) throws(LowLevelError) {
 
         var flags = fcntl(unsafeRawHandle, F_GETFL)
         guard flags >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         if value {

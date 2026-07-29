@@ -25,7 +25,7 @@ public struct PosixPollEvent: OptionSet, Sendable {
 
 extension UnsafeSystemHandle {
 
-    public func poll(listening: FileOperationOptions.PosixPollEventToMonitor, waitMilliseconds: CInt? = nil) throws(SystemError) -> PosixPollEvent? {
+    public func poll(listening: FileOperationOptions.PosixPollEventToMonitor, waitMilliseconds: CInt? = nil) throws(LowLevelError) -> PosixPollEvent? {
 
         var pollDescriptor = pollfd(
             fd: self.unsafeRawHandle,
@@ -41,7 +41,7 @@ extension UnsafeSystemHandle {
             return nil 
         }
         guard result > 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(rawValue: pollDescriptor.revents)
@@ -54,7 +54,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    package func futimens(_ times: (FileTimeSpec, FileTimeSpec)) throws(SystemError) {
+    package func futimens(_ times: (FileTimeSpec, FileTimeSpec)) throws(LowLevelError) {
         let platformTimes = (times.0.platformFileTime, times.1.platformFileTime)
         try execThrowingCFunction {
             withUnsafePointer(to: platformTimes) { ptr in 
@@ -66,7 +66,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func fstat() throws(SystemError) -> PlatformInteropTypes.Stat {
+    package func fstat() throws(LowLevelError) -> PlatformInteropTypes.Stat {
 
         var st = PlatformInteropTypes.Stat.PlatformStat()
 

@@ -93,7 +93,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
             )
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
 
     }
 
@@ -124,7 +124,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
             )
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
 
     }
 
@@ -234,7 +234,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
             )
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
         #expect(try Support.captureNativeInodeFlags(at: target) == targetFlagsBeforeSet)
 
     }
@@ -270,7 +270,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
             )
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
 
     }
 

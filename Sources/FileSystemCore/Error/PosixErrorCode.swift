@@ -3,7 +3,7 @@
 import PlatformCLib
 
 
-extension PlatformErrorCode.SystemErrorCode {
+extension SystemErrorCode {
 
     @inlinable public static var operationNotPermitted: Self { .init(rawValue: EPERM) }
     @inlinable public static var noSuchFileOrDirectory: Self { .init(rawValue: ENOENT) }
@@ -29,11 +29,11 @@ extension PlatformErrorCode.SystemErrorCode {
     @inlinable public static var textFileBusy: Self { .init(rawValue: ETXTBSY) }
     @inlinable public static var fileTooLarge: Self { .init(rawValue: EFBIG) }
     @inlinable public static var noSpaceLeftOnDevice: Self { .init(rawValue: ENOSPC) }
-    @inlinable public static var illegalSeek: Self { .init(rawValue: ESRCH) }
+    @inlinable public static var illegalSeek: Self { .init(rawValue: ESPIPE) }
     @inlinable public static var readOnlyFileSystem: Self { .init(rawValue: EROFS) }
     @inlinable public static var tooManyLinks: Self { .init(rawValue: EMLINK) }
     @inlinable public static var brokenPipe: Self { .init(rawValue: EPIPE) }
-    @inlinable public static var resourceDeadlockAvoided: Self { .init(rawValue: EDQUOT) }
+    @inlinable public static var resourceDeadlockAvoided: Self { .init(rawValue: EDEADLK) }
     @inlinable public static var fileNameTooLong: Self { .init(rawValue: ENAMETOOLONG) }
     @inlinable public static var noLocksAvailable: Self { .init(rawValue: ENOLCK) }
     @inlinable public static var functionNotImplemented: Self { .init(rawValue: ENOSYS) }
@@ -54,7 +54,7 @@ extension PlatformErrorCode.SystemErrorCode {
     @inlinable public static var wouldBlock: Self { .resourceTemporarilyUnavailable }
 
 
-    var mappedErrorKind: PlatformErrorCode.Kind {
+    package var defaultMappedErrorKind: PlatformErrorKind {
         switch self {
             case .noSuchFileOrDirectory: .notFound
             case .permissionDenied, .operationNotPermitted: .permissionDenied
@@ -68,6 +68,7 @@ extension PlatformErrorCode.SystemErrorCode {
             case .fileNameTooLong: .nameTooLong
             case .operationNotSupported: .unsupported
             case .valueTooLarge: .arithmeticOverflow
+            case .tooManyLevelSymbolicLinks: .pathResolutionFailed
             default: .unknown
         }
     }

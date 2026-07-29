@@ -12,9 +12,9 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
     package enum Element {
         case entry(DirectoryEntry)
-        case leavingDir(FilePath, SystemError?)
-        case entryError(FilePath, SystemError)
-        case subTreeError(FilePath, SystemError)
+        case leavingDir(FilePath, LowLevelError?)
+        case entryError(FilePath, LowLevelError)
+        case subTreeError(FilePath, LowLevelError)
 
         package var path: FilePath {
             switch self {
@@ -67,7 +67,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     }
 
 
-    package mutating func next() throws(SystemError) -> Element? {
+    package mutating func next() throws(LowLevelError) -> Element? {
 
         guard !ended else { return nil }
     
@@ -86,7 +86,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     }
 
 
-    private mutating func _next() throws(SystemError) -> Element? {
+    private mutating func _next() throws(LowLevelError) -> Element? {
 
         guard !ended else { return nil }
     
@@ -204,13 +204,13 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
             switch Int32(entry.fts_info) {
                 case FTS_NS:
-                    return .entryError(path, .init(code: entry.fts_errno)!)
+                    return .entryError(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_ERR where entry.fts_level < prevLevel:
-                    return .leavingDir(path, .init(code: entry.fts_errno)!)
+                    return .leavingDir(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_ERR:
-                    return .entryError(path, .init(code: entry.fts_errno)!)
+                    return .entryError(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_DNR: 
-                    return .subTreeError(path, .init(code: entry.fts_errno)!)
+                    return .subTreeError(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_DP:
                     return .leavingDir(path, nil)
                 case FTS_DC:
@@ -281,7 +281,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     #endif 
 
 
-    private mutating func _clean() throws(SystemError) {
+    private mutating func _clean() throws(LowLevelError) {
 
         guard !ended else { return }
 
@@ -297,7 +297,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
         while let handle = findHandleStack.popLast() {
             try handle.close()
         }
-        // try SystemError.check()
+        // try LowLevelError.check()
 
         #else
 
@@ -308,7 +308,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     }
 
 
-    private mutating func endIter() throws(SystemError) {
+    private mutating func endIter() throws(LowLevelError) {
         #if canImport(WinSDK)
         defer {
             findHandleStack.removeAll()

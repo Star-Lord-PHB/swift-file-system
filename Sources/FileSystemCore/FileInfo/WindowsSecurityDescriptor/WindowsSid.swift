@@ -145,7 +145,7 @@ extension WindowsSid {
     public static var creatorGroup: WindowsSid          { try! createWellKnownSid(type: WinCreatorGroupSid) }
 
 
-    package static func createWellKnownSid(type: WELL_KNOWN_SID_TYPE, domainSid: UnsafeUnownedResource? = nil) throws(SystemError) -> Self {
+    package static func createWellKnownSid(type: WELL_KNOWN_SID_TYPE, domainSid: UnsafeUnownedResource? = nil) throws(LowLevelError) -> Self {
 
         // 256 bytes should be enough for any well-known SID
         var buffer = UnsafeMutableRawBufferPointer.allocate(byteCount: 256, alignment: MemoryLayout<UInt8>.alignment)
@@ -155,7 +155,7 @@ extension WindowsSid {
                 CreateWellKnownSid(type, domainSid?.unsafeResourcePtr, buffer.baseAddress!, &size)
             }
             return .init(psid: .init(owningResource: buffer.baseAddress!, freeingFunc: { $0.deallocate() }))
-        } catch let error where error.code == .system(.insufficientBuffer) {
+        } catch let error where error.systemCode == .insufficientBuffer {
             // ignore this error and retry
         }
 
@@ -174,14 +174,14 @@ extension WindowsSid {
 
 extension WindowsSid {
 
-    package static func string(fromPSid sidPtr: UnsafeUnownedResource) throws(SystemError) -> String {
+    package static func string(fromPSid sidPtr: UnsafeUnownedResource) throws(LowLevelError) -> String {
 
         var sidStrPtr = nil as LPWSTR?
         try execThrowingCFunction {
             ConvertSidToStringSidW(sidPtr.unsafeResourcePtr, &sidStrPtr)
         }
         guard let sidStrPtr else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
         defer { LocalFree(sidStrPtr) }
 
@@ -190,12 +190,12 @@ extension WindowsSid {
     }
 
 
-    package static func string(fromPSid sidPtr: borrowing UnsafeOwnedAutoResource) throws(SystemError) -> String {
+    package static func string(fromPSid sidPtr: borrowing UnsafeOwnedAutoResource) throws(LowLevelError) -> String {
         return try string(fromPSid: sidPtr.unownedView())
     }
 
 
-    package static func psid(fromString sidStr: String) throws(SystemError) -> UnsafeOwnedAutoResource {
+    package static func psid(fromString sidStr: String) throws(LowLevelError) -> UnsafeOwnedAutoResource {
 
         var sidPtr = nil as PSID?
         try execThrowingCFunction {
@@ -205,7 +205,7 @@ extension WindowsSid {
         }
 
         guard let sidPtr else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningResource: sidPtr, freeingFunc: { LocalFree($0) })

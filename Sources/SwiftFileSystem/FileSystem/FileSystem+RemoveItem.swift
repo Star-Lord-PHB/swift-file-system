@@ -11,7 +11,7 @@ extension FileSystem {
             try InternalFS.remove(itemAt: path)
             return 
         } catch let error where error.kind != .notEmptyDirectory {
-            throw PlatformError(systemError: error, operation: .remove(path))
+            throw PlatformError(lowLevelError: error, operation: .remove(path))
         } catch {
             // do nothing
         }
@@ -31,12 +31,12 @@ extension FileSystem {
             // individual items will be ignored and will not currently be reported back to the caller.
             // MARK: TODO: add a callback for reporting errors? 
 
-            let enumerationElement = try catchSystemError(operation: .remove(path)) { () throws(SystemError) in
+            let enumerationElement = try catchLowLevelError(operation: .remove(path)) { () throws(LowLevelError) in
                 try enumerator.next()
             }
             guard let enumerationElement = enumerationElement else { break }
 
-            try catchSystemError(operation: .remove(enumerationElement.path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .remove(enumerationElement.path)) { () throws(LowLevelError) in
 
                 switch enumerationElement {
                     case .entry(let entry) where entry.type != .directory && entry.path.lastComponent?.kind == .regular:
@@ -57,7 +57,7 @@ extension FileSystem {
 
         }
 
-        try catchSystemError(operation: .remove(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .remove(path)) { () throws(LowLevelError) in
             try InternalFS.rmdir(at: path)
         }
 

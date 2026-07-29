@@ -144,8 +144,8 @@ extension FileSystemTest.FileInfoTest {
             _ = try FileInfo(fileAt: path)
         }
 
-        let errorCode = try #require(error?.code)
-        #expect(errorCode == .fileNotFound)
+        let errorCode = try #require(error?.kind)
+        #expect(errorCode == .notFound)
 
     }
 
@@ -162,8 +162,8 @@ extension FileSystemTest.FileInfoTest {
             _ = try FileInfo(fileAt: linkPath, followSymLink: true)
         }
 
-        let errorCode = try #require(error?.code)
-        #expect(errorCode == .fileNotFound)
+        let errorCode = try #require(error?.kind)
+        #expect(errorCode == .notFound)
 
     }
 

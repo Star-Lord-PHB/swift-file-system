@@ -24,7 +24,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
         unsafeSystemHandle: consuming UnsafeSystemHandle, 
         path: FilePath, 
         options: FileOperationOptions.DirectoryTraversalOption
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         self.options = options
 
@@ -48,7 +48,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    package mutating func next() throws(SystemError) -> DirectoryEntry? {
+    package mutating func next() throws(LowLevelError) -> DirectoryEntry? {
         
         guard !ended else { return nil }
     
@@ -67,7 +67,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private mutating func _next() throws(SystemError) -> DirectoryEntry? {
+    private mutating func _next() throws(LowLevelError) -> DirectoryEntry? {
         #if canImport(WinSDK)
         while let entry = try findHandle?.next() {
             lazy var path = extractPath(from: entry)
@@ -144,7 +144,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private mutating func _clean() throws(SystemError) {
+    private mutating func _clean() throws(LowLevelError) {
 
         guard !ended else { return }
 
@@ -161,7 +161,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private mutating func endEnumeration() throws(SystemError) {
+    private mutating func endEnumeration() throws(LowLevelError) {
         defer {
             ended = true
         }

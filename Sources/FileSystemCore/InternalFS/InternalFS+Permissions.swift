@@ -9,7 +9,7 @@ extension InternalFS {
         itemAt path: FilePath,
         for accessMode: FileOperationOptions.FileAccessMode = [.read, .write],
         followSymlink: Bool
-    ) throws(SystemError) -> Bool {
+    ) throws(LowLevelError) -> Bool {
         
         #if canImport(WinSDK)
 
@@ -69,14 +69,14 @@ extension InternalFS {
         
         if response == 0 { return true }
         
-        guard let error = SystemError.fromLastError() else {
+        guard let error = LowLevelError.fromLastError() else {
             fatalError("Expect to catch an error when faccessat returns -1, but none was thrown")
         }
         
-        switch error.code {
-            case .system(.permissionDenied),
-                 .system(.operationNotPermitted),
-                 .system(.readOnlyFileSystem): return false
+        switch error.systemCode {
+            case .permissionDenied,
+                 .operationNotPermitted,
+                 .readOnlyFileSystem: return false
             default: throw error
         }
         
@@ -95,7 +95,7 @@ extension InternalFS {
         owner: WindowsSid?, 
         group: WindowsSid?,
         followSymlink: Bool
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         guard !members.isEmpty else { return }
         
@@ -117,8 +117,8 @@ extension InternalFS {
                     dacl?.pacl.unsafelyCastedMutableRawPtr, sacl?.pacl.unsafelyCastedMutableRawPtr
                 )
             }
-        } onError: { (code) throws(SystemError) in
-            if let error = SystemError(code: code) {
+        } onError: { (code) throws(LowLevelError) in
+            if let error = .init(rawSystemCode: code) {
                 throw error
             }
         }
@@ -130,7 +130,7 @@ extension InternalFS {
         forItemAt path: FilePath,
         members: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
-    ) throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
+    ) throws(LowLevelError) -> WindowsSelfRelativeSecurityDescriptor {
         
         var psd = nil as PSECURITY_DESCRIPTOR?
         
@@ -151,8 +151,8 @@ extension InternalFS {
                     nil, nil, nil, nil, &psd
                 )
             }
-        } onError: { (code) throws(SystemError) in
-            if let error = SystemError(code: code) {
+        } onError: { (code) throws(LowLevelError) in
+            if let error = .init(rawSystemCode: code) {
                 throw error
             }
         }
@@ -168,7 +168,7 @@ extension InternalFS {
     package static func getPosixPermissions(
         forItemAt path: FilePath,
         followSymlink: Bool
-    ) throws(SystemError) -> FilePermissions {
+    ) throws(LowLevelError) -> FilePermissions {
         let mode = try followSymlink ? ustat(path).st_mode : ulstat(path).st_mode
         return .init(rawValue: mode & 0o7777)
     }
@@ -178,7 +178,7 @@ extension InternalFS {
         forItemAt path: FilePath,
         permissions: FilePermissions,
         followSymlink: Bool
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in 
                 fchmodat(AT_FDCWD, pathPtr, permissions.rawValue, followSymlink ? 0 : AT_SYMLINK_NOFOLLOW)
@@ -192,7 +192,7 @@ extension InternalFS {
     package static func getOwner(
         forItemAt path: FilePath,
         followSymlink: Bool
-    ) throws(SystemError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
+    ) throws(LowLevelError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
         
         #if canImport(WinSDK)
         
@@ -229,7 +229,7 @@ extension InternalFS {
         owner: PlatformIdentity?,
         group: PlatformIdentity?,
         followSymlink: Bool
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         
         #if canImport(WinSDK)
         

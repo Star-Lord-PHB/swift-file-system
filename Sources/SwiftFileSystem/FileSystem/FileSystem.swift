@@ -40,14 +40,14 @@ extension FileSystem {
 
     public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: FilePermissions? = nil, content: ByteBuffer? = nil) throws(PlatformError) {
 
-        try catchSystemError(operation: .createFile(path)) { () throws(SystemError) in 
+        try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
                 creationPermissions: permissions
             )
             if let content {
-                try content.withUnsafeBytes { (ptr) throws(SystemError) in 
+                try content.withUnsafeBytes { (ptr) throws(LowLevelError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }
@@ -60,7 +60,7 @@ extension FileSystem {
     public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false, permissions: FilePermissions? = nil) throws(PlatformError) {
 
         if !withIntermediateDirectories {
-            try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .createDirectory(path)) { () throws(LowLevelError) in
                 try InternalFS.mkdir(at: path, permissions: permissions)
             }
             return
@@ -69,11 +69,11 @@ extension FileSystem {
         var path = path
         var components = [] as [FilePath.Component]
 
-        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .createDirectory(path)) { () throws(LowLevelError) in
             loop: while let component = path.lastComponent {
                 switch try isNonSymlinkDirectory(at: path) {
                     case true: break loop
-                    case false: throw .init(code: .fileExists)!
+                    case false: throw .init(kind: .alreadyExists)
                     case .none:
                         path.removeLastComponent()
                         components.append(component)
@@ -83,7 +83,7 @@ extension FileSystem {
 
         guard !components.isEmpty else { return }
 
-        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .createDirectory(path)) { () throws(LowLevelError) in
             for component in components.suffix(from: 1).reversed() {
                 path.append(component)
                 try InternalFS.mkdir(at: path, permissions: nil)
@@ -100,14 +100,14 @@ extension FileSystem {
 
     public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: WindowsSecurityDescriptorView, content: ByteBuffer? = nil) throws(PlatformError) {
 
-        try catchSystemError(operation: .createFile(path)) { () throws(SystemError) in 
+        try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
                 creationPermissions: permissions
             )
             if let content {
-                try content.withUnsafeBytes { (ptr) throws(SystemError) in 
+                try content.withUnsafeBytes { (ptr) throws(LowLevelError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }
@@ -119,7 +119,7 @@ extension FileSystem {
     public func createDirectory(at path: FilePath, withIntermediateDirectories: Bool = false, permissions: WindowsSecurityDescriptorView) throws(PlatformError) {
 
         if !withIntermediateDirectories {
-            try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .createDirectory(path)) { () throws(LowLevelError) in
                 try InternalFS.mkdir(at: path, permissions: permissions)
             }
             return
@@ -128,11 +128,11 @@ extension FileSystem {
         var path = path
         var components = [] as [FilePath.Component]
 
-        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .createDirectory(path)) { () throws(LowLevelError) in
             loop: while let component = path.lastComponent {
                 switch try isNonSymlinkDirectory(at: path) {
                     case true: break loop
-                    case false: throw .init(code: .fileExists)!
+                    case false: throw .init(kind: .alreadyExists)
                     case .none:
                         path.removeLastComponent()
                         components.append(component)
@@ -142,7 +142,7 @@ extension FileSystem {
 
         guard !components.isEmpty else { return }
 
-        try catchSystemError(operation: .createDirectory(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .createDirectory(path)) { () throws(LowLevelError) in
             for component in components.suffix(from: 1).reversed() {
                 path.append(component)
                 try InternalFS.mkdir(at: path, permissions: nil)
@@ -169,7 +169,7 @@ extension FileSystem {
             return 
         } catch {
             throw PlatformError(
-                systemError: error, 
+                lowLevelError: error, 
                 operation: .move(srcPath: srcPath, dstPath: dstPath)
             )
         } 
@@ -185,14 +185,14 @@ extension FileSystem {
 
 
     public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError) {
-        try catchSystemError(operation: .createSymlink(linkPath: path, dstPath: destPath)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .createSymlink(linkPath: path, dstPath: destPath)) { () throws(LowLevelError) in
             try InternalFS.symlink(dstPath: destPath, linkPath: path)
         }
     }
 
 
     public func createHardLink(at path: FilePath, for existingPath: FilePath) throws(PlatformError) {
-        try catchSystemError(operation: .createHardLink(linkPath: path, existingPath: existingPath)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .createHardLink(linkPath: path, existingPath: existingPath)) { () throws(LowLevelError) in
             try InternalFS.link(existingPath: existingPath, newPath: path)
         }
     }
@@ -200,11 +200,11 @@ extension FileSystem {
 
     public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(PlatformError) -> FilePath {
         if recursive {
-            try catchSystemError(operation: .recursiveResolveSymlink(path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .recursiveResolveSymlink(path)) { () throws(LowLevelError) in
                 try InternalFS.realpath(of: path)
             }
         } else {
-            try catchSystemError(operation: .readSymlink(path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .readSymlink(path)) { () throws(LowLevelError) in
                 try InternalFS.readlink(fromSymlinkAt: path)
             }
         }
@@ -216,16 +216,16 @@ extension FileSystem {
 
 extension FileSystem {
 
-    func isNonSymlinkDirectory(at path: FilePath) throws(SystemError) -> Bool? {
+    func isNonSymlinkDirectory(at path: FilePath) throws(LowLevelError) -> Bool? {
         #if canImport(WinSDK)
-        do throws(SystemError) {
+        do throws(LowLevelError) {
             let attributes = try InternalFS.getFileAttributes(forItemAt: path, followSymlink: false)
             return attributes.contains(.windows.isDirectory) && !attributes.contains(.windows.isReparsePoint)
         } catch let error where error.kind == .notFound {
             return nil
         }
         #else
-        do throws(SystemError) {
+        do throws(LowLevelError) {
             return try FileKind(mode: InternalFS.ulstat(path).st_mode) == .directory
         } catch let error where error.kind == .notFound {
             return nil

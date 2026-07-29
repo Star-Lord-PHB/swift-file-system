@@ -6,20 +6,22 @@ extension FileOperationOptions {
     public protocol RecursiveCopyErrorStrategyProtocol {
         associatedtype ReturnedError
         associatedtype ThrowedError: Error
-        func handleError(_ error: SystemError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool)
+        func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool)
         func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(ThrowedError) -> ReturnedError
     }
 
 
     public struct RecursiveCopyAbortOnErrorStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: SystemError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
+        public func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
             return (collectError: true, abort: true)
         }
         public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(PlatformError) -> Void {
             guard let errorReport else { return } 
+            assert(errorReport.errors.count == 1, "Abort on error strategy should only have one error in the report")
             let error = errorReport.errors.first
             throw .init(
-                code: error.code, 
+                systemCode: error.systemCode, 
+                kind: error.kind,
                 operation: .copy(
                     srcPath: errorReport.srcRootPath.appending(error.itemRelativePath.components), 
                     dstPath: errorReport.dstRootPath.appending(error.itemRelativePath.components)
@@ -30,7 +32,7 @@ extension FileOperationOptions {
 
 
     public struct RecursiveCopySkipAndCollectStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: SystemError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
+        public func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
             return (collectError: true, abort: false)
         }
         public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(Never) -> RecursiveCopyErrorReport? {
@@ -40,7 +42,7 @@ extension FileOperationOptions {
 
 
     public struct RecursiveCopySkipAndIgnoreStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: SystemError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
+        public func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
             return (collectError: false, abort: false)
         }
         public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(Never) -> Void {

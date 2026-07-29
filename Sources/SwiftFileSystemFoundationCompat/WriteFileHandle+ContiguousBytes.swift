@@ -2,8 +2,8 @@ import protocol Foundation.ContiguousBytes
 import struct SwiftFileSystem.WriteFileHandle
 import struct SwiftFileSystem.ReadWriteFileHandle
 import struct SwiftFileSystem.PlatformError
-import struct SwiftFileSystem.SystemError
-import func SwiftFileSystem.catchSystemError
+import struct SwiftFileSystem.LowLevelError
+import func SwiftFileSystem.catchLowLevelError
 
 #if canImport(WinSDK)
 import struct SwiftFileSystem.WindowsOverlapped
@@ -19,8 +19,8 @@ extension WriteFileHandle {
         
         return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in
             let currentOffset = try self.currentOffset    // On Windows, accessing the currentOffset is not a blocking FS operation
-            let bytesWritten = try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
-                try withUnsafeSystemHandle { (handle) throws(SystemError) in
+            let bytesWritten = try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
+                try withUnsafeSystemHandle { (handle) throws(LowLevelError) in
                     if let offset {
                         var overlapped = WindowsOverlapped(offset: offset)
                         let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
@@ -42,8 +42,8 @@ extension WriteFileHandle {
         #else
         
         return try data.withUnsafeBytesTypedThrow { bufferPtr throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
-                try withUnsafeSystemHandle { (handle) throws(SystemError) in
+            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
+                try withUnsafeSystemHandle { (handle) throws(LowLevelError) in
                     if let offset {
                         return try handle.pwrite(contentsOf: bufferPtr, to: offset)
                     } else {
@@ -74,8 +74,8 @@ extension ReadWriteFileHandle {
         
         return try data.withUnsafeBytesTypedThrow { (bufferPtr) throws(PlatformError) in
             let currentOffset = try self.currentOffset    // On Windows, accessing the currentOffset is not a blocking FS operation
-            let bytesWritten = try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
-                try withUnsafeSystemHandle { (handle) throws(SystemError) in
+            let bytesWritten = try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
+                try withUnsafeSystemHandle { (handle) throws(LowLevelError) in
                     if let offset {
                         var overlapped = WindowsOverlapped(offset: offset)
                         let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
@@ -97,8 +97,8 @@ extension ReadWriteFileHandle {
         #else
         
         return try data.withUnsafeBytesTypedThrow { bufferPtr throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
-                try withUnsafeSystemHandle { (handle) throws(SystemError) in
+            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
+                try withUnsafeSystemHandle { (handle) throws(LowLevelError) in
                     if let offset {
                         return try handle.pwrite(contentsOf: bufferPtr, to: offset)
                     } else {

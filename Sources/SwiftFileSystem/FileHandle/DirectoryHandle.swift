@@ -22,7 +22,7 @@ extension DirectoryHandle {
 
     public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(PlatformError) { 
 
-        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             let handle = try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: options.unsafeSystemFileOpenOptions()
@@ -32,7 +32,7 @@ extension DirectoryHandle {
             let type = try handle.type()
             guard type == .directory || type == .symlink else {
                 try? handle.close()
-                throw SystemError(code: .notADirectory)!
+                throw .init(kind: .notADirectory)
             }
             #endif
 
@@ -68,7 +68,7 @@ extension DirectoryHandle {
         do {
             try handle.close()
         } catch {
-            throw .init(systemError: error, operation: .closeHandle(originalPath: path))
+            throw .init(lowLevelError: error, operation: .closeHandle(originalPath: path))
         }
     }
 

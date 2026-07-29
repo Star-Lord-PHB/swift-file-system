@@ -119,7 +119,7 @@ extension FileSystemTest.WriteFileHandleTests {
             _ = try WriteFileHandle(forFileAt: path, options: .newFile(replaceExisting: false))
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
     }
 
@@ -133,7 +133,7 @@ extension FileSystemTest.WriteFileHandleTests {
             _ = try WriteFileHandle(forFileAt: path, options: .editFile(createIfMissing: false))
         }
 
-        #expect(error.code == .fileNotFound)
+        #expect(error.kind == .notFound)
     }
 
 }

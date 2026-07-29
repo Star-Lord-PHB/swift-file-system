@@ -20,7 +20,7 @@ public struct DirectoryEntryDirectSequence: DirectoryEntryDirectSequenceProtocol
     }
 
     public init(dirAt path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) {
-        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             try UnsafeSystemHandle.openDir(at: path)
         }
         self.init(

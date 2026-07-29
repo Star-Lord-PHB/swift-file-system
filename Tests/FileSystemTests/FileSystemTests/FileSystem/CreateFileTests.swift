@@ -140,7 +140,7 @@ extension FileSystemTest.CreateFileTest {
             try FileSystem().createFile(at: path, replaceExisting: false)
         }
 
-        #expect(error?.code == .fileExists)
+        #expect(error?.systemCode == .fileExists)
 
         let info = try FileInfo(fileAt: path)
 

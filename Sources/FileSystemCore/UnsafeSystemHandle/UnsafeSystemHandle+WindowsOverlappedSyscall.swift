@@ -68,7 +68,7 @@ public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
         precondition(false, "WindowsPendingOverlapped being deinitialized automatically without explicitly being waited")
     }
 
-    public consuming func wait(on handle: borrowing UnsafeSystemHandle) throws(SystemError) -> Int64 {
+    public consuming func wait(on handle: borrowing UnsafeSystemHandle) throws(LowLevelError) -> Int64 {
         let systemOverlapped = self.systemOverlapped
         discard self
         var bytesTransferred = 0 as DWORD
@@ -101,17 +101,17 @@ extension UnsafeSystemHandle {
         into buffer: UnsafeMutableRawBufferPointer, 
         length: Int64? = nil, 
         overlapped: inout WindowsOverlapped
-    ) throws(SystemError) -> WindowsPendingOverlapped {
+    ) throws(LowLevelError) -> WindowsPendingOverlapped {
 
         let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
 
         var bytesRead = 0 as DWORD
 
-        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+        return try overlapped.startOperation { (overlapped) throws(LowLevelError) in
             if ReadFile(unsafeRawHandle, buffer.baseAddress, DWORD(lengthToRead), &bytesRead, overlapped.systemOverlapped.unsafeRawPtr) == false {
                 let errorCode = GetLastError()
                 guard errorCode == ERROR_IO_PENDING else {
-                    throw SystemError(code: errorCode)!
+                    throw .init(rawSystemCode: errorCode)!
                 }
             }
         }
@@ -120,15 +120,15 @@ extension UnsafeSystemHandle {
 
 
     @_lifetime(&overlapped, borrow buffer)
-    public func write(contentsOf buffer: UnsafeRawBufferPointer, overlapped: inout WindowsOverlapped) throws(SystemError) -> WindowsPendingOverlapped {
+    public func write(contentsOf buffer: UnsafeRawBufferPointer, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
 
         var bytesWritten = 0 as DWORD
 
-        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+        return try overlapped.startOperation { (overlapped) throws(LowLevelError) in
             if WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, overlapped.systemOverlapped.unsafeRawPtr) == false {
                 let errorCode = GetLastError()
                 guard errorCode == ERROR_IO_PENDING else {
-                    throw SystemError(code: errorCode)!
+                    throw .init(rawSystemCode: errorCode)!
                 }
             }
         }
@@ -142,20 +142,20 @@ extension UnsafeSystemHandle {
         into buffer: inout MutableRawSpan, 
         length: Int64? = nil, 
         overlapped: inout WindowsOverlapped
-    ) throws(SystemError) -> WindowsPendingOverlapped {
+    ) throws(LowLevelError) -> WindowsPendingOverlapped {
 
         let lengthToRead = min(buffer.byteCount, length.map { Int($0) } ?? buffer.byteCount)
 
         var bytesRead = 0 as DWORD
 
-        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+        return try overlapped.startOperation { (overlapped) throws(LowLevelError) in
             let result = buffer.withUnsafeMutableBytes { ptr in 
                 ReadFile(unsafeRawHandle, ptr.baseAddress, DWORD(lengthToRead), &bytesRead, overlapped.systemOverlapped.unsafeRawPtr)
             }
             if result == false {
                 let errorCode = GetLastError()
                 guard errorCode == ERROR_IO_PENDING else {
-                    throw SystemError(code: errorCode)!
+                    throw .init(rawSystemCode: errorCode)!
                 }
             }
         }
@@ -164,18 +164,18 @@ extension UnsafeSystemHandle {
 
 
     @_lifetime(copy buffer, &overlapped)
-    public func write(contentsOf buffer: RawSpan, overlapped: inout WindowsOverlapped) throws(SystemError) -> WindowsPendingOverlapped {
+    public func write(contentsOf buffer: RawSpan, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
 
         var bytesWritten = 0 as DWORD
 
-        return try overlapped.startOperation { (overlapped) throws(SystemError) in
+        return try overlapped.startOperation { (overlapped) throws(LowLevelError) in
             let result = buffer.withUnsafeBytes { ptr in 
                 WriteFile(unsafeRawHandle, ptr.baseAddress, DWORD(buffer.byteCount), &bytesWritten, overlapped.systemOverlapped.unsafeRawPtr)
             }
             if result == false {
                 let errorCode = GetLastError()
                 guard errorCode == ERROR_IO_PENDING else {
-                    throw SystemError(code: errorCode)!
+                    throw .init(rawSystemCode: errorCode)!
                 }
             }
         }
@@ -184,7 +184,7 @@ extension UnsafeSystemHandle {
     #endif
 
 
-    public func waitForOverlappedResult(_ overlapped: consuming WindowsPendingOverlapped) throws(SystemError) -> Int64 {
+    public func waitForOverlappedResult(_ overlapped: consuming WindowsPendingOverlapped) throws(LowLevelError) -> Int64 {
         return try overlapped.wait(on: self)
     }
 

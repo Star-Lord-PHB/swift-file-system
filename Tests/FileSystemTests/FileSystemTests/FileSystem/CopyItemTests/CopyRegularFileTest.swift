@@ -60,7 +60,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -100,7 +100,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error.code == .isADirectory)
+        #expect(error.kind == .isADirectory)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -134,7 +134,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -176,7 +176,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: dstTargetPath, toMatch: expectation2)

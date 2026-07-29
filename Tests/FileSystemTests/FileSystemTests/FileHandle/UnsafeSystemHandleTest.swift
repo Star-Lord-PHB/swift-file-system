@@ -75,7 +75,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
             do {
                 let buffer = Data(count: 10)
-                #expect(throws: SystemError.self) {
+                #expect(throws: LowLevelError.self) {
                     try buffer.withUnsafeBytes { bufferPtr in
                         try handle.write(contentsOf: bufferPtr)
                     }
@@ -84,8 +84,8 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
         } preheat: {
             // Preheat for Windows, where the #expect macro itself will open a handle when an error is captured for some reason
-            #expect(throws: SystemError.self) {
-                throw SystemError(code: 1)!
+            #expect(throws: LowLevelError.self) {
+                throw LowLevelError(rawSystemCode: 1)!
             }
         }
 
@@ -237,7 +237,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
         try await expectNoResHandleLeak {
 
-            _ = #expect(throws: SystemError.self) {
+            _ = #expect(throws: LowLevelError.self) {
                 _ = try UnsafeSystemHandle.open(
                     at: path, 
                     openOptions: .init(
@@ -249,8 +249,8 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
         } preheat: {
             // Preheat for Windows, where the #expect macro itself will open a handle when an error is captured for some reason
-            #expect(throws: SystemError.self) {
-                throw SystemError(code: 1)!
+            #expect(throws: LowLevelError.self) {
+                throw LowLevelError(rawSystemCode: 1)!
             }
         }
 
@@ -381,7 +381,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             }
 
             // Now, try to open it again 
-            let error = try #require(throws: SystemError.self) {
+            let error = try #require(throws: LowLevelError.self) {
                 let _ = try UnsafeSystemHandle.open(
                     at: path, 
                     openOptions: .init(
@@ -419,7 +419,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 "When the current user is root, this test is meaningless", 
                 {
                     // Now, try to open it again 
-                    let error = try #require(throws: SystemError.self) {
+                    let error = try #require(throws: LowLevelError.self) {
                         let _ = try UnsafeSystemHandle.open(
                             at: path, 
                             openOptions: .init(
@@ -428,7 +428,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                             )
                         )
                     }
-                    #expect(error.code == .permissionDenied)
+                    #expect(error.systemCode == .permissionDenied)
                 }, 
                 when: { getuid() == 0 }
             )
@@ -454,7 +454,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 )
             )
 
-            let error = try #require(throws: SystemError.self) {
+            let error = try #require(throws: LowLevelError.self) {
                 var buffer = Data(count: 10)
                 try buffer.withUnsafeMutableBytes { bufferPtr in 
                     _ = try handle.read(into: bufferPtr)
@@ -462,9 +462,9 @@ extension FileSystemTest.UnsafeSystemHandleTest {
             }
 
             #if canImport(WinSDK)
-            #expect(error.code == .system(.invalidFunction))
+            #expect(error.systemCode == .invalidFunction)
             #else
-            #expect(error.code == .isADirectory)
+            #expect(error.systemCode == .isADirectory)
             #endif
 
         }
@@ -481,7 +481,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
         try await expectNoResHandleLeak {
 
-            let error = try #require(throws: SystemError.self) {
+            let error = try #require(throws: LowLevelError.self) {
                 let _ = try UnsafeSystemHandle.open(
                     at: dirPath, 
                     openOptions: .init(
@@ -506,7 +506,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
 
         try await expectNoResHandleLeak {
 
-            let error = try #require(throws: SystemError.self) {
+            let error = try #require(throws: LowLevelError.self) {
                 let _ = try UnsafeSystemHandle.open(
                     at: filePath, 
                     openOptions: .init(
@@ -516,7 +516,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 )
             }
 
-            #expect(error.code == .notADirectory)
+            #expect(error.systemCode == .notADirectory)
 
         }
 

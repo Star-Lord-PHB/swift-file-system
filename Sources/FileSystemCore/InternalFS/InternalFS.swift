@@ -6,7 +6,7 @@ import SystemPackage
 @usableFromInline
 package enum InternalFS {
 
-    package static func rename(itemAt srcPath: FilePath, to dstPath: FilePath, replace: Bool = true) throws(SystemError) {
+    package static func rename(itemAt srcPath: FilePath, to dstPath: FilePath, replace: Bool = true) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -45,9 +45,9 @@ package enum InternalFS {
         // If destination exists and is not a directory, throw an error
         // If other errors occurs, throw the error
 
-        do throws(SystemError) {
+        do throws(LowLevelError) {
             guard try type(ofItemAt: dstPath) == .directory else {
-                throw SystemError(code: .notADirectory)!
+                throw .init(kind: .notADirectory)
             }
             try rmdir(at: dstPath)
         } catch let error where error.kind == .notFound {
@@ -88,7 +88,7 @@ package enum InternalFS {
         }
 
         if !replace && itemExists {
-            throw SystemError(code: .fileExists)!
+            throw .init(kind: .alreadyExists)
         }
 
         try execThrowingCFunction {
@@ -116,7 +116,7 @@ package enum InternalFS {
     }
 
 
-    package static func readlink(fromSymlinkAt linkPath: FilePath) throws(SystemError) -> FilePath {
+    package static func readlink(fromSymlinkAt linkPath: FilePath) throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
 
@@ -144,7 +144,7 @@ package enum InternalFS {
         }
 
         guard buffer.pointee.ReparseTag == IO_REPARSE_TAG_SYMLINK else {
-            throw SystemError(code: .system(.badArguments))!
+            throw .init(kind: .invalidInput)
         }
 
         if buffer.pointee.SymbolicLinkReparseBuffer.PrintNameLength > 0 {
@@ -177,7 +177,7 @@ package enum InternalFS {
                 PlatformCLib.readlink(strPtr, buffer.baseAddress!, buffer.count - 1)
             }
             if len < 0 {
-                try SystemError.assertError()
+                try LowLevelError.assertError()
             } else if len == buffer.count - 1 {
                 let newBuffer = UnsafeMutableBufferPointer<CChar>.allocate(capacity: buffer.count * 2)
                 _ = newBuffer.moveInitialize(fromContentsOf: buffer)
@@ -196,7 +196,7 @@ package enum InternalFS {
     }
 
 
-    package static func realpath(of path: FilePath) throws(SystemError) -> FilePath {
+    package static func realpath(of path: FilePath) throws(LowLevelError) -> FilePath {
 
         #if canImport(WinSDK)
         
@@ -216,7 +216,7 @@ package enum InternalFS {
                 buffer.deallocate()
                 buffer = newBuffer
             } else if size == 0 {
-                try SystemError.assertError()
+                try LowLevelError.assertError()
             } else {
                 break
             }
@@ -230,7 +230,7 @@ package enum InternalFS {
             PlatformCLib.realpath(strPtr, nil)
         }
         guard let buffer else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         defer { free(buffer) }
@@ -242,7 +242,7 @@ package enum InternalFS {
     }
 
 
-    package static func unlink(fileAt path: FilePath) throws(SystemError) {
+    package static func unlink(fileAt path: FilePath) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -265,7 +265,7 @@ package enum InternalFS {
     }
 
 
-    package static func rmdir(at path: FilePath) throws(SystemError) {
+    package static func rmdir(at path: FilePath) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -288,7 +288,7 @@ package enum InternalFS {
     }
 
 
-    package static func remove(itemAt path: FilePath) throws(SystemError) {
+    package static func remove(itemAt path: FilePath) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -311,7 +311,7 @@ package enum InternalFS {
     }
 
 
-    package static func mkdir(at path: FilePath, permissions: FilePermissions?) throws(SystemError) {
+    package static func mkdir(at path: FilePath, permissions: FilePermissions?) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -342,7 +342,7 @@ package enum InternalFS {
 
 
     #if canImport(WinSDK)
-    package static func mkdir(at path: FilePath, permissions: WindowsSecurityDescriptorView) throws(SystemError) {
+    package static func mkdir(at path: FilePath, permissions: WindowsSecurityDescriptorView) throws(LowLevelError) {
         var sa = SECURITY_ATTRIBUTES()
         sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
         sa.lpSecurityDescriptor = LPVOID(permissions.psd.unsafelyCastedMutableRawPtr)
@@ -355,7 +355,7 @@ package enum InternalFS {
     #endif
 
 
-    package static func symlink(dstPath: FilePath, linkPath: FilePath) throws(SystemError) {
+    package static func symlink(dstPath: FilePath, linkPath: FilePath) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -370,7 +370,7 @@ package enum InternalFS {
 
         if attr == INVALID_FILE_ATTRIBUTES {
             do {
-                try SystemError.assertError()
+                try LowLevelError.assertError()
             } catch let error where error.kind == .notFound {
                 // destination not exists, ignore the error and assume it's a file
                 isDir = false
@@ -404,7 +404,7 @@ package enum InternalFS {
     }
 
 
-    package static func link(existingPath: FilePath, newPath: FilePath) throws(SystemError) {
+    package static func link(existingPath: FilePath, newPath: FilePath) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -435,7 +435,7 @@ package enum InternalFS {
     package static func makeFifo(
         at path: FilePath,
         permissions: FilePermissions = [.ownerReadWrite, .groupRead, .otherRead]
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in
                 mkfifo(pathPtr, permissions.rawValue)

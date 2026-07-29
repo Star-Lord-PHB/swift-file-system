@@ -5,7 +5,7 @@ import WinSDK
 
 package func execThrowingCFunction<E: Error>(_ function: () -> CInt, onError: (CInt) throws(E) -> Void) throws(E) {
     let errorCode = function()
-    guard errorCode == SystemError.successCode else {
+    guard errorCode == LowLevelError.successCode else {
         try onError(errorCode)
         return
     }
@@ -15,7 +15,7 @@ package func execThrowingCFunction<E: Error>(_ function: () -> CInt, onError: (C
 #if canImport(WinSDK)
 package func execThrowingCFunction<E: Error>(_ function: () -> DWORD, onError: (DWORD) throws(E) -> Void) throws(E) {
     let errorCode = function()
-    guard errorCode == SystemError.successCode else {
+    guard errorCode == LowLevelError.successCode else {
         try onError(errorCode)
         return
     }
@@ -25,7 +25,7 @@ package func execThrowingCFunction<E: Error>(_ function: () -> DWORD, onError: (
 
 package func execThrowingCFunction<E: Error>(_ function: () -> CInt, onError: () throws(E) -> Void) throws(E) {
     let errorCode = function()
-    guard errorCode == SystemError.successCode else {
+    guard errorCode == LowLevelError.successCode else {
         try onError()
         return
     }
@@ -42,25 +42,25 @@ package func execThrowingCFunction<E: Error>(_ function: () -> Bool, onError: ()
 
 
 @inlinable
-package func execThrowingCFunction(_ function: () -> CInt) throws(SystemError) {
+package func execThrowingCFunction(_ function: () -> CInt) throws(LowLevelError) {
     let errorCode = function()
-    guard errorCode == SystemError.successCode else {
-        try SystemError.assertError()
+    guard errorCode == LowLevelError.successCode else {
+        try LowLevelError.assertError()
     }
 }
 
 
-package func execThrowingCFunction(_ function: () -> Bool) throws(SystemError) {
+package func execThrowingCFunction(_ function: () -> Bool) throws(LowLevelError) {
     let success = function()
     guard success else {
-        try SystemError.assertError()
+        try LowLevelError.assertError()
     }
 }
 
 
 package func execThrowingCFunction(operation: @autoclosure () -> PlatformError.Operation, _ function: () -> CInt) throws(PlatformError) {
     let errorCode = function()
-    guard errorCode == SystemError.successCode else {
+    guard errorCode == LowLevelError.successCode else {
         try PlatformError.assertError(operation: operation())
     }
 }
@@ -75,15 +75,16 @@ package func execThrowingCFunction(operation: @autoclosure () -> PlatformError.O
 
 
 @inlinable
-package func catchSystemError<R: ~Copyable>(
+package func catchLowLevelError<R: ~Copyable>(
     operation: @autoclosure () -> PlatformError.Operation, 
-    _ function: () throws(SystemError) -> R
+    _ function: () throws(LowLevelError) -> R,
+    kindConversion: (LowLevelError) -> PlatformErrorKind = { $0.kind } 
 ) throws(PlatformError) -> R {
 
     do {
         return try function()
     } catch {
-        throw .init(systemError: error, operation: operation())
+        throw .init(lowLevelError: error, kind: kindConversion(error), operation: operation())
     }
 
 }

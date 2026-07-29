@@ -207,7 +207,7 @@ extension FileSystemTest.SettingFileInfoTests {
             try FileSystem().setAttributes(forItemAt: symlinkPath, attributes: attr, followSymlink: false)
         }
 
-        #expect(error?.code == .system(.tooManyLevelSymbolicLinks))
+        #expect(error?.systemCode == .tooManyLevelSymbolicLinks)
         try expectItem(at: symlinkPath, toMatch: linkExpectation)
 
         #else 

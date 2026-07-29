@@ -50,7 +50,7 @@ extension ReadWriteFileHandle {
         openOptions.noBlocking = false
         #endif
 
-        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             try UnsafeSystemHandle.open(at: path, openOptions: openOptions, creationPermissions: creationPermissions)
         }
 
@@ -71,7 +71,7 @@ extension ReadWriteFileHandle {
 
         openOptions.noBlocking = true
 
-        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             try UnsafeSystemHandle.open(at: path, openOptions: openOptions, creationPermissions: creationPermissions)
         }
 
@@ -126,7 +126,7 @@ extension ReadWriteFileHandle {
 
         #else 
 
-        try catchSystemError(operation: .seekHandle(originalPath: path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
             try handle.seek(to: offset, from: whence)
         }
 
@@ -138,7 +138,7 @@ extension ReadWriteFileHandle {
         do {
             try handle.close()
         } catch {
-            throw .init(systemError: error, operation: .closeHandle(originalPath: path))
+            throw .init(lowLevelError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
@@ -161,20 +161,20 @@ extension ReadWriteFileHandle {
         #if canImport(WinSDK)
 
         if let offset, offset < 0 {
-            throw .init(code: .invalidInput, operation: .readHandle(originalPath: path))!
+            throw .init(lowLevelError: .init(kind: .invalidInput), operation: .readHandle(originalPath: path))
         }
 
-        return try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in
-            do throws(SystemError) {
+        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
+            do throws(LowLevelError) {
                 if let offset {
-                    return try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                    return try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
                         var overlapped = WindowsOverlapped(offset: offset)
                         let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
                         return try handle.waitForOverlappedResult(pendingOverlapped)
                     }
                 } else {
                     let currentOffset = _currentOffset.withLock(\.self)
-                    let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                    let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
                         var overlapped = WindowsOverlapped(offset: currentOffset)
                         let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped) 
                         return try handle.waitForOverlappedResult(pendingOverlapped)
@@ -184,20 +184,20 @@ extension ReadWriteFileHandle {
                     }
                     return bytesRead
                 }
-            } catch let error where error.code == .system(.handleEOF) {
+            } catch let error where error.systemCode == .handleEOF {
                 return 0
             }
         }
 
         #else
 
-        return try catchSystemError(operation: .readHandle(originalPath: path)) { () throws(SystemError) in 
+        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in 
             if let offset {
-                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
                     try handle.pread(into: bufferPtr, from: offset, length: lengthToRead)
                 }
             } else {
-                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(SystemError) in
+                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
                     try handle.read(into: bufferPtr, length: lengthToRead)
                 }
             }
@@ -218,11 +218,11 @@ extension ReadWriteFileHandle {
         #if canImport(WinSDK)
 
         if let offset, offset < 0 {
-            throw .init(code: .invalidInput, operation: .writeHandle(originalPath: path))!
+            throw .init(lowLevelError: .init(kind: .invalidInput), operation: .writeHandle(originalPath: path))
         }
 
         return try data.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
                     let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
@@ -243,7 +243,7 @@ extension ReadWriteFileHandle {
         #else
 
         return try data.withUnsafeBytes { bufferPtr throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 if let offset {
                     return try handle.pwrite(contentsOf: bufferPtr, to: offset)
                 } else {
@@ -259,7 +259,7 @@ extension ReadWriteFileHandle {
 
     public func resize(to size: Int64) throws(PlatformError) {
         
-        try catchSystemError(operation: .resizeHandle(originalPath: path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .resizeHandle(originalPath: path)) { () throws(LowLevelError) in
             try handle.truncate(to: size)
         }
 
@@ -268,7 +268,7 @@ extension ReadWriteFileHandle {
 
     public func synchronize() throws(PlatformError) {
         
-        try catchSystemError(operation: .syncHandle(originalPath: path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .syncHandle(originalPath: path)) { () throws(LowLevelError) in
             try handle.fsync()
         }
 

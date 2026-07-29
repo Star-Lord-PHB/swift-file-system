@@ -1,15 +1,17 @@
-import SystemPackage
+import struct SystemPackage.FilePath
 
 
 
 public struct RecursiveCopySingleItemError: Sendable, Equatable, Hashable {
     public let itemRelativePath: FilePath
-    public let code: PlatformErrorCode
-    public init(itemRelativePath: FilePath, code: PlatformErrorCode) {
+    public let systemCode: SystemErrorCode?
+    public let kind: PlatformErrorKind
+    public init(itemRelativePath: FilePath, code: SystemErrorCode? = nil, kind: PlatformErrorKind? = nil) {
         precondition(code != .success, "code should not be .success for an error")
         precondition(itemRelativePath.isRelative, "itemRelativePath should be relative") 
         self.itemRelativePath = itemRelativePath
-        self.code = code
+        self.systemCode = code
+        self.kind = kind ?? code?.defaultMappedErrorKind ?? .unknown
     }
 }
 
@@ -42,7 +44,7 @@ public struct RecursiveCopyErrorReport: Sendable, Equatable, Hashable, Error {
     }
 
     public consuming func throwAsPlatformError() throws(PlatformError) -> Never {
-        throw .init(code: .unknown, operation: .recursiveCopy(srcRootPath: srcRootPath, dstRootPath: dstRootPath), underlyingError: self)!
+        throw .init(error: self, kind: .unknown, operation: .recursiveCopy(srcRootPath: srcRootPath, dstRootPath: dstRootPath))
     }
 
 }

@@ -5,7 +5,7 @@ import PlatformCLib
 
 extension UnsafeSystemHandle {
 
-    package func fileInfo() throws(SystemError) -> FileInfo {
+    package func fileInfo() throws(LowLevelError) -> FileInfo {
 
         #if canImport(WinSDK)
 
@@ -58,7 +58,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    package func type() throws(SystemError) -> FileKind {
+    package func type() throws(LowLevelError) -> FileKind {
 
         #if canImport(WinSDK)
 
@@ -81,14 +81,14 @@ extension UnsafeSystemHandle {
 
 
     #if canImport(WinSDK)
-    fileprivate func type(prefetchedAttributes: DWORD) throws(SystemError) -> FileKind {
+    fileprivate func type(prefetchedAttributes: DWORD) throws(LowLevelError) -> FileKind {
 
         SetLastError(DWORD(NO_ERROR))
         let fileTypeFlags = GetFileType(unsafeRawHandle)
-        try SystemError.check()
+        try LowLevelError.check()
 
         var isSimLink: Bool {
-            get throws(SystemError) {
+            get throws(LowLevelError) {
                 guard prefetchedAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 else {
                     return false
                 }
@@ -127,7 +127,7 @@ extension UnsafeSystemHandle {
         access: FileTimeSpec? = nil, 
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         if access == nil && modification == nil && creation == nil { return }
 
@@ -177,7 +177,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func fileTimes() throws(SystemError) -> FileTimes {
+    package func fileTimes() throws(LowLevelError) -> FileTimes {
 
         #if canImport(WinSDK)
 
@@ -216,7 +216,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    package func fileAttributes() throws(SystemError) -> PlatformFileAttributes {
+    package func fileAttributes() throws(LowLevelError) -> PlatformFileAttributes {
         #if canImport(WinSDK)
         var fileBasicInfo = FILE_BASIC_INFO()
         try execThrowingCFunction {
@@ -233,7 +233,7 @@ extension UnsafeSystemHandle {
 
     #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
-    package func setFileAttributes(_ attributes: PlatformFileAttributes) throws(SystemError) {
+    package func setFileAttributes(_ attributes: PlatformFileAttributes) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -264,12 +264,12 @@ extension UnsafeSystemHandle {
     #else 
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
-    package func setFileAttributes(_ attributes: PlatformFileAttributes) throws(SystemError) {
-        throw SystemError(code: .extended(.notImplemented))!
+    package func setFileAttributes(_ attributes: PlatformFileAttributes) throws(LowLevelError) {
+        throw .init(kind: .unsupported)
     }
 
 
-    package func fileInodeFlags() throws(SystemError) -> LinuxInodeFlags {
+    package func fileInodeFlags() throws(LowLevelError) -> LinuxInodeFlags {
         var flags: PlatformInteropTypes.PosixInodeFlags = 0
         try execThrowingCFunction {
             ioctl(unsafeRawHandle, _FS_IOC_GETFLAGS, &flags)
@@ -278,7 +278,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func setFileInodeFlags(_ flags: LinuxInodeFlags) throws(SystemError) {
+    package func setFileInodeFlags(_ flags: LinuxInodeFlags) throws(LowLevelError) {
         var flags = flags.rawValue
         try execThrowingCFunction {
             return ioctl(unsafeRawHandle, _FS_IOC_SETFLAGS, &flags)
@@ -295,7 +295,7 @@ extension UnsafeSystemHandle {
 
     #if canImport(WinSDK)
 
-    package func securityInfo(_ members: FileOperationOptions.WindowsSecurityInfoMembers) throws(SystemError) -> WindowsSelfRelativeSecurityDescriptor {
+    package func securityInfo(_ members: FileOperationOptions.WindowsSecurityInfoMembers) throws(LowLevelError) -> WindowsSelfRelativeSecurityDescriptor {
 
         var psd = nil as PSECURITY_DESCRIPTOR?
 
@@ -304,8 +304,8 @@ extension UnsafeSystemHandle {
                 unsafeRawHandle, SE_FILE_OBJECT, members.rawValue,
                 nil, nil, nil, nil, &psd
             )
-        } onError: { (code) throws(SystemError) in
-            if let error = SystemError(code: code) {
+        } onError: { (code) throws(LowLevelError) in
+            if let error = .init(rawSystemCode: code) {
                 throw error
             }
         }
@@ -323,7 +323,7 @@ extension UnsafeSystemHandle {
         sacl: WindowsRawAcl.View?, 
         owner: WindowsSid?, 
         group: WindowsSid?
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         guard !members.isEmpty else { return }
 
@@ -333,8 +333,8 @@ extension UnsafeSystemHandle {
                 owner?.psid.unsafeResourcePtr, group?.psid.unsafeResourcePtr, 
                 dacl?.pacl.unsafelyCastedMutableRawPtr, sacl?.pacl.unsafelyCastedMutableRawPtr
             )
-        } onError: { (code) throws(SystemError) in
-            if let error = SystemError(code: code) {
+        } onError: { (code) throws(LowLevelError) in
+            if let error = .init(rawSystemCode: code) {
                 throw error
             }
         }
@@ -343,12 +343,12 @@ extension UnsafeSystemHandle {
 
     #else
     
-    package func posixPermissions() throws(SystemError) -> FilePermissions {
+    package func posixPermissions() throws(LowLevelError) -> FilePermissions {
         return try .init(rawValue: fstat().st_mode & 0o7777)
     }
     
 
-    package func setPosixPermissions(_ permissions: FilePermissions) throws(SystemError) {
+    package func setPosixPermissions(_ permissions: FilePermissions) throws(LowLevelError) {
         try execThrowingCFunction {
             fchmod(unsafeRawHandle, permissions.rawValue)
         }
@@ -362,7 +362,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
     
-    package func owner() throws(SystemError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
+    package func owner() throws(LowLevelError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
         
         #if canImport(WinSDK)
         
@@ -394,7 +394,7 @@ extension UnsafeSystemHandle {
     }
     
     
-    package func fchown(owner: PlatformIdentity?, group: PlatformIdentity?) throws(SystemError) {
+    package func fchown(owner: PlatformIdentity?, group: PlatformIdentity?) throws(LowLevelError) {
         
         #if canImport(WinSDK)
         

@@ -1,4 +1,4 @@
-import SystemPackage
+import struct SystemPackage.FilePath
 import FileSystemCore
 
 
@@ -31,7 +31,7 @@ extension AppendHandle {
         openOptions.append = true
         openOptions.noBlocking = false
 
-        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             try UnsafeSystemHandle.open(
                 at: path,
                 openOptions: openOptions,
@@ -56,7 +56,7 @@ extension AppendHandle {
         openOptions.append = true
         openOptions.noBlocking = false
 
-        let handle = try catchSystemError(operation: .open(path)) { () throws(SystemError) in
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             try UnsafeSystemHandle.open(
                 at: path,
                 openOptions: openOptions,
@@ -100,7 +100,7 @@ extension AppendHandle {
         do {
             try handle.close()
         } catch {
-            throw .init(systemError: error, operation: .closeHandle(originalPath: path))
+            throw .init(lowLevelError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
@@ -121,7 +121,7 @@ extension AppendHandle {
     public func append(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
 
         try data.withUnsafeBytes { buffer throws(PlatformError) in
-            try catchSystemError(operation: .writeHandle(originalPath: path)) { () throws(SystemError) in
+            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 try handle.write(contentsOf: buffer)
             }
         }
@@ -131,7 +131,7 @@ extension AppendHandle {
 
     public func synchronize() throws(PlatformError) {
 
-        try catchSystemError(operation: .syncHandle(originalPath: path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .syncHandle(originalPath: path)) { () throws(LowLevelError) in
             try handle.fsync()
         }
 

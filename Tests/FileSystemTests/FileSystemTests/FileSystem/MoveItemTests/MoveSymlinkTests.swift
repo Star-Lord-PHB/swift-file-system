@@ -167,7 +167,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error?.code == .isADirectory)
+        #expect(error?.systemCode == .isADirectory)
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)

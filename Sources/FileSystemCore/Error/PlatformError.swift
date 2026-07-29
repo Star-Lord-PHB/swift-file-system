@@ -1,37 +1,84 @@
-import SystemPackage
+import struct SystemPackage.FilePath
 
 
 
 public struct PlatformError: Error, CustomStringConvertible {
 
-    public let code: PlatformErrorCode
-    public let operation: Operation
-    public let underlyingError: (any Error)?
-
-    public var kind: PlatformErrorCode.Kind { code.mappedErrorKind }
-
-
-    public init?(code: PlatformErrorCode, operation: Operation, underlyingError: (any Error)? = nil) {
-        guard code != .success else { return nil }
-        self.code = code
-        self.operation = operation
-        self.underlyingError = underlyingError
+    public enum Cause: Sendable {
+        case lowLevel(LowLevelError)
+        case otherError(error: any Error, kind: PlatformErrorKind)
     }
 
 
-    public init(systemError: SystemError, operation: Operation, underlyingError: (any Error)? = nil) {
-        self.init(code: systemError.code, operation: operation, underlyingError: underlyingError)!
+    public let cause: Cause
+    public let operation: Operation
+
+    public var systemCode: SystemErrorCode? {
+        switch cause {
+            case .lowLevel(let lowLevelError): lowLevelError.systemCode
+            case .otherError: nil
+        }
+    }
+    public var kind: PlatformErrorKind {
+        switch cause {
+            case .lowLevel(let lowLevelError): lowLevelError.kind
+            case .otherError(_, let kind): kind
+        }
+    }
+    public var underlyingError: any Error {
+        switch cause {
+            case .lowLevel(let lowLevelError): lowLevelError
+            case .otherError(let error, _): error
+        }
+    }
+
+
+    package init(cause: Cause, operation: Operation) {
+        self.cause = cause
+        self.operation = operation
+    }
+
+
+    public init?(systemCode: SystemErrorCode?, kind: PlatformErrorKind? = nil, operation: Operation) {
+        guard systemCode != .success else { return nil }
+        self.cause = .lowLevel(.init(systemCode: systemCode, kind: kind)!)
+        self.operation = operation
+    }
+
+
+    public init(lowLevelError: LowLevelError, kind: PlatformErrorKind? = nil, operation: Operation) {
+        self.cause = .lowLevel(.init(systemCode: lowLevelError.systemCode, kind: kind ?? lowLevelError.kind)!)
+        self.operation = operation
+    }
+
+
+    public init(error: any Error, kind: PlatformErrorKind, operation: Operation) {
+        self.cause = .otherError(error: error, kind: kind)
+        self.operation = operation
     }
 
 
     public var description: String {
-        """
-        PlatformError(\
-        operation: \(operation)\
-        \(code.rawValue.map { ", code: \($0)" } ?? "")\
-        \(underlyingError.map { ", underlyingError: \($0)" } ?? "")\
-        )
-        """
+        var description = "PlatformError(\(kind), operation: \(operation)"
+        switch cause {
+            case .lowLevel(let lowLevelError) where lowLevelError.systemCode != nil:
+                description += ", systemCode: \(lowLevelError.systemCode!.rawValue)"
+            case .otherError(let error, _):
+                description += ", underlyingError: \(error)"
+            default: break
+        }
+        description += ")"
+        return description
+    }
+
+
+    package func overridingKind(_ kind: PlatformErrorKind) -> Self {
+        return switch cause {
+            case .lowLevel(let lowLevelError):
+                .init(lowLevelError: lowLevelError, kind: kind, operation: operation)
+            case .otherError(let error, _):
+                .init(error: error, kind: kind, operation: operation)
+        }
     }
 
 }
@@ -40,18 +87,19 @@ public struct PlatformError: Error, CustomStringConvertible {
 
 extension PlatformError {
 
-    public static func unknown(operation: Operation, underlyingError: (any Error)? = nil) -> Self {
-        .init(code: .extended(.unknown), operation: operation, underlyingError: underlyingError)!
+    public static func unknown(operation: Operation) -> Self {
+        .init(lowLevelError: .unknown, operation: operation)
     }
 
 
-    public init?(code: PlatformInteropTypes.ErrorCode, operation: Operation, underlyingError: (any Error)? = nil) {
-        self.init(code: .system(.init(rawValue: code)), operation: operation, underlyingError: underlyingError)
+
+    public init?(rawSystemCode: PlatformInteropTypes.ErrorCode?, kind: PlatformErrorKind? = nil, operation: Operation) {
+        self.init(systemCode: rawSystemCode.map { .init(rawValue: $0) }, kind: kind, operation: operation)
     }
 
     
     public static func fromLastError(operation: @autoclosure () -> Operation) -> Self? {
-        .init(code: .system(.fromLastError()), operation: operation(), underlyingError: nil)
+        .init(systemCode: .fromLastError(), kind: nil, operation: operation())
     }
 
     
@@ -78,7 +126,59 @@ extension PlatformError {
 
 extension PlatformError {
 
-    public enum Operation: Sendable, Equatable, Hashable, CustomStringConvertible {
+    public struct Operation: Sendable, Equatable, Hashable, CustomStringConvertible {
+
+        private let operationCase: OperationCase
+
+        private init(_ operationCase: OperationCase) {
+            self.operationCase = operationCase
+        }
+
+        public var description: String {
+            operationCase.description
+        }
+
+    }
+
+
+    public struct CustomOperationName: Sendable, Equatable, Hashable, CustomStringConvertible, ExpressibleByStringLiteral {
+        public let id: StaticString
+        private let _description: (@Sendable () -> String)?
+        public init(name: StaticString, description: (@Sendable () -> String)? = nil) {
+            self.id = name
+            self._description = description
+        }
+        public init(stringLiteral value: StaticString) {
+            self.id = value
+            self._description = nil
+        }
+        public var description: String {
+            _description?() ?? String(describing: id)
+        }
+        public static func == (lhs: CustomOperationName, rhs: CustomOperationName) -> Bool {
+            guard lhs.id.utf8CodeUnitCount == rhs.id.utf8CodeUnitCount else {
+                return false
+            }
+            return lhs.id.withUTF8Buffer { lhsBuffer in
+                rhs.id.withUTF8Buffer { rhsBuffer in
+                    lhsBuffer.elementsEqual(rhsBuffer)
+                }
+            }
+        }
+        public func hash(into hasher: inout Hasher) {
+            id.withUTF8Buffer { buffer in 
+                hasher.combine(bytes: .init(buffer))
+            }
+        }
+    }
+
+}
+
+
+
+extension PlatformError.Operation {
+
+    public enum OperationCase: Sendable, Equatable, Hashable, CustomStringConvertible {
 
         // Path based FS operations
         case open(_ path: FilePath)
@@ -118,7 +218,7 @@ extension PlatformError {
         case queryCurrentIdentity 
         case queryEffectiveAccessMask
 
-        case custom(name: CustomOperationName)
+        case custom(name: PlatformError.CustomOperationName)
 
         public var description: String {
             switch self {
@@ -162,36 +262,45 @@ extension PlatformError {
 
     }
 
+}
 
-    public struct CustomOperationName: Sendable, Equatable, Hashable, CustomStringConvertible, ExpressibleByStringLiteral {
-        public let id: StaticString
-        private let _description: (@Sendable () -> String)?
-        public init(name: StaticString, description: (@Sendable () -> String)? = nil) {
-            self.id = name
-            self._description = description
-        }
-        public init(stringLiteral value: StaticString) {
-            self.id = value
-            self._description = nil
-        }
-        public var description: String {
-            _description?() ?? String(describing: id)
-        }
-        public static func == (lhs: CustomOperationName, rhs: CustomOperationName) -> Bool {
-            guard lhs.id.utf8CodeUnitCount == rhs.id.utf8CodeUnitCount else {
-                return false
-            }
-            return lhs.id.withUTF8Buffer { lhsBuffer in
-                rhs.id.withUTF8Buffer { rhsBuffer in
-                    lhsBuffer.elementsEqual(rhsBuffer)
-                }
-            }
-        }
-        public func hash(into hasher: inout Hasher) {
-            id.withUTF8Buffer { buffer in 
-                hasher.combine(bytes: .init(buffer))
-            }
-        }
-    }
+
+ 
+extension PlatformError.Operation {
+
+    public static func open(_ path: FilePath) -> Self { .init(.open(path)) }
+    public static func createFile(_ path: FilePath) -> Self { .init(.createFile(path)) }
+    public static func createDirectory(_ path: FilePath) -> Self { .init(.createDirectory(path)) }
+    public static func createSymlink(linkPath: FilePath, dstPath: FilePath) -> Self { .init(.createSymlink(linkPath: linkPath, dstPath: dstPath)) }
+    public static func createHardLink(linkPath: FilePath, existingPath: FilePath) -> Self { .init(.createHardLink(linkPath: linkPath, existingPath: existingPath)) }
+    public static func remove(_ path: FilePath) -> Self { .init(.remove(path)) }
+    public static func move(srcPath: FilePath, dstPath: FilePath) -> Self { .init(.move(srcPath: srcPath, dstPath: dstPath)) }
+    public static func copy(srcPath: FilePath, dstPath: FilePath) -> Self { .init(.copy(srcPath: srcPath, dstPath: dstPath)) }
+    public static func recursiveCopy(srcRootPath: FilePath, dstRootPath: FilePath) -> Self { .init(.recursiveCopy(srcRootPath: srcRootPath, dstRootPath: dstRootPath)) } 
+    public static func readSymlink(_ path: FilePath) -> Self { .init(.readSymlink(path)) }
+    public static func recursiveResolveSymlink(_ path: FilePath) -> Self { .init(.recursiveResolveSymlink(path)) }
+    public static func readDirectory(_ path: FilePath) -> Self { .init(.readDirectory(path)) }
+    public static func fetchMeta(_ path: FilePath) -> Self { .init(.fetchMeta(path)) }
+    public static func setMeta(_ path: FilePath) -> Self { .init(.setMeta(path)) }
+
+    public static func readHandle(originalPath: FilePath) -> Self { .init(.readHandle(originalPath: originalPath)) }
+    public static func writeHandle(originalPath: FilePath) -> Self { .init(.writeHandle(originalPath: originalPath)) }
+    public static func closeHandle(originalPath: FilePath) -> Self { .init(.closeHandle(originalPath: originalPath)) }
+    public static func seekHandle(originalPath: FilePath) -> Self { .init(.seekHandle(originalPath: originalPath)) }
+    public static func readHandleOffset(originalPath: FilePath) -> Self { .init(.readHandleOffset(originalPath: originalPath)) }
+    public static func resizeHandle(originalPath: FilePath) -> Self { .init(.resizeHandle(originalPath: originalPath)) }
+    public static func syncHandle(originalPath: FilePath) -> Self { .init(.syncHandle(originalPath: originalPath)) }
+
+    public static var queryCurrentWorkingDir: Self { .init(.queryCurrentWorkingDir) }
+    public static var queryExecutablePath: Self { .init(.queryExecutablePath) }
+    public static var queryHomeDir: Self { .init(.queryHomeDir) }
+    public static var queryCacheDir: Self { .init(.queryCacheDir) }
+    public static var queryTempDir: Self { .init(.queryTempDir) }
+    public static var queryAccountNameFromIdentity: Self { .init(.queryAccountNameFromIdentity) }
+    public static var queryIdentityfromName: Self { .init(.queryIdentityfromName) }
+    public static var queryCurrentIdentity: Self { .init(.queryCurrentIdentity) }
+    public static var queryEffectiveAccessMask: Self { .init(.queryEffectiveAccessMask) }
+
+    public static func custom(name: PlatformError.CustomOperationName) -> Self { .init(.custom(name: name)) }
 
 }

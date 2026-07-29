@@ -47,7 +47,7 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
             fatalError(
                 """
                 Unexpected failure when converting WindowsSelfRelativeSecurityDescriptor to\
-                WindowsAbsoluteSecurityDescriptor: \(error.code.description). This should not happen since the\
+                WindowsAbsoluteSecurityDescriptor: \(error). This should not happen since the\
                 descriptor should have been validated. It can be a severe memory corruption issue (e.g.: the\
                 pointer used to initialize this type is unexpectedly mutated by some other owner) or a bug in\
                 the implementation.
@@ -88,19 +88,19 @@ extension WindowsSelfRelativeSecurityDescriptor {
 
 extension WindowsSelfRelativeSecurityDescriptor {
 
-    package init(converting absoluteDescriptor: borrowing WindowsAbsoluteSecurityDescriptor) throws(SystemError) {
+    package init(converting absoluteDescriptor: borrowing WindowsAbsoluteSecurityDescriptor) throws(LowLevelError) {
         try self.init(converting: absoluteDescriptor.psd.unownedView().immutableCast())
     }
 
 
-    package init(converting absoluteDescriptor: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) {
+    package init(converting absoluteDescriptor: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(LowLevelError) {
 
         var selfRelativeSDSize = 0 as DWORD
         guard 
             MakeSelfRelativeSD(absoluteDescriptor.unsafelyCastedMutableRawPtr, nil, &selfRelativeSDSize) == false, 
             GetLastError() == ERROR_INSUFFICIENT_BUFFER 
         else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         let selfRelativeSDPtr = UnsafeOwnedRawAutoPointer.swiftAllocate(

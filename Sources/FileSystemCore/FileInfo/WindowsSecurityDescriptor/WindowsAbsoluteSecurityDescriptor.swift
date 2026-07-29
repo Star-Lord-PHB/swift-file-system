@@ -218,12 +218,12 @@ extension WindowsAbsoluteSecurityDescriptor {
 
 extension WindowsAbsoluteSecurityDescriptor {
 
-    package init(converting selfRelativeSd: borrowing WindowsSelfRelativeSecurityDescriptor) throws(SystemError) {
+    package init(converting selfRelativeSd: borrowing WindowsSelfRelativeSecurityDescriptor) throws(LowLevelError) {
         try self.init(converting: selfRelativeSd.psd.unownedView())
     }
 
 
-    package init(converting selfRelativeSdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(SystemError) {
+    package init(converting selfRelativeSdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>) throws(LowLevelError) {
         
         var psd = nil as UnsafeMutablePointer<SECURITY_DESCRIPTOR>?
         var pdacl = nil as UnsafeMutablePointer<ACL>?
@@ -251,7 +251,7 @@ extension WindowsAbsoluteSecurityDescriptor {
 
         let errorCode = GetLastError()
         guard errorCode == ERROR_INSUFFICIENT_BUFFER else {
-            throw SystemError(code: errorCode)!
+            throw .init(rawSystemCode: errorCode)!
         }
 
         psd = UnsafeMutablePointer<SECURITY_DESCRIPTOR>.allocate(capacity: Int(sdSize))
@@ -292,7 +292,7 @@ extension WindowsAbsoluteSecurityDescriptor {
     }
 
 
-    package static func makeForCurrentUser(fromPosixPermissions posixPermissions: FilePermissions, forDir: Bool = false) throws(SystemError) -> Self {
+    package static func makeForCurrentUser(fromPosixPermissions posixPermissions: FilePermissions, forDir: Bool = false) throws(LowLevelError) -> Self {
 
         let processToken = try WindowsProcessToken.current()
 

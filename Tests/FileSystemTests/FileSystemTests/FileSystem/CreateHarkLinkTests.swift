@@ -128,9 +128,9 @@ extension FileSystemTest.CreateHardLinkTest {
         }
 
         #if canImport(WinSDK)
-        #expect(error?.code == .system(.accessDenied))
+        #expect(error?.systemCode == .accessDenied)
         #else
-        #expect(error?.code == .system(.operationNotPermitted))
+        #expect(error?.systemCode == .operationNotPermitted)
         #endif
 
     }
@@ -146,7 +146,7 @@ extension FileSystemTest.CreateHardLinkTest {
             try FileSystem().createHardLink(at: hardLinkParh, for: existingPath)
         }
 
-        #expect(error?.code == .fileNotFound)
+        #expect(error?.kind == .notFound)
 
     }
 

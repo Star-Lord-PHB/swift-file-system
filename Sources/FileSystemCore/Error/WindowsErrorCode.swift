@@ -2,7 +2,7 @@
 import WinSDK
 
 
-extension PlatformErrorCode.SystemErrorCode {
+extension SystemErrorCode {
 
     @inlinable public static var invalidFunction: Self { .init(rawValue: .init(ERROR_INVALID_FUNCTION)) }
     @inlinable public static var fileNotFound: Self { .init(rawValue: .init(ERROR_FILE_NOT_FOUND)) }
@@ -34,21 +34,25 @@ extension PlatformErrorCode.SystemErrorCode {
     @inlinable public static var notSupported: Self { .init(rawValue: .init(ERROR_NOT_SUPPORTED)) }
     @inlinable public static var insufficientBuffer: Self { .init(rawValue: .init(ERROR_INSUFFICIENT_BUFFER)) }
     @inlinable public static var arithmeticOverflow: Self { .init(rawValue: .init(ERROR_ARITHMETIC_OVERFLOW)) }
+    @inlinable public static var cannotResolveFilename: Self { .init(rawValue: .init(ERROR_CANT_RESOLVE_FILENAME)) }
+    @inlinable public static var notAReparsePoint: Self { .init(rawValue: .init(ERROR_NOT_A_REPARSE_POINT)) }
 
 
-    public var mappedErrorKind: PlatformErrorCode.Kind {
+    package var defaultMappedErrorKind: PlatformErrorKind {
         switch self {
             case .fileNotFound, .pathNotFound: .notFound
             case .accessDenied: .permissionDenied
             case .alreadyExists, .fileExists: .alreadyExists
             case .badArguments: .invalidInput
             case .invalidDirectoryName: .notADirectory
+            case .notAReparsePoint: .notASymlink
             case .directoryNotEmpty: .notEmptyDirectory
             case .invalidHandle: .invalidHandle 
             case .diskFull: .noEnoughSpace
             case .fileNameTooLong: .nameTooLong
             case .notSupported: .unsupported
             case .arithmeticOverflow: .arithmeticOverflow
+            case .cannotResolveFilename: .pathResolutionFailed
             default: .unknown
         }
     }

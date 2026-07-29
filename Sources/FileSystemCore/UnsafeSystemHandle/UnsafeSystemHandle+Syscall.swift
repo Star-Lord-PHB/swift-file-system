@@ -54,7 +54,7 @@ extension UnsafeSystemHandle {
         at path: FilePath, 
         openOptions: OpenOptions = .init(),
         creationPermissions: FilePermissions? = nil
-    ) throws(SystemError) -> UnsafeSystemHandle {
+    ) throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
         
@@ -78,7 +78,7 @@ extension UnsafeSystemHandle {
             )
         }
         guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: handle)
@@ -99,7 +99,7 @@ extension UnsafeSystemHandle {
             }
         }
         guard handle >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: handle)
@@ -114,7 +114,7 @@ extension UnsafeSystemHandle {
         at path: FilePath, 
         openOptions: OpenOptions = .init(), 
         creationPermissions: WindowsSecurityDescriptorView
-    ) throws(SystemError) -> UnsafeSystemHandle {
+    ) throws(LowLevelError) -> UnsafeSystemHandle {
 
         var securityAttributes = openOptions.securityAttributes
         securityAttributes.lpSecurityDescriptor = .init(creationPermissions.psd.unsafelyCastedMutableRawPtr)
@@ -131,7 +131,7 @@ extension UnsafeSystemHandle {
             )
         }
         guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: handle)
@@ -140,7 +140,7 @@ extension UnsafeSystemHandle {
     #endif 
 
 
-    public static func openDir(at path: FilePath) throws(SystemError) -> UnsafeSystemHandle {
+    public static func openDir(at path: FilePath) throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
@@ -150,7 +150,7 @@ extension UnsafeSystemHandle {
             CreateFileW(cStr, GENERIC_READ, DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), nil, DWORD(OPEN_EXISTING), openFlags, nil)
         }
         guard let handle, handle != INVALID_HANDLE_VALUE else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: handle)
@@ -159,7 +159,7 @@ extension UnsafeSystemHandle {
 
         let handle = PlatformCLib.open(path.string, O_RDONLY | O_DIRECTORY)
         guard handle >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: handle)
@@ -170,7 +170,7 @@ extension UnsafeSystemHandle {
 
 
     @discardableResult
-    public func seek(to offset: Int64, from whence: FileOperationOptions.SeekWhence = .beginning) throws(SystemError) -> Int64 {
+    public func seek(to offset: Int64, from whence: FileOperationOptions.SeekWhence = .beginning) throws(LowLevelError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -186,7 +186,7 @@ extension UnsafeSystemHandle {
 
         let newOffset = lseek(self.unsafeRawHandle, off_t(offset), whence.rawValue)
         guard newOffset >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return Int64(newOffset)
@@ -196,13 +196,13 @@ extension UnsafeSystemHandle {
     }
 
 
-    public func tell() throws(SystemError) -> Int64 {
+    public func tell() throws(LowLevelError) -> Int64 {
         return try self.seek(to: 0, from: .current)
     }
 
 
     @discardableResult
-    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil) throws(SystemError) -> Int64 {
+    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
 
@@ -220,7 +220,7 @@ extension UnsafeSystemHandle {
 
         let bytesRead = PlatformCLib.read(self.unsafeRawHandle, buffer.baseAddress, lengthToRead)
         guard bytesRead >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return Int64(bytesRead)
@@ -231,7 +231,7 @@ extension UnsafeSystemHandle {
 
 
     @discardableResult
-    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64, length: Int64? = nil) throws(SystemError) -> Int64 {
+    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64, length: Int64? = nil) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
 
@@ -253,7 +253,7 @@ extension UnsafeSystemHandle {
 
         let bytesRead = PlatformCLib.pread(self.unsafeRawHandle, buffer.baseAddress, lengthToRead, off_t(offset))
         guard bytesRead >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return Int64(bytesRead)
@@ -264,7 +264,7 @@ extension UnsafeSystemHandle {
 
 
     @discardableResult
-    public func write(contentsOf buffer: UnsafeRawBufferPointer) throws(SystemError) -> Int64 {
+    public func write(contentsOf buffer: UnsafeRawBufferPointer) throws(LowLevelError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -280,7 +280,7 @@ extension UnsafeSystemHandle {
 
         let bytesWritten = PlatformCLib.write(self.unsafeRawHandle, buffer.baseAddress, buffer.count)
         guard bytesWritten >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return Int64(bytesWritten)
@@ -291,7 +291,7 @@ extension UnsafeSystemHandle {
 
 
     @discardableResult
-    public func pwrite(contentsOf buffer: UnsafeRawBufferPointer, to offset: Int64) throws(SystemError) -> Int64 {
+    public func pwrite(contentsOf buffer: UnsafeRawBufferPointer, to offset: Int64) throws(LowLevelError) -> Int64 {
 
         #if canImport(WinSDK)
 
@@ -308,7 +308,7 @@ extension UnsafeSystemHandle {
 
         let bytesWritten = PlatformCLib.pwrite(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
         guard bytesWritten >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return Int64(bytesWritten)
@@ -318,7 +318,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    public func fsync() throws(SystemError) {
+    public func fsync() throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -337,7 +337,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    public func truncate(to offset: Int64) throws(SystemError) {
+    public func truncate(to offset: Int64) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -363,7 +363,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    public func truncate() throws(SystemError) {
+    public func truncate() throws(LowLevelError) {
         #if canImport(WinSDK)
         try execThrowingCFunction {
             SetEndOfFile(self.unsafeRawHandle)
@@ -374,7 +374,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    public func duplicate() throws(SystemError) -> UnsafeSystemHandle {
+    public func duplicate() throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
@@ -392,7 +392,7 @@ extension UnsafeSystemHandle {
             )
         }
         guard let newHandle else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: newHandle)
@@ -401,7 +401,7 @@ extension UnsafeSystemHandle {
 
         let newHandle = dup(self.unsafeRawHandle)
         guard newHandle >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: newHandle)
@@ -422,7 +422,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    public static func pipe() throws(SystemError) -> PipeHandles {
+    public static func pipe() throws(LowLevelError) -> PipeHandles {
 
         #if canImport(WinSDK)
 
@@ -438,7 +438,7 @@ extension UnsafeSystemHandle {
             CreatePipe(&readHandle, &writeHandle, &securityAttributes, 0)
         }
         guard let readHandle, let writeHandle else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(readHandle: .init(owningRawHandle: readHandle), writeHandle: .init(owningRawHandle: writeHandle))
@@ -466,7 +466,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeUnownedSystemHandle {
 
-    package func duplicate() throws(SystemError) -> UnsafeSystemHandle {
+    package func duplicate() throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
@@ -484,7 +484,7 @@ extension UnsafeUnownedSystemHandle {
             )
         }
         guard let newHandle else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: newHandle)
@@ -493,7 +493,7 @@ extension UnsafeUnownedSystemHandle {
 
         let newHandle = dup(self.unsafeRawHandle)
         guard newHandle >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         return .init(owningRawHandle: newHandle)

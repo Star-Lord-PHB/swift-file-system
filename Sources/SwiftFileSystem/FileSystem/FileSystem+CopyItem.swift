@@ -38,6 +38,9 @@ extension FileSystem {
 
 extension FileSystem {
 
+    fileprivate struct RecursiveCopyAbortError: Error {}
+
+
     fileprivate struct CachedCopySrcItemAttrs: ~Copyable {
 
         // this type is used instead of ``InternalFS.InternalFileTimes`` since we don't need ctime
@@ -82,7 +85,7 @@ extension FileSystem {
     }
 
 
-    fileprivate func _cacheItemAttrsForCopy(forHandle handle: borrowing UnsafeSystemHandle) throws(SystemError) -> CachedCopySrcItemAttrs {
+    fileprivate func _cacheItemAttrsForCopy(forHandle handle: borrowing UnsafeSystemHandle) throws(LowLevelError) -> CachedCopySrcItemAttrs {
 
         #if canImport(WinSDK)
 
@@ -104,14 +107,14 @@ extension FileSystem {
 
         return .init(info: .init(stat: stat), permission: .init(rawValue: stat.st_mode))
 
-        #endif 
+        #endif
 
         #endif 
 
     }
 
 
-    fileprivate func _cacheItemAttrsForCopy(forItemAt path: FilePath) throws(SystemError) -> CachedCopySrcItemAttrs {
+    fileprivate func _cacheItemAttrsForCopy(forItemAt path: FilePath) throws(LowLevelError) -> CachedCopySrcItemAttrs {
 
         #if canImport(WinSDK)
 
@@ -148,7 +151,7 @@ extension FileSystem {
     fileprivate func _writeCachedItemAttrsWithoutFileTime(
         forHandle handle: borrowing UnsafeSystemHandle, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -175,7 +178,7 @@ extension FileSystem {
     fileprivate func _writeCachedItemAttrsWithoutFileTime(
         forItemAt path: FilePath, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
         
         #if canImport(WinSDK)
 
@@ -219,9 +222,6 @@ extension FileSystem {
 
 extension FileSystem {
 
-    fileprivate struct RecursiveCopyAbortError: Error {}
-
-
     fileprivate struct RecursiveCopyErrorCollector<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol> {
         enum LazyReport {
             case none(srcRootPath: FilePath, dstRootPath: FilePath)
@@ -249,18 +249,18 @@ extension FileSystem {
             self.report = .none(srcRootPath: srcRootPath, dstRootPath: dstRootPath)
             self.strategy = strategy
         }
-        mutating func handleError(_ error: SystemError, itemRelativePath: FilePath) throws(RecursiveCopyAbortError)  {
+        mutating func handleError(_ error: LowLevelError, itemRelativePath: FilePath) throws(RecursiveCopyAbortError)  {
             assert(aborted == false, "Should not handle further error after aborted")
-            let (collect, abort) = strategy.handleError(error, itemRelativePath: itemRelativePath)
+            let (collect, abort) = strategy.handleError(lowLevelError: error, itemRelativePath: itemRelativePath)
             if collect {
-                report.append(.init(itemRelativePath: itemRelativePath, code: error.code))
+                report.append(.init(itemRelativePath: itemRelativePath, code: error.systemCode, kind: error.kind))
             }
             if abort {
                 aborted = true  
                 throw .init()
             }
         }
-        mutating func handleErrorAndAbort(_ error: SystemError, itemRelativePath: FilePath) throws(RecursiveCopyAbortError) -> Never {
+        mutating func handleErrorAndAbort(_ error: LowLevelError, itemRelativePath: FilePath) throws(RecursiveCopyAbortError) -> Never {
             assert(aborted == false, "Should not handle further error after aborted")
             defer { aborted = true }
             try handleError(error, itemRelativePath: itemRelativePath)
@@ -305,7 +305,7 @@ extension FileSystem {
             case .directory:
                 try _copyDirectoryRecursive(from: srcPath, to: dstPath, overwrite: overwrite, errorCollector: &errorCollector, srcAttrs: srcAttrs)
             default:
-                try errorCollector.handleErrorAndAbort(.init(code: .notSupported)!, itemRelativePath: .init())
+                try errorCollector.handleErrorAndAbort(.init(kind: .unsupported), itemRelativePath: .init())
         }
 
     }
@@ -317,7 +317,7 @@ extension FileSystem {
         to dstPath: FilePath, 
         overwrite: FileOperationOptions.CopyTargetExistOption, 
         srcAttrs: consuming CachedCopySrcItemAttrs? = nil
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -345,7 +345,7 @@ extension FileSystem {
         overwrite: FileOperationOptions.CopyTargetExistOption, 
         srcPath: FilePath, 
         srcFileAttrs: consuming CachedCopySrcItemAttrs,
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         assert(srcFileAttrs.type == .regular, "srcFileAttrs must represent a regular file")
 
@@ -357,7 +357,7 @@ extension FileSystem {
 
         switch (dstFileType, overwrite) {
             case (.some(_), .error): 
-                throw SystemError(code: .fileExists)!
+                throw .init(kind: .alreadyExists)
             case (.none, .error): 
                 tmpDstPath = dstPath
                 shouldRename = false
@@ -389,9 +389,9 @@ extension FileSystem {
                 dstHandle = tmpFileResult.takeHandle()
                 shouldRename = true
             case (.some(.directory), .overwrite): 
-                throw SystemError(code: .isADirectory)!
+                throw .init(kind: .isADirectory)
             case (.some(_), .overwrite): 
-                throw SystemError(code: .notSupported)!
+                throw .init(kind: .unsupported)
         }
 
         do {
@@ -410,7 +410,7 @@ extension FileSystem {
             }
         } catch {
             try? InternalFS.unlink(fileAt: tmpDstPath)  // error of this operation is ignored
-            error.code.rawValue.map { errno = $0 }      // restore errno
+            (error.systemCode?.rawValue).map { errno = $0 }      // restore errno
             throw error
         }
 
@@ -424,7 +424,7 @@ extension FileSystem {
         to dstPath: FilePath, 
         overwrite: FileOperationOptions.CopyTargetExistOption, 
         srcAttrs: consuming CachedCopySrcItemAttrs? = nil
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         let srcAttrs = if let srcAttrs { srcAttrs } else { try _cacheItemAttrsForCopy(forItemAt: srcPath) }
         assert(srcAttrs.type == .symlink, "srcAttrs must represent a symlink")
@@ -442,7 +442,7 @@ extension FileSystem {
 
         switch (dstFileType, overwrite) {
             case (.some(_), .error): 
-                throw SystemError(code: .fileExists)!
+                throw .init(kind: .alreadyExists)
             case (.none, .error):
                 #if canImport(Darwin)
                 try InternalFS.copyItemWithMetaNoTimes(from: srcPath, to: dstPath, overwrite: false)
@@ -474,15 +474,14 @@ extension FileSystem {
                     }
                 }
                 guard created else {
-                    errno = PlatformErrorCode.SystemErrorCode.fileExists.rawValue
-                    throw SystemError(code: .fileExists)!
+                    throw .init(kind: .alreadyExists)
                 }
                 dstTmpPath = trialDstTmpPath
                 shouldRename = true
             case (.some(.directory), .overwrite):
-                throw SystemError(code: .isADirectory)!
+                throw .init(kind: .isADirectory)
             case (.some(_), .overwrite):
-                throw SystemError(code: .notSupported)!
+                throw .init(kind: .unsupported)
         }
 
         do {
@@ -498,7 +497,7 @@ extension FileSystem {
             }
         } catch {
             try? InternalFS.unlink(fileAt: dstTmpPath)
-            error.code.rawValue.map { errno = $0 }
+            (error.systemCode?.rawValue).map { errno = $0 }
             throw error
         }
 
@@ -513,7 +512,7 @@ extension FileSystem {
         to dstPath: FilePath,
         overwrite: FileOperationOptions.CopyTargetExistOption,
         srcAttrs: consuming CachedCopySrcItemAttrs
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         assert(
             srcAttrs.type == .regular || srcAttrs.type == .symlink, 
@@ -526,7 +525,7 @@ extension FileSystem {
         let shouldRename: Bool
 
         switch (overwrite, dstFileType) {
-            case (.error, .some(_)): throw SystemError(code: .fileExists)!
+            case (.error, .some(_)): throw .init(kind: .alreadyExists)
             case (.skip, .some(_)): return
             case (.error, .none), (.skip, .none): 
                 tmpDstPath = dstPath
@@ -536,7 +535,7 @@ extension FileSystem {
                 } catch let error where error.kind == .alreadyExists && overwrite == .skip {
                     return
                 }
-            case (.overwrite, .directory) : throw SystemError(code: .isADirectory)!
+            case (.overwrite, .directory) : throw .init(kind: .isADirectory)
             case (.overwrite, _):
                 var tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 shouldRename = true
@@ -550,8 +549,7 @@ extension FileSystem {
                     tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 }
                 guard copied else {
-                    SetLastError(PlatformErrorCode.SystemErrorCode.fileExists.rawValue)
-                    throw SystemError(code: .fileExists)! 
+                    throw .init(kind: .alreadyExists)
                 }
                 tmpDstPath = tmpPath
         }
@@ -565,7 +563,7 @@ extension FileSystem {
             }
         } catch {
             try? InternalFS.unlink(fileAt: tmpDstPath)      // error of this operation is ignored
-            error.code.rawValue.map { SetLastError($0) }    // restore errno
+            error.systemCode?.rawValue.map { SetLastError($0) }    // restore errno
             throw error
         }
 
@@ -577,7 +575,7 @@ extension FileSystem {
         case copied(CachedCopySrcItemAttrs?)
         case skipped(FileTimeSpec?)
         case skippedNonDir
-        case error(SystemError)
+        case error(LowLevelError)
     }
 
 
@@ -601,12 +599,12 @@ extension FileSystem {
             return .copied(srcAttrs)
             #endif
         } catch where error.kind == .alreadyExists {
-            do throws(SystemError) {
+            do throws(LowLevelError) {
                 switch overwrite {
                     case .error: throw error
                     case .skip: 
                         guard let type = try? InternalFS.type(ofItemAt: dstPath) else {
-                            throw SystemError(code: .unknown)!
+                            throw .unknown
                         }
                         if type == .directory {
                             return .skipped(try? InternalFS.getFileTimes(fromItemAt: dstPath, followSymlink: false).lastAccess)
@@ -615,7 +613,7 @@ extension FileSystem {
                         }
                     case .overwrite:
                         guard let type = try? InternalFS.type(ofItemAt: dstPath) else { 
-                            throw SystemError(code: .unknown)!
+                            throw .unknown
                         }
                         if type == .directory {
                             #if canImport(Darwin)
@@ -629,7 +627,7 @@ extension FileSystem {
                             return .copied(srcAttrs)
                             #endif
                         } else {
-                            throw SystemError(code: .notADirectory)!
+                            throw .init(kind: .notADirectory)
                         }
                 }
             } catch {
@@ -667,7 +665,7 @@ extension FileSystem {
 
         var dirFileTimesStack = [DirFileTimesItem?]()
 
-        do throws(SystemError) {
+        do throws(LowLevelError) {
             switch _copyDir(srcPath: srcPath, dstPath: dstPath, overwrite: overwrite, srcAttrs: srcAttrs) {
                 case .copied(let srcAttrs):             // dst not exist or dst is sucessfully overwritten
                     dirFileTimesStack.append((srcAttrs?.fileTimes).map { .init(fileTimesToCopy: $0) })
@@ -727,7 +725,7 @@ extension FileSystem {
             // technically not necessary since the enumerator will skip '.' and '..' by default, just be defensive
             guard entry.path.lastComponent?.kind == .regular else { continue }
 
-            do throws(SystemError) {
+            do throws(LowLevelError) {
                 switch entry.type {
                     case .regular: 
                         try _copyFile(

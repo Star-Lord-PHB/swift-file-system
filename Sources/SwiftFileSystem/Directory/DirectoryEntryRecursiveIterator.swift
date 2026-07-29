@@ -20,7 +20,7 @@ public struct DirectoryEntryRecursiveIterator: DirectoryEntryIteratorRecursivePr
 
         do {
 
-            return try catchSystemError(operation: .readDirectory(rootPath)) { () throws(SystemError) in
+            return try catchLowLevelError(operation: .readDirectory(rootPath)) { () throws(LowLevelError) in
 
                 return try enumerator.next().map { element in
 
@@ -28,11 +28,11 @@ public struct DirectoryEntryRecursiveIterator: DirectoryEntryIteratorRecursivePr
                         case .entry(let entry): 
                             .entry(entry)
                         case .entryError(let path, let error): 
-                            .entryError(path, .init(systemError: error, operation: .readDirectory(path.removingLastComponent())))
+                            .entryError(path, .init(lowLevelError: error, operation: .readDirectory(path.removingLastComponent())))
                         case .subTreeError(let path, let error): 
-                            .subTreeError(path, .init(systemError: error, operation: .readDirectory(path)))
+                            .subTreeError(path, .init(lowLevelError: error, operation: .readDirectory(path)))
                         case .leavingDir(let path, .some(let error)): 
-                            .leavingDir(path, .init(systemError: error, operation: .readDirectory(path)))
+                            .leavingDir(path, .init(lowLevelError: error, operation: .readDirectory(path)))
                         case .leavingDir(let path, .none):
                             .leavingDir(path, nil)
                     } as DirectoryEntryRecursiveSequenceElement

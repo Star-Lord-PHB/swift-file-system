@@ -150,7 +150,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstDirPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error.code == .notADirectory)
+        #expect(error.kind == .notADirectory)
 
     }
 
@@ -267,7 +267,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: srcDirPath, to: dstPath, onExistingTarget: .overwrite)
         }
 
-        #expect(error.code == .notADirectory)
+        #expect(error.kind == .notADirectory)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -468,15 +468,15 @@ extension FileSystemTest.CopyFileTest {
         try #require(errorReport.errors.count == 2)
 
         let errorMap = errorReport.errors.reduce(into: [:]) { dict, error in
-            dict[error.itemRelativePath] = error.code
+            dict[error.itemRelativePath] = error
         }
 
         #if canImport(WinSDK) 
-        #expect(errorMap["file3.txt"]?.mappedErrorKind == .permissionDenied)
+        #expect(errorMap["file3.txt"]?.kind == .permissionDenied)
         #else
-        #expect(errorMap["file3.txt"]?.mappedErrorKind == .isADirectory)
+        #expect(errorMap["file3.txt"]?.kind == .isADirectory)
         #endif
-        #expect(errorMap["c"]?.mappedErrorKind == .notADirectory)
+        #expect(errorMap["c"]?.kind == .notADirectory)
 
     }
 

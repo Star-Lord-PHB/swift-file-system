@@ -31,16 +31,16 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
             precondition(index >= 0 && index < Int(self.aceCount), "Index out of bounds")
             let acePtr = self.withUnsafePACL { pacl in 
                 var acePtr = nil as LPVOID?
-                do throws(SystemError) {
+                do throws(LowLevelError) {
                     try execThrowingCFunction {
                         GetAce(pacl, DWORD(index), &acePtr)
                     }
                     guard let acePtr else {
-                        try SystemError.assertError()
+                        try LowLevelError.assertError()
                     }
                     return acePtr
                 } catch {
-                    fatalError("Failed to get ACE at index \(index): \(error) (\(error.code))")
+                    fatalError("Failed to get ACE at index \(index): \(error) (\(error.systemCode))")
                 }
             }
             return .init(pace: .init(unownedPointer: acePtr))
@@ -187,7 +187,7 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
 
 extension WindowsRawAcl {
 
-    package static func makeForCurrentUser(fromPosixPermissions permissions: FilePermissions, forDir: Bool = false) throws(SystemError) -> Self {
+    package static func makeForCurrentUser(fromPosixPermissions permissions: FilePermissions, forDir: Bool = false) throws(LowLevelError) -> Self {
         
         let processToken = try WindowsProcessToken.current()
 
@@ -212,7 +212,7 @@ extension WindowsRawAcl {
         ownerSidPtr: UnsafeUnownedResource?,
         groupSidPtr: UnsafeUnownedResource?,
         forDir: Bool = false
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         let ownerPermissions = Self.windowsAcePermissionBits(fromPosixPermissionBits: permissions.rawValue >> 6, forDir: forDir)
         let groupPermissions = Self.windowsAcePermissionBits(fromPosixPermissionBits: (permissions.rawValue >> 3) & 0b111, forDir: forDir)
@@ -262,7 +262,7 @@ extension WindowsRawAcl {
             daclEntries.append(entry)
         }
 
-        self.pacl = try daclEntries.span.withUnsafeBufferPointer { (buffer) throws(SystemError) in 
+        self.pacl = try daclEntries.span.withUnsafeBufferPointer { (buffer) throws(LowLevelError) in 
             try WindowsRawAcl.addEntries(.init(unownedBuffer: buffer), toAcl: nil)
         }
 
@@ -296,7 +296,7 @@ extension WindowsRawAcl {
     fileprivate static func addEntries(
         _ entries: UnsafeUnownedBufferPointer<EXPLICIT_ACCESSW>?, 
         toAcl acl: UnsafeUnownedPointer<ACL>?
-    ) throws(SystemError) -> UnsafeOwnedAutoPointer<ACL> {
+    ) throws(LowLevelError) -> UnsafeOwnedAutoPointer<ACL> {
         var newAclPtr = nil as PACL?
         try execThrowingCFunction {
             SetEntriesInAclW(
@@ -305,11 +305,11 @@ extension WindowsRawAcl {
                 acl?.unsafelyCastedMutableRawPtr,
                 &newAclPtr 
             )
-        } onError: { (code) throws(SystemError) in
-            throw SystemError(code: code)!
+        } onError: { (code) throws(LowLevelError) in
+            throw LowLevelError(rawSystemCode: code)!
         }
         guard let newAclPtr else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
         return .init(owningPointer: newAclPtr, allocator: .localAlloc)
     }

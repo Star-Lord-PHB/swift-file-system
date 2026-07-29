@@ -12,7 +12,7 @@ public struct PlatformAPI: PlatformAPIProtocol {
 extension PlatformAPI {
 
     public func accountName(for identity: PlatformIdentity) throws(PlatformError) -> String? {
-        return try catchSystemError(operation: .queryAccountNameFromIdentity) { () throws(SystemError) in
+        return try catchLowLevelError(operation: .queryAccountNameFromIdentity) { () throws(LowLevelError) in
             try InternalPlatformAPI.accountName(for: identity)
         }
     }
@@ -22,14 +22,14 @@ extension PlatformAPI {
         forAccountName name: String,
         resolvePreference: PlatformIdentity.AccountNameResolvePreference = .preferUser
     ) throws(PlatformError) -> PlatformIdentity? {
-        return try catchSystemError(operation: .queryIdentityfromName) { () throws(SystemError) in
+        return try catchLowLevelError(operation: .queryIdentityfromName) { () throws(LowLevelError) in
             try InternalPlatformAPI.identity(forAccountName: name, resolvePreference: resolvePreference)
         }
     }
 
 
     public func currentIdentity() throws(PlatformError) -> PlatformIdentity {
-        return try catchSystemError(operation: .queryCurrentIdentity) { () throws(SystemError) in
+        return try catchLowLevelError(operation: .queryCurrentIdentity) { () throws(LowLevelError) in
             try InternalPlatformAPI.currentIdentity()
         }
     }
@@ -40,7 +40,7 @@ extension PlatformAPI {
         for identity: PlatformIdentity, 
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
     ) throws(PlatformError) -> WindowsAccessMask {
-        return try catchSystemError(operation: .queryEffectiveAccessMask) { () throws(SystemError) in
+        return try catchLowLevelError(operation: .queryEffectiveAccessMask) { () throws(LowLevelError) in
             try InternalPlatformAPI.effectiveAccessMask(for: identity, whenAccessing: securityDescriptor)
         }
     }

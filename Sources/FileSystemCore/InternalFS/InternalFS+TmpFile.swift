@@ -33,7 +33,7 @@ extension InternalFS {
     }
 
 
-    package static func makeTmpFile(in dirPath: FilePath, prefix: FilePath.Component) throws(SystemError) -> TmpFileResult {
+    package static func makeTmpFile(in dirPath: FilePath, prefix: FilePath.Component) throws(LowLevelError) -> TmpFileResult {
 
         #if canImport(WinSDK)
 
@@ -54,7 +54,7 @@ extension InternalFS {
 
         }
 
-        throw SystemError(code: .fileExists)!
+        throw .init(kind: .alreadyExists)
 
         #else
 
@@ -65,7 +65,7 @@ extension InternalFS {
         }
 
         guard fd >= 0 else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
 
         let tmpPath = pathBuffer.withUnsafeBufferPointer { FilePath(platformString: $0.baseAddress!) }
@@ -77,7 +77,7 @@ extension InternalFS {
     }
 
 
-    package static func makeTmpFile(baseOn path: FilePath) throws(SystemError) -> TmpFileResult {
+    package static func makeTmpFile(baseOn path: FilePath) throws(LowLevelError) -> TmpFileResult {
 
         assert(path.lastComponent != nil, "base path for temp file must not be empty")
         return try makeTmpFile(in: path.removingLastComponent(), prefix: path.lastComponent!)

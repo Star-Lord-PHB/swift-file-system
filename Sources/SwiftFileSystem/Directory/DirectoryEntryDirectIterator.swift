@@ -10,7 +10,7 @@ public struct DirectoryEntryDirectIterator: DirectoryEntryDirectIteratorProtocol
         case ready(UnsafeUnownedSystemHandle, FilePath, FileOperationOptions.DirectoryTraversalOption)
         case opened(DirectoryEntryDirectEnumerator)
 
-        mutating func next() throws(SystemError) -> DirectoryEntry? {
+        mutating func next() throws(LowLevelError) -> DirectoryEntry? {
             switch consume self {
                 case .ready(let handle, let path, let options):
                     do {
@@ -71,7 +71,7 @@ public struct DirectoryEntryDirectIterator: DirectoryEntryDirectIteratorProtocol
         do {
             return try state.next().map { .success($0) }
         } catch {
-            return .failure(.init(systemError: error, operation: .readDirectory(rootPath)))
+            return .failure(.init(lowLevelError: error, operation: .readDirectory(rootPath)))
         }
     }
 

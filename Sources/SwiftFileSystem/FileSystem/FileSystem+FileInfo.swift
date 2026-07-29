@@ -16,7 +16,7 @@ extension FileSystem {
         creationTime: FileTimeSpec? = nil,
         followSymlink: Bool = true
     ) throws(PlatformError) {
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
             try InternalFS.setFileTimes(
                 forItemAt: path, 
                 access: accessTime, 
@@ -33,7 +33,7 @@ extension FileSystem {
         #if canImport(Glibc) || canImport(Musl)
         try self.setInodeFlags(forItemAt: path, flags: InternalFS.fileAttributesToInodeFlags(attributes), followSymlink: followSymlink)
         #else
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
             try InternalFS.setFileAttributes(forItemAt: path, attributes: attributes, followSymlink: followSymlink)
         }
         #endif 
@@ -43,14 +43,14 @@ extension FileSystem {
 
     #if canImport(Glibc) || canImport(Musl)
     public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> LinuxInodeFlags {
-        try catchSystemError(operation: .fetchMeta(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
             try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: followSymlink)
         }
     }
 
 
     public func setInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool = true) throws(PlatformError) {
-        try catchSystemError(operation: .setMeta(path)) { () throws(SystemError) in
+        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
             try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags, followSymlink: followSymlink)
         }
     }

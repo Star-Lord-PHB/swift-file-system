@@ -72,7 +72,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -130,7 +130,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: targetPath2, toMatch: expectation2)
@@ -151,7 +151,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyLink)
         }
 
-        #expect(error.code == .isADirectory)
+        #expect(error.kind == .isADirectory)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -186,7 +186,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -261,7 +261,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -319,7 +319,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: targetPath2, toMatch: expectation2)
@@ -340,7 +340,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyTarget)
         }
 
-        #expect(error.code == .isADirectory)
+        #expect(error.kind == .isADirectory)
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -376,7 +376,7 @@ extension FileSystemTest.CopyFileTest {
             try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
         }
 
-        #expect(error.code == .fileExists)
+        #expect(error.kind == .alreadyExists)
 
         try expectItem(at: dstPath, toMatch: expectation)
 

@@ -8,15 +8,15 @@ extension InternalFS {
 
     #if !canImport(WinSDK)
 
-    fileprivate static func fdopendir(for handle: consuming UnsafeSystemHandle) throws(SystemError) -> OpaquePointer {
+    fileprivate static func fdopendir(for handle: consuming UnsafeSystemHandle) throws(LowLevelError) -> OpaquePointer {
         guard let dirStream = PlatformCLib.fdopendir(handle.take()) else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
         return .init(UnsafeRawPointer(dirStream))
     }
 
 
-    fileprivate static func readdir(from dirStream: OpaquePointer) throws(SystemError) -> dirent? {
+    fileprivate static func readdir(from dirStream: OpaquePointer) throws(LowLevelError) -> dirent? {
 
         errno = 0
 
@@ -25,7 +25,7 @@ extension InternalFS {
         #endif 
 
         guard let dirEntryPtr = PlatformCLib.readdir(dirStream) else {
-            try SystemError.check()
+            try LowLevelError.check()
             return nil
         }
 
@@ -34,7 +34,7 @@ extension InternalFS {
     }
 
 
-    fileprivate static func closedir(_ dirStream: OpaquePointer) throws(SystemError) {
+    fileprivate static func closedir(_ dirStream: OpaquePointer) throws(LowLevelError) {
 
         #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
         let dirStream = UnsafeMutablePointer<DIR>(dirStream)
@@ -50,7 +50,7 @@ extension InternalFS {
 
         private var dirStream: OpaquePointer
 
-        package init(unsafeSystemHandle: consuming UnsafeSystemHandle) throws(SystemError) {
+        package init(unsafeSystemHandle: consuming UnsafeSystemHandle) throws(LowLevelError) {
             let rawStream = try fdopendir(for: unsafeSystemHandle)
             self.dirStream = .init(UnsafeRawPointer(rawStream))
         }
@@ -59,11 +59,11 @@ extension InternalFS {
             try? closedir(dirStream)
         }
 
-        package mutating func next() throws(SystemError) -> dirent? {
+        package mutating func next() throws(LowLevelError) -> dirent? {
             return try readdir(from: dirStream)
         }
 
-        package consuming func close() throws(SystemError) {
+        package consuming func close() throws(LowLevelError) {
             let rawStream = self.dirStream
             discard self
             try closedir(rawStream)
@@ -88,7 +88,7 @@ extension InternalFS {
         private(set) var closed: Bool = false
 
 
-        package init(path: FilePath, doStat: Bool = true, includeDots: Bool = true) throws(SystemError) {
+        package init(path: FilePath, doStat: Bool = true, includeDots: Bool = true) throws(LowLevelError) {
 
             var ftsFlags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_COMFOLLOW
             if includeDots {
@@ -102,7 +102,7 @@ extension InternalFS {
                 fts_open([UnsafeMutablePointer<CChar>(mutating: cStr), nil], ftsFlags, nil)
             }
             guard let entryStream else {
-                try SystemError.assertError()
+                try LowLevelError.assertError()
             }
 
             self.entryStream = entryStream
@@ -114,12 +114,12 @@ extension InternalFS {
             fts_close(entryStream)
         }
 
-        package mutating func next() throws(SystemError) -> FTSENT? {
+        package mutating func next() throws(LowLevelError) -> FTSENT? {
 
             errno = 0
 
             guard let entry = fts_read(entryStream) else {
-                try SystemError.check()
+                try LowLevelError.check()
                 return nil
             }
 
@@ -127,7 +127,7 @@ extension InternalFS {
 
         }
 
-        package consuming func close() throws(SystemError) {
+        package consuming func close() throws(LowLevelError) {
             try execThrowingCFunction {
                 fts_close(self.entryStream)
             }
@@ -164,7 +164,7 @@ extension InternalFS {
             }
         }
 
-        package mutating func next() throws(SystemError) -> WIN32_FIND_DATAW? {
+        package mutating func next() throws(LowLevelError) -> WIN32_FIND_DATAW? {
 
             SetLastError(DWORD(ERROR_SUCCESS))
 
@@ -177,7 +177,7 @@ extension InternalFS {
                     if errorCode == ERROR_NO_MORE_FILES {
                         return nil
                     } else {
-                        throw SystemError(code: errorCode)!
+                        throw .init(rawSystemCode: errorCode)!
                     }
                 }
 
@@ -187,7 +187,7 @@ extension InternalFS {
                     FindFirstFileExW(cStr, FindExInfoBasic, &findData, FindExSearchNameMatch, nil, DWORD(FIND_FIRST_EX_LARGE_FETCH))
                 }
                 guard let findHandle, findHandle != INVALID_HANDLE_VALUE else {
-                    try SystemError.assertError()
+                    try LowLevelError.assertError()
                 }
 
             }
@@ -196,7 +196,7 @@ extension InternalFS {
 
         }
 
-        package consuming func close() throws(SystemError) {
+        package consuming func close() throws(LowLevelError) {
 
             SetLastError(DWORD(NO_ERROR))
             if let findHandle {

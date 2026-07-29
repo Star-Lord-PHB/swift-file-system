@@ -6,7 +6,7 @@ import SystemPackage
 
 extension InternalFS {
     
-    package static func ustat(_ path: FilePath) throws(SystemError) -> PlatformInteropTypes.Stat {
+    package static func ustat(_ path: FilePath) throws(LowLevelError) -> PlatformInteropTypes.Stat {
         
         var st = PlatformInteropTypes.Stat.PlatformStat()
         
@@ -36,7 +36,7 @@ extension InternalFS {
     
     
     #if !canImport(WinSDK)
-    package static func ulstat(_ path: FilePath) throws(SystemError) -> PlatformInteropTypes.Stat {
+    package static func ulstat(_ path: FilePath) throws(LowLevelError) -> PlatformInteropTypes.Stat {
         
         var st = PlatformInteropTypes.Stat.PlatformStat()
         
@@ -58,7 +58,7 @@ extension InternalFS {
     #endif
     
 
-    package static func getFileInfo(forItemAt path: FilePath, followSymlink: Bool) throws(SystemError) -> FileInfo {
+    package static func getFileInfo(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> FileInfo {
 
         #if canImport(WinSDK)
 
@@ -132,7 +132,7 @@ extension InternalFS {
 // - MARK: File Type
 extension InternalFS {
 
-    package static func type(ofItemAt path: FilePath) throws(SystemError) -> FileKind {
+    package static func type(ofItemAt path: FilePath) throws(LowLevelError) -> FileKind {
         
         #if canImport(WinSDK)
 
@@ -156,7 +156,7 @@ extension InternalFS {
                 } else {
                     .regular
                 }
-            } catch let e where e.kind == .notFound || e.kind == .nameTooLong || e.code == .system(.invalidFileName) {
+            } catch let e where e.kind == .notFound || e.kind == .nameTooLong || e.code == .invalidFileName {
                 // These errors are won't be resolved even after falling back to handle-based method
                 // MARK: TODO: Need to check whether there are other error codes like these
                 throw e
@@ -189,7 +189,7 @@ extension InternalFS {
 extension InternalFS {
     
     #if !canImport(WinSDK)
-    private static func utimens(for path: FilePath, times: (FileTimeSpec, FileTimeSpec), followSymlink: Bool) throws(SystemError) {
+    private static func utimens(for path: FilePath, times: (FileTimeSpec, FileTimeSpec), followSymlink: Bool) throws(LowLevelError) {
         let platformTimes = (times.0.platformFileTime, times.1.platformFileTime)
         try execThrowingCFunction {
             withUnsafePointer(to: platformTimes) { ptr in
@@ -210,7 +210,7 @@ extension InternalFS {
         modification: FileTimeSpec?,
         creation: FileTimeSpec? = nil,
         followSymlink: Bool
-    ) throws(SystemError) {
+    ) throws(LowLevelError) {
 
         if access == nil && modification == nil && creation == nil { return }
 
@@ -259,7 +259,7 @@ extension InternalFS {
     package static func getFileTimes(
         fromItemAt path: FilePath,
         followSymlink: Bool
-    ) throws(SystemError) -> FileTimes {
+    ) throws(LowLevelError) -> FileTimes {
 
         #if canImport(WinSDK)
 
@@ -318,7 +318,7 @@ extension InternalFS {
 // MARK: - Attributes & Flags
 extension InternalFS {
 
-    package static func getFileAttributes(forItemAt path: FilePath, followSymlink: Bool) throws(SystemError) -> PlatformFileAttributes {
+    package static func getFileAttributes(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> PlatformFileAttributes {
         #if canImport(WinSDK)
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
@@ -333,7 +333,7 @@ extension InternalFS {
             GetFileAttributesW(pathPtr)
         }
         guard attribubtes != DWORD(INVALID_FILE_ATTRIBUTES) else {
-            try SystemError.assertError()
+            try LowLevelError.assertError()
         }
         return .init(rawValue: attribubtes)
         #else
@@ -343,7 +343,7 @@ extension InternalFS {
 
     #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
-    package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(SystemError) {
+    package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {
 
         #if canImport(WinSDK)
         
@@ -378,19 +378,19 @@ extension InternalFS {
     #elseif canImport(Glibc) || canImport(Musl)
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
-    package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(SystemError) {
-        throw SystemError(code: .notSupported)!
+    package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {
+        throw .init(kind: .unsupported)
     }
 
 
-    package static func setFileInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(SystemError) {
+    package static func setFileInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(LowLevelError) {
         let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: !followSymlink))
         try fd.setFileInodeFlags(flags)
         try fd.close()
     }
 
 
-    package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(SystemError) -> LinuxInodeFlags {
+    package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> LinuxInodeFlags {
         let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: !followSymlink))
         let flags = try fd.fileInodeFlags()
         try fd.close()
