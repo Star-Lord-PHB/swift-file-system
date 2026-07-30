@@ -4,7 +4,7 @@ import Testing
 
 @testable import FileSystemCore
 
-@Suite("File-system test support")
+@Suite("File-system test support", .catchTestCancellation)
 struct FileSystemTestSupportTests {
 
     typealias Support = FileSystemTestSupport

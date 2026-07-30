@@ -47,9 +47,9 @@ extension FileSystem {
                 creationPermissions: permissions
             )
         } kindConversion: { error in 
-            switch error.kind {
+            switch error.systemCode {
                 #if canImport(WinSDK)
-                case .permissionDenied: .windows.permissionDeniedOrIsADirectory
+                case .accessDenied: .windows.permissionDeniedOrIsADirectory
                 #endif
                 default: error.kind
             }
@@ -119,8 +119,8 @@ extension FileSystem {
                 creationPermissions: permissions
             )
         } kindConversion: { error in 
-            switch error.kind {
-                case .permissionDenied: .windows.permissionDeniedOrIsADirectory
+            switch error.systemCode {
+                case .accessDenied: .windows.permissionDeniedOrIsADirectory
                 default: error.kind
             }
         }

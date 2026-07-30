@@ -2,7 +2,7 @@ import Testing
 
 
 
-@Suite("FileInfo")
+@Suite("FileInfo", .catchTestCancellation)
 struct FileInfoAPITests {
 
     typealias Support = FileSystemTestSupport
