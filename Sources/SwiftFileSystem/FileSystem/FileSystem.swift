@@ -40,18 +40,30 @@ extension FileSystem {
 
     public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: FilePermissions? = nil, content: ByteBuffer? = nil) throws(PlatformError) {
 
-        try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
-            let handle = try UnsafeSystemHandle.open(
+        let handle = try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
+            try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
                 creationPermissions: permissions
             )
+        } kindConversion: { error in 
+            switch error.kind {
+                #if canImport(WinSDK)
+                case .permissionDenied: .windows.permissionDeniedOrIsADirectory
+                #endif
+                default: error.kind
+            }
+        }
+
+        do {
             if let content {
                 try content.withUnsafeBytes { (ptr) throws(LowLevelError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }
             try handle.close()
+        } catch {
+            throw .init(lowLevelError: error, operation: .createFile(path))
         }
 
     }
@@ -100,18 +112,28 @@ extension FileSystem {
 
     public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: WindowsSecurityDescriptorView, content: ByteBuffer? = nil) throws(PlatformError) {
 
-        try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
-            let handle = try UnsafeSystemHandle.open(
+        let handle = try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
+            try UnsafeSystemHandle.open(
                 at: path, 
                 openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
                 creationPermissions: permissions
             )
+        } kindConversion: { error in 
+            switch error.kind {
+                case .permissionDenied: .windows.permissionDeniedOrIsADirectory
+                default: error.kind
+            }
+        }
+
+        do {
             if let content {
                 try content.withUnsafeBytes { (ptr) throws(LowLevelError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }
             try handle.close()
+        } catch {
+            throw .init(lowLevelError: error, operation: .createFile(path))
         }
 
     }

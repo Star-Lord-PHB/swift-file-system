@@ -115,6 +115,32 @@ extension FileSystemAPITests.CreationTests {
 
 
     @Test
+    func `Replacing a directory with a file fails and preserves the directory`() throws {
+
+        let directory = try workspace.makeDirectory(at: "directory")
+        let child = try workspace.makeFile(
+            at: "directory/child",
+            contents: "existing contents"
+        )
+        let directorySnapshot = try Support.ItemSnapshot.capture(at: directory)
+        let childSnapshot = try Support.ItemSnapshot.capture(at: child)
+
+        let error = #expect(throws: PlatformError.self) {
+            try fileSystem.createFile(
+                at: directory,
+                replaceExisting: true,
+                content: ByteBuffer("replacement content".utf8)
+            )
+        }
+
+        #expect(error?.kind.maybe(.isADirectory) == true)
+        try Support.expectItem(at: directory, matches: directorySnapshot, using: noReplacementPolicy)
+        try Support.expectItem(at: child, matches: childSnapshot, using: noReplacementPolicy)
+
+    }
+
+
+    @Test
     func `No-replace creation fails and preserves existing file`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "original content")

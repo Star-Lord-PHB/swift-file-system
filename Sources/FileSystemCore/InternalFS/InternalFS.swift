@@ -141,10 +141,10 @@ package enum InternalFS {
                 nil, 0, 
                 buffer, DWORD(MAXIMUM_REPARSE_DATA_BUFFER_SIZE), &bytesReturned, nil
             )
-        }
+        } 
 
         guard buffer.pointee.ReparseTag == IO_REPARSE_TAG_SYMLINK else {
-            throw .init(kind: .invalidInput)
+            throw .init(kind: .notASymlink)
         }
 
         if buffer.pointee.SymbolicLinkReparseBuffer.PrintNameLength > 0 {
@@ -177,7 +177,11 @@ package enum InternalFS {
                 PlatformCLib.readlink(strPtr, buffer.baseAddress!, buffer.count - 1)
             }
             if len < 0 {
-                try LowLevelError.assertError()
+                do {
+                    try LowLevelError.assertError()
+                } catch let error where error.systemCode == .invalidArgument {
+                    throw error.overridingKind(.notASymlink)
+                }
             } else if len == buffer.count - 1 {
                 let newBuffer = UnsafeMutableBufferPointer<CChar>.allocate(capacity: buffer.count * 2)
                 _ = newBuffer.moveInitialize(fromContentsOf: buffer)

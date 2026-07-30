@@ -23,6 +23,10 @@ public struct LowLevelError: Error {
         self.kind = kind
     }
 
+    package func overridingKind(_ kind: PlatformErrorKind) -> LowLevelError {
+        .init(systemCode: systemCode, kind: kind)!
+    }
+
     public static func fromLastError() -> LowLevelError? {
         #if canImport(WinSDK)
         return .init(rawSystemCode: GetLastError())

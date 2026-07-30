@@ -22,18 +22,6 @@ public enum FileOperationOptions {
             self.closeOnExec = closeOnExec
         }
 
-
-        package func unsafeSystemFileOpenOptions(
-            platformAdditionalRawFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
-        ) -> UnsafeSystemHandle.OpenOptions {
-            .init(
-                access: .readOnly(), 
-                noFollow: noFollow, 
-                closeOnExec: closeOnExec, 
-                platformAdditionalRawFlags: platformAdditionalRawFlags
-            )
-        }
-
     }
 
 
@@ -46,19 +34,6 @@ public enum FileOperationOptions {
         public init(noFollow: Bool = false, closeOnExec: Bool = true) {
             self.noFollow = noFollow
             self.closeOnExec = closeOnExec
-        }
-
-
-        package func unsafeSystemFileOpenOptions(
-            platformAdditionalFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
-        ) -> UnsafeSystemHandle.OpenOptions {
-            .init(
-                access: .readOnly(), 
-                noFollow: noFollow, 
-                closeOnExec: closeOnExec, 
-                platformSpecificOptions: [.posix.directoryOnly, .windows.backupSemantics],
-                platformAdditionalRawFlags: platformAdditionalFlags
-            )
         }
 
     }
@@ -81,25 +56,6 @@ public enum FileOperationOptions {
             self.truncate = truncate
             self.noFollow = noFollow
             self.closeOnExec = closeOnExec
-        }
-
-
-        package func unsafeSystemFileOpenOptions(
-            platformAdditionalFlags: UnsafeSystemHandle.OpenOptions.FlagType = 0
-        ) -> UnsafeSystemHandle.OpenOptions {
-            let creationOption = switch createFile {
-                case .never:            .never
-                case .createIfMissing:  .createIfMissing
-                case .assertMissing:    .assertMissing
-            } as UnsafeSystemHandle.OpenOptions.CreationOptions
-            return .init(
-                access: .writeOnly(), 
-                creation: creationOption,
-                truncate: truncate, 
-                noFollow: noFollow, 
-                closeOnExec: closeOnExec, 
-                platformAdditionalRawFlags: platformAdditionalFlags
-            )
         }
 
 

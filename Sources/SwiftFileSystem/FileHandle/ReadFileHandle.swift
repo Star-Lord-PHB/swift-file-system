@@ -37,7 +37,11 @@ extension ReadFileHandle {
 
     public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(PlatformError) {
 
-        var openOptions = options.unsafeSystemFileOpenOptions()
+        var openOptions = UnsafeSystemHandle.OpenOptions(
+            access: .readOnly(), 
+            noFollow: options.noFollow, 
+            closeOnExec: options.closeOnExec
+        )
 
         #if canImport(WinSDK)
         openOptions.noBlocking = true
@@ -46,10 +50,22 @@ extension ReadFileHandle {
         #endif
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
-            try UnsafeSystemHandle.open(
-                at: path, 
-                openOptions: openOptions
-            )
+            try UnsafeSystemHandle.open(at: path,  openOptions: openOptions)
+        } kindConversion: { error in 
+            switch error.systemCode {
+                #if canImport(WinSDK)
+                case .accessDenied: .windows.permissionDeniedOrIsADirectory
+                #endif
+                default: error.kind
+            }
+        }
+
+        try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            switch try handle.type() {
+                case .symlink: throw .init(kind: .pathResolutionFailed)
+                case .directory: throw .init(kind: .isADirectory)
+                default: break
+            }
         }
 
         self.init(unsafeSystemHandle: handle, path: path)

@@ -22,22 +22,24 @@ extension DirectoryHandle {
 
     public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(PlatformError) { 
 
-        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
-            let handle = try UnsafeSystemHandle.open(
-                at: path, 
-                openOptions: options.unsafeSystemFileOpenOptions()
-            )
+        let systemOpenOptions = UnsafeSystemHandle.OpenOptions(
+            access: .readOnly(), 
+            noFollow: options.noFollow, 
+            closeOnExec: options.closeOnExec, 
+            platformSpecificOptions: [.posix.directoryOnly, .windows.backupSemantics]
+        )
 
-            #if canImport(WinSDK)
-            let type = try handle.type()
-            guard type == .directory || type == .symlink else {
-                try? handle.close()
+        let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            try UnsafeSystemHandle.open(at: path, openOptions: systemOpenOptions)
+        }
+
+        #if canImport(WinSDK)
+        try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            if try handle.type() != .directory {
                 throw .init(kind: .notADirectory)
             }
-            #endif
-
-            return handle
         }
+        #endif
 
         self.init(unsafeSystemHandle: handle, path: path)
 

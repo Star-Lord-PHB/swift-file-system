@@ -41,17 +41,64 @@ extension WriteFileHandle {
         creationPermissions: FilePermissions? = nil
     ) throws(PlatformError) {
 
-        var openOptions = options.unsafeSystemFileOpenOptions()
+        let creationOption = switch options.createFile {
+            case .never:            .never
+            case .createIfMissing:  .createIfMissing
+            case .assertMissing:    .assertMissing
+        } as UnsafeSystemHandle.OpenOptions.CreationOptions
+        
+        var openOptions = UnsafeSystemHandle.OpenOptions(
+            access: .writeOnly(), 
+            creation: creationOption,
+            truncate: options.truncate, 
+            noFollow: options.noFollow, 
+            closeOnExec: options.closeOnExec
+        )
 
         #if canImport(WinSDK)
         openOptions.noBlocking = true
+        if options.noFollow && options.truncate && creationOption != .assertMissing {
+            openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
+        }
         #else 
         openOptions.noBlocking = false
         #endif
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
-            try UnsafeSystemHandle.open(at: path, openOptions: openOptions, creationPermissions: creationPermissions)
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: openOptions, 
+                creationPermissions: creationPermissions
+            )
+        } kindConversion: { error in 
+            switch error.systemCode {
+                #if canImport(WinSDK)
+                case .accessDenied: .windows.permissionDeniedOrIsADirectory
+                #endif
+                default: error.kind
+            }
         }
+
+        #if canImport(WinSDK) || canImport(Darwin)
+        let type = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            try handle.type()
+        }
+        try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            switch type {
+                case .symlink: throw .init(kind: .pathResolutionFailed)
+                case .directory: throw .init(kind: .isADirectory)
+                default: break
+            }
+        }
+        #endif
+
+        #if canImport(WinSDK)
+        if options.noFollow && options.truncate && creationOption != .assertMissing && type == .regular {
+            try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+                try handle.truncate()
+            }
+        }
+        #endif
 
         self.init(unsafeSystemHandle: handle, path: path)
 
@@ -65,12 +112,53 @@ extension WriteFileHandle {
         creationPermissions: WindowsSecurityDescriptorView
     ) throws(PlatformError) {
 
-        var openOptions = options.unsafeSystemFileOpenOptions()
+        let creationOption = switch options.createFile {
+            case .never:            .never
+            case .createIfMissing:  .createIfMissing
+            case .assertMissing:    .assertMissing
+        } as UnsafeSystemHandle.OpenOptions.CreationOptions
+        
+        var openOptions = UnsafeSystemHandle.OpenOptions(
+            access: .writeOnly(), 
+            creation: creationOption,
+            truncate: options.truncate, 
+            noFollow: options.noFollow, 
+            closeOnExec: options.closeOnExec
+        )
 
         openOptions.noBlocking = true
+        if options.noFollow && options.truncate && creationOption != .assertMissing {
+            openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
+        }
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
-            try UnsafeSystemHandle.open(at: path, openOptions: openOptions, creationPermissions: creationPermissions)
+            try UnsafeSystemHandle.open(
+                at: path, 
+                openOptions: openOptions, 
+                creationPermissions: creationPermissions
+            )
+        } kindConversion: { error in 
+            switch error.systemCode {
+                case .accessDenied: .windows.permissionDeniedOrIsADirectory
+                default: error.kind
+            }
+        }
+
+        let type = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            try handle.type()
+        }
+        try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            switch type {
+                case .symlink: throw .init(kind: .pathResolutionFailed)
+                case .directory: throw .init(kind: .isADirectory)
+                default: break
+            }
+        }
+
+        if options.noFollow && options.truncate && creationOption != .assertMissing && type == .regular {
+            try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+                try handle.truncate()
+            }
         }
 
         self.init(unsafeSystemHandle: handle, path: path)

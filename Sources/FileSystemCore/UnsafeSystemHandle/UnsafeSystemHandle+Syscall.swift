@@ -57,6 +57,16 @@ extension UnsafeSystemHandle {
     ) throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
+
+        if openOptions.noFollow 
+           && openOptions.truncate 
+           && openOptions.creation != .assertMissing 
+           && !openOptions.platformSpecificOptions.contains(.windows.delayedTruncate) {
+            // On Windows, opening a symlink with truncate may erase the symlink to a regular file
+            // To avoid this, we need to delay the truncate operation after opening the handle, which need to be done by
+            // the caller themselves. 
+            throw .init(kind: .unsupported)
+        }
         
         var securityAttributes = openOptions.securityAttributes
 
@@ -115,6 +125,16 @@ extension UnsafeSystemHandle {
         openOptions: OpenOptions = .init(), 
         creationPermissions: WindowsSecurityDescriptorView
     ) throws(LowLevelError) -> UnsafeSystemHandle {
+
+        if openOptions.noFollow 
+           && openOptions.truncate 
+           && openOptions.creation != .assertMissing 
+           && !openOptions.platformSpecificOptions.contains(.windows.delayedTruncate) {
+            // On Windows, opening a symlink with truncate may erase the symlink to a regular file
+            // To avoid this, we need to delay the truncate operation after opening the handle, which need to be done by
+            // the caller themselves. 
+            throw .init(kind: .unsupported)
+        }
 
         var securityAttributes = openOptions.securityAttributes
         securityAttributes.lpSecurityDescriptor = .init(creationPermissions.psd.unsafelyCastedMutableRawPtr)

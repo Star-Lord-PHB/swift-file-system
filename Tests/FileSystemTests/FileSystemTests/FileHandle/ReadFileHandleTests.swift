@@ -88,18 +88,16 @@ extension FileSystemTest.ReadFileHandleTests {
 
     }
     #else
-    @Test("Read Handle (Error: Reading Dir Unsupported)")
+    @Test("Read Handle (Error: Open Dir Unsupported)")
     func readHandleErrorUnsupported() async throws {
 
         let path = try makeDir(at: "dir")
 
-        let handle = try ReadFileHandle(forFileAt: path)
-
         let error = try #require(throws: PlatformError.self) {
-            try handle.read(length: 10)
+            _ = try ReadFileHandle(forFileAt: path)
         }
 
-        #expect(error.systemCode == .isADirectory)
+        #expect(error.kind == .isADirectory)
 
     }
     #endif 

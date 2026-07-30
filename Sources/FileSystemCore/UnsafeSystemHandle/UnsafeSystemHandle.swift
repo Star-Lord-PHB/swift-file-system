@@ -121,6 +121,7 @@ extension UnsafeSystemHandle {
             }
             public enum Windows {
                 public static let backupSemantics: PlatformSpecificOptions = .init(rawValue: 1 << 32)
+                package static let delayedTruncate: PlatformSpecificOptions = .init(rawValue: 1 << 33)
             }
             public static var windows: Windows.Type { Windows.self }
             public static var posix: Posix.Type { Posix.self }
@@ -205,6 +206,8 @@ extension UnsafeSystemHandle {
         public var creationFlags: FlagType {
 
             #if canImport(WinSDK)
+
+            let truncate = self.truncate && !platformSpecificOptions.contains(.windows.delayedTruncate)
 
             return switch (creation, truncate) {
                 case (.never, false):           FlagType(bitPattern: OPEN_EXISTING)

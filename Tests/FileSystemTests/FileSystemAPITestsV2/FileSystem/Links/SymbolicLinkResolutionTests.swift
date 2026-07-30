@@ -146,9 +146,11 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
 
         let path = try workspace.makeFile(at: "file")
 
-        #expect(throws: PlatformError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try fileSystem.destinationOfSymLink(at: path, recursive: false)
         }
+
+        #expect(error?.kind == .notASymlink)
 
     }
 
@@ -165,9 +167,11 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
             pointingTo: "first"
         )
 
-        #expect(throws: PlatformError.self) {
+        let error = #expect(throws: PlatformError.self) {
             try fileSystem.destinationOfSymLink(at: first, recursive: true)
         }
+
+        #expect(error?.kind == .pathResolutionFailed)
 
     }
 
