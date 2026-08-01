@@ -43,7 +43,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = try workspace.makeFile(at: "file")
         try prepareProtectedDacl(at: path)
         let securityBeforeSet = try captureSecurity(at: path)
-        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericRead)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: fileGenericReadAccessMask)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(forItemAt: path, dacl: .replace(replacementDacl))
@@ -66,7 +66,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         try prepareProtectedDacl(at: path, inheritance: .allSubItems)
         let securityBeforeSet = try captureSecurity(at: path)
         let replacementDacl = makeWindowsTestDacl(
-            secondaryPermission: .genericRead,
+            secondaryPermission: fileGenericReadAccessMask,
             inheritance: .allSubItems
         )
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
@@ -175,10 +175,10 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        try prepareProtectedDacl(at: target, secondaryPermission: .genericRead)
-        try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: .genericWrite)
+        try prepareProtectedDacl(at: target, secondaryPermission: fileGenericReadAccessMask)
+        try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: fileGenericWriteAccessMask)
         let linkSecurityBeforeSet = try captureSecurity(at: link)
-        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: fileGenericExecuteAccessMask)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(forItemAt: link, dacl: .replace(replacementDacl))
@@ -199,10 +199,10 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
-        try prepareProtectedDacl(at: target, secondaryPermission: .genericRead)
-        try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: .genericWrite)
+        try prepareProtectedDacl(at: target, secondaryPermission: fileGenericReadAccessMask)
+        try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: fileGenericWriteAccessMask)
         let targetSecurityBeforeSet = try captureSecurity(at: target)
-        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: fileGenericExecuteAccessMask)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(
@@ -226,8 +226,8 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `No-follow DACL set handles dangling symlink`() throws {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
-        try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: .genericRead)
-        let replacementDacl = makeWindowsTestDacl(secondaryPermission: .genericExecute)
+        try prepareProtectedDacl(at: link, followSymlink: false, secondaryPermission: fileGenericReadAccessMask)
+        let replacementDacl = makeWindowsTestDacl(secondaryPermission: fileGenericExecuteAccessMask)
         let expectedDacl = try Support.parseWindowsRawAcl(replacementDacl)
 
         try fileSystem.setSecurityInfo(

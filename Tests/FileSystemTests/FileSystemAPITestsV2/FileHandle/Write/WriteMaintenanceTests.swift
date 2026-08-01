@@ -52,10 +52,7 @@ extension FileHandleAPITests.WriteTests {
             try handle.resize(to: -1)
         }
 
-        // TODO: redesign the error system to unify the error kind across platforms
-        withKnownIssue("redesign the error system to unify the error kind across platforms", isIntermittent: true) {
-            #expect(error?.kind == .invalidInput)
-        }
+        #expect(error?.kind == .invalidInput)
         #expect(try handle.currentOffset == 2)
 
         try handle.close()

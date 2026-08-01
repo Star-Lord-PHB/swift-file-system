@@ -563,7 +563,7 @@ extension FileSystem {
             }
         } catch {
             try? InternalFS.unlink(fileAt: tmpDstPath)      // error of this operation is ignored
-            error.systemCode?.rawValue.map { SetLastError($0) }    // restore errno
+            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
             throw error
         }
 

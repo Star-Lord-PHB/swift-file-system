@@ -148,7 +148,7 @@ extension FileSystemTest.MoveItemTest {
             try FileSystem().moveItem(at: srcPath, to: dstPath)
         }
 
-        #expect(error?.systemCode == .isADirectory)
+        #expect(error?.kind.maybe(.isADirectory) == true)
 
         try expectItem(at: srcPath, toMatch: srcExpectation)
         try expectItem(at: dstPath, toMatch: dstExpectation)

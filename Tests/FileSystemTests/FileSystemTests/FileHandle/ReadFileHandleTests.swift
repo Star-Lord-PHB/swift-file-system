@@ -74,20 +74,6 @@ extension FileSystemTest.ReadFileHandleTests {
     }
 
 
-    #if canImport(WinSDK)
-    @Test("Read Handle (Error: No access rights for directory)")
-    func readHandleErrorUnsupported() async throws {
-
-        let path = try makeDir(at: "dir")
-
-        let error = try #require(throws: PlatformError.self) {
-            _ = try ReadFileHandle(forFileAt: path)
-        }
-
-        #expect(error.kind == .permissionDenied)
-
-    }
-    #else
     @Test("Read Handle (Error: Open Dir Unsupported)")
     func readHandleErrorUnsupported() async throws {
 
@@ -97,9 +83,13 @@ extension FileSystemTest.ReadFileHandleTests {
             _ = try ReadFileHandle(forFileAt: path)
         }
 
+        #expect(error.kind.maybe(.isADirectory))
+        #if canImport(WinSDK)
+        #expect(error.kind == .windows.permissionDeniedOrIsADirectory)
+        #else 
         #expect(error.kind == .isADirectory)
+        #endif
 
     }
-    #endif 
 
 }

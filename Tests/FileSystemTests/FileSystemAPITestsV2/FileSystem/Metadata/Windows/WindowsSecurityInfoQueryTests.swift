@@ -28,13 +28,26 @@ extension FileSystemAPITests.MetadataTests {
 
 extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
+    var fileGenericReadAccessMask: WindowsAccessMask {
+        .init(rawValue: FILE_GENERIC_READ)
+    }
+
+    var fileGenericWriteAccessMask: WindowsAccessMask {
+        .init(rawValue: FILE_GENERIC_WRITE)
+    }
+
+    var fileGenericExecuteAccessMask: WindowsAccessMask {
+        .init(rawValue: FILE_GENERIC_EXECUTE)
+    }
+
+
     func makeWindowsTestDacl(
         secondaryPermission: WindowsAccessMask? = nil,
         inheritance: WindowsExplicitAccess.Inheritance = .noInheritance
     ) -> WindowsRawAcl {
         var entries = [
             WindowsExplicitAccess(
-                permission: .genericAll,
+                permission: [fileGenericReadAccessMask, fileGenericWriteAccessMask, fileGenericExecuteAccessMask],
                 inheritance: inheritance,
                 trustee: .everyone
             )
@@ -209,7 +222,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getSecurityInfo(forItemAt: link)
+            _ = try fileSystem.getSecurityInfo(forItemAt: link)
         }
 
         #expect(error?.kind == .notFound)
@@ -223,7 +236,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getSecurityInfo(forItemAt: path)
+            _ = try fileSystem.getSecurityInfo(forItemAt: path)
         }
 
         #expect(error?.kind == .notFound)

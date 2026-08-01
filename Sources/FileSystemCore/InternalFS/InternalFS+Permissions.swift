@@ -118,7 +118,7 @@ extension InternalFS {
                 )
             }
         } onError: { (code) throws(LowLevelError) in
-            if let error = .init(rawSystemCode: code) {
+            if let error = LowLevelError(rawSystemCode: code) {
                 throw error
             }
         }
@@ -152,7 +152,7 @@ extension InternalFS {
                 )
             }
         } onError: { (code) throws(LowLevelError) in
-            if let error = .init(rawSystemCode: code) {
+            if let error = LowLevelError(rawSystemCode: code) {
                 throw error
             }
         }

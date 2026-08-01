@@ -127,7 +127,7 @@ extension ReadWriteFileHandle {
         )
 
         openOptions.noBlocking = true
-        if options.noFollow && options.truncate && creationOption != .assertMissing && type == .regular {
+        if options.noFollow && options.truncate && creationOption != .assertMissing {
             openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
         }
 

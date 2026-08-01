@@ -29,7 +29,7 @@ extension FileSystemAPITests.CommonPathsTests {
     ) throws {
         try expectEquivalentPath(
             actual, 
-            expected: expectedURL.path(percentEncoded: false), 
+            expected: expectedURL.path, 
             sourceLocation: sourceLocation
         )
     }

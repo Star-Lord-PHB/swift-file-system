@@ -472,7 +472,7 @@ extension FileSystemTest.CopyFileTest {
         }
 
         #if canImport(WinSDK) 
-        #expect(errorMap["file3.txt"]?.kind == .permissionDenied)
+        #expect(errorMap["file3.txt"]?.kind.maybe(.isADirectory) == true)
         #else
         #expect(errorMap["file3.txt"]?.kind == .isADirectory)
         #endif

@@ -172,7 +172,7 @@ extension UnsafeSystemHandle {
                 case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE) | writeMetaFlags
                 case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA) | readMetaFlags | writeMetaFlags
                 case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE) | readMetaFlags | writeMetaFlags
-                case .none:                            0
+                case .none:                            0 as FlagType
             }
 
             if truncate {

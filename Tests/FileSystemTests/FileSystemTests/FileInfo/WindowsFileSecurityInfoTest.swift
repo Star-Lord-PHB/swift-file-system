@@ -34,7 +34,7 @@ extension FileSystemTest {
 
 extension FileSystemTest.WindowsFileSecurityInfoTest {
 
-    @Test("Getting Security Descriptor and Effective Access Mask", .enabled(if: byNameFileInfoAvailable))
+    @Test("Getting Security Descriptor and Effective Access Mask", .enabled(if: FileSystemTest.byNameFileInfoAvailable))
     func gettingSecurityDescriptorAndEffectiveAccessMask() async throws {
 
         // Comparisons here are based on effective access masks only, so they do not guarantee

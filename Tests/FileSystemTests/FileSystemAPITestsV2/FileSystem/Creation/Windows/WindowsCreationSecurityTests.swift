@@ -31,7 +31,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
 
     private func makeSampleTargetDacl() -> WindowsRawAcl {
         .init(entries: [
-            .init(permission: .genericAll, trustee: .everyone)
+            .init(permission: .init(rawValue: FILE_GENERIC_READ | FILE_GENERIC_WRITE | FILE_GENERIC_EXECUTE), trustee: .everyone)
         ])
     }
 
@@ -47,7 +47,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
     private func makeSampleInheritableParentDacl() -> WindowsRawAcl {
         .init(entries: [
             .init(
-                permission: .genericAll,
+                permission: .init(rawValue: FILE_GENERIC_READ | FILE_GENERIC_WRITE | FILE_GENERIC_EXECUTE),
                 inheritance: .allSubItems,
                 trustee: .everyone
             )

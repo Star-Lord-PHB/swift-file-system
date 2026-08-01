@@ -35,6 +35,12 @@ package enum InternalFS {
                         MoveFileExW(srcPtr, dstPtr, DWORD(MOVEFILE_REPLACE_EXISTING))
                     }
                 }
+            } onError: { () throws(LowLevelError) in
+                let error = LowLevelError.fromLastError()
+                switch error?.systemCode {
+                    case .accessDenied: throw error!.overridingKind(.windows.permissionDeniedOrIsADirectory)
+                    default: throw error ?? .unknown
+                }
             }
             return
         }

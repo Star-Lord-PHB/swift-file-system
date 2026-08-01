@@ -194,10 +194,16 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        var newOffset: LARGE_INTEGER = LARGE_INTEGER()
+        var newOffset = LARGE_INTEGER()
         
         try execThrowingCFunction {
             SetFilePointerEx(unsafeRawHandle, LARGE_INTEGER(QuadPart: offset), &newOffset, DWORD(whence.rawValue))
+        } onError: { () throws(LowLevelError) in
+            let error = LowLevelError.fromLastError()
+            switch error?.systemCode {
+                case .negativeSeek: throw error!.overridingKind(.invalidInput)
+                default: throw error ?? .unknown
+            }
         }
 
         return newOffset.QuadPart

@@ -40,7 +40,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
                     }
                     return acePtr
                 } catch {
-                    fatalError("Failed to get ACE at index \(index): \(error) (\(error.systemCode))")
+                    fatalError("Failed to get ACE at index \(index): \(error)")
                 }
             }
             return .init(pace: .init(unownedPointer: acePtr))

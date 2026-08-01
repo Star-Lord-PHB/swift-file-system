@@ -19,27 +19,27 @@ extension FileInfoAPITests.PlatformFileAttributeTests.WindowsTests {
 
     @Test(
         arguments: [
-            (.windows.isReadOnly, FILE_ATTRIBUTE_READONLY),
-            (.windows.isHidden, FILE_ATTRIBUTE_HIDDEN),
-            (.windows.isSystem, FILE_ATTRIBUTE_SYSTEM),
-            (.windows.isDirectory, FILE_ATTRIBUTE_DIRECTORY),
-            (.windows.isArchive, FILE_ATTRIBUTE_ARCHIVE),
-            (.windows.isDevice, FILE_ATTRIBUTE_DEVICE),
-            (.windows.isNormal, FILE_ATTRIBUTE_NORMAL),
-            (.windows.isTemporary, FILE_ATTRIBUTE_TEMPORARY),
-            (.windows.isSparseFile, FILE_ATTRIBUTE_SPARSE_FILE),
-            (.windows.isReparsePoint, FILE_ATTRIBUTE_REPARSE_POINT),
-            (.windows.isCompressed, FILE_ATTRIBUTE_COMPRESSED),
-            (.windows.isOffline, FILE_ATTRIBUTE_OFFLINE),
-            (.windows.isNotContentIndexed, FILE_ATTRIBUTE_NOT_CONTENT_INDEXED),
-            (.windows.isEncrypted, FILE_ATTRIBUTE_ENCRYPTED),
-            (.windows.isIntegrityStream, FILE_ATTRIBUTE_INTEGRITY_STREAM),
-            (.windows.isVirtual, FILE_ATTRIBUTE_VIRTUAL),
-            (.windows.isNoScrubData, FILE_ATTRIBUTE_NO_SCRUB_DATA),
-            (.windows.isPinned, FILE_ATTRIBUTE_PINNED),
-            (.windows.isUnpinned, FILE_ATTRIBUTE_UNPINNED),
-            (.windows.recallOnOpen, FILE_ATTRIBUTE_RECALL_ON_OPEN),
-            (.windows.recallOnDataAccess, FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS)
+            (.windows.isReadOnly, DWORD(FILE_ATTRIBUTE_READONLY)),
+            (.windows.isHidden, DWORD(FILE_ATTRIBUTE_HIDDEN)),
+            (.windows.isSystem, DWORD(FILE_ATTRIBUTE_SYSTEM)),
+            (.windows.isDirectory, DWORD(FILE_ATTRIBUTE_DIRECTORY)),
+            (.windows.isArchive, DWORD(FILE_ATTRIBUTE_ARCHIVE)),
+            (.windows.isDevice, DWORD(FILE_ATTRIBUTE_DEVICE)),
+            (.windows.isNormal, DWORD(FILE_ATTRIBUTE_NORMAL)),
+            (.windows.isTemporary, DWORD(FILE_ATTRIBUTE_TEMPORARY)),
+            (.windows.isSparseFile, DWORD(FILE_ATTRIBUTE_SPARSE_FILE)),
+            (.windows.isReparsePoint, DWORD(FILE_ATTRIBUTE_REPARSE_POINT)),
+            (.windows.isCompressed, DWORD(FILE_ATTRIBUTE_COMPRESSED)),
+            (.windows.isOffline, DWORD(FILE_ATTRIBUTE_OFFLINE)),
+            (.windows.isNotContentIndexed, DWORD(FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)),
+            (.windows.isEncrypted, DWORD(FILE_ATTRIBUTE_ENCRYPTED)),
+            (.windows.isIntegrityStream, DWORD(FILE_ATTRIBUTE_INTEGRITY_STREAM)),
+            (.windows.isVirtual, DWORD(FILE_ATTRIBUTE_VIRTUAL)),
+            (.windows.isNoScrubData, DWORD(FILE_ATTRIBUTE_NO_SCRUB_DATA)),
+            (.windows.isPinned, DWORD(FILE_ATTRIBUTE_PINNED)),
+            (.windows.isUnpinned, DWORD(FILE_ATTRIBUTE_UNPINNED)),
+            (.windows.recallOnOpen, DWORD(FILE_ATTRIBUTE_RECALL_ON_OPEN)),
+            (.windows.recallOnDataAccess, DWORD(FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS))
         ] as [(PlatformFileAttributes, PlatformInteropTypes.FileAttribute)]
     )
     func `Windows attributes map to native flags`(

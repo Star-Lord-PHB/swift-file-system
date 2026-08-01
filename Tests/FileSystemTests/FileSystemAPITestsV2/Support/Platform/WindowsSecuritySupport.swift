@@ -89,11 +89,11 @@ extension FileSystemTestSupport {
             &descriptor
         )
         try #require(result == ERROR_SUCCESS, sourceLocation: sourceLocation)
-        let descriptor = try #require(descriptor, sourceLocation: sourceLocation)
+        try #require(descriptor != nil, sourceLocation: sourceLocation)
         defer { LocalFree(descriptor) }
 
         return try parseWindowsSecurityDescriptor(
-            descriptor,
+            descriptor!,
             sourceLocation: sourceLocation
         )
     }
@@ -435,8 +435,8 @@ extension FileSystemTestSupport {
                 GetAce(aclPointer, index, &acePointer),
                 sourceLocation: sourceLocation
             )
-            let acePointer = try #require(acePointer, sourceLocation: sourceLocation)
-            let header = acePointer.assumingMemoryBound(to: ACE_HEADER.self).pointee
+            try #require(acePointer != nil, sourceLocation: sourceLocation)
+            let header = acePointer!.assumingMemoryBound(to: ACE_HEADER.self).pointee
             let bytes = Array(
                 UnsafeRawBufferPointer(
                     start: acePointer,
