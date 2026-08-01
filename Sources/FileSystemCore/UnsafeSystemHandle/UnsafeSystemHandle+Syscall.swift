@@ -58,20 +58,20 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        if openOptions.noFollow 
-           && openOptions.truncate 
-           && openOptions.creation != .assertMissing 
-           && !openOptions.platformSpecificOptions.contains(.windows.delayedTruncate) {
+        if openOptions.openFlags & DWORD(FILE_FLAG_OPEN_REPARSE_POINT) != 0
+           && openOptions.truncate
+           && openOptions.creation != .assertMissing
+           && openOptions.platformCreationFlagsOverride == nil {
             // On Windows, opening a symlink with truncate may erase the symlink to a regular file
             // To avoid this, we need to delay the truncate operation after opening the handle, which need to be done by
-            // the caller themselves. 
+            // the caller themselves.
             throw .init(kind: .unsupported)
         }
-        
+
         var securityAttributes = openOptions.securityAttributes
 
         // Set up security descriptor only when file creation may occur. 
-        if openOptions.creation != .never, let creationPermissions {
+        if openOptions.willCreate, let creationPermissions {
             let sd = try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: creationPermissions)
             securityAttributes.lpSecurityDescriptor = .init(sd.psd.unsafeRawPtr)
         }
@@ -80,7 +80,7 @@ extension UnsafeSystemHandle {
             CreateFileW(
                 cStr, 
                 openOptions.accessModeFlags, 
-                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), 
+                openOptions.windowsShareMode.rawValue, 
                 &securityAttributes, 
                 openOptions.creationFlags,
                 openOptions.openFlags,
@@ -97,7 +97,7 @@ extension UnsafeSystemHandle {
 
         let flags = openOptions.accessModeFlags | openOptions.creationFlags | openOptions.openFlags
 
-        let handle = if openOptions.creation != .never {
+        let handle = if openOptions.willCreate {
             // on Posix, when creating file is requested, there must be a creation permission specified,
             // if not, use default permission 0o644 (rw-r--r--)
             path.withPlatformString { strPtr in 
@@ -126,13 +126,13 @@ extension UnsafeSystemHandle {
         creationPermissions: WindowsSecurityDescriptorView
     ) throws(LowLevelError) -> UnsafeSystemHandle {
 
-        if openOptions.noFollow 
-           && openOptions.truncate 
-           && openOptions.creation != .assertMissing 
-           && !openOptions.platformSpecificOptions.contains(.windows.delayedTruncate) {
+        if openOptions.openFlags & DWORD(FILE_FLAG_OPEN_REPARSE_POINT) != 0
+           && openOptions.truncate
+           && openOptions.creation != .assertMissing
+           && openOptions.platformCreationFlagsOverride == nil {
             // On Windows, opening a symlink with truncate may erase the symlink to a regular file
             // To avoid this, we need to delay the truncate operation after opening the handle, which need to be done by
-            // the caller themselves. 
+            // the caller themselves.
             throw .init(kind: .unsupported)
         }
 
@@ -143,7 +143,7 @@ extension UnsafeSystemHandle {
             CreateFileW(
                 cStr, 
                 openOptions.accessModeFlags, 
-                DWORD(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE), 
+                openOptions.windowsShareMode.rawValue, 
                 &securityAttributes, 
                 openOptions.creationFlags,
                 openOptions.openFlags,

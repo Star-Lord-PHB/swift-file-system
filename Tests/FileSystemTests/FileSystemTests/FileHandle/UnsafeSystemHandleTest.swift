@@ -450,7 +450,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                 at: dirPath, 
                 openOptions: .init(
                     access: .readOnly(), 
-                    platformSpecificOptions: [.windows.backupSemantics, .posix.directoryOnly]
+                    platformOpenFlagsDiff: .inserted([.windows.backupSemantics, .posix.directory])
                 )
             )
 
@@ -486,7 +486,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                     at: dirPath, 
                     openOptions: .init(
                         access: .readOnly(), 
-                        platformSpecificOptions: []       // .windowsBackupSemantics flag (i.e.: FILE_FLAG_BACKUP_SEMANTICS) is NOT set here
+                        platformOpenFlagsDiff: .init()       // .windowsBackupSemantics flag (i.e.: FILE_FLAG_BACKUP_SEMANTICS) is NOT set here
                     )
                 )
             }
@@ -511,7 +511,7 @@ extension FileSystemTest.UnsafeSystemHandleTest {
                     at: filePath, 
                     openOptions: .init(
                         access: .readOnly(), 
-                        platformSpecificOptions: [.posix.directoryOnly]
+                        platformOpenFlagsDiff: .inserted(.posix.directory)
                     )
                 )
             }

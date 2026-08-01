@@ -103,7 +103,7 @@ package struct UnsafeUnownedSystemHandle: ~Escapable {
 
 extension UnsafeSystemHandle {
 
-    public struct OpenOptions {
+    public struct OpenOptions: Sendable {
 
         #if canImport(WinSDK)
         public typealias FlagType = DWORD
@@ -111,35 +111,225 @@ extension UnsafeSystemHandle {
         public typealias FlagType = CInt
         #endif
 
-        public struct PlatformSpecificOptions: OptionSet, Sendable {
-            public var rawValue: UInt64
-            public init(rawValue: UInt64) {
-                self.rawValue = rawValue
-            }
-            public enum Posix {
-                public static let directoryOnly: PlatformSpecificOptions = .init(rawValue: 1 << 0)
-            }
-            public enum Windows {
-                public static let backupSemantics: PlatformSpecificOptions = .init(rawValue: 1 << 32)
-                package static let delayedTruncate: PlatformSpecificOptions = .init(rawValue: 1 << 33)
-            }
-            public static var windows: Windows.Type { Windows.self }
-            public static var posix: Posix.Type { Posix.self }
-        }
 
-
-        public enum CreationOptions {
+        public enum CreationOptions: Sendable {
             case never
             case createIfMissing 
             case assertMissing
         }
 
 
-        public enum AccessMode {
+        public enum AccessMode: Sendable {
             case readOnly(metadataOnly: Bool = false)
             case writeOnly(metadataOnly: Bool = false)
             case readWrite(metadataOnly: Bool = false)
             case none
+        }
+
+
+        public struct NativeAccessModeFlag: OptionSet, Sendable {
+
+            public var rawValue: FlagType
+            public init(rawValue: FlagType) {
+                self.rawValue = rawValue
+            }
+
+            public static var windows: Windows.Type { Windows.self }
+            public static var posix: Posix.Type { Posix.self }
+
+            public enum Posix {
+                #if !canImport(WinSDK)
+                #if !(canImport(Darwin) || os(OpenBSD))
+                public static var path: NativeAccessModeFlag { .init(rawValue: __O_PATH) }
+                #else
+                public static var path: NativeAccessModeFlag { .init(rawValue: 0) }
+                #endif
+                #else
+                public static var path: NativeAccessModeFlag { .init(rawValue: 0) }
+                #endif
+            }
+
+            public enum Windows {
+                #if canImport(WinSDK)
+                public static var readAttributes: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_READ_ATTRIBUTES)) }
+                public static var readControl: NativeAccessModeFlag { .init(rawValue: DWORD(READ_CONTROL)) }
+                public static var genericRead: NativeAccessModeFlag { .init(rawValue: DWORD(GENERIC_READ)) }
+                public static var writeAttributes: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_WRITE_ATTRIBUTES)) }
+                public static var writeDac: NativeAccessModeFlag { .init(rawValue: DWORD(WRITE_DAC)) }
+                public static var writeOwner: NativeAccessModeFlag { .init(rawValue: DWORD(WRITE_OWNER)) }
+                public static var genericWrite: NativeAccessModeFlag { .init(rawValue: DWORD(GENERIC_WRITE)) }
+                public static var appendData: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_APPEND_DATA)) }
+                #else
+                public static var readAttributes: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var readControl: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var genericRead: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var writeAttributes: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var writeDac: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var writeOwner: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var genericWrite: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var appendData: NativeAccessModeFlag { .init(rawValue: 0) }
+                #endif
+            }
+
+        }
+
+
+        public struct NativeCreationFlag: RawRepresentable, Sendable {
+
+            public var rawValue: FlagType
+            public init(rawValue: FlagType) {
+                self.rawValue = rawValue
+            }
+
+            public static var windows: Windows.Type { Windows.self }
+            public static var posix: Posix.Type { Posix.self }
+
+            public enum Posix {
+                #if !canImport(WinSDK)
+                public static var create: NativeCreationFlag { .init(rawValue: O_CREAT) }
+                public static var exclusiveCreate: NativeCreationFlag { .init(rawValue: O_EXCL | O_CREAT) }
+                #else
+                @available(*, unavailable, message: "Not available on Windows")
+                public static var create: NativeCreationFlag { fatalError() }
+                @available(*, unavailable, message: "Not available on Windows")
+                public static var exclusiveCreate: NativeCreationFlag { fatalError() }
+                #endif
+            }
+
+            public enum Windows {
+                #if canImport(WinSDK)
+                public static var openExisting: NativeCreationFlag { .init(rawValue: DWORD(OPEN_EXISTING)) }
+                public static var truncateExisting: NativeCreationFlag { .init(rawValue: DWORD(TRUNCATE_EXISTING)) }
+                public static var openAlways: NativeCreationFlag { .init(rawValue: DWORD(OPEN_ALWAYS)) }
+                public static var createAlways: NativeCreationFlag { .init(rawValue: DWORD(CREATE_ALWAYS)) }
+                public static var createNew: NativeCreationFlag { .init(rawValue: DWORD(CREATE_NEW)) }
+                #else
+                @available(*, unavailable, message: "Not available on POSIX")
+                public static var openExisting: NativeCreationFlag { fatalError() }
+                @available(*, unavailable, message: "Not available on POSIX")
+                public static var truncateExisting: NativeCreationFlag { fatalError() }
+                @available(*, unavailable, message: "Not available on POSIX")
+                public static var openAlways: NativeCreationFlag { fatalError() }
+                @available(*, unavailable, message: "Not available on POSIX")
+                public static var createAlways: NativeCreationFlag { fatalError() }
+                @available(*, unavailable, message: "Not available on POSIX")
+                public static var createNew: NativeCreationFlag { fatalError() }
+                #endif
+            }
+
+        }
+
+
+        public struct NativeOpenFlag: OptionSet, Sendable {
+
+            public var rawValue: FlagType
+            public init(rawValue: FlagType) {
+                self.rawValue = rawValue
+            }
+
+            public static var windows: Windows.Type { Windows.self }
+            public static var posix: Posix.Type { Posix.self }
+
+            public enum Posix {
+                #if !canImport(WinSDK)
+                public static var truncate: NativeOpenFlag { .init(rawValue: O_TRUNC) }
+                public static var append: NativeOpenFlag { .init(rawValue: O_APPEND) }
+                public static var noFollow: NativeOpenFlag { .init(rawValue: O_NOFOLLOW) }
+                public static var closeOnExec: NativeOpenFlag { .init(rawValue: O_CLOEXEC) }
+                public static var nonBlocking: NativeOpenFlag { .init(rawValue: O_NONBLOCK) }
+                public static var directory: NativeOpenFlag { .init(rawValue: O_DIRECTORY) }
+                #else
+                public static var truncate: NativeOpenFlag { .init(rawValue: 0) }
+                public static var append: NativeOpenFlag { .init(rawValue: 0) }
+                public static var noFollow: NativeOpenFlag { .init(rawValue: 0) }
+                public static var closeOnExec: NativeOpenFlag { .init(rawValue: 0) }
+                public static var nonBlocking: NativeOpenFlag { .init(rawValue: 0) }
+                public static var directory: NativeOpenFlag { .init(rawValue: 0) }
+                #endif
+            }
+
+            public enum Windows {
+                #if canImport(WinSDK)
+                public static var openReparsePoint: NativeOpenFlag { .init(rawValue: DWORD(FILE_FLAG_OPEN_REPARSE_POINT)) }
+                public static var overlappedIO: NativeOpenFlag { .init(rawValue: DWORD(FILE_FLAG_OVERLAPPED)) }
+                public static var backupSemantics: NativeOpenFlag { .init(rawValue: DWORD(FILE_FLAG_BACKUP_SEMANTICS)) }
+                #else
+                public static var openReparsePoint: NativeOpenFlag { .init(rawValue: 0) }
+                public static var overlappedIO: NativeOpenFlag { .init(rawValue: 0) }
+                public static var backupSemantics: NativeOpenFlag { .init(rawValue: 0) }
+                #endif
+            }
+
+        }
+
+
+        public struct WindowsNativeShareMode: OptionSet, Sendable {
+
+            public var rawValue: FlagType
+            public init(rawValue: FlagType) {
+                self.rawValue = rawValue
+            }
+
+            #if canImport(WinSDK)
+            public static var read: WindowsNativeShareMode { .init(rawValue: DWORD(FILE_SHARE_READ)) }
+            public static var write: WindowsNativeShareMode { .init(rawValue: DWORD(FILE_SHARE_WRITE)) }
+            public static var delete: WindowsNativeShareMode { .init(rawValue: DWORD(FILE_SHARE_DELETE)) }
+            #else
+            public static var read: WindowsNativeShareMode { .init(rawValue: 0) }
+            public static var write: WindowsNativeShareMode { .init(rawValue: 0) }
+            public static var delete: WindowsNativeShareMode { .init(rawValue: 0) }
+            #endif
+
+        }
+
+
+        public struct NativeFlagDiff<NativeFlagType: OptionSet>: Sendable where NativeFlagType.RawValue == FlagType {
+
+            public private(set) var inserted: FlagType = 0
+            public private(set) var removed: FlagType = 0
+
+            public init(rawInserted: FlagType = 0, rawRemoved: FlagType = 0) {
+                self.remove(rawRemoved)
+                self.insert(rawInserted) 
+            }
+
+            public init(inserted: NativeFlagType = [], removed: NativeFlagType = []) {
+                self.remove(removed)
+                self.insert(inserted) 
+            }
+
+            public init() {}
+
+            public static func inserted(_ flags: NativeFlagType) -> NativeFlagDiff {
+                return .init(inserted: flags)
+            }
+
+            public static func removed(_ flags: NativeFlagType) -> NativeFlagDiff {
+                return .init(removed: flags)
+            }
+
+            func apply(to flags: FlagType, mask: FlagType) -> FlagType {
+                return (flags | (inserted & mask)) & ~(removed & mask)
+            }
+
+            public mutating func insert(_ flags: FlagType) {
+                inserted |= flags
+                removed ^= (removed & flags)
+            }
+
+            public mutating func remove(_ flags: FlagType) {
+                inserted ^= (inserted & flags)
+                removed |= flags
+            }
+
+            public mutating func insert(_ flags: NativeFlagType) {
+                self.insert(flags.rawValue)
+            }
+
+            public mutating func remove(_ flags: NativeFlagType) {
+                self.remove(flags.rawValue)
+            }
+
         }
 
 
@@ -151,8 +341,38 @@ extension UnsafeSystemHandle {
         public var closeOnExec: Bool
         public var noBlocking: Bool 
 
-        public var platformSpecificOptions: PlatformSpecificOptions
-        public var platformAdditionalRawFlags: FlagType
+        public var platformAccessModeFlagsDiff: NativeFlagDiff<NativeAccessModeFlag>
+        public var platformCreationFlagsOverride: NativeCreationFlag?
+        public var platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag>
+
+        public var windowsShareMode: WindowsNativeShareMode
+
+        public init(
+            access: AccessMode = .readOnly(),
+            creation: CreationOptions = .never, 
+            truncate: Bool = false, 
+            append: Bool = false, 
+            noFollow: Bool = false, 
+            closeOnExec: Bool = true, 
+            noBlocking: Bool = false, 
+            platformAccessModeFlagsDiff: NativeFlagDiff<NativeAccessModeFlag> = .init(),
+            platformCreationFlagsOverride: NativeCreationFlag? = nil,
+            platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag> = .init(),
+            windowsShareMode: WindowsNativeShareMode = [.read, .write, .delete]
+        ) {
+            self.access = access
+            self.creation = creation
+            self.truncate = truncate
+            self.append = append
+            self.noFollow = noFollow
+            self.closeOnExec = closeOnExec
+            self.noBlocking = noBlocking
+            self.platformAccessModeFlagsDiff = platformAccessModeFlagsDiff
+            self.platformCreationFlagsOverride = platformCreationFlagsOverride
+            self.platformOpenFlagsDiff = platformOpenFlagsDiff
+            self.windowsShareMode = windowsShareMode
+        }
+
 
         public var accessModeFlags: FlagType {
 
@@ -179,11 +399,11 @@ extension UnsafeSystemHandle {
                 flags |= FlagType(bitPattern: GENERIC_WRITE)
             }
 
-            return flags
+            return platformAccessModeFlagsDiff.apply(to: flags, mask: ~0)
 
             #else
 
-            return switch access {
+            let flags = switch access {
                 #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
                 case .readOnly(metadataOnly: true): O_RDONLY | __O_PATH
                 case .writeOnly(metadataOnly: true): O_WRONLY | __O_PATH
@@ -195,9 +415,17 @@ extension UnsafeSystemHandle {
                 #if !(canImport(Darwin) || os(OpenBSD))
                 case .none:                         O_RDONLY | __O_PATH
                 #else
-                case .none:                         0
+                case .none:                         O_RDONLY
                 #endif
-            }
+            } as FlagType
+
+            #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
+            let mask = O_ACCMODE | __O_PATH
+            #else
+            let mask = O_ACCMODE
+            #endif
+
+            return platformAccessModeFlagsDiff.apply(to: flags, mask: mask)
 
             #endif
 
@@ -207,7 +435,9 @@ extension UnsafeSystemHandle {
 
             #if canImport(WinSDK)
 
-            let truncate = self.truncate && !platformSpecificOptions.contains(.windows.delayedTruncate)
+            if let platformCreationFlagsOverride {
+                return platformCreationFlagsOverride.rawValue
+            }
 
             return switch (creation, truncate) {
                 case (.never, false):           FlagType(bitPattern: OPEN_EXISTING)
@@ -218,6 +448,10 @@ extension UnsafeSystemHandle {
             }
 
             #else 
+
+            if let platformCreationFlagsOverride {
+                return platformCreationFlagsOverride.rawValue & (O_EXCL | O_CREAT)
+            }
 
             return switch creation {
                 case .never:            0
@@ -238,7 +472,8 @@ extension UnsafeSystemHandle {
             flags |= FlagType(bitPattern: FILE_ATTRIBUTE_NORMAL)
             if noFollow { flags |= FlagType(bitPattern: FILE_FLAG_OPEN_REPARSE_POINT) }
             if noBlocking { flags |= FlagType(bitPattern: FILE_FLAG_OVERLAPPED) }
-            if platformSpecificOptions.contains(.windows.backupSemantics) { flags |= FlagType(bitPattern: FILE_FLAG_BACKUP_SEMANTICS) }
+
+            return platformOpenFlagsDiff.apply(to: flags, mask: ~0)
 
             #else 
 
@@ -251,11 +486,16 @@ extension UnsafeSystemHandle {
             #endif 
             if closeOnExec { flags |= O_CLOEXEC }
             if noBlocking { flags |= O_NONBLOCK }
-            if platformSpecificOptions.contains(.posix.directoryOnly) { flags |= O_DIRECTORY }
+
+            #if !(canImport(Darwin) || os(OpenBSD))
+            let mask = ~(O_ACCMODE | __O_PATH | O_CREAT | O_EXCL)
+            #else
+            let mask = ~(O_ACCMODE | O_CREAT | O_EXCL)
+            #endif
+
+            return platformOpenFlagsDiff.apply(to: flags, mask: mask)
 
             #endif 
-
-            return flags | platformAdditionalRawFlags
 
         }
 
@@ -270,28 +510,17 @@ extension UnsafeSystemHandle {
         #endif 
 
 
-        public init(
-            access: AccessMode = .readOnly(),
-            creation: CreationOptions = .never, 
-            truncate: Bool = false, 
-            append: Bool = false, 
-            noFollow: Bool = false, 
-            closeOnExec: Bool = true, 
-            noBlocking: Bool = false, 
-            platformSpecificOptions: PlatformSpecificOptions = [],
-            platformAdditionalRawFlags: FlagType = 0
-        ) {
-            self.access = access
-            self.creation = creation
-            self.truncate = truncate
-            self.append = append
-            self.noFollow = noFollow
-            self.closeOnExec = closeOnExec
-            self.noBlocking = noBlocking
-            self.platformSpecificOptions = platformSpecificOptions
-            self.platformAdditionalRawFlags = platformAdditionalRawFlags
+        var willCreate: Bool {
+            #if canImport(WinSDK)
+            switch creationFlags {
+                case DWORD(OPEN_ALWAYS), DWORD(CREATE_ALWAYS), DWORD(CREATE_NEW): true
+                default: false
+            }
+            #else
+            return creationFlags & O_CREAT != 0
+            #endif
         }
-        
+
     }
 
 }

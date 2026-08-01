@@ -128,7 +128,7 @@ package enum InternalFS {
 
         let handle = try UnsafeSystemHandle.open(
             at: linkPath, 
-            openOptions: .init(access: .readOnly(), noFollow: true, platformSpecificOptions: .windows.backupSemantics)
+            openOptions: .init(access: .readOnly(), noFollow: true, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
         )
 
         let buffer = UnsafeMutableRawPointer.allocate(
@@ -212,7 +212,7 @@ package enum InternalFS {
         
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: false, platformSpecificOptions: .windows.backupSemantics)
+            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
         )
 
         var buffer = UnsafeMutableBufferPointer<WCHAR>.allocate(capacity: Int(MAX_PATH + 1))

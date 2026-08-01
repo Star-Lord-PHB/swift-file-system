@@ -19,7 +19,7 @@ extension FileSystem {
         if followSymlinks {
             return (try? UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .none, noFollow: false, platformSpecificOptions: .windows.backupSemantics)
+                openOptions: .init(access: .none, noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )) != nil
         } else {
             return (try? InternalFS.getFileAttributes(forItemAt: path, followSymlink: followSymlinks)) != nil

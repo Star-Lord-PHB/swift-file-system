@@ -26,7 +26,7 @@ extension DirectoryHandle {
             access: .readOnly(), 
             noFollow: options.noFollow, 
             closeOnExec: options.closeOnExec, 
-            platformSpecificOptions: [.posix.directoryOnly, .windows.backupSemantics]
+            platformOpenFlagsDiff: .inserted([.posix.directory, .windows.backupSemantics])
         )
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in

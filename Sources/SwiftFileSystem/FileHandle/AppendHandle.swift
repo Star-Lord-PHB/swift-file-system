@@ -36,16 +36,16 @@ extension AppendHandle {
             access: .writeOnly(), 
             creation: creationOption,
             truncate: options.truncate, 
+            append: true,
             noFollow: options.noFollow, 
-            closeOnExec: options.closeOnExec
+            closeOnExec: options.closeOnExec,
+            noBlocking: false
         )
-
-        openOptions.append = true
-        openOptions.noBlocking = false
 
         #if canImport(WinSDK)
         if options.noFollow && options.truncate && creationOption != .assertMissing {
-            openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
+            openOptions.platformAccessModeFlagsDiff.insert(.windows.genericWrite)
+            openOptions.truncate = false
         }
         #endif
 
@@ -107,15 +107,15 @@ extension AppendHandle {
             access: .writeOnly(), 
             creation: creationOption,
             truncate: options.truncate, 
+            append: true,
             noFollow: options.noFollow, 
-            closeOnExec: options.closeOnExec
+            closeOnExec: options.closeOnExec,
+            noBlocking: false
         )
 
-        openOptions.append = true
-        openOptions.noBlocking = false
-
         if options.noFollow && options.truncate && creationOption != .assertMissing {
-            openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
+            openOptions.platformAccessModeFlagsDiff.insert(.windows.genericWrite)
+            openOptions.truncate = false
         }
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in

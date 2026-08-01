@@ -58,7 +58,7 @@ extension WriteFileHandle {
         #if canImport(WinSDK)
         openOptions.noBlocking = true
         if options.noFollow && options.truncate && creationOption != .assertMissing {
-            openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
+            openOptions.truncate = false
         }
         #else 
         openOptions.noBlocking = false
@@ -128,7 +128,7 @@ extension WriteFileHandle {
 
         openOptions.noBlocking = true
         if options.noFollow && options.truncate && creationOption != .assertMissing {
-            openOptions.platformSpecificOptions.insert(.windows.delayedTruncate)
+            openOptions.truncate = false
         }
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in

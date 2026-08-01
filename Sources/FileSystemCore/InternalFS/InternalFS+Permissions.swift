@@ -102,7 +102,7 @@ extension InternalFS {
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: !followSymlink, platformSpecificOptions: .windows.backupSemantics)
+                openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )
             try handle.setSecurityInfo(members, dacl: dacl, sacl: sacl, owner: owner, group: group)
             try handle.close()
@@ -137,7 +137,7 @@ extension InternalFS {
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformSpecificOptions: .windows.backupSemantics)
+                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )
             let sd = try handle.securityInfo(members)
             try handle.close()

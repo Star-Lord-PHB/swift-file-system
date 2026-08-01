@@ -106,7 +106,7 @@ extension InternalFS {
 
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformSpecificOptions: .windows.backupSemantics)
+            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
         )
 
         return try handle.fileInfo()
@@ -168,7 +168,7 @@ extension InternalFS {
 
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: true, platformSpecificOptions: .windows.backupSemantics)
+            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: true, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
         )
 
         return try handle.type()
@@ -218,7 +218,7 @@ extension InternalFS {
 
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: !followSymlink, platformSpecificOptions: .windows.backupSemantics)
+            openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
         )
         try handle.setFileTimes(access: access, modification: modification, creation: creation)
         try handle.close()
@@ -323,7 +323,7 @@ extension InternalFS {
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: false, platformSpecificOptions: .windows.backupSemantics)
+                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )
             let attr = try handle.fileAttributes()
             try handle.close()
@@ -350,7 +350,7 @@ extension InternalFS {
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .readWrite(metadataOnly: true), noFollow: false, platformSpecificOptions: .windows.backupSemantics)
+                openOptions: .init(access: .readWrite(metadataOnly: true), noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )
             try handle.setFileAttributes(attributes)
             try handle.close()
