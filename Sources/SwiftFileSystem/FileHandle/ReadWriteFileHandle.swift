@@ -155,7 +155,7 @@ extension ReadWriteFileHandle {
             }
         }
 
-        if options.noFollow && options.truncate && type == .regular {
+        if options.noFollow && options.truncate && creationOption != .assertMissing && type == .regular {
             try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
                 try handle.truncate()
             }

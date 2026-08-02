@@ -11,8 +11,8 @@ public struct WindowsOverlapped: ~Copyable {
 
     public init(offset: Int64 = 0, eventHandle: WinSDK.HANDLE? = nil) {
         var systemOverlapped = OVERLAPPED()
-        systemOverlapped.Offset = DWORD(offset & 0xFFFFFFFF)
-        systemOverlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+        systemOverlapped.Offset = DWORD(UInt64(bitPattern: offset) & 0xFFFFFFFF)
+        systemOverlapped.OffsetHigh = DWORD((UInt64(bitPattern: offset) >> 32) & 0xFFFFFFFF)
         systemOverlapped.hEvent = eventHandle
         self.systemOverlapped = UnsafeOwnedMutableAutoPointer<OVERLAPPED>.swiftAllocate(capacity: 1)
         self.systemOverlapped.pointee = consume systemOverlapped
@@ -23,10 +23,10 @@ public struct WindowsOverlapped: ~Copyable {
     }
 
     public var offset: Int64 {
-        get { Int64(self.systemOverlapped.pointee.Offset) | (Int64(self.systemOverlapped.pointee.OffsetHigh) << 32) }
+        get { Int64(bitPattern: UInt64(self.systemOverlapped.pointee.Offset) | (UInt64(self.systemOverlapped.pointee.OffsetHigh) << 32)) }
         set {
-            self.systemOverlapped.pointee.Offset = DWORD(newValue & 0xFFFFFFFF)
-            self.systemOverlapped.pointee.OffsetHigh = DWORD((newValue >> 32) & 0xFFFFFFFF)
+            self.systemOverlapped.pointee.Offset = DWORD(UInt64(bitPattern: newValue) & 0xFFFFFFFF)
+            self.systemOverlapped.pointee.OffsetHigh = DWORD((UInt64(bitPattern: newValue) >> 32) & 0xFFFFFFFF)
         }
     }
 

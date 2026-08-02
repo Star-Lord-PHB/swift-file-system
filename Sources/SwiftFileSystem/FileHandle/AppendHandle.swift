@@ -204,11 +204,23 @@ extension AppendHandle {
     @discardableResult
     public func append(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
 
+        #if canImport(WinSDK)
+        try data.withUnsafeBytes { buffer throws(PlatformError) in
+            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
+                // Setting both Offset and OffsetHigh to 0xFFFFFFFF for append operation
+                var overlapped = WindowsOverlapped(offset: -1)
+                let pending = try handle.write(contentsOf: buffer, overlapped: &overlapped)
+                // This is a synchronous handle, so this wait will not block
+                return try handle.waitForOverlappedResult(pending)
+            }
+        }
+        #else
         try data.withUnsafeBytes { buffer throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 try handle.write(contentsOf: buffer)
             }
         }
+        #endif
 
     }
 
