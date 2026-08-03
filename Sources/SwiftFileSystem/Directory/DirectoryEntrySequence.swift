@@ -23,6 +23,15 @@ public struct DirectoryEntryDirectSequence: DirectoryEntryDirectSequenceProtocol
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
             try UnsafeSystemHandle.openDir(at: path)
         }
+        // `FILE_FLAG_BACKUP_SEMANTICS` also allows opening regular files, so verify the object type
+        // here (POSIX rejects non-directories natively via `O_DIRECTORY`).
+        #if canImport(WinSDK)
+        try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
+            if try handle.type() != .directory {
+                throw .init(kind: .notADirectory)
+            }
+        }
+        #endif
         self.init(
             unsafeSystemHandle: handle,
             path: path,

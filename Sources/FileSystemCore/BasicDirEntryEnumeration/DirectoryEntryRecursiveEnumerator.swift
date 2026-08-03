@@ -37,6 +37,8 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     package typealias SystemEntryDataType = FTSENT
     // private var entryStream: UnsafeMutablePointer<FTS>
     private var ftsStream: InternalFS.PosixFTSStream?
+    /// Level of the previously delivered entry. A dir whose error arrives while this still is the dir's own level
+    /// had none of its own entries delivered, which separates failing to enter it from failing part way through it.
     private var prevLevel: Int16 = 0
 
     #endif
@@ -126,6 +128,12 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 } catch {
                     // if any error occurs, we need to stop traversing this dir and return back to the parent dir
                     // since this is an early return due to error, we also need to include the error in the `leavingDir` element
+                    if relativePathStack.isEmpty {
+                        // The root dir is never emitted as an entry and its relative path is empty, so it cannot be
+                        // named by a `leavingDir` element; failing to read it fails the whole enumeration instead
+                        // (aligned with POSIX, where a root-level FTS error is thrown).
+                        throw error
+                    }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     return .leavingDir(leavingDirPath, error)
@@ -146,11 +154,12 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                     // handle closing will be done automatically in deinit (since we don't care the error when closing handle)
                     if relativePathStack.isEmpty {
                         // the current dir is the root dir, in this case we just stop and fail the entire enumeration
-                        // (This is slightly different from POSIX, which will throw the error in the initializer)
                         throw error
                     }
+                    // report the directory that could not be entered itself, matching POSIX FTS_DNR
+                    let failedDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
-                    return .subTreeError(.init(root: nil, relativePathStack.components), error)
+                    return .subTreeError(failedDirPath, error)
                 }
 
                 findHandleStack.append(handle)
@@ -187,7 +196,23 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
         while let entry = try ftsStream?.next() {
 
-            if entry.fts_level == FTS_ROOTLEVEL { continue }
+            if entry.fts_level == FTS_ROOTLEVEL {
+                // The root itself is not emitted as an entry, but a root that cannot be enumerated must
+                // fail the entire enumeration (aligned with the Windows implementation, which throws when
+                // FindFirstFile fails on the root). FTS reports such failures as root-level error entries.
+                switch Int32(entry.fts_info) {
+                    case FTS_D, FTS_DP, FTS_DOT:
+                        continue
+                    case FTS_NS, FTS_ERR, FTS_DNR:
+                        throw LowLevelError(rawSystemCode: entry.fts_errno)!
+                    case FTS_SLNONE:
+                        throw LowLevelError(kind: .notFound)
+                    default:
+                        // A non-directory root (FTS_F etc.) has no native error code; FTS simply yields
+                        // the item itself. Windows natively reports ERROR_DIRECTORY here.
+                        throw LowLevelError(kind: .notADirectory)
+                }
+            }
 
             defer { prevLevel = entry.fts_level }
 
@@ -206,8 +231,17 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 case FTS_NS:
                     return .entryError(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_ERR where entry.fts_level < prevLevel:
+                    // With our flags (`FTS_PHYSICAL | FTS_NOCHDIR | FTS_COMFOLLOW`, and never calling `fts_set`),
+                    // every reachable `FTS_ERR` belongs to a directory at its post-order visit: the two sites that
+                    // attach it to a non-directory need `fts_set(FTS_FOLLOW)` with chdir enabled, and the remaining
+                    // ones set `FTS_STOP`, so `fts_read` returns NULL instead of delivering the entry.
+                    // The level condition therefore always holds today. `FTS_ERR` requires that the directory had
+                    // already yielded at least one child (a directory failing before that becomes `FTS_DNR`), so the
+                    // children were reported first and `prevLevel` is one level deeper.
                     return .leavingDir(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_ERR:
+                    // Currently unreachable per the reasoning above; kept as a defensive fallback in case a platform
+                    // reports `FTS_ERR` for an individual entry.
                     return .entryError(path, .init(rawSystemCode: entry.fts_errno)!)
                 case FTS_DNR: 
                     return .subTreeError(path, .init(rawSystemCode: entry.fts_errno)!)
