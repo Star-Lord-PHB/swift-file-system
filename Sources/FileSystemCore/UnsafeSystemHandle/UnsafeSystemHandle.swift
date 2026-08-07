@@ -390,6 +390,7 @@ extension UnsafeSystemHandle {
                 case .writeOnly(metadataOnly: true):   writeMetaFlags
                 case .writeOnly where append:          FlagType(bitPattern: FILE_APPEND_DATA) | writeMetaFlags
                 case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE) | writeMetaFlags
+                case .readWrite(metadataOnly: true):   readMetaFlags | writeMetaFlags
                 case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA) | readMetaFlags | writeMetaFlags
                 case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE) | readMetaFlags | writeMetaFlags
                 case .none:                            0 as FlagType

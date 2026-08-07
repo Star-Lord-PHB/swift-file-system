@@ -22,10 +22,9 @@ public protocol FileSystemProtocal: Sendable {
     func removeItem(at path: FilePath) throws(PlatformError)
 
     func copyItem<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
-        at srcPath: FilePath, 
-        to dstPath: FilePath, 
-        onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption, 
-        symlinkOption: FileOperationOptions.CopyItemSymlinkOption,
+        at srcPath: FilePath,
+        to dstPath: FilePath,
+        options: FileOperationOptions.CopyItemOptions,
         errorStrategy: ErrorStrategy
     ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError
 

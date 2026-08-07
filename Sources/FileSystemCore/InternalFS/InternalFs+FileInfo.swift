@@ -1,6 +1,6 @@
 import PlatformCLib
 import CFileSystem
-import SystemPackage
+import struct SystemPackage.FilePath
 
 
 
@@ -93,7 +93,7 @@ extension InternalFS {
                         lastChange: .init(platformFileTime: infoByName.ChangeTime), 
                         creation: .init(platformFileTime: infoByName.CreationTime)
                     ), 
-                    fileIdentifier: .init(fileId: infoByName.FileId128.uint128, deviceId: .init(infoByName.VolumeSerialNumber.QuadPart)), 
+                    fileIdentifier: .init(fileId: infoByName.FileId128.uint128, deviceId: .init(bitPattern: infoByName.VolumeSerialNumber.QuadPart)), 
                     attributes: .init(rawValue: infoByName.FileAttributes), 
                     supportedAttributes: .all
                 )

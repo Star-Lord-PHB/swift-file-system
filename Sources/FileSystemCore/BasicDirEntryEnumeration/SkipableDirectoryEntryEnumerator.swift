@@ -1,6 +1,6 @@
 import PlatformCLib
 import CFileSystem
-import SystemPackage
+import struct SystemPackage.FilePath
 
 import BasicContainers
 
@@ -39,7 +39,6 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     #endif
 
     package let rootPath: FilePath
-    package let doStat: Bool
     package let options: FileOperationOptions.DirectoryTraversalOption
 
     package private(set) var ended: Bool = false
@@ -49,9 +48,8 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     }
 
 
-    package init(path: FilePath, doStat: Bool = true, options: FileOperationOptions.DirectoryTraversalOption = []) {
+    package init(path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) {
         self.rootPath = path
-        self.doStat = doStat
         self.options = options
     }
 
@@ -115,7 +113,12 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                 guard var findHandle = findHandleStack.popLast() else { return nil }
 
                 if skipCurrentDir {
-                    // Skip the current directory
+                    // Skipping a dir that is already being read means leaving it early, so a `leavingDir` element
+                    // is still emitted. (Skipping before the dir is entered at all is a different request and
+                    // deliberately emits nothing; see the other branch below.)
+                    // Skipping the root ends the whole enumeration: it is never emitted as an entry and its
+                    // relative path is empty, so it cannot be named by a `leavingDir` element either.
+                    if relativePathStack.isEmpty { return nil }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     if options.contains(.skipDir) {
@@ -144,6 +147,12 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                 } catch {
                     // if any error occurs, we need to stop traversing this dir and return back to the parent dir
                     // since this is an early return due to error, we also need to include the error in the `leavingDir` element
+                    if relativePathStack.isEmpty {
+                        // The root dir is never emitted as an entry and its relative path is empty, so it cannot be
+                        // named by a `leavingDir` element; failing to read it fails the whole enumeration instead
+                        // (aligned with POSIX, where a root-level FTS error is thrown).
+                        throw error
+                    }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     return .leavingDir(leavingDirPath, error)
@@ -156,8 +165,9 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                 // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
 
                 if skipCurrentDir {
+                    // Skipping a dir before its contents have been accessed at all means "do not enter it", so
+                    // no `leavingDir` element is emitted for it (unlike the early-leave case in the branch above).
                     if relativePathStack.isEmpty { return nil }
-                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     skipCurrentDir = false
                     continue
@@ -175,29 +185,34 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                         // (This is slightly different from POSIX, which will throw the error in the initializer)
                         throw error
                     }
+                    let failedDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
-                    return .subTreeError(.init(root: nil, relativePathStack.components), error)
+                    return .subTreeError(failedDirPath, error)
                 }
 
                 findHandleStack.append(handle)
 
             }
 
-            let type = extractEntryType(of: findData)
-
             let path = extractPath(from: findData)
             let name = path.lastComponent!
 
+            if !options.contains(.includeDotEntries) && name.kind != .regular {
+                // '.' and '..' are dropped anyway (kept symmetric with the POSIX branch, where returning
+                // early also avoids resolving their type)
+                continue
+            }
+
+            let type = extractEntryType(of: findData)
+
             if type == .directory && (name.kind == .regular) {
-                // Entering a subdirectory. 
-                // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir 
-                // handle will be opened 
+                // Entering a subdirectory.
+                // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir
+                // handle will be opened
                 relativePathStack.append(name)
             }
 
-            if options.contains(.skipDir) && type == .directory { 
-                continue 
-            } else if !options.contains(.includeDotEntries) && name.kind != .regular {
+            if options.contains(.skipDir) && type == .directory {
                 continue
             } else {
                 return DirectoryEntry(path: path, type: type).map { .entry($0) }
@@ -218,7 +233,12 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                 guard var entryStream = entryStreamStack.popLast() else { return nil }
 
                 if skipCurrentDir {
-                    // Skip the current directory
+                    // Skipping a dir that is already being read means leaving it early, so a `leavingDir` element
+                    // is still emitted. (Skipping before the dir is entered at all is a different request and
+                    // deliberately emits nothing; see the other branch below.)
+                    // Skipping the root ends the whole enumeration: it is never emitted as an entry and its
+                    // relative path is empty, so it cannot be named by a `leavingDir` element either.
+                    if relativePathStack.isEmpty { return nil }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     if options.contains(.skipDir) {
@@ -247,6 +267,12 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                 } catch {
                     // if any error occurs, we need to stop traversing this dir and return back to the parent dir
                     // since this is an early return due to error, we also need to include the error in the `leavingDir` element
+                    if relativePathStack.isEmpty {
+                        // The root dir is never emitted as an entry and its relative path is empty, so it cannot be
+                        // named by a `leavingDir` element; failing to read it fails the whole enumeration instead
+                        // (aligned with POSIX, where a root-level FTS error is thrown).
+                        throw error
+                    }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     return .leavingDir(leavingDirPath, error)
@@ -257,8 +283,9 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                 // Entering a new subdir
 
                 if skipCurrentDir {
+                    // Skipping a dir before its contents have been accessed at all means "do not enter it", so
+                    // no `leavingDir` element is emitted for it (unlike the early-leave case in the branch above).
                     if relativePathStack.isEmpty { return nil }
-                    let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
                     skipCurrentDir = false
                     continue
@@ -277,26 +304,42 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
                         // the current dir is the root dir, in this case we just stop and fail the entire enumeration
                         throw error
                     }
+                    let failedDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
-                    return .subTreeError(.init(root: nil, relativePathStack.components), error)
+                    return .subTreeError(failedDirPath, error)
                 }
 
             }
 
-            let type = extractEntryType(from: dirent)
-
             let path = extractPath(from: dirent)
             let name = path.lastComponent!
 
+            if !options.contains(.includeDotEntries) && name.kind != .regular {
+                // '.' and '..' are dropped anyway; returning early also avoids resolving their type below
+                continue
+            }
+
+            var type = extractEntryType(from: dirent)
+
+            if type == .unknown {
+                // `d_type` is optional in POSIX: some file systems always report `DT_UNKNOWN`.
+                // Fall back to an explicit no-follow stat of the entry itself, otherwise subdirectories
+                // would never be recognized and therefore never entered.
+                do {
+                    type = try InternalFS.type(ofItemAt: rootPath.appending(path.components))
+                } catch {
+                    // a single unresolvable entry must not fail the whole enumeration
+                    return .entryError(path, error)
+                }
+            }
+
             if type == .directory && (name.kind == .regular) {
-                // Entering a subdirectory. 
-                // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir 
-                // stream will be opened 
+                // Entering a subdirectory.
+                // Push only the name of the subdir onto the `relativePathStack`, then in the next iteration, the corresponding dir
+                // stream will be opened
                 relativePathStack.append(name)
             }
-            if options.contains(.skipDir) && type == .directory { 
-                continue 
-            } else if !options.contains(.includeDotEntries) && name.kind != .regular {
+            if options.contains(.skipDir) && type == .directory {
                 continue
             } else {
                 return DirectoryEntry(path: path, type: type).map { .entry($0) }
@@ -357,6 +400,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
             case .init(DT_BLK):     .block
             case .init(DT_CHR):     .character
             case .init(DT_FIFO):    .fifo
+            case .init(DT_UNKNOWN): .unknown
             default:                .unknown
         }
     }

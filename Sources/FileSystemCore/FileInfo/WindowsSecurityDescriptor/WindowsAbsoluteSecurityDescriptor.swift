@@ -183,6 +183,16 @@ extension WindowsAbsoluteSecurityDescriptor {
     }
 
 
+    public mutating func addDaclEntries(_ entries: WindowsExplicitAccessArray) {
+        if var dacl = self.dacl.take() {
+            dacl.addEntries(entries)
+            self.dacl = .some(dacl)
+        } else {
+            self.dacl = .init(entries: entries)
+        }
+    }
+
+
     public mutating func removeDacl() {
         self.dacl = nil
     }

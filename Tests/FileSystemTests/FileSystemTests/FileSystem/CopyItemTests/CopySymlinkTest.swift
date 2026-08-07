@@ -20,7 +20,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: linkPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, symlinkOption: .copyLink)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(symlinkOption: .copyLink))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -36,7 +36,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: linkPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyLink)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .overwrite, symlinkOption: .copyLink))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -52,7 +52,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .skip, symlinkOption: .copyLink)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .skip, symlinkOption: .copyLink))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -69,7 +69,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .error, symlinkOption: .copyLink))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -89,7 +89,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: linkPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyLink)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .overwrite, symlinkOption: .copyLink))
 
         try expectItem(at: dstPath, toMatch: expectation)
         
@@ -107,7 +107,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation1 = try ItemExpectation.from(itemAt: dstPath)
         let expectation2 = try ItemExpectation.from(itemAt: targetPath2)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .skip, symlinkOption: .copyLink)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .skip, symlinkOption: .copyLink))
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: targetPath2, toMatch: expectation2)
@@ -127,7 +127,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation2 = try ItemExpectation.from(itemAt: targetPath2)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .error, symlinkOption: .copyLink))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -148,7 +148,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyLink)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .overwrite, symlinkOption: .copyLink))
         }
 
         #expect(error.kind == .isADirectory)
@@ -167,7 +167,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .skip, symlinkOption: .copyLink)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .skip, symlinkOption: .copyLink))
 
         try expectItem(at: dstPath, toMatch: expectation)
     }
@@ -183,7 +183,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyLink)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .error, symlinkOption: .copyLink))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -209,7 +209,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: targetPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(symlinkOption: .copyTarget))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -225,7 +225,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: targetPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .overwrite, symlinkOption: .copyTarget))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -241,7 +241,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .skip, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .skip, symlinkOption: .copyTarget))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -258,7 +258,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .error, symlinkOption: .copyTarget))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -278,7 +278,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: targetPath1)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .overwrite, symlinkOption: .copyTarget))
 
         try expectItem(at: dstPath, toMatch: expectation)
         
@@ -296,7 +296,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation1 = try ItemExpectation.from(itemAt: dstPath)
         let expectation2 = try ItemExpectation.from(itemAt: targetPath2)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .skip, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .skip, symlinkOption: .copyTarget))
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: targetPath2, toMatch: expectation2)
@@ -316,7 +316,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation2 = try ItemExpectation.from(itemAt: targetPath2)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .error, symlinkOption: .copyTarget))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -337,7 +337,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .overwrite, symlinkOption: .copyTarget)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .overwrite, symlinkOption: .copyTarget))
         }
 
         #expect(error.kind == .isADirectory)
@@ -356,7 +356,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .skip, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .skip, symlinkOption: .copyTarget))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -373,7 +373,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: linkPath, to: dstPath, onExistingTarget: .error, symlinkOption: .copyTarget)
+            try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(existingTarget: .error, symlinkOption: .copyTarget))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -430,7 +430,7 @@ extension FileSystemTest.CopyFileTest {
             ]
         )
 
-        try FileSystem().copyItem(at: linkPath, to: dstPath, symlinkOption: .copyTarget)
+        try FileSystem().copyItem(at: linkPath, to: dstPath, options: .legacy(symlinkOption: .copyTarget))
 
         try expectFileStructure(at: dstPath, toMatch: expectation)
 

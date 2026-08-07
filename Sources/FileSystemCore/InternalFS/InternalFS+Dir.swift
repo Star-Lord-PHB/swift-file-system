@@ -183,12 +183,13 @@ extension InternalFS {
 
             } else {
 
-                findHandle = rootPath.appending("*").withPlatformString { cStr in 
+                let openedHandle = rootPath.appending("*").withPlatformString { cStr in
                     FindFirstFileExW(cStr, FindExInfoBasic, &findData, FindExSearchNameMatch, nil, DWORD(FIND_FIRST_EX_LARGE_FETCH))
                 }
-                guard let findHandle, findHandle != INVALID_HANDLE_VALUE else {
+                guard let openedHandle, openedHandle != INVALID_HANDLE_VALUE else {
                     try LowLevelError.assertError()
                 }
+                findHandle = openedHandle
 
             }
 

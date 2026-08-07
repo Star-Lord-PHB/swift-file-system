@@ -1,4 +1,5 @@
-import SystemPackage
+import struct SystemPackage.FilePath
+import struct SystemPackage.FilePermissions
 import PlatformCLib
 
 
@@ -90,16 +91,40 @@ public enum FileOperationOptions {
     }
 
 
-    public enum CopyItemSymlinkOption {
+    public enum CopyItemSymlinkOption: Sendable, Equatable, Hashable {
         case copyLink
         case copyTarget
     }
 
 
-    public enum CopyTargetExistOption {
+    public enum CopyTargetExistOption: Sendable, Equatable, Hashable {
         case error
         case overwrite
         case skip
+    }
+
+
+    public struct CopyItemOptions: Sendable, Equatable, Hashable {
+
+        public var existingTarget: CopyTargetExistOption
+        public var symlinkOption: CopyItemSymlinkOption
+
+        public var preserveSrcAccessTime: Bool
+
+        public var windowsPreserveExactDacl: Bool
+
+        public init(
+            existingTarget: CopyTargetExistOption = .overwrite, 
+            symlinkOption: CopyItemSymlinkOption = .copyLink, 
+            preserveSrcAccessTime: Bool = false, 
+            windowsPreserveExactDacl: Bool = false
+        ) {
+            self.existingTarget = existingTarget
+            self.symlinkOption = symlinkOption
+            self.preserveSrcAccessTime = preserveSrcAccessTime
+            self.windowsPreserveExactDacl = windowsPreserveExactDacl
+        }
+
     }
 
 

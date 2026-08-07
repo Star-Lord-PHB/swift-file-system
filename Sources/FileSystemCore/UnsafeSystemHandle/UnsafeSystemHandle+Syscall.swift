@@ -157,6 +157,24 @@ extension UnsafeSystemHandle {
         return .init(owningRawHandle: handle)
 
     }
+
+
+    public static func open(
+        at path: FilePath, 
+        openOptions: OpenOptions = .init(), 
+        creationPermissions: borrowing WindowsAbsoluteSecurityDescriptor
+    ) throws(LowLevelError) -> UnsafeSystemHandle {
+        return try open(at: path, openOptions: openOptions, creationPermissions: creationPermissions.view)
+    }
+
+
+    public static func open(
+        at path: FilePath, 
+        openOptions: OpenOptions = .init(), 
+        creationPermissions: borrowing WindowsSelfRelativeSecurityDescriptor
+    ) throws(LowLevelError) -> UnsafeSystemHandle {
+        return try open(at: path, openOptions: openOptions, creationPermissions: creationPermissions.view)
+    }
     #endif 
 
 

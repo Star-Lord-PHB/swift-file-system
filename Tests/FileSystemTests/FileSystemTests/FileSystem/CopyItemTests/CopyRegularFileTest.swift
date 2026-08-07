@@ -20,7 +20,7 @@ extension FileSystemTest.CopyFileTest {
 
         try await Task.sleep(nanoseconds: 200_000_000)
 
-        try FileSystem().copyItem(at: srcPath, to: dstPath)
+        try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy())
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -38,7 +38,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: srcPath)
 
-        try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
+        try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .overwrite))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -57,7 +57,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -79,7 +79,7 @@ extension FileSystemTest.CopyFileTest {
         
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .skip)
+        try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .skip))
 
         // since the copy is skipped due to file exists, the dst file should remain unchanged
         try expectItem(at: dstPath, toMatch: expectation)
@@ -97,7 +97,7 @@ extension FileSystemTest.CopyFileTest {
 
         let error = try #require(throws: PlatformError.self) {
             // Copying a file to a directory is not supported
-            try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .overwrite))
         }
 
         #expect(error.kind == .isADirectory)
@@ -115,7 +115,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
-        try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .skip)
+        try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .skip))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -131,7 +131,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -153,7 +153,7 @@ extension FileSystemTest.CopyFileTest {
 
         let expectation = try ItemExpectation.from(itemAt: srcPath)
 
-        try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
+        try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .overwrite))
 
         try expectItem(at: dstPath, toMatch: expectation)
 
@@ -173,7 +173,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation2 = try ItemExpectation.from(itemAt: dstTargetPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .error)
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error))
         }
 
         #expect(error.kind == .alreadyExists)
@@ -196,7 +196,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation1 = try ItemExpectation.from(itemAt: dstPath)
         let expectation2 = try ItemExpectation.from(itemAt: dstTargetPath)
 
-        try FileSystem().copyItem(at: srcPath, to: dstPath, onExistingTarget: .skip)
+        try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .skip))
 
         try expectItem(at: dstPath, toMatch: expectation1)
         try expectItem(at: dstTargetPath, toMatch: expectation2)

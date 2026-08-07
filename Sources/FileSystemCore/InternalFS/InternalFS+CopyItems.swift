@@ -7,8 +7,6 @@ extension InternalFS {
 
     #if canImport(WinSDK)
     @available(*, deprecated, message: "Not recomended on Windows for copying files, use copyRegularFileOrSymlink instead")
-    #elseif canImport(Darwin)   
-    @available(*, deprecated, message: "Not recomended on Darwin for copying files, use copyRegularFileWithMetaNoTimes instead")
     #endif 
     package static func copyRegularFileContent(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle, _ srcFileSize: UInt64? = nil) throws(LowLevelError) {
 
@@ -88,6 +86,35 @@ extension InternalFS {
 
 
     #if canImport(Darwin)
+
+    package static func copyItemMetadata(from srcHandle: borrowing UnsafeSystemHandle, to dstHandle: borrowing UnsafeSystemHandle) throws(LowLevelError) {
+        try execThrowingCFunction {
+            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_METADATA))
+        }
+    }
+
+
+    package static func copyItemContent(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool = false) throws(LowLevelError) {
+        try execThrowingCFunction {
+            srcPath.withPlatformString { srcPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    copyfile(srcPtr, dstPtr, nil, UInt32(COPYFILE_DATA | COPYFILE_NOFOLLOW | (overwrite ? 0 : COPYFILE_EXCL)))
+                }
+            }
+        }
+    }
+
+
+    package static func copyItemMetadata(from srcPath: FilePath, to dstPath: FilePath, overwrite: Bool = false) throws(LowLevelError) {
+        try execThrowingCFunction {
+            srcPath.withPlatformString { srcPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    copyfile(srcPtr, dstPtr, nil, UInt32(COPYFILE_METADATA | COPYFILE_NOFOLLOW | (overwrite ? 0 : COPYFILE_EXCL)))
+                }
+            }
+        }
+    }
+
     
     package static func copyRegularFileWithMetaNoTimes(
         from srcHandle: borrowing UnsafeSystemHandle, 
