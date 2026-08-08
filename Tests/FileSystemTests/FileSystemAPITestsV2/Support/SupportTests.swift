@@ -74,8 +74,16 @@ struct FileSystemTestSupportTests {
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.accessTime))
         #expect(!Support.ItemComparisonPolicy.copiedItem.fields.contains(.statusChangeTime))
         #expect(Support.ItemComparisonPolicy.unchanged.fields.contains(.creationTime))
+        #if canImport(Glibc) || canImport(Musl)
+        #expect(!Support.ItemComparisonPolicy.copiedItem.fields.contains(.creationTime))
+        #else
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.creationTime))
+        #endif
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.permissions))
+        #expect(
+            !Support.ItemComparisonPolicy.copiedItem
+                .excluding(.accessTime).fields.contains(.accessTime)
+        )
         try Support.expectItem(at: path, matches: snapshot, using: .unchanged)
 
     }
@@ -117,5 +125,57 @@ struct FileSystemTestSupportTests {
         #expect(timestamp.nanoseconds == 0)
 
     }
+
+    @Test
+    func `ageAccessTime moves access time back and preserves modification time`() throws {
+
+        let workspace = try Support.Workspace(keepArtifacts: false)
+        let path = try workspace.makeFile(at: "file.txt", contents: "contents")
+        let before = try Support.ItemMetadata.Times.capture(at: path)
+
+        try Support.ageAccessTime(at: path)
+
+        let after = try Support.ItemMetadata.Times.capture(at: path)
+        Support.expectTimestampEquals(after.access, before.access.adding(seconds: -86_400))
+        Support.expectTimestampEquals(after.modification, before.modification)
+        #expect(after.access < before.access)
+
+    }
+
+    @Test
+    func `volumeUpdatesAccessTimeOnRead matches an observed read`() throws {
+
+        let workspace = try Support.Workspace(keepArtifacts: false)
+        let updatesAccessTime = try Support.volumeUpdatesAccessTimeOnRead(in: workspace)
+
+        let path = try workspace.makeFile(at: "file.txt", contents: "contents")
+        try Support.ageAccessTime(at: path)
+        let before = try Support.ItemMetadata.Times.capture(at: path).access
+        let readHandle = try FileHandle(forReadingFrom: URL(filePath: path.string))
+        _ = try readHandle.read(upToCount: 1)
+        try readHandle.close()
+        let after = try Support.ItemMetadata.Times.capture(at: path).access
+
+        #expect((after > before) == updatesAccessTime)
+
+    }
+
+    #if canImport(Darwin) || os(FreeBSD)
+    @Test
+    func `ageCreationTime lowers birth time and preserves modification time`() throws {
+
+        let workspace = try Support.Workspace(keepArtifacts: false)
+        let path = try workspace.makeFile(at: "file.txt", contents: "contents")
+        let before = try Support.ItemMetadata.Times.capture(at: path)
+        let target = try #require(before.creation).adding(seconds: -86_400)
+
+        try Support.ageCreationTime(at: path, to: target)
+
+        let after = try Support.ItemMetadata.Times.capture(at: path)
+        Support.expectTimestampEquals(after.creation, target)
+        Support.expectTimestampEquals(after.modification, before.modification)
+
+    }
+    #endif
 
 }

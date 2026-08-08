@@ -57,7 +57,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error))
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error), errorStrategy: .abortOnError)
         }
 
         #expect(error.kind == .alreadyExists)
@@ -97,7 +97,7 @@ extension FileSystemTest.CopyFileTest {
 
         let error = try #require(throws: PlatformError.self) {
             // Copying a file to a directory is not supported
-            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .overwrite))
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .overwrite), errorStrategy: .abortOnError)
         }
 
         #expect(error.kind == .isADirectory)
@@ -131,7 +131,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation = try ItemExpectation.from(itemAt: dstPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error))
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error), errorStrategy: .abortOnError)
         }
 
         #expect(error.kind == .alreadyExists)
@@ -173,7 +173,7 @@ extension FileSystemTest.CopyFileTest {
         let expectation2 = try ItemExpectation.from(itemAt: dstTargetPath)
 
         let error = try #require(throws: PlatformError.self) {
-            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error))
+            try FileSystem().copyItem(at: srcPath, to: dstPath, options: .legacy(existingTarget: .error), errorStrategy: .abortOnError)
         }
 
         #expect(error.kind == .alreadyExists)

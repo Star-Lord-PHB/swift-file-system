@@ -24,8 +24,20 @@ extension FileSystemTestSupport {
         /// State that the recursive copy implementation promises to preserve.
         /// File identity and status-change time must differ for a newly copied item
         /// and therefore are not included.
+        ///
+        /// Access time is only comparable when the snapshot is captured immediately
+        /// before the copy with no source reads in between: snapshots record times
+        /// after their own payload reads, the copy caches every item's times before
+        /// reading its content, and expectations check times before payloads.
+        ///
+        /// Creation time is excluded on Linux, where the copy cannot write it back.
+        /// On Darwin and FreeBSD it is written by lowering the destination's birth
+        /// time, which only works downwards: when an overwrite merge reuses an
+        /// existing directory whose birth time predates the source's, the
+        /// destination keeps its own value — compare such items with
+        /// `excluding(.creationTime)`.
         static var copiedItem: Self {
-            let fields: ComparisonFields = [
+            var fields: ComparisonFields = [
                 .logicalContents,
                 .accessTime,
                 .modificationTime,
@@ -34,6 +46,9 @@ extension FileSystemTestSupport {
                 .permissions,
                 .ownership,
             ]
+            #if canImport(Glibc) || canImport(Musl)
+            fields.subtract(.creationTime)
+            #endif
             return .init(fields: fields)
         }
 
@@ -45,6 +60,11 @@ extension FileSystemTestSupport {
 
         /// Every fact represented by `ItemSnapshot`.
         static let allObservable: Self = .init(fields: .all)
+
+        /// This policy without the given fields, for per-item carve-outs.
+        func excluding(_ excluded: ComparisonFields) -> Self {
+            .init(fields: fields.subtracting(excluded))
+        }
 
     }
 

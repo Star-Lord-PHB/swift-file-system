@@ -36,7 +36,7 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
         srcRootPath: FilePath,
         dstRootPath: FilePath,
         options: FileOperationOptions.CopyItemOptions = .init(),
-        errorStrategy: ErrorStrategy = .abortOnError
+        errorStrategy: ErrorStrategy = .collectAndThrow
     ) {
         self.srcRootPath = srcRootPath
         self.dstRootPath = dstRootPath
@@ -74,7 +74,7 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
         at srcPath: FilePath,
         to dstPath: FilePath,
         options: FileOperationOptions.CopyItemOptions = .init(),
-        errorStrategy: ErrorStrategy = .abortOnError
+        errorStrategy: ErrorStrategy = .collectAndThrow
     ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
         var handler = Self(
             srcRootPath: srcPath,

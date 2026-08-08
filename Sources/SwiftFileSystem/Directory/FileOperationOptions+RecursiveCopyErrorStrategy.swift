@@ -31,7 +31,18 @@ extension FileOperationOptions {
     }
 
 
-    public struct RecursiveCopySkipAndCollectStrategy: RecursiveCopyErrorStrategyProtocol {
+    public struct RecursiveCopyCollectAndThrowStrategy: RecursiveCopyErrorStrategyProtocol {
+        public func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
+            return (collectError: true, abort: false)
+        }
+        public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(PlatformError) -> Void {
+            guard let errorReport else { return }
+            try errorReport.throwAsPlatformError()
+        }
+    }
+
+
+    public struct RecursiveCopyCollectAndReturnStrategy: RecursiveCopyErrorStrategyProtocol {
         public func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
             return (collectError: true, abort: false)
         }
@@ -41,7 +52,7 @@ extension FileOperationOptions {
     }
 
 
-    public struct RecursiveCopySkipAndIgnoreStrategy: RecursiveCopyErrorStrategyProtocol {
+    public struct RecursiveCopyIgnoreAllStrategy: RecursiveCopyErrorStrategyProtocol {
         public func handleError(lowLevelError: LowLevelError, itemRelativePath: FilePath) -> (collectError: Bool, abort: Bool) {
             return (collectError: false, abort: false)
         }
@@ -59,11 +70,16 @@ extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == 
 }
 
 
-extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopySkipAndCollectStrategy {
-    public static var skipAndCollect: FileOperationOptions.RecursiveCopySkipAndCollectStrategy { .init() }
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyCollectAndThrowStrategy {
+    public static var collectAndThrow: FileOperationOptions.RecursiveCopyCollectAndThrowStrategy { .init() }
 }
 
 
-extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopySkipAndIgnoreStrategy {
-    public static var skipAndIgnore: FileOperationOptions.RecursiveCopySkipAndIgnoreStrategy { .init() }
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyCollectAndReturnStrategy {
+    public static var collectAndReturn: FileOperationOptions.RecursiveCopyCollectAndReturnStrategy { .init() }
+}
+
+
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyIgnoreAllStrategy {
+    public static var ignoreAll: FileOperationOptions.RecursiveCopyIgnoreAllStrategy { .init() }
 }

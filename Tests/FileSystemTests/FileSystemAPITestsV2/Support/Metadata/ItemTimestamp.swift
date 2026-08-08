@@ -75,6 +75,16 @@ extension FileSystemTestSupport.ItemMetadata {
 
 
 
+extension FileSystemTestSupport.ItemMetadata.Timestamp: Comparable {
+
+    static func < (lhs: Self, rhs: Self) -> Bool {
+        (lhs.secondsSinceUnixEpoch, lhs.nanoseconds) < (rhs.secondsSinceUnixEpoch, rhs.nanoseconds)
+    }
+
+}
+
+
+
 #if !canImport(WinSDK)
 extension FileSystemTestSupport.ItemMetadata.Timestamp {
 

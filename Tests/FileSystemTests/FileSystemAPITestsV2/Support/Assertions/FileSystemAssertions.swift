@@ -4,6 +4,10 @@ import Testing
 
 import SwiftFileSystem
 
+#if canImport(WinSDK)
+import WinSDK
+#endif
+
 
 extension FileSystemTestSupport {
 
@@ -251,14 +255,34 @@ extension FileSystemTestSupport {
         }
     }
 
+    /// Whether an item exists at `path`, without following a final symlink.
+    ///
+    /// Implemented directly on the platform status call: `expectTree` consults this
+    /// before checking an item's times, so it must not observe the item's contents.
+    /// Foundation's `attributesOfItem` reads a symlink's target path on Linux, and
+    /// that read pushes the access time of a freshly created link, whose recent
+    /// status-change time makes relatime update the access time on a first read.
     static func itemExistsNoFollow(at path: FilePath) throws -> Bool {
-        do {
-            _ = try FileManager.default.attributesOfItem(atPath: path.string)
-            return true
-        } catch let error as CocoaError 
-        where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
+        #if canImport(WinSDK)
+        var attributes = WIN32_FILE_ATTRIBUTE_DATA()
+        let succeeded = path.withPlatformString { pathPointer in
+            GetFileAttributesExW(pathPointer, GetFileExInfoStandard, &attributes)
+        }
+        if succeeded { return true }
+        let lastError = GetLastError()
+        if lastError == ERROR_FILE_NOT_FOUND || lastError == ERROR_PATH_NOT_FOUND {
             return false
         }
+        struct UnexpectedStatusError: Error { let code: DWORD }
+        throw UnexpectedStatusError(code: lastError)
+        #else
+        do throws(Errno) {
+            _ = try Stat(path, followTargetSymlink: false)
+            return true
+        } catch .noSuchFileOrDirectory, .notDirectory {
+            return false
+        }
+        #endif
     }
 
     static func expectTimestampEquals(

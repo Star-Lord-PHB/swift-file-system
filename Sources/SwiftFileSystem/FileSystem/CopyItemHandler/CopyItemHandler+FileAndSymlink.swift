@@ -57,17 +57,9 @@ extension CopyItemHandler {
         switch (dstFileType, options.existingTarget) {
             case (.some(_), .error): 
                 throw .init(kind: .alreadyExists)
-            case (.none, .error): 
-                tmpDstPath = dstPath
-                shouldRename = false
-                dstHandle = try UnsafeSystemHandle.open(
-                    at: dstPath,
-                    openOptions: .init(access: .writeOnly(), creation: .assertMissing, noFollow: true),
-                    creationPermissions: srcFileAttrs.permission
-                )
             case (.some(_), .skip): 
                 return
-            case (.none, .overwrite), (.none, .skip): 
+            case (.none, _): 
                 let handle: UnsafeSystemHandle
                 do {
                     // try to create directly
@@ -131,7 +123,11 @@ extension CopyItemHandler {
 
         #if canImport(WinSDK)
 
-        try copyWindowFileOrSymlink(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
+        if srcAttrs.attributes.contains(.windows.isDirectory) {
+            try copyWindowDirSymlink(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
+        } else {
+            try copyWindowFileOrSymlink(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
+        }
 
         #else 
 
@@ -145,14 +141,9 @@ extension CopyItemHandler {
         switch (dstFileType, options.existingTarget) {
             case (.some(_), .error): 
                 throw .init(kind: .alreadyExists)
-            case (.none, .error):
-                let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
-                try InternalFS.symlink(dstPath: targetPath, linkPath: dstPath)
-                dstTmpPath = dstPath
-                shouldRename = false
             case (.some(_), .skip):
                 return
-            case (.some(.symlink), .overwrite), (.some(.regular), .overwrite), (.none, .overwrite), (.none, .skip):
+            case (.some(.symlink), .overwrite), (.some(.regular), .overwrite), (.none, _):
                 let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
                 var trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 var created = false
@@ -196,7 +187,12 @@ extension CopyItemHandler {
             }
             #endif
             if shouldRename {
-                try InternalFS.rename(itemAt: dstTmpPath, to: dstPath)
+                do {
+                    try InternalFS.rename(itemAt: dstTmpPath, to: dstPath, replace: options.existingTarget == .overwrite)
+                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
+                    try? InternalFS.unlink(fileAt: dstTmpPath)
+                    return
+                }
             }
         } catch {
             try? InternalFS.unlink(fileAt: dstTmpPath)
@@ -219,11 +215,107 @@ extension CopyItemHandler {
 
 
     #if canImport(WinSDK)
-    mutating func makeWindowsTmpFileSecurityDescriptor() throws(LowLevelError) -> WindowsAbsoluteSecurityDescriptor {
+    fileprivate mutating func makeWindowsTmpFileSecurityDescriptor() throws(LowLevelError) -> WindowsAbsoluteSecurityDescriptor {
         let dacl = WindowsRawAcl(entries: [
             .init(permission: .genericAll, trustee: .init(sid: try getAndCacheCurrentUser().rawId, type: .unknown))
         ])
         return .init(control: .daclProtected, dacl: .some(dacl))
+    }
+
+
+    fileprivate func createDirSymlink(at linkPath: FilePath, dstPath: FilePath) throws(LowLevelError) {
+        let flags = DWORD(SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) | DWORD(SYMBOLIC_LINK_FLAG_DIRECTORY)
+        try execThrowingCFunction {
+            linkPath.withPlatformString { linkPtr in 
+                dstPath.withPlatformString { dstPtr in 
+                    CreateSymbolicLinkW(linkPtr, dstPtr, flags) == 1
+                }
+            }
+        }
+    }
+
+
+    fileprivate func copyWindowDirSymlink(
+        itemRelativePath: FilePath,
+        srcAttrs: consuming CachedCopySrcItemAttrs
+    ) throws(LowLevelError) {
+
+        assert(
+            srcAttrs.type == .symlink && srcAttrs.attributes.contains(.windows.isDirectory),
+            "srcAttrs must represent a directory symlink"
+        )
+
+        let srcPath = srcAbsolutePath(of: itemRelativePath)
+        let dstPath = dstAbsolutePath(of: itemRelativePath)
+
+        let dstFileType = try? InternalFS.type(ofItemAt: dstPath)
+
+        let tmpDstPath: FilePath
+        let shouldRename: Bool
+
+        switch (dstFileType, options.existingTarget) {
+            case (.some(_), .error): 
+                throw .init(kind: .alreadyExists)
+            case (.some(_), .skip):
+                return
+            case (.some(.symlink), .overwrite), (.some(.regular), .overwrite), (.none, _):
+                let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
+                var trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
+                var created = false
+                for _ in 0 ..< 24 {
+                    do {
+                        try createDirSymlink(at: trialDstTmpPath, dstPath: targetPath)
+                        created = true
+                        break
+                    } catch let error where error.kind == .alreadyExists {
+                        trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
+                    }
+                }
+                guard created else {
+                    throw .init(kind: .alreadyExists)
+                }
+                tmpDstPath = trialDstTmpPath
+                shouldRename = true
+            case (.some(.directory), .overwrite):
+                throw .init(kind: .isADirectory)
+            case (.some(_), .overwrite):
+                throw .init(kind: .unsupported)
+        }
+
+        let dstMetadataHandle: UnsafeSystemHandle
+        do {
+            dstMetadataHandle = try openMetadataHandle(forItemAt: tmpDstPath)
+        } catch {
+            try? InternalFS.setFileAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
+            try? InternalFS.unlink(fileAt: tmpDstPath)
+            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
+            throw error
+        }
+
+        do {
+            if options.preserveSrcAccessTime {
+                try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
+            }
+            try writeCachedItemAttrs(forHandle: dstMetadataHandle, members: [.fileTimes, .flags], cachedAttrs: srcAttrs)
+            if shouldRename {
+                do {
+                    try InternalFS.rename(itemAt: tmpDstPath, to: dstPath, replace: options.existingTarget == .overwrite)
+                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
+                    try? dstMetadataHandle.setFileAttributes(.windows.isNormal)
+                    try? InternalFS.unlink(fileAt: tmpDstPath)
+                    return
+                }
+            }
+        } catch {
+            try? dstMetadataHandle.setFileAttributes(.windows.isNormal)
+            try? InternalFS.unlink(fileAt: tmpDstPath)
+            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
+            throw error
+        }
+
+        try writeCachedItemAttrs(forHandle: dstMetadataHandle, members: .permissions, cachedAttrs: srcAttrs)
+        try dstMetadataHandle.close()
+
     }
 
 
@@ -236,7 +328,8 @@ extension CopyItemHandler {
         let dstPath = dstAbsolutePath(of: itemRelativePath)
 
         assert(
-            srcAttrs.type == .regular || srcAttrs.type == .symlink, 
+            (srcAttrs.type == .regular || srcAttrs.type == .symlink) 
+            && !srcAttrs.attributes.contains(.windows.isDirectory), 
             "srcAttrs must represent a regular file or a symlink"
         )
 
@@ -258,34 +351,8 @@ extension CopyItemHandler {
         switch (options.existingTarget, dstFileType) {
             case (.error, .some(_)): throw .init(kind: .alreadyExists)
             case (.skip, .some(_)): return
-            case (.error, .none), (.skip, .none): 
-                tmpDstPath = dstPath
-                shouldRename = false
-                do throws(LowLevelError) {
-                    if srcAttrs.type == .regular && options.windowsPreserveExactDacl {
-                        dstHandle = try UnsafeSystemHandle.open(
-                            at: tmpDstPath,
-                            openOptions: .init(
-                                access: .writeOnly(metadataOnly: true), 
-                                creation: .assertMissing, 
-                                noFollow: true, 
-                                windowsShareMode: [.read, .write, .delete]
-                            ),
-                            creationPermissions: makeWindowsTmpFileSecurityDescriptor()
-                        )
-                        try InternalFS.copyRegularFileOrSymlink(from: srcPath, to: tmpDstPath, overwrite: true)
-                    } else {
-                        try InternalFS.copyRegularFileOrSymlink(from: srcPath, to: tmpDstPath, overwrite: false)
-                    }
-                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
-                    return
-                } catch {
-                    cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
-                    (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
-                    throw error
-                }
             case (.overwrite, .directory) : throw .init(kind: .isADirectory)
-            case (.overwrite, _):
+            case (.overwrite, .some(_)), (_, .none):
                 var tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 shouldRename = true
                 var copied = false
@@ -341,7 +408,12 @@ extension CopyItemHandler {
             }
             try writeCachedItemAttrs(forHandle: dstHandle!, members: [.fileTimes, .flags], cachedAttrs: srcAttrs)
             if shouldRename {
-                try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
+                do {
+                    try InternalFS.rename(itemAt: tmpDstPath, to: dstPath, replace: options.existingTarget == .overwrite)
+                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
+                    cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
+                    return
+                }
             }
         } catch {
             cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
