@@ -1,4 +1,5 @@
 import SystemPackage
+import Testing
 
 extension FileSystemTestSupport {
 
@@ -55,6 +56,43 @@ extension FileSystemTestSupport {
 
         mutating func removeItem(at relativePath: FilePath) {
             descendants.removeValue(forKey: relativePath)
+        }
+
+        /// Replaces the policies of existing entries, keeping their snapshots.
+        /// The empty path addresses the root; a path without an entry fails the test.
+        mutating func updatePolicies(
+            _ policies: [FilePath: ItemComparisonPolicy],
+            sourceLocation: SourceLocation = #_sourceLocation
+        ) throws {
+            for (relativePath, policy) in policies {
+                if relativePath.isEmpty {
+                    root.policy = policy
+                } else {
+                    try #require(descendants[relativePath] != nil, sourceLocation: sourceLocation)
+                    descendants[relativePath]?.policy = policy
+                }
+            }
+        }
+
+        /// Merges entries taken from another snapshot, replacing any existing entry at the
+        /// same path. The empty path addresses the root; a path the snapshot does not
+        /// contain fails the test.
+        mutating func add(
+            from snapshot: TreeSnapshot,
+            items: [FilePath: ItemComparisonPolicy],
+            sourceLocation: SourceLocation = #_sourceLocation
+        ) throws {
+            for (relativePath, policy) in items {
+                if relativePath.isEmpty {
+                    expectRoot(matching: snapshot.root, using: policy)
+                } else {
+                    let itemSnapshot = try #require(
+                        snapshot[relativePath],
+                        sourceLocation: sourceLocation
+                    )
+                    expectItem(at: relativePath, matching: itemSnapshot, using: policy)
+                }
+            }
         }
 
     }
