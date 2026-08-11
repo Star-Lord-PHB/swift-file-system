@@ -121,3 +121,51 @@ extension FileSystemAPITests.CopyTests.DirectoryCopyTests {
     }
 
 }
+
+
+#if !canImport(WinSDK)
+extension FileSystemAPITests.CopyTests.DirectoryCopyTests {
+
+    private func setPermissions(_ permissions: Int, at path: FilePath) throws {
+        try FileManager.default.setAttributes(
+            [.posixPermissions: permissions],
+            ofItemAtPath: path.string
+        )
+    }
+
+
+    @Test
+    func `Copies a read-only source tree with exact final modes`() throws {
+
+        let src = try workspace.makeFixture(
+            at: "src",
+            [
+                "file.txt": .file(contents: "file contents"),
+                "sub": [
+                    "nested.txt": .file(contents: "nested contents")
+                ],
+            ]
+        )
+        let dst = workspace.path("dst")
+        try setPermissions(0o500, at: src.appending("sub"))
+        try setPermissions(0o500, at: src)
+        // The copied directories end up read-only as well; restore everything so the
+        // workspace can be cleaned up even when an assertion fails.
+        defer {
+            for path in [src, src.appending("sub"), dst, dst.appending("sub")] {
+                try? setPermissions(0o755, at: path)
+            }
+        }
+        let srcSnapshot = try Support.TreeSnapshot.capture(at: src)
+
+        try fileSystem.copyItem(at: src, to: dst)
+
+        // NOTE: When running as root the read-only modes do not restrict the copy, but the
+        // exact final modes below are still asserted. Populating the destination relies on
+        // the temporary u+rwx window; the committed modes must match the source exactly.
+        try Support.expectTree(at: dst, matches: srcSnapshot, using: .copiedItem)
+
+    }
+
+}
+#endif

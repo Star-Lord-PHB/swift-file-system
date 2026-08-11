@@ -11,6 +11,7 @@ extension FileSystemAPITests.CopyTests {
     struct DirectoryMergeTests {
 
         typealias Support = FileSystemAPITests.Support
+        typealias CopyTests = FileSystemAPITests.CopyTests
 
         let fileSystem = FileSystem()
         let workspace: Support.Workspace
@@ -32,20 +33,6 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
         case file
         case symlink
         case danglingSymlink
-    }
-
-
-    /// Policy for an existing directory whose metadata the merge overwrites in place.
-    ///
-    /// On Darwin and FreeBSD the copy writes the creation time by lowering the destination's
-    /// birth time, which cannot raise an older value; the direction semantics get their own
-    /// tests in Metadata/BSD.
-    private var overwrittenExistingDirPolicy: Support.ItemComparisonPolicy {
-        #if canImport(Darwin) || os(FreeBSD)
-        .copiedItem.excluding(.creationTime)
-        #else
-        .copiedItem
-        #endif
     }
 
 
@@ -131,8 +118,8 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
 
         var expectation = Support.TreeExpectation(matching: srcSnapshot, using: .copiedItem)
         try expectation.updatePolicies([
-            "": overwrittenExistingDirPolicy,
-            "a": overwrittenExistingDirPolicy,
+            "": CopyTests.overwrittenExistingDirPolicy,
+            "a": CopyTests.overwrittenExistingDirPolicy,
         ])
         try expectation.add(
             from: dstSnapshot,
@@ -412,7 +399,7 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
         // NOTE: When running as root (Linux test container) the restriction itself is not
         // enforced, but the final-metadata assertions below still apply.
         var expectation = Support.TreeExpectation(matching: srcSnapshot, using: .copiedItem)
-        try expectation.updatePolicies(["": overwrittenExistingDirPolicy])
+        try expectation.updatePolicies(["": CopyTests.overwrittenExistingDirPolicy])
         try Support.expectTree(at: dst, matches: expectation)
 
     }

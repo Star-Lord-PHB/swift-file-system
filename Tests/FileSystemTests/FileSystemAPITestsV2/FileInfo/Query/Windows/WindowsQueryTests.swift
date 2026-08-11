@@ -88,6 +88,26 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
 
     }
 
+
+    @Test
+    func `Junction is unknown without follow and its target kind with follow`() throws {
+
+        let target = try workspace.makeDirectory(at: "target")
+        let junction = workspace.path("junction")
+        try Support.makeWindowsJunction(at: junction, pointingTo: target)
+
+        // A name-surrogate reparse point that is not a symlink is deliberately not modeled.
+        let directInfo = try FileInfo(fileAt: junction, followSymLink: false)
+        #expect(directInfo.type == .unknown)
+
+        // Following resolves the junction like a symlink and reports the target.
+        let followedInfo = try FileInfo(fileAt: junction, followSymLink: true)
+        #expect(followedInfo.type == .directory)
+        let targetIdentifier = try Support.ItemMetadata.captureIdentifier(at: target)
+        #expect(followedInfo.fileIdentifier == targetIdentifier)
+
+    }
+
 }
 
 #endif
