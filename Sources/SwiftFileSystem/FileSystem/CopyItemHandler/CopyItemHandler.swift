@@ -195,9 +195,12 @@ extension CopyItemHandler {
             operation: RecursiveCopySingleItemError.Operation
         ) throws(RecursiveCopyAbortError) {
             assert(aborted == false, "Should not handle further error after aborted")
-            let (collect, abort) = strategy.handleError(lowLevelError: error, itemRelativePath: currentItemRelativePath)
+            let error = RecursiveCopySingleItemError(
+                itemRelativePath: currentItemRelativePath, operation: operation, code: error.systemCode, kind: error.kind
+            )
+            let (collect, abort) = strategy.handleError(error)
             if collect {
-                self.collect(.init(itemRelativePath: currentItemRelativePath, operation: operation, code: error.systemCode, kind: error.kind))
+                self.collect(error)
             }
             if abort {
                 aborted = true
