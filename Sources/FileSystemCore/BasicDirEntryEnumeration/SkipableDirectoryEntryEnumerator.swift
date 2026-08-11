@@ -43,9 +43,7 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
 
     package private(set) var ended: Bool = false
 
-    package var currentDirPathComponents: FilePath.ComponentView {
-        return relativePathStack.components
-    }
+    package var currentDirRelativePath: FilePath { relativePathStack }
 
 
     package init(path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) {
@@ -377,16 +375,10 @@ package struct SkipableDirectoryEntryEnumerator: ~Copyable {
     #if canImport(WinSDK)
 
     private func extractEntryType(of systemEntry: borrowing SystemEntryDataType) -> FileKind {
-        let fileAttributes = systemEntry.dwFileAttributes
-        let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
-
-        return if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
-            hasReparseTagSymlink ? .symlink : .unknown
-        } else if fileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
-            .directory
-        } else {
-            .regular
-        }
+        return FileKind(
+            windowsFileAttributes: systemEntry.dwFileAttributes,
+            reparseTag: systemEntry.dwReserved0
+        )
     }
 
     #else

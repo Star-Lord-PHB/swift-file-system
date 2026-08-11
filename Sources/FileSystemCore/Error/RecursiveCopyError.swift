@@ -6,13 +6,76 @@ public struct RecursiveCopySingleItemError: Sendable, Equatable, Hashable {
     public let itemRelativePath: FilePath
     public let systemCode: SystemErrorCode?
     public let kind: PlatformErrorKind
-    public init(itemRelativePath: FilePath, code: SystemErrorCode? = nil, kind: PlatformErrorKind? = nil) {
+    public let operation: Operation
+    public init(itemRelativePath: FilePath, operation: Operation, code: SystemErrorCode? = nil, kind: PlatformErrorKind? = nil) {
         precondition(code != .success, "code should not be .success for an error")
         precondition(itemRelativePath.isRelative, "itemRelativePath should be relative") 
         self.itemRelativePath = itemRelativePath
         self.systemCode = code
         self.kind = kind ?? code?.defaultMappedErrorKind ?? .unknown
+        self.operation = operation
     }
+}
+
+
+
+extension RecursiveCopySingleItemError {
+
+    public struct Operation: Sendable, Equatable, Hashable {
+
+        private enum Case: Sendable, Equatable, Hashable {
+            case getSrcMetadata
+            case copyContents
+            case copyMetadata
+            case copyTimes
+            case copyPermissions
+            case copyFlags
+            case copyExtendedAttributes
+            case copyDarwinACL
+            case releaseResources
+        }
+
+        private let `case`: Case
+
+        private init(_ case: Case) {
+            self.case = `case`
+        }
+
+        public static var getSrcMetadata: Operation { .init(.getSrcMetadata) }
+
+        public static var copyContents: Operation { .init(.copyContents) }
+
+        public static var copyMetadata: Operation { .init(.copyMetadata) }
+        public static var copyTimes: Operation { .init(.copyTimes) }
+        public static var copyPermissions: Operation { .init(.copyPermissions) }
+        public static var copyFlags: Operation { .init(.copyFlags) }
+        public static var copyExtendedAttributes: Operation { .init(.copyExtendedAttributes) }
+        public static var copyDarwinACL: Operation { .init(.copyDarwinACL) }
+
+        public static var releaseResources: Operation { .init(.releaseResources) }
+
+    }
+
+}
+
+
+
+extension RecursiveCopySingleItemError.Operation: CustomStringConvertible {
+
+    public var description: String {
+        switch self.case {
+            case .getSrcMetadata:           "getSrcMetadata"
+            case .copyContents:             "copyContents"
+            case .copyMetadata:             "copyMetadata"
+            case .copyTimes:                "copyTimes"
+            case .copyPermissions:          "copyPermissions"
+            case .copyFlags:                "copyFlags"
+            case .copyExtendedAttributes:   "copyExtendedAttributes"
+            case .copyDarwinACL:            "copyDarwinACL"
+            case .releaseResources:         "releaseResources"
+        }
+    }
+
 }
 
 

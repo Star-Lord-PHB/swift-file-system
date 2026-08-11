@@ -100,7 +100,7 @@ extension CopyItemHandler {
                 do {
                     srcCopyRootPath = try InternalFS.realpath(of: srcRootPath)
                 } catch {
-                    try errorCollector.handleErrorAndAbort(error, itemRelativePath: .init())
+                    try errorCollector.handleErrorAndAbort(error, operation: .getSrcMetadata)
                 }
             }
 
@@ -118,31 +118,21 @@ extension CopyItemHandler {
         itemRelativePath: FilePath
     ) throws(RecursiveCopyAbortError) {
 
-        let srcAttrs: CachedCopySrcItemAttrs
-        do {
-            srcAttrs = try cacheItemAttrsForCopy(forItemAt: srcAbsolutePath(of: itemRelativePath))
-        } catch {
-            try errorCollector.handleErrorAndAbort(error, itemRelativePath: itemRelativePath)
+        guard let srcAttrs = try cacheItemAttrsForCopy(forItemAt: itemRelativePath) else {
+            return
         }
+
         let type = srcAttrs.type
 
         switch type {
             case .regular:
-                do {
-                    try copyFile(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
-                } catch {
-                    try errorCollector.handleErrorAndAbort(error, itemRelativePath: itemRelativePath)
-                }
+                try copyFile(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
             case .symlink:
-                do {
-                    try copySymlink(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
-                } catch {
-                    try errorCollector.handleErrorAndAbort(error, itemRelativePath: itemRelativePath)
-                }
+                try copySymlink(itemRelativePath: itemRelativePath, srcAttrs: srcAttrs)
             case .directory:
                 try copyDirectoryRecursive(srcAttrs: srcAttrs)
             default:
-                try errorCollector.handleErrorAndAbort(.init(kind: .unsupported), itemRelativePath: itemRelativePath)
+                try errorCollector.handleErrorAndAbort(.init(kind: .unsupported), operation: .copyContents)
         }
 
     }
@@ -175,14 +165,19 @@ extension CopyItemHandler {
         let dstRootPath: FilePath
         let strategy: ErrorStrategy
 
+        var currentItemRelativePath: FilePath = .init(root: nil) {
+            didSet { assert(currentItemRelativePath.isRelative, "currentItemRelativePath must be relative") }
+        }
         private(set) var report: LazyReport = .none
         private(set) var aborted: Bool = false
+        
 
         init(srcRootPath: FilePath, dstRootPath: FilePath, strategy: ErrorStrategy) {
             self.srcRootPath = srcRootPath
             self.dstRootPath = dstRootPath
             self.strategy = strategy
         }
+
 
         private mutating func collect(_ error: RecursiveCopySingleItemError) {
             switch report {
@@ -194,12 +189,15 @@ extension CopyItemHandler {
             }
         }
 
-        mutating func handleError(_ error: LowLevelError, itemRelativePath: FilePath) throws(RecursiveCopyAbortError)  {
+
+        mutating func handleError(
+            _ error: LowLevelError, 
+            operation: RecursiveCopySingleItemError.Operation
+        ) throws(RecursiveCopyAbortError) {
             assert(aborted == false, "Should not handle further error after aborted")
-            assert(itemRelativePath.isRelative, "itemRelativePath must be relative")
-            let (collect, abort) = strategy.handleError(lowLevelError: error, itemRelativePath: itemRelativePath)
+            let (collect, abort) = strategy.handleError(lowLevelError: error, itemRelativePath: currentItemRelativePath)
             if collect {
-                self.collect(.init(itemRelativePath: itemRelativePath, code: error.systemCode, kind: error.kind))
+                self.collect(.init(itemRelativePath: currentItemRelativePath, operation: operation, code: error.systemCode, kind: error.kind))
             }
             if abort {
                 aborted = true
@@ -207,11 +205,52 @@ extension CopyItemHandler {
             }
         }
 
-        mutating func handleErrorAndAbort(_ error: LowLevelError, itemRelativePath: FilePath) throws(RecursiveCopyAbortError) -> Never {
+
+        mutating func handleErrorAndAbort(
+            _ error: LowLevelError, 
+            operation: RecursiveCopySingleItemError.Operation
+        ) throws(RecursiveCopyAbortError) -> Never {
             assert(aborted == false, "Should not handle further error after aborted")
             defer { aborted = true }
-            try handleError(error, itemRelativePath: itemRelativePath)
+            try handleError(error, operation: operation)
             throw .init()
+        }
+
+
+        mutating func execute<R: ~Copyable>(
+            operation: @autoclosure () -> RecursiveCopySingleItemError.Operation, 
+            _ task: () throws -> R
+        ) throws(RecursiveCopyAbortError) -> R? {
+            do {
+                return try task()
+            } catch let error as LowLevelError {
+                try handleError(error, operation: operation())
+                return nil
+            } catch let error as RecursiveCopyAbortError {
+                throw error
+            } catch {
+                preconditionFailure(
+                    "Unexpected error type \(type(of: error)) thrown from copy operation \(operation()) for item at \(currentItemRelativePath): \(error)"
+                )
+            }
+        }
+
+
+        mutating func executeAndAbortOnError<R: ~Copyable>(
+            operation: @autoclosure () -> RecursiveCopySingleItemError.Operation, 
+            _ task: () throws -> R
+        ) throws(RecursiveCopyAbortError) -> R {
+            do {
+                return try task()
+            } catch let error as LowLevelError {
+                try handleErrorAndAbort(error, operation: operation())
+            } catch let error as RecursiveCopyAbortError {
+                throw error
+            } catch {
+                preconditionFailure(
+                    "Unexpected error type \(type(of: error)) thrown from copy operation \(operation()) for item at \(currentItemRelativePath): \(error)"
+                )
+            }
         }
 
     }

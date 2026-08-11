@@ -41,40 +41,85 @@ extension CopyItemHandler {
         #endif 
 
         #if canImport(WinSDK)
-        let securityDescriptor: WindowsSelfRelativeSecurityDescriptor
+        let securityDescriptor: WindowsSelfRelativeSecurityDescriptor?
+        var sdControl: WindowsSecurityDescriptorControl? { 
+            switch securityDescriptor {
+                case .some(let sd): return sd.control.control
+                case .none: return nil
+            }
+        }
+        var daclView: WindowsRawAcl.View? { 
+            switch securityDescriptor {
+                case .some(let sd): return sd.dacl.value
+                case .none: return nil
+            }
+        }
+        var psd: UnsafeMutablePointer<SECURITY_DESCRIPTOR>? { 
+            switch securityDescriptor {
+                case .some(let sd): return sd.psd.unsafelyCastedMutableRawPtr
+                case .none: return nil
+            }
+        }
         #else 
         let permission: FilePermissions
+        #endif
+
+
+        #if canImport(Glibc) || canImport(Musl)
+        init(stat: PlatformInteropTypes.Stat, attributes: LinuxInodeFlags?) {
+            self.info = .init(stat: stat)
+            self.attributes = attributes
+            self.permission = .init(rawValue: stat.st_mode & 0o7777)
+        }
+        #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        init(stat: PlatformInteropTypes.Stat) {
+            self.info = .init(stat: stat)
+            self.permission = .init(rawValue: stat.st_mode & 0o7777)
+        }
         #endif
 
         // MARK: TODO: add platform specific extended attributes if necessary
     }
 
 
-    func cacheItemAttrsForCopy(forHandle handle: borrowing UnsafeSystemHandle) throws(LowLevelError) -> CachedCopySrcItemAttrs {
+    mutating func cacheItemAttrsForCopy(
+        forHandle handle: borrowing UnsafeSystemHandle
+    ) throws(RecursiveCopyAbortError) -> CachedCopySrcItemAttrs? {
 
         #if canImport(WinSDK)
 
-        let info = try handle.fileInfo()
-        let sd = try handle.securityInfo(.dacl)
+        let info = try errorCollector.execute(operation: .getSrcMetadata) {
+            try handle.fileInfo()
+        }
+        guard let info else { return nil }
+        let sd = try errorCollector.execute(operation: .copyPermissions) {
+            try handle.securityInfo(.dacl)
+        }
 
         return .init(info: info, securityDescriptor: sd)
 
         #else 
 
-        let stat = try handle.fstat()
+        let stat = try errorCollector.execute(operation: .getSrcMetadata) {
+            try handle.fstat()
+        }
+        guard let stat else { return nil }
 
         #if canImport(Glibc) || canImport(Musl)
 
         do {
             let flags = try handle.fileInodeFlags()
-            return .init(info: .init(stat: stat), attributes: flags, permission: .init(rawValue: stat.st_mode & 0o7777))
+            return .init(stat: stat, attributes: flags)
         } catch let error where error.kind == .unsupported {
-            return .init(info: .init(stat: stat), attributes: nil, permission: .init(rawValue: stat.st_mode & 0o7777))
+            return .init(stat: stat, attributes: nil)
+        } catch {
+            try errorCollector.handleError(error, operation: .copyFlags)
+            return .init(stat: stat, attributes: nil)
         }
 
         #else
 
-        return .init(info: .init(stat: stat), permission: .init(rawValue: stat.st_mode & 0o7777))
+        return .init(stat: stat)
 
         #endif
 
@@ -83,35 +128,52 @@ extension CopyItemHandler {
     }
 
 
-    func cacheItemAttrsForCopy(forItemAt path: FilePath) throws(LowLevelError) -> CachedCopySrcItemAttrs {
+    mutating func cacheItemAttrsForCopy(forItemAt itemRelativePath: FilePath) throws(RecursiveCopyAbortError) -> CachedCopySrcItemAttrs? {
+
+        let path = srcAbsolutePath(of: itemRelativePath)
 
         #if canImport(WinSDK)
 
-        let info = try InternalFS.getFileInfo(forItemAt: path, followSymlink: false)
-        let sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl, followSymlink: false)
+        let info = try errorCollector.execute(operation: .getSrcMetadata) {
+            try InternalFS.getFileInfo(forItemAt: path, followSymlink: false)
+        }
+        guard let info else { return nil }
+        let sd = try errorCollector.execute(operation: .copyPermissions) {
+            try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl, followSymlink: false)
+        }
 
         return .init(info: info, securityDescriptor: sd)
 
         #else 
 
-        let stat = try InternalFS.ulstat(path)
+        let stat = try errorCollector.execute(operation: .getSrcMetadata) {
+            try InternalFS.ulstat(path)
+        }
+        guard let stat else { return nil }
 
         #if canImport(Glibc) || canImport(Musl)
 
         do {
-            let flags = if FileKind(mode: stat.st_mode) != .symlink {
+            // Reading inode flags requires opening the item. Only regular files and directories
+            // qualify: symlinks have no flags, and special files (a fifo would block the open)
+            // are reported as unsupported before their flags could matter.
+            let kind = FileKind(mode: stat.st_mode)
+            let flags = if kind == .regular || kind == .directory {
                 try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: false)
             } else {
                 nil as LinuxInodeFlags?
             }
-            return .init(info: .init(stat: stat), attributes: flags, permission: .init(rawValue: stat.st_mode & 0o7777))
+            return .init(stat: stat, attributes: flags)
         } catch let error where error.kind == .unsupported {
-            return .init(info: .init(stat: stat), attributes: nil, permission: .init(rawValue: stat.st_mode & 0o7777))
+            return .init(stat: stat, attributes: nil)
+        } catch {
+            try errorCollector.handleError(error, operation: .copyFlags)
+            return .init(stat: stat, attributes: nil)
         }
 
         #else
 
-        return .init(info: .init(stat: stat), permission: .init(rawValue: stat.st_mode & 0o7777))
+        return .init(stat: stat)
 
         #endif 
 
@@ -166,19 +228,21 @@ extension CopyItemHandler {
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
 
-        if cachedAttrs.securityDescriptor.control.control.contains(.daclProtected) {
+        guard cachedAttrs.securityDescriptor != nil else { return }
+
+        if cachedAttrs.sdControl?.contains(.daclProtected) == true {
 
             try execThrowingCFunction {
                 SetKernelObjectSecurity(
                     handle.unsafeRawHandle, 
                     DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION), 
-                    cachedAttrs.securityDescriptor.psd.unsafelyCastedMutableRawPtr
+                    cachedAttrs.psd
                 )
             }
 
-        } else if cachedAttrs.securityDescriptor.control.control.contains(.daclAutoInherited) {
+        } else if cachedAttrs.sdControl?.contains(.daclAutoInherited) == true {
 
-            let explicitAccess = mapNonInheritAcesToExplicitAccess(cachedAttrs.securityDescriptor.dacl.value)
+            let explicitAccess = mapNonInheritAcesToExplicitAccess(cachedAttrs.daclView)
 
             if !explicitAccess.isEmpty {
 
@@ -207,21 +271,23 @@ extension CopyItemHandler {
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
 
-        if cachedAttrs.securityDescriptor.control.control.contains(.daclProtected) {
+        guard cachedAttrs.securityDescriptor != nil else { return }
+
+        if cachedAttrs.sdControl?.contains(.daclProtected) == true {
 
             try execThrowingCFunction {
                 path.withPlatformString { pathPtr in
                     SetFileSecurityW(
                         pathPtr, 
                         DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION), 
-                        cachedAttrs.securityDescriptor.psd.unsafelyCastedMutableRawPtr
+                        cachedAttrs.psd
                     )
                 }
             }
 
-        } else if cachedAttrs.securityDescriptor.control.control.contains(.daclAutoInherited) {
+        } else if cachedAttrs.sdControl?.contains(.daclAutoInherited) == true {
 
-            let explicitAccess = mapNonInheritAcesToExplicitAccess(cachedAttrs.securityDescriptor.dacl.value)
+            let explicitAccess = mapNonInheritAcesToExplicitAccess(cachedAttrs.daclView)
 
             if !explicitAccess.isEmpty {
 
@@ -249,15 +315,12 @@ extension CopyItemHandler {
         forHandle handle: borrowing UnsafeSystemHandle, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
-        let securityInformation = cachedAttrs.securityDescriptor.control.control.contains(.daclProtected) 
+        guard cachedAttrs.securityDescriptor != nil else { return }
+        let securityInformation = cachedAttrs.sdControl?.contains(.daclProtected) == true
             ? DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION) 
             : DWORD(DACL_SECURITY_INFORMATION)
         try execThrowingCFunction {
-            SetKernelObjectSecurity(
-                handle.unsafeRawHandle, 
-                securityInformation, 
-                cachedAttrs.securityDescriptor.psd.unsafelyCastedMutableRawPtr
-            )
+            SetKernelObjectSecurity(handle.unsafeRawHandle, securityInformation, cachedAttrs.psd)
         }
     }
 
@@ -266,16 +329,13 @@ extension CopyItemHandler {
         forItemAt path: FilePath, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
-        let securityInformation = cachedAttrs.securityDescriptor.control.control.contains(.daclProtected) 
+        guard cachedAttrs.securityDescriptor != nil else { return }
+        let securityInformation = cachedAttrs.sdControl?.contains(.daclProtected) == true
             ? DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION) 
             : DWORD(DACL_SECURITY_INFORMATION)
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in
-                SetFileSecurityW(
-                    pathPtr, 
-                    securityInformation, 
-                    cachedAttrs.securityDescriptor.psd.unsafelyCastedMutableRawPtr
-                )
+                SetFileSecurityW(pathPtr, securityInformation, cachedAttrs.psd)
             }
         }
     }
@@ -340,56 +400,94 @@ extension CopyItemHandler {
     }
 
 
-    func writeCachedItemAttrs(
+    mutating func writeCachedItemAttrs(
         forHandle handle: borrowing UnsafeSystemHandle, 
         members: CachedCopySrcItemAttrMembers,
         cachedAttrs: borrowing CachedCopySrcItemAttrs
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
         if members.contains(.fileTimes) {
-            try writeCachedFileTimes(forHandle: handle, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedFileTimes(forHandle: handle, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyTimes) }
         }
         #if canImport(WinSDK)
         if members.contains(.flags) {
-            try writeCachedItemFlags(forHandle: handle, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedItemFlags(forHandle: handle, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyFlags) }
         }
         if members.contains(.permissions) {
-            try writeCachedPermissions(forHandle: handle, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedPermissions(forHandle: handle, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyPermissions) }
         }
         #else
         if members.contains(.permissions) {
-            try writeCachedPermissions(forHandle: handle, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedPermissions(forHandle: handle, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyPermissions) }
         }
         if members.contains(.flags) {
-            try writeCachedItemFlags(forHandle: handle, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedItemFlags(forHandle: handle, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyFlags) }
         }
         #endif
     }
 
 
-    func writeCachedItemAttrs(
+    mutating func writeCachedItemAttrs(
         forItemAt path: FilePath, 
         members: CachedCopySrcItemAttrMembers,
         cachedAttrs: borrowing CachedCopySrcItemAttrs
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
         if members.contains(.fileTimes) {
-            try writeCachedFileTimes(forItemAt: path, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedFileTimes(forItemAt: path, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyTimes) }
+        }
+        #if canImport(WinSDK)
+        if members.contains(.flags) {
+            do {
+                try writeCachedItemFlags(forItemAt: path, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyFlags) }
         }
         if members.contains(.permissions) {
-            try writeCachedPermissions(forItemAt: path, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedPermissions(forItemAt: path, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyPermissions) }
+        }
+        #else 
+        if members.contains(.permissions) {
+            do {
+                try writeCachedPermissions(forItemAt: path, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyPermissions) }
         }
         if members.contains(.flags) {
-            try writeCachedItemFlags(forItemAt: path, cachedAttrs: cachedAttrs)
+            do {
+                try writeCachedItemFlags(forItemAt: path, cachedAttrs: cachedAttrs)
+            } catch { try errorCollector.handleError(error, operation: .copyFlags) }
         }
+        #endif
     }
 
 
     #if canImport(Darwin)
-    func copyDarwinExtendedAttrs(
+    static func copyDarwinExtendedAttrs(
         fromHandle srcHandle: borrowing UnsafeSystemHandle,
         toHandle dstHandle: borrowing UnsafeSystemHandle
     ) throws(LowLevelError) {
         try execThrowingCFunction {
-            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_XATTR | COPYFILE_ACL))
+            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_XATTR))
+        }
+    }
+
+    static func copyDarwinACL(
+        fromHandle srcHandle: borrowing UnsafeSystemHandle,
+        toHandle dstHandle: borrowing UnsafeSystemHandle
+    ) throws(LowLevelError) {
+        try execThrowingCFunction {
+            fcopyfile(srcHandle.unsafeRawHandle, dstHandle.unsafeRawHandle, nil, UInt32(COPYFILE_ACL))
         }
     }
     #endif

@@ -9,28 +9,37 @@ extension CopyItemHandler {
     mutating func copyFile(
         itemRelativePath: FilePath,
         srcAttrs: consuming CachedCopySrcItemAttrs? = nil
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
 
         #if canImport(WinSDK)
 
-        let srcCachedAttrs = if let srcAttrs {
-            srcAttrs
-        } else {
-            try cacheItemAttrsForCopy(forItemAt: srcAbsolutePath(of: itemRelativePath))
+        let srcCachedAttrs = switch consume srcAttrs {
+            case .some(let srcAttrs): srcAttrs
+            case .none: try cacheItemAttrsForCopy(forItemAt: itemRelativePath)
         }
+        guard let srcCachedAttrs else { return }
         assert(srcCachedAttrs.type == .regular, "srcCachedAttrs must represent a regular file")
 
         try copyWindowFileOrSymlink(itemRelativePath: itemRelativePath, srcAttrs: srcCachedAttrs)
 
         #else
 
-        let srcHandle = try UnsafeSystemHandle.open(
-            at: srcAbsolutePath(of: itemRelativePath),
-            openOptions: .init(access: .readOnly(), noFollow: true)
-        )
-        let srcCachedAttrs = if let srcAttrs { srcAttrs } else { try cacheItemAttrsForCopy(forHandle: srcHandle) }
+        let path = srcAbsolutePath(of: itemRelativePath)
+
+        let srcHandle = try errorCollector.execute(operation: .copyContents) {
+            try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: true))
+        }
+        guard let srcHandle else { return }
+        let srcCachedAttrs = switch consume srcAttrs {
+            case .some(let srcAttrs): srcAttrs
+            case .none: try cacheItemAttrsForCopy(forHandle: srcHandle)
+        }
+        guard let srcCachedAttrs else { return }
         try copyFile(from: srcHandle, itemRelativePath: itemRelativePath, srcFileAttrs: srcCachedAttrs)
-        try srcHandle.close()
+
+        do {
+            try srcHandle.close()
+        } catch { try errorCollector.handleError(error, operation: .releaseResources) }
 
         #endif  // canImport(WinSDK)
 
@@ -38,11 +47,11 @@ extension CopyItemHandler {
 
 
     #if !canImport(WinSDK)
-    fileprivate func copyFile(
+    fileprivate mutating func copyFile(
         from srcHandle: borrowing UnsafeSystemHandle,
         itemRelativePath: FilePath,
         srcFileAttrs: consuming CachedCopySrcItemAttrs,
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
 
         assert(srcFileAttrs.type == .regular, "srcFileAttrs must represent a regular file")
 
@@ -56,7 +65,8 @@ extension CopyItemHandler {
 
         switch (dstFileType, options.existingTarget) {
             case (.some(_), .error): 
-                throw .init(kind: .alreadyExists)
+                try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                return
             case (.some(_), .skip): 
                 return
             case (.none, _): 
@@ -72,37 +82,64 @@ extension CopyItemHandler {
                     return
                 } catch let error where error.kind == .alreadyExists && options.existingTarget == .overwrite {
                     fallthrough     // if fail, fallthrough to copy to temp file 
+                } catch {
+                    try errorCollector.handleError(error, operation: .copyContents)
+                    return
                 }
                 tmpDstPath = dstPath
                 shouldRename = false
                 dstHandle = handle
             case (.some(.symlink), .overwrite), (.some(.regular), .overwrite):
-                let tmpFileResult = try InternalFS.makeTmpFile(baseOn: dstPath)
+                let tmpFileResult = try errorCollector.execute(operation: .copyContents) {
+                    try InternalFS.makeTmpFile(baseOn: dstPath)
+                }
+                guard let tmpFileResult else { return }
                 tmpDstPath = tmpFileResult.path
                 dstHandle = tmpFileResult.takeHandle()
                 shouldRename = true
             case (.some(.directory), .overwrite): 
-                throw .init(kind: .isADirectory)
+                try errorCollector.handleError(.init(kind: .isADirectory), operation: .copyContents)
+                return
             case (.some(_), .overwrite): 
-                throw .init(kind: .unsupported)
+                try errorCollector.handleError(.init(kind: .unsupported), operation: .copyContents)
+                return
         }
 
         do {
             try InternalFS.copyRegularFileContent(from: srcHandle, to: dstHandle)
-            if options.preserveSrcAccessTime {
-                try? srcHandle.setFileTimes(access: srcFileAttrs.accessTime, modification: nil)
-            }
+        } catch {
+            try? InternalFS.unlink(fileAt: tmpDstPath)  // error of this operation is ignored
+            try errorCollector.handleError(error, operation: .copyContents)
+            return
+        }
+
+        if options.preserveSrcAccessTime {
+            try? srcHandle.setFileTimes(access: srcFileAttrs.accessTime, modification: nil)
+        }
+
+        do {
             #if canImport(Darwin)
-            try copyDarwinExtendedAttrs(fromHandle: srcHandle, toHandle: dstHandle)
+            do {
+                try Self.copyDarwinExtendedAttrs(fromHandle: srcHandle, toHandle: dstHandle)
+            } catch { try errorCollector.handleError(error, operation: .copyExtendedAttributes) }
+            do {
+                try Self.copyDarwinACL(fromHandle: srcHandle, toHandle: dstHandle)
+            } catch { try errorCollector.handleError(error, operation: .copyDarwinACL) }
             #endif
             try writeCachedItemAttrs(forHandle: dstHandle, members: [.fileTimes, .permissions], cachedAttrs: srcFileAttrs)
+        } catch {
+            try? InternalFS.unlink(fileAt: tmpDstPath)  // error of this operation is ignored
+            throw error
+        }
+
+        do {
             if shouldRename {
                 try InternalFS.rename(itemAt: tmpDstPath, to: dstPath)
             }
         } catch {
             try? InternalFS.unlink(fileAt: tmpDstPath)  // error of this operation is ignored
-            (error.systemCode?.rawValue).map { errno = $0 }      // restore errno
-            throw error
+            try errorCollector.handleError(error, operation: .copyContents)
+            return
         }
 
         try writeCachedItemAttrs(forHandle: dstHandle, members: .flags, cachedAttrs: srcFileAttrs)
@@ -115,10 +152,14 @@ extension CopyItemHandler {
     mutating func copySymlink(
         itemRelativePath: FilePath,
         srcAttrs: consuming CachedCopySrcItemAttrs? = nil
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
 
         let srcPath = srcAbsolutePath(of: itemRelativePath)
-        let srcAttrs = if let srcAttrs { srcAttrs } else { try cacheItemAttrsForCopy(forItemAt: srcPath) }
+        let srcAttrs = switch consume srcAttrs {
+            case .some(let srcAttrs): srcAttrs
+            case .none: try cacheItemAttrsForCopy(forItemAt: itemRelativePath)
+        }
+        guard let srcAttrs else { return }
         assert(srcAttrs.type == .symlink, "srcAttrs must represent a symlink")
 
         #if canImport(WinSDK)
@@ -140,11 +181,15 @@ extension CopyItemHandler {
 
         switch (dstFileType, options.existingTarget) {
             case (.some(_), .error): 
-                throw .init(kind: .alreadyExists)
+                try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                return
             case (.some(_), .skip):
                 return
             case (.some(.symlink), .overwrite), (.some(.regular), .overwrite), (.none, _):
-                let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
+                let targetPath = try errorCollector.execute(operation: .copyContents) {
+                    try InternalFS.readlink(fromSymlinkAt: srcPath)
+                }
+                guard let targetPath else { return }
                 var trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 var created = false
                 for _ in 0 ..< 24 {
@@ -154,60 +199,108 @@ extension CopyItemHandler {
                         break
                     } catch let error where error.kind == .alreadyExists {
                         trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
+                    } catch {
+                        try errorCollector.handleError(error, operation: .copyContents)
+                        return
                     }
                 }
                 guard created else {
-                    throw .init(kind: .alreadyExists)
+                    try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                    return
                 }
                 dstTmpPath = trialDstTmpPath
                 shouldRename = true
             case (.some(.directory), .overwrite):
-                throw .init(kind: .isADirectory)
+                try errorCollector.handleError(.init(kind: .isADirectory), operation: .copyContents)
+                return
             case (.some(_), .overwrite):
-                throw .init(kind: .unsupported)
+                try errorCollector.handleError(.init(kind: .unsupported), operation: .copyContents)
+                return
+        }
+
+        if options.preserveSrcAccessTime {
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
         }
 
         var srcMetadataHandle = nil as UnsafeSystemHandle?
         var dstMetadataHandle = nil as UnsafeSystemHandle?
 
         do {
-            if options.preserveSrcAccessTime {
-                try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
-            }
             #if canImport(Darwin)
-            srcMetadataHandle = try openMetadataHandle(forItemAt: srcPath)
-            dstMetadataHandle = try openMetadataHandle(forItemAt: dstTmpPath)
-            try copyDarwinExtendedAttrs(fromHandle: srcMetadataHandle!, toHandle: dstMetadataHandle!)
-            try writeCachedItemAttrs(forHandle: dstMetadataHandle!, members: [.fileTimes, .permissions], cachedAttrs: srcAttrs)
-            #else
             do {
-                try writeCachedItemAttrs(forItemAt: dstTmpPath, members: [.fileTimes, .permissions], cachedAttrs: srcAttrs)
-            } catch let error where error.kind == .unsupported {
-                // ignore unsupported error on non-Darwin platforms
+                dstMetadataHandle = try openMetadataHandle(forItemAt: dstTmpPath)
+            } catch {
+                try errorCollector.handleError(error, operation: .copyMetadata)
             }
-            #endif
-            if shouldRename {
-                do {
-                    try InternalFS.rename(itemAt: dstTmpPath, to: dstPath, replace: options.existingTarget == .overwrite)
-                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
-                    try? InternalFS.unlink(fileAt: dstTmpPath)
-                    return
+            do {
+                if dstMetadataHandle != nil {
+                    srcMetadataHandle = try openMetadataHandle(forItemAt: srcPath)
+                }
+            } catch {
+                try errorCollector.handleError(error, operation: .copyExtendedAttributes)
+                try errorCollector.handleError(error, operation: .copyDarwinACL)
+            }
+            if srcMetadataHandle != nil && dstMetadataHandle != nil {
+                try errorCollector.execute(operation: .copyExtendedAttributes) {
+                    try Self.copyDarwinExtendedAttrs(fromHandle: srcMetadataHandle!, toHandle: dstMetadataHandle!)
+                }
+                try errorCollector.execute(operation: .copyDarwinACL) {
+                    try Self.copyDarwinACL(fromHandle: srcMetadataHandle!, toHandle: dstMetadataHandle!)
                 }
             }
+            if dstMetadataHandle != nil {
+                try writeCachedItemAttrs(
+                    forHandle: dstMetadataHandle!, members: [.fileTimes, .permissions], cachedAttrs: srcAttrs
+                )
+            }
+            #else
+            do {
+                try writeCachedFileTimes(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
+            } catch {
+                if error.kind != .unsupported {
+                    try errorCollector.handleError(error, operation: .copyTimes)
+                }
+            }
+            do {
+                try writeCachedPermissions(forItemAt: dstTmpPath, cachedAttrs: srcAttrs)
+            } catch {
+                if error.kind != .unsupported {
+                    try errorCollector.handleError(error, operation: .copyPermissions)
+                }
+            }
+            #endif
         } catch {
             try? InternalFS.unlink(fileAt: dstTmpPath)
-            (error.systemCode?.rawValue).map { errno = $0 }
             throw error
         }
 
+        do {
+            if shouldRename {
+                try InternalFS.rename(itemAt: dstTmpPath, to: dstPath, replace: options.existingTarget == .overwrite)
+            }
+        } catch {
+            try? InternalFS.unlink(fileAt: dstTmpPath)
+            if !(error.kind == .alreadyExists && options.existingTarget == .skip) {
+                try errorCollector.handleError(error, operation: .copyContents)
+            }
+            return
+        }
+
         #if canImport(Darwin)
-        try writeCachedItemAttrs(forHandle: dstMetadataHandle!, members: .flags, cachedAttrs: srcAttrs)
-        #elseif os(FreeBSD) || os(OpenBSD)
+        if dstMetadataHandle != nil {
+            try writeCachedItemAttrs(forHandle: dstMetadataHandle!, members: .flags, cachedAttrs: srcAttrs)
+        }
+        #else
         try writeCachedItemAttrs(forItemAt: dstPath, members: .flags, cachedAttrs: srcAttrs)
         #endif
 
-        try srcMetadataHandle?.close()
-        try dstMetadataHandle?.close()
+        do {
+            try srcMetadataHandle?.close()
+        } catch { try errorCollector.handleError(error, operation: .releaseResources) }
+
+        do {
+            try dstMetadataHandle?.close()
+        } catch { try errorCollector.handleError(error, operation: .releaseResources) }
 
         #endif 
 
@@ -235,10 +328,10 @@ extension CopyItemHandler {
     }
 
 
-    fileprivate func copyWindowDirSymlink(
+    fileprivate mutating func copyWindowDirSymlink(
         itemRelativePath: FilePath,
         srcAttrs: consuming CachedCopySrcItemAttrs
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
 
         assert(
             srcAttrs.type == .symlink && srcAttrs.attributes.contains(.windows.isDirectory),
@@ -255,11 +348,15 @@ extension CopyItemHandler {
 
         switch (dstFileType, options.existingTarget) {
             case (.some(_), .error): 
-                throw .init(kind: .alreadyExists)
+                try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                return
             case (.some(_), .skip):
                 return
             case (.some(.symlink), .overwrite), (.some(.regular), .overwrite), (.none, _):
-                let targetPath = try InternalFS.readlink(fromSymlinkAt: srcPath)
+                let targetPath = try errorCollector.execute(operation: .copyContents) {
+                    try InternalFS.readlink(fromSymlinkAt: srcPath)
+                }
+                guard let targetPath else { return }
                 var trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 var created = false
                 for _ in 0 ..< 24 {
@@ -269,52 +366,74 @@ extension CopyItemHandler {
                         break
                     } catch let error where error.kind == .alreadyExists {
                         trialDstTmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
+                    } catch {
+                        try errorCollector.handleError(error, operation: .copyContents)
+                        return
                     }
                 }
                 guard created else {
-                    throw .init(kind: .alreadyExists)
+                    try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                    return
                 }
                 tmpDstPath = trialDstTmpPath
                 shouldRename = true
             case (.some(.directory), .overwrite):
-                throw .init(kind: .isADirectory)
+                try errorCollector.handleError(.init(kind: .isADirectory), operation: .copyContents)
+                return
             case (.some(_), .overwrite):
-                throw .init(kind: .unsupported)
+                try errorCollector.handleError(.init(kind: .unsupported), operation: .copyContents)
+                return
         }
 
-        let dstMetadataHandle: UnsafeSystemHandle
+        if options.preserveSrcAccessTime {
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
+        }
+
+        func cleanTmpLink(handle: borrowing UnsafeSystemHandle?) {
+            if handle == nil {
+                try? InternalFS.setFileAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
+            } else {
+                try? handle?.setFileAttributes(.windows.isNormal)
+            }
+            try? InternalFS.remove(itemAt: tmpDstPath)
+        }
+
+        var dstMetadataHandle: UnsafeSystemHandle? = nil
+
         do {
-            dstMetadataHandle = try openMetadataHandle(forItemAt: tmpDstPath)
+            do {
+                dstMetadataHandle = try openMetadataHandle(forItemAt: tmpDstPath)
+            } catch {
+                try errorCollector.handleError(error, operation: .copyMetadata)
+            }
+            if dstMetadataHandle != nil {
+                try writeCachedItemAttrs(
+                    forHandle: dstMetadataHandle!, members: [.fileTimes, .flags], cachedAttrs: srcAttrs
+                )
+            }
         } catch {
-            try? InternalFS.setFileAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
-            try? InternalFS.unlink(fileAt: tmpDstPath)
-            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
+            cleanTmpLink(handle: dstMetadataHandle)
             throw error
         }
 
         do {
-            if options.preserveSrcAccessTime {
-                try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
-            }
-            try writeCachedItemAttrs(forHandle: dstMetadataHandle, members: [.fileTimes, .flags], cachedAttrs: srcAttrs)
             if shouldRename {
-                do {
-                    try InternalFS.rename(itemAt: tmpDstPath, to: dstPath, replace: options.existingTarget == .overwrite)
-                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
-                    try? dstMetadataHandle.setFileAttributes(.windows.isNormal)
-                    try? InternalFS.unlink(fileAt: tmpDstPath)
-                    return
-                }
+                try InternalFS.rename(itemAt: tmpDstPath, to: dstPath, replace: options.existingTarget == .overwrite)
             }
-        } catch {
-            try? dstMetadataHandle.setFileAttributes(.windows.isNormal)
-            try? InternalFS.unlink(fileAt: tmpDstPath)
-            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
-            throw error
+        } catch let error {
+            cleanTmpLink(handle: dstMetadataHandle)
+            if !(error.kind == .alreadyExists && options.existingTarget == .skip) {
+                try errorCollector.handleError(error, operation: .copyContents)
+            }
+            return
         }
 
-        try writeCachedItemAttrs(forHandle: dstMetadataHandle, members: .permissions, cachedAttrs: srcAttrs)
-        try dstMetadataHandle.close()
+        if dstMetadataHandle != nil {
+            try writeCachedItemAttrs(forHandle: dstMetadataHandle!, members: .permissions, cachedAttrs: srcAttrs)
+        }
+        do {
+            try dstMetadataHandle?.close()
+        } catch { try errorCollector.handleError(error, operation: .releaseResources) }
 
     }
 
@@ -322,7 +441,7 @@ extension CopyItemHandler {
     fileprivate mutating func copyWindowFileOrSymlink(
         itemRelativePath: FilePath,
         srcAttrs: consuming CachedCopySrcItemAttrs
-    ) throws(LowLevelError) {
+    ) throws(RecursiveCopyAbortError) {
 
         let srcPath = srcAbsolutePath(of: itemRelativePath)
         let dstPath = dstAbsolutePath(of: itemRelativePath)
@@ -349,9 +468,16 @@ extension CopyItemHandler {
         }
 
         switch (options.existingTarget, dstFileType) {
-            case (.error, .some(_)): throw .init(kind: .alreadyExists)
+            case (.error, .some(_)): 
+                try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                return
             case (.skip, .some(_)): return
-            case (.overwrite, .directory) : throw .init(kind: .isADirectory)
+            case (.overwrite, .directory): 
+                try errorCollector.handleError(.init(kind: .isADirectory), operation: .copyContents)
+                return
+            case (.overwrite, .unknown): 
+                try errorCollector.handleError(.init(kind: .unsupported), operation: .copyContents)
+                return
             case (.overwrite, .some(_)), (_, .none):
                 var tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 shouldRename = true
@@ -379,52 +505,60 @@ extension CopyItemHandler {
                         /* ignore */ 
                     } catch {
                         cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpPath)
-                        (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
-                        throw error
+                        try errorCollector.handleError(error, operation: .copyContents)
+                        return
                     }
                     tmpPath = InternalFS.makeRandomTmpName(baseOn: dstPath)
                 }
                 guard copied else {
                     // No cleanup here: reaching this point means every attempt failed with `.alreadyExists`,
                     // so we never created anything and whatever exists at `tmpPath` belongs to someone else.
-                    throw .init(kind: .alreadyExists)
+                    try errorCollector.handleError(.init(kind: .alreadyExists), operation: .copyContents)
+                    return
                 }
                 tmpDstPath = tmpPath
         }
 
-        do {
-            if dstHandle == nil {
-                dstHandle = try openMetadataHandle(forItemAt: tmpDstPath)
-            }
-        } catch {
-            cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
-            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
-            throw error
+        if options.preserveSrcAccessTime {
+            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
         }
 
         do {
-            if options.preserveSrcAccessTime {
-                try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
-            }
-            try writeCachedItemAttrs(forHandle: dstHandle!, members: [.fileTimes, .flags], cachedAttrs: srcAttrs)
-            if shouldRename {
-                do {
-                    try InternalFS.rename(itemAt: tmpDstPath, to: dstPath, replace: options.existingTarget == .overwrite)
-                } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
-                    cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
-                    return
+            do {
+                if dstHandle == nil {
+                    dstHandle = try openMetadataHandle(forItemAt: tmpDstPath)
                 }
+            } catch {
+                try errorCollector.handleError(error, operation: .copyMetadata)
+            }
+            if dstHandle != nil {
+                try writeCachedItemAttrs(forHandle: dstHandle!, members: [.fileTimes, .flags], cachedAttrs: srcAttrs)
             }
         } catch {
             cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
-            (error.systemCode?.rawValue).map { SetLastError($0) }    // restore errno
             throw error
         }
 
-        try writeCachedItemAttrs(forHandle: dstHandle!, members: .permissions, cachedAttrs: srcAttrs)
-        try dstHandle?.close()
+        do {
+            if shouldRename {
+                try InternalFS.rename(itemAt: tmpDstPath, to: dstPath, replace: options.existingTarget == .overwrite)
+            }
+        } catch {
+            cleanTmpFile(tmpFileHandle: dstHandle, tmpDstPath: tmpDstPath)
+            if !(error.kind == .alreadyExists && options.existingTarget == .skip) {
+                try errorCollector.handleError(error, operation: .copyContents)
+            }
+            return
+        }
+
+        if dstHandle != nil {
+            try writeCachedItemAttrs(forHandle: dstHandle!, members: .permissions, cachedAttrs: srcAttrs)
+        }
+        do {
+            try dstHandle?.close()
+        } catch { try errorCollector.handleError(error, operation: .releaseResources) }
 
     }
-    #endif 
+    #endif
 
 }

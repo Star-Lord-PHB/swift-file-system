@@ -114,17 +114,10 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
         #if canImport(WinSDK)
 
-        let fileAttributes = systemEntry.dwFileAttributes
-
-        let hasReparseTagSymlink = (systemEntry.dwReserved0 == IO_REPARSE_TAG_SYMLINK)
-
-        return if fileAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 {
-            hasReparseTagSymlink ? .symlink : .unknown
-        } else if fileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
-            .directory
-        } else {
-            .regular
-        } as FileKind
+        return FileKind(
+            windowsFileAttributes: systemEntry.dwFileAttributes,
+            reparseTag: systemEntry.dwReserved0
+        )
 
         #else
 

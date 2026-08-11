@@ -35,6 +35,41 @@ extension FileKind: CustomStringConvertible {
 
 
 
+#if canImport(WinSDK)
+extension FileKind {
+
+    /// Whether a Windows reparse tag has name-surrogate semantics — the object stands for
+    /// another named entity in the system. Symlinks and junctions / volume mount points are
+    /// name surrogates; other reparse points (cloud placeholders, app-exec links,
+    /// deduplicated files) behave as their underlying kind.
+    @inlinable
+    public static func isNameSurrogateReparseTag(_ tag: DWORD) -> Bool {
+        tag & 0x2000_0000 != 0
+    }
+
+
+    /// Classifies a Windows item from its file attributes and reparse tag.
+    ///
+    /// Symlinks map to ``symlink``; any other name-surrogate reparse point (junctions and
+    /// volume mount points) is not modeled by this library and maps to ``unknown``;
+    /// non-surrogate reparse points fall through to their underlying kind.
+    @inlinable
+    public init(windowsFileAttributes attributes: DWORD, reparseTag: DWORD) {
+        self = if attributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0,
+            Self.isNameSurrogateReparseTag(reparseTag) {
+            reparseTag == IO_REPARSE_TAG_SYMLINK ? .symlink : .unknown
+        } else if attributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0 {
+            .directory
+        } else {
+            .regular
+        }
+    }
+
+}
+#endif
+
+
+
 #if !canImport(WinSDK)
 extension FileKind {
 

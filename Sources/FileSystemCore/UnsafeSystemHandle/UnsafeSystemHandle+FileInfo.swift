@@ -87,28 +87,23 @@ extension UnsafeSystemHandle {
         let fileTypeFlags = GetFileType(unsafeRawHandle)
         try LowLevelError.check()
 
-        var isSimLink: Bool {
+        var reparseTag: DWORD {
             get throws(LowLevelError) {
                 guard prefetchedAttributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0 else {
-                    return false
+                    return 0
                 }
                 var fileAttributeTagInfo = _FILE_ATTRIBUTE_TAG_INFO()
                 let structSize = DWORD(MemoryLayout<_FILE_ATTRIBUTE_TAG_INFO>.size)
                 try execThrowingCFunction {
                     GetFileInformationByHandleEx(unsafeRawHandle, FileAttributeTagInfo, &fileAttributeTagInfo, structSize)
                 }
-                return fileAttributeTagInfo.ReparseTag == IO_REPARSE_TAG_SYMLINK
+                return fileAttributeTagInfo.ReparseTag
             }
         }
 
-        var hasDirectoryFlag: Bool {
-            return (prefetchedAttributes & .init(FILE_ATTRIBUTE_DIRECTORY)) != 0
-        }
-
         return switch fileTypeFlags {
-            case .init(FILE_TYPE_DISK) where try isSimLink:     .symlink
-            case .init(FILE_TYPE_DISK) where hasDirectoryFlag:  .directory
-            case .init(FILE_TYPE_DISK):                         .regular
+            case .init(FILE_TYPE_DISK):
+                FileKind(windowsFileAttributes: prefetchedAttributes, reparseTag: try reparseTag)
             case .init(FILE_TYPE_CHAR):                         .character
             case .init(FILE_TYPE_PIPE):                         .fifo
             default:                                            .unknown

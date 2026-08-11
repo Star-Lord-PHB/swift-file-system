@@ -74,15 +74,12 @@ extension InternalFS {
                 }
             }
 
-            if !followSymlink || infoByName.ReparseTag != IO_REPARSE_TAG_SYMLINK {
+            if !followSymlink || !FileKind.isNameSurrogateReparseTag(infoByName.ReparseTag) {
 
-                let type = if infoByName.ReparseTag == IO_REPARSE_TAG_SYMLINK {
-                    .symlink
-                } else if (infoByName.FileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY)) != 0 {
-                    .directory
-                } else {
-                    .regular
-                } as FileKind
+                let type = FileKind(
+                    windowsFileAttributes: infoByName.FileAttributes,
+                    reparseTag: infoByName.ReparseTag
+                )
 
                 return .init(
                     size: .init(infoByName.EndOfFile.QuadPart), 
@@ -100,7 +97,8 @@ extension InternalFS {
 
             }
 
-            // if following symlink is required and the item is a symlink, fall back to use handle-based method
+            // if following is required and the item is a name-surrogate reparse point (symlink,
+            // junction / mount point), fall back to the handle-based method, which resolves it
 
         }
 
@@ -148,14 +146,10 @@ extension InternalFS {
                         GetFileInformationByNameFuncPtr(pathPtr, FileStatBasicByNameInfo, &infoByName, DWORD(MemoryLayout<FILE_STAT_BASIC_INFORMATION>.size)).boolValue
                     }
                 }
-
-                return if infoByName.ReparseTag == IO_REPARSE_TAG_SYMLINK {
-                    .symlink
-                } else if (infoByName.FileAttributes & DWORD(FILE_ATTRIBUTE_DIRECTORY)) != 0 {
-                    .directory
-                } else {
-                    .regular
-                }
+                return FileKind(
+                    windowsFileAttributes: infoByName.FileAttributes,
+                    reparseTag: infoByName.ReparseTag
+                )
             } catch let e where e.kind == .notFound || e.kind == .nameTooLong || e.systemCode == .invalidFileName {
                 // These errors are won't be resolved even after falling back to handle-based method
                 // MARK: TODO: Need to check whether there are other error codes like these
