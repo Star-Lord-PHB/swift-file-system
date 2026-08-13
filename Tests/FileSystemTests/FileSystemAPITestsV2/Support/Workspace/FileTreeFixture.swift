@@ -26,10 +26,10 @@ extension FileSystemTestSupport.Workspace {
 
     @discardableResult
     func makeFile(
-        at relativePath: FilePath,
+        at itemPath: FilePath,
         contents: Data = Data()
     ) throws -> FilePath {
-        let absolutePath = path(relativePath)
+        let absolutePath = path(itemPath)
         try createParentDirectory(for: absolutePath)
         try contents.write(to: URL(filePath: absolutePath.string))
         return absolutePath
@@ -37,31 +37,31 @@ extension FileSystemTestSupport.Workspace {
 
     @discardableResult
     func makeFile(
-        at relativePath: String,
+        at itemPath: String,
         contents: Data = Data()
     ) throws -> FilePath {
-        try makeFile(at: FilePath(relativePath), contents: contents)
+        try makeFile(at: FilePath(itemPath), contents: contents)
     }
 
     @discardableResult
     func makeFile(
-        at relativePath: FilePath,
+        at itemPath: FilePath,
         contents: String
     ) throws -> FilePath {
-        try makeFile(at: relativePath, contents: Data(contents.utf8))
+        try makeFile(at: itemPath, contents: Data(contents.utf8))
     }
 
     @discardableResult
     func makeFile(
-        at relativePath: String,
+        at itemPath: String,
         contents: String
     ) throws -> FilePath {
-        try makeFile(at: FilePath(relativePath), contents: Data(contents.utf8))
+        try makeFile(at: FilePath(itemPath), contents: Data(contents.utf8))
     }
 
     @discardableResult
-    func makeDirectory(at relativePath: FilePath) throws -> FilePath {
-        let absolutePath = path(relativePath)
+    func makeDirectory(at itemPath: FilePath) throws -> FilePath {
+        let absolutePath = path(itemPath)
         try FileManager.default.createDirectory(
             at: URL(filePath: absolutePath.string),
             withIntermediateDirectories: true
@@ -70,16 +70,16 @@ extension FileSystemTestSupport.Workspace {
     }
 
     @discardableResult
-    func makeDirectory(at relativePath: String) throws -> FilePath {
-        try makeDirectory(at: FilePath(relativePath))
+    func makeDirectory(at itemPath: String) throws -> FilePath {
+        try makeDirectory(at: FilePath(itemPath))
     }
 
     @discardableResult
     func makeSymlink(
-        at relativePath: FilePath,
+        at itemPath: FilePath,
         pointingTo target: FilePath
     ) throws -> FilePath {
-        let absolutePath = path(relativePath)
+        let absolutePath = path(itemPath)
         try createParentDirectory(for: absolutePath)
         try FileManager.default.createSymbolicLink(
             atPath: absolutePath.string,
@@ -90,44 +90,44 @@ extension FileSystemTestSupport.Workspace {
 
     @discardableResult
     func makeSymlink(
-        at relativePath: String,
+        at itemPath: String,
         pointingTo target: FilePath
     ) throws -> FilePath {
-        try makeSymlink(at: FilePath(relativePath), pointingTo: target)
+        try makeSymlink(at: FilePath(itemPath), pointingTo: target)
     }
 
     @discardableResult
     func makeFixture(
-        at relativePath: FilePath,
+        at itemPath: FilePath,
         _ fixture: FileSystemTestSupport.Fixture
     ) throws -> FilePath {
-        try createFixture(at: relativePath, fixture)
-        return path(relativePath)
+        try createFixture(at: itemPath, fixture)
+        return path(itemPath)
     }
 
     @discardableResult
     func makeFixture(
-        at relativePath: String,
+        at itemPath: String,
         _ fixture: FileSystemTestSupport.Fixture
     ) throws -> FilePath {
-        try makeFixture(at: FilePath(relativePath), fixture)
+        try makeFixture(at: FilePath(itemPath), fixture)
     }
 
     private func createFixture(
-        at relativePath: FilePath,
+        at itemPath: FilePath,
         _ fixture: FileSystemTestSupport.Fixture
     ) throws {
         switch fixture {
         case .file(let contents):
-            try makeFile(at: relativePath, contents: contents)
+            try makeFile(at: itemPath, contents: contents)
 
         case .symlink(let target):
-            try makeSymlink(at: relativePath, pointingTo: target)
+            try makeSymlink(at: itemPath, pointingTo: target)
 
         case .directory(let entries):
-            try makeDirectory(at: relativePath)
+            try makeDirectory(at: itemPath)
             for (name, child) in entries {
-                try createFixture(at: relativePath.appending(name), child)
+                try createFixture(at: itemPath.appending(name), child)
             }
         }
     }

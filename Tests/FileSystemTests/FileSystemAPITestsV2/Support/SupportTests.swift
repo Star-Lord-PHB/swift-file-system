@@ -33,6 +33,21 @@ struct FileSystemTestSupportTests {
     }
 
     @Test
+    func `Workspace APIs accept absolute paths inside the workspace`() throws {
+
+        let workspace = try Support.Workspace(keepArtifacts: false)
+        let directory = try workspace.makeDirectory(at: "parent")
+
+        let file = try workspace.makeFile(at: directory.appending("file.txt"), contents: "contents")
+
+        #expect(file == workspace.path("parent/file.txt"))
+        #expect(workspace.path(directory) == directory)
+        #expect(workspace.path(directory.appending("a/../b")) == directory.appending("b"))
+        try Support.expectItemExistNoFollow(at: file)
+
+    }
+
+    @Test
     func `Fixture creation and tree snapshots preserve logical structure`() throws {
 
         let workspace = try Support.Workspace(keepArtifacts: false)

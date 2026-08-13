@@ -115,8 +115,8 @@ extension FileSystemAPITests.CopyTests.DaclExactTests {
     @Test
     func `Preserves the exact SDDL of a protected source`() throws {
 
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         try Support.setProtectedNativeWindowsDacl(
             makeSampleDacl(secondaryPermission: fileGenericReadAccessMask),
             at: src,
@@ -135,8 +135,8 @@ extension FileSystemAPITests.CopyTests.DaclExactTests {
     @Test
     func `Preserves the exact SDDL of an auto-inherited source`() throws {
 
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         try Support.addWindowsDaclEntry(
             .init(permission: fileGenericWriteAccessMask, trustee: .everyone),
             at: src
@@ -172,15 +172,15 @@ extension FileSystemAPITests.CopyTests.DaclExactTests {
     @Test
     func `Overwriting an existing destination preserves the exact DACL`() throws {
 
-        _ = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         try Support.setProtectedNativeWindowsDacl(
             makeSampleDacl(secondaryPermission: fileGenericReadAccessMask),
             at: src,
             followSymlink: true
         )
         let srcSddl = try Support.windowsSddlString(ofItemAt: src)
-        let dst = try workspace.makeFile(at: "dst-parent/dst.txt", contents: "old contents")
+        let dst = try workspace.makeFile(at: dstParent.appending("dst.txt"), contents: "old contents")
         try Support.setProtectedNativeWindowsDacl(
             makeSampleDacl(secondaryPermission: fileGenericWriteAccessMask),
             at: dst,
@@ -202,14 +202,14 @@ extension FileSystemAPITests.CopyTests.DaclExactTests {
     @Test
     func `Overwrite merges into a restricted existing directory`() throws {
 
-        _ = try makeParents()
+        let (srcParent, dstParent) = try makeParents()
         let src = try workspace.makeFixture(
-            at: "src-parent/dir",
+            at: srcParent.appending("dir"),
             [
                 "file.txt": .file(contents: "src file")
             ]
         )
-        let dst = try workspace.makeDirectory(at: "dst-parent/dir")
+        let dst = try workspace.makeDirectory(at: dstParent.appending("dir"))
         defer {
             restoreDeletableDacl(at: src)
             restoreDeletableDacl(at: dst)

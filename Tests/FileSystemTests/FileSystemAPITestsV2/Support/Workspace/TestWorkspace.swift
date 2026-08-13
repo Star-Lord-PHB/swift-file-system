@@ -42,18 +42,29 @@ extension FileSystemTestSupport {
 
         private let keepArtifacts: Bool
 
-        /// Resolves a relative test path without allowing lexical traversal outside
-        /// the workspace.
-        func path(_ relativePath: FilePath) -> FilePath {
-            precondition(relativePath.isRelative, "Test workspace paths must be relative")
-            guard let resolved = root.lexicallyResolving(relativePath) else {
-                preconditionFailure("Test workspace path escapes its root: \(relativePath)")
+        /// Resolves a test path to an absolute path inside the workspace.
+        ///
+        /// Accepts a workspace-relative path (resolved against the root without allowing
+        /// lexical traversal outside of it) or an absolute path that already lies inside
+        /// the workspace — so paths returned by other workspace APIs compose freely.
+        /// Anything else traps.
+        func path(_ itemPath: FilePath) -> FilePath {
+            guard itemPath.isRelative else {
+                let normalized = itemPath.lexicallyNormalized()
+                precondition(
+                    normalized.starts(with: root),
+                    "Absolute test workspace paths must lie inside the workspace root: \(itemPath)"
+                )
+                return normalized
+            }
+            guard let resolved = root.lexicallyResolving(itemPath) else {
+                preconditionFailure("Test workspace path escapes its root: \(itemPath)")
             }
             return resolved
         }
 
-        func path(_ relativePath: String) -> FilePath {
-            path(FilePath(relativePath))
+        func path(_ itemPath: String) -> FilePath {
+            path(FilePath(itemPath))
         }
 
         /// Returns a diagnostic path relative to the workspace when possible.

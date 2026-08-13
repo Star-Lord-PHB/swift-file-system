@@ -137,15 +137,15 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
     @Test
     func `Pure inherited source DACL is not copied`() throws {
 
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         let dst = dstParent.appending("dst.txt")
         // A fresh item is auto-inherited with every ACE marked INHERITED_ACE (surveyed:
         // this holds for CreateFileW, fopen, Foundation, cmd, and PowerShell creation
         // alike), so the copy finds no explicit entry and writes no DACL at all. The
         // probe is the oracle for what natural creation in the destination parent
         // inherits.
-        let probe = try workspace.makeFile(at: "dst-parent/probe.txt", contents: "probe")
+        let probe = try workspace.makeFile(at: dstParent.appending("probe.txt"), contents: "probe")
         let expectedDacl = try captureSecurity(at: probe).permissions.dacl
 
         try fileSystem.copyItem(at: src, to: dst)
@@ -196,13 +196,13 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
         // The inherited everyone-RWX entries carry no DELETE right and the parent grants
         // no FILE_DELETE_CHILD; restore a deletable DACL so the cleanup can proceed.
         defer { restoreDeletableDacl(at: legacyParent) }
-        let src = try workspace.makeFile(at: "legacy-parent/file.txt", contents: "contents")
+        let src = try workspace.makeFile(at: legacyParent.appending("file.txt"), contents: "contents")
         let srcPermissions = try captureSecurity(at: src).permissions
         try #require(!srcPermissions.isAutoInherited)
         try #require(!srcPermissions.isProtected)
         try #require(srcPermissions.dacl.aces.allSatisfy { isInherited($0) })
         let dst = dstParent.appending("dst.txt")
-        let probe = try workspace.makeFile(at: "dst-parent/probe.txt", contents: "probe")
+        let probe = try workspace.makeFile(at: dstParent.appending("probe.txt"), contents: "probe")
         let expectedDacl = try captureSecurity(at: probe).permissions.dacl
 
         try fileSystem.copyItem(at: src, to: dst)
@@ -276,8 +276,8 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
         // one, with no auto-inherited bit. The marks are trustworthy even without the
         // bit (the kernel stamps them at creation), so the explicit entry travels and
         // the marked ones stay behind — the old dispatch dropped all of them.
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         try Support.addWindowsDaclEntry(
             .init(permission: fileGenericWriteAccessMask, trustee: .everyone),
             at: src
@@ -290,7 +290,7 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
         try #require(!srcExplicitAces.isEmpty)
         try #require(srcPermissions.dacl.aces.contains { isInherited($0) })
         let dst = dstParent.appending("dst.txt")
-        let probe = try workspace.makeFile(at: "dst-parent/probe.txt", contents: "probe")
+        let probe = try workspace.makeFile(at: dstParent.appending("probe.txt"), contents: "probe")
         let probeInheritedAces = try captureSecurity(at: probe).permissions.dacl.aces
             .filter { isInherited($0) }
 
@@ -308,8 +308,8 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
     @Test
     func `Auto-inherited source merges explicit entries ahead of inheritance`() throws {
 
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         // A fresh file is already auto-inherited; the propagating edit adds the
         // explicit entry in canonical position.
         try Support.addWindowsDaclEntry(
@@ -321,7 +321,7 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
         let srcExplicitAces = srcPermissions.dacl.aces.filter { !isInherited($0) }
         try #require(!srcExplicitAces.isEmpty)
         let dst = dstParent.appending("dst.txt")
-        let probe = try workspace.makeFile(at: "dst-parent/probe.txt", contents: "probe")
+        let probe = try workspace.makeFile(at: dstParent.appending("probe.txt"), contents: "probe")
         let probeInheritedAces = try captureSecurity(at: probe).permissions.dacl.aces
             .filter { isInherited($0) }
 
@@ -350,8 +350,8 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
         // Pins the copy chain staying stable: the merged destination keeps its explicit
         // entries unmarked (and its SD stamped auto-inherited), so copying the copy
         // carries them again.
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         try Support.addWindowsDaclEntry(
             .init(permission: fileGenericWriteAccessMask, trustee: .everyone),
             at: src
@@ -375,8 +375,8 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
     @Test
     func `Protected source DACL is written verbatim`() throws {
 
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         let protectedDacl = makeSampleDacl(secondaryPermission: fileGenericReadAccessMask)
         let expectedDacl = try Support.parseWindowsRawAcl(protectedDacl)
         try Support.setProtectedNativeWindowsDacl(protectedDacl, at: src, followSymlink: true)
@@ -398,8 +398,8 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
     @Test
     func `Protected null DACL copies as everyone-full-access`() throws {
 
-        let (_, dstParent) = try makeParents()
-        let src = try workspace.makeFile(at: "src-parent/file.txt", contents: "contents")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeFile(at: srcParent.appending("file.txt"), contents: "contents")
         try Support.applyWindowsNullProtectedDacl(at: src)
         let dst = dstParent.appending("dst.txt")
 
@@ -418,9 +418,9 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
     @Test
     func `Overwrite merge does not touch existing children's DACLs`() throws {
 
-        _ = try makeParents()
-        let src = try workspace.makeDirectory(at: "src-parent/dir")
-        try workspace.makeFile(at: "src-parent/dir/new.txt", contents: "src new")
+        let (srcParent, dstParent) = try makeParents()
+        let src = try workspace.makeDirectory(at: srcParent.appending("dir"))
+        try workspace.makeFile(at: src.appending("new.txt"), contents: "src new")
         try Support.addWindowsDaclEntry(
             .init(permission: fileGenericWriteAccessMask, trustee: .everyone),
             at: src
@@ -428,8 +428,8 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
         let srcExplicitAces = try captureSecurity(at: src).permissions.dacl.aces
             .filter { !isInherited($0) }
         try #require(!srcExplicitAces.isEmpty)
-        let dst = try workspace.makeDirectory(at: "dst-parent/dir")
-        let keep = try workspace.makeFile(at: "dst-parent/dir/keep.txt", contents: "keep")
+        let dst = try workspace.makeDirectory(at: dstParent.appending("dir"))
+        let keep = try workspace.makeFile(at: dst.appending("keep.txt"), contents: "keep")
         let keepSecurityBefore = try captureSecurity(at: keep)
 
         try fileSystem.copyItem(at: src, to: dst, options: .init(existingTarget: .overwrite))
