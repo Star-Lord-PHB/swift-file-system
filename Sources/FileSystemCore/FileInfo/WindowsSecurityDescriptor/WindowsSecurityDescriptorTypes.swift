@@ -108,8 +108,13 @@ public struct WindowsSecurityDescriptorControl: Sendable, Equatable, Hashable, E
         public static let saclProtected: Self = .init(rawValue: .init(SE_SACL_PROTECTED))
         public static let daclAutoInheritReq: Self = .init(rawValue: .init(SE_DACL_AUTO_INHERIT_REQ))
         public static let saclAutoInheritReq: Self = .init(rawValue: .init(SE_SACL_AUTO_INHERIT_REQ))
+        public static let daclAutoInherited: Self = .init(rawValue: .init(SE_DACL_AUTO_INHERITED))
+        public static let saclAutoInherited: Self = .init(rawValue: .init(SE_SACL_AUTO_INHERITED))
         public static var all: Self {
-            [.daclProtected, .saclProtected, .daclAutoInheritReq, .saclAutoInheritReq]
+            [
+                .daclProtected, .saclProtected, .daclAutoInheritReq, .saclAutoInheritReq,
+                .daclAutoInherited, .saclAutoInherited,
+            ]
         }
     }
 

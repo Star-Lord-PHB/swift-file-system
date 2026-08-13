@@ -61,7 +61,14 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         let psd = UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>.swiftAllocate(capacity: 1)
         InitializeSecurityDescriptor(psd.unsafelyCastedMutableRawPtr, DWORD(SECURITY_DESCRIPTOR_REVISION))
         if let control {
-            SetSecurityDescriptorControl(psd.unsafelyCastedMutableRawPtr, .init(bitPattern: -1), control.rawValue)
+            // SetSecurityDescriptorControl rejects the whole call (without changing
+            // anything) unless both parameters stay within the writable control bits.
+            let writableBits = WindowsSecurityDescriptorControl.WrittableControlFlags.all.rawValue
+            SetSecurityDescriptorControl(
+                psd.unsafelyCastedMutableRawPtr,
+                writableBits,
+                control.rawValue & writableBits
+            )
         }
         SetSecurityDescriptorDacl(psd.unsafelyCastedMutableRawPtr, true, dacl?.pacl.unsafelyCastedMutableRawPtr, false)
         SetSecurityDescriptorSacl(psd.unsafelyCastedMutableRawPtr, true, sacl?.pacl.unsafelyCastedMutableRawPtr, false)
@@ -146,7 +153,14 @@ extension WindowsAbsoluteSecurityDescriptor {
             return .make(unsafeExtractingFromPSD: psd.unownedView().immutableCast()).control
         }
         set {
-            SetSecurityDescriptorControl(psd.unsafeRawPtr, .init(bitPattern: -1), newValue.rawValue)
+            // See `init(control:...)`: both parameters must stay within the writable
+            // control bits, or the call fails as a whole without changing anything.
+            let writableBits = WindowsSecurityDescriptorControl.WrittableControlFlags.all.rawValue
+            SetSecurityDescriptorControl(
+                psd.unsafeRawPtr,
+                writableBits,
+                newValue.rawValue & writableBits
+            )
         }
     }
 

@@ -54,13 +54,13 @@ extension CopyItemHandler {
                 case .none: return nil
             }
         }
-        var psd: UnsafeMutablePointer<SECURITY_DESCRIPTOR>? { 
+        var psd: UnsafeMutablePointer<SECURITY_DESCRIPTOR>? {
             switch securityDescriptor {
                 case .some(let sd): return sd.psd.unsafelyCastedMutableRawPtr
                 case .none: return nil
             }
         }
-        #else 
+        #else
         let permission: FilePermissions
         #endif
 
@@ -223,6 +223,24 @@ extension CopyItemHandler {
     }
     
 
+    /// Stamps `SE_DACL_AUTO_INHERIT_REQ` into the cached source security descriptor right
+    /// before it is written verbatim, when the source is auto-inherited: the
+    /// non-propagating write APIs only set the destination's `SE_DACL_AUTO_INHERITED`
+    /// bookkeeping bit when this request bit accompanies the write. Deliberately applied
+    /// only at the write sites so the cached control stays pristine for every decision
+    /// made earlier in the copy.
+    fileprivate func requestDaclAutoInheritedForVerbatimWrite(
+        _ cachedAttrs: borrowing CachedCopySrcItemAttrs
+    ) {
+        guard 
+            cachedAttrs.sdControl?.contains(.daclAutoInherited) == true,
+            let psd = cachedAttrs.psd
+        else { return }
+        let requestBit = SECURITY_DESCRIPTOR_CONTROL(SE_DACL_AUTO_INHERIT_REQ)
+        SetSecurityDescriptorControl(psd, requestBit, requestBit)
+    }
+
+
     fileprivate func writeWindowsDacl(
         forHandle handle: borrowing UnsafeSystemHandle, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
@@ -232,6 +250,7 @@ extension CopyItemHandler {
 
         if cachedAttrs.sdControl?.contains(.daclProtected) == true {
 
+            requestDaclAutoInheritedForVerbatimWrite(cachedAttrs)
             try execThrowingCFunction {
                 SetKernelObjectSecurity(
                     handle.unsafeRawHandle, 
@@ -240,14 +259,25 @@ extension CopyItemHandler {
                 )
             }
 
-        } else if cachedAttrs.sdControl?.contains(.daclAutoInherited) == true {
+        } else {
 
+            // Regardless of SE_DACL_AUTO_INHERITED: the kernel marks every ACE that came
+            // from creation-time inheritance with INHERITED_ACE, so an unmarked ACE is an
+            // entry somebody deliberately set on the item (a legacy-mode DACL written
+            // wholesale is a self-contained policy consisting entirely of such entries).
+            // Merge them into the DACL the destination inherited naturally; the marked
+            // entries are the source parent's context and stay behind.
             let explicitAccess = mapNonInheritAcesToExplicitAccess(cachedAttrs.daclView)
 
             if !explicitAccess.isEmpty {
 
                 var sd = try handle.securityInfo(.dacl).makeAbsolute()
                 sd.addDaclEntries(explicitAccess)
+
+                // Stamp the result as auto-inherited (the write honors the bookkeeping
+                // bit only together with the request bit): the merged DACL is in
+                // canonical auto-inherited form, same as an ACL editor would leave it.
+                sd.control.insert([.daclAutoInheritReq, .daclAutoInherited])
 
                 try execThrowingCFunction {
                     SetKernelObjectSecurity(
@@ -257,10 +287,6 @@ extension CopyItemHandler {
 
             }
 
-        } else {
-            // If both DACL_PROTECTED and DACL_AUTO_INHERITED are not set, we assume that this DACL is 
-            // inherited from the parent directory and hasn't been modified. In this case, we don't copy
-            // any security information and let the destination item inherit everyting from its parent directory.
         }
 
     }
@@ -275,6 +301,7 @@ extension CopyItemHandler {
 
         if cachedAttrs.sdControl?.contains(.daclProtected) == true {
 
+            requestDaclAutoInheritedForVerbatimWrite(cachedAttrs)
             try execThrowingCFunction {
                 path.withPlatformString { pathPtr in
                     SetFileSecurityW(
@@ -285,14 +312,18 @@ extension CopyItemHandler {
                 }
             }
 
-        } else if cachedAttrs.sdControl?.contains(.daclAutoInherited) == true {
+        } else {
 
+            // See the handle-based variant above: unmarked ACEs are deliberately set
+            // entries regardless of SE_DACL_AUTO_INHERITED, and travel with the item.
             let explicitAccess = mapNonInheritAcesToExplicitAccess(cachedAttrs.daclView)
 
             if !explicitAccess.isEmpty {
 
                 var sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl, followSymlink: false).makeAbsolute()
                 sd.addDaclEntries(explicitAccess)
+
+                sd.control.insert([.daclAutoInheritReq, .daclAutoInherited])
 
                 try execThrowingCFunction {
                     path.withPlatformString { pathPtr in
@@ -302,10 +333,6 @@ extension CopyItemHandler {
 
             }
 
-        } else {
-            // If both DACL_PROTECTED and DACL_AUTO_INHERITED are not set, we assume that this DACL is 
-            // inherited from the parent directory and hasn't been modified. In this case, we don't copy
-            // any security information and let the destination item inherit everyting from its parent directory.
         }
 
     }
@@ -319,6 +346,7 @@ extension CopyItemHandler {
         let securityInformation = cachedAttrs.sdControl?.contains(.daclProtected) == true
             ? DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION) 
             : DWORD(DACL_SECURITY_INFORMATION)
+        requestDaclAutoInheritedForVerbatimWrite(cachedAttrs)
         try execThrowingCFunction {
             SetKernelObjectSecurity(handle.unsafeRawHandle, securityInformation, cachedAttrs.psd)
         }
@@ -333,6 +361,7 @@ extension CopyItemHandler {
         let securityInformation = cachedAttrs.sdControl?.contains(.daclProtected) == true
             ? DWORD(DACL_SECURITY_INFORMATION) | DWORD(PROTECTED_DACL_SECURITY_INFORMATION) 
             : DWORD(DACL_SECURITY_INFORMATION)
+        requestDaclAutoInheritedForVerbatimWrite(cachedAttrs)
         try execThrowingCFunction {
             path.withPlatformString { pathPtr in
                 SetFileSecurityW(pathPtr, securityInformation, cachedAttrs.psd)
