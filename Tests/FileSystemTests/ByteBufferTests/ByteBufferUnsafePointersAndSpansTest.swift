@@ -302,11 +302,9 @@ extension ByteBufferTest.UnsafePointersAndSpans {
     func `Replacing output span storage traps`() async {
 
         await #expect(processExitsWith: .failure) {
-            let replacement = UnsafeMutableBufferPointer<UInt8>.allocate(capacity: 4)
-            defer { replacement.deallocate() }
-
             _ = ByteBuffer(capacity: 4) { output in
-                output = .init(buffer: replacement, initializedCount: replacement.count)
+                output = .init()
+                output.append(repeating: 1, count: 4)
             }
         }
 
