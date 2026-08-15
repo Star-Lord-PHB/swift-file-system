@@ -53,7 +53,11 @@ extension FileSystemTestSupport {
         }
 
         /// State expected after a same-filesystem move.
-        static var movedItem: Self { unchanged }
+        ///
+        /// A move rewrites the item's directory entry, which advances the status-change
+        /// time (POSIX ctime, Windows ChangeTime) on every platform. Everything else,
+        /// including the file identifier, is preserved.
+        static var movedItem: Self { unchanged.excluding(.statusChangeTime) }
 
         /// Logical content and identity expected for hard links.
         static let hardLinkedItem: Self = .init(fields: [.logicalContents, .fileIdentifier])
