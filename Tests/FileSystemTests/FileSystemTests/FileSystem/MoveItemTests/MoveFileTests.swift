@@ -30,7 +30,7 @@ extension FileSystemTest.MoveItemTest {
         let srcPath = try makeFile(at: "src", contents: .init("Serika is Cute!".utf8))
         let dstPath = try makeFile(at: "dst", contents: .init("Hoshino is Cute!".utf8))
 
-        let expectation = try ItemExpectation.from(itemAt: srcPath)
+        let expectation = try ItemExpectation.from(itemAt: srcPath, excluding: replacedItemExclusions)
 
         try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
 
@@ -85,7 +85,7 @@ extension FileSystemTest.MoveItemTest {
         let targetPath = try makeFile(at: "target", contents: .init("Hoshino is Cute!".utf8))
         let dstPath = try makeSymlink(at: "dst", pointingTo: targetPath)
 
-        let expectation = try ItemExpectation.from(itemAt: srcPath)
+        let expectation = try ItemExpectation.from(itemAt: srcPath, excluding: replacedItemExclusions)
 
         try FileSystem().moveItem(at: srcPath, to: dstPath)
 

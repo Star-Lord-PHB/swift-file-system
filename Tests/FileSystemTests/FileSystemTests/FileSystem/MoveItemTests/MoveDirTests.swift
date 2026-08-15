@@ -261,7 +261,7 @@ extension FileSystemTest.MoveItemTest {
         let dstPath = try makeDir(at: "dstDir")
 
         let expectation = try FileStructureExpectation.dir(
-            expectation: .from(itemAt: srcPath), 
+            expectation: .from(itemAt: srcPath, excluding: replacedItemExclusions), 
             contents: [
                 "file1": .item(expectation: .from(itemAt: srcPath.appending("file1"))),
                 "a": .dir(

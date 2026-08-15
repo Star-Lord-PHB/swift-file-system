@@ -35,7 +35,7 @@ extension FileSystemTest.MoveItemTest {
         let dstTargetPath = try makeFile(at: "dstTarget")
         let dstPath = try makeSymlink(at: "dstLink", pointingTo: dstTargetPath)
 
-        let expectation = try ItemExpectation.from(itemAt: srcPath)
+        let expectation = try ItemExpectation.from(itemAt: srcPath, excluding: replacedItemExclusions)
 
         try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
 
@@ -98,7 +98,7 @@ extension FileSystemTest.MoveItemTest {
         let dstTargetPath = try makeFile(at: "dstTarget")
         let dstPath = try makeSymlink(at: "dstLink", pointingTo: dstTargetPath)
 
-        let expectation = try ItemExpectation.from(itemAt: srcPath)
+        let expectation = try ItemExpectation.from(itemAt: srcPath, excluding: replacedItemExclusions)
 
         try FileSystem().moveItem(at: srcPath, to: dstPath, onExistingTarget: .overwrite)
 
