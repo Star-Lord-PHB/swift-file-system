@@ -5,8 +5,8 @@ import FileSystemCore
 extension FileSystem {
 
     public func withFileHandle<R: ~Copyable>(
-        forReadingAt path: FilePath, 
-        options: FileOperationOptions.OpenForReading, 
+        forReadingAt path: FilePath,
+        options: FileOperationOptions.OpenForReading = .init(),
         body: (borrowing ReadFileHandle) throws -> R
     ) throws -> R {
         let handle = try ReadFileHandle(forFileAt: path, options: options)
@@ -25,12 +25,12 @@ extension FileSystem {
 
 
     public func withFileHandle<R: ~Copyable>(
-        forWritingAt path: FilePath, 
-        option: FileOperationOptions.OpenForWriting, 
+        forWritingAt path: FilePath,
+        options: FileOperationOptions.OpenForWriting = .editFile(),
         body: (borrowing WriteFileHandle) throws -> R
     ) throws -> R {
 
-        let handle = try WriteFileHandle(forFileAt: path, options: option)
+        let handle = try WriteFileHandle(forFileAt: path, options: options)
 
         let result: R
         do {
@@ -48,11 +48,11 @@ extension FileSystem {
 
     public func withFileHandle<R: ~Copyable>(
         forAppendingAt path: FilePath,
-        option: FileOperationOptions.OpenForWriting,
+        options: FileOperationOptions.OpenForWriting = .editFile(),
         body: (borrowing AppendHandle) throws -> R
     ) throws -> R {
 
-        let handle = try AppendHandle(forFileAt: path, options: option)
+        let handle = try AppendHandle(forFileAt: path, options: options)
 
         let result: R
         do {
@@ -69,12 +69,12 @@ extension FileSystem {
 
 
     public func withFileHandle<R: ~Copyable>(
-        forUpdatingAt path: FilePath, 
-        option: FileOperationOptions.OpenForWriting, 
+        forUpdatingAt path: FilePath,
+        options: FileOperationOptions.OpenForWriting = .editFile(),
         body: (borrowing ReadWriteFileHandle) throws -> R
     ) throws -> R {
 
-        let handle = try ReadWriteFileHandle(forFileAt: path, options: option)
+        let handle = try ReadWriteFileHandle(forFileAt: path, options: options)
 
         let result: R
         do {
@@ -91,8 +91,8 @@ extension FileSystem {
 
 
     public func withDirHandle<R: ~Copyable>(
-        at path: FilePath, 
-        options: FileOperationOptions.OpenForDirectory, 
+        at path: FilePath,
+        options: FileOperationOptions.OpenForDirectory = .init(),
         body: (borrowing DirectoryHandle) throws -> R
     ) throws -> R {
 
