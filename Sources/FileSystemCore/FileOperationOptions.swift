@@ -77,8 +77,7 @@ public enum FileOperationOptions {
             createIfMissing: Bool = true, 
             truncate: Bool = false, 
             noFollow: Bool = false, 
-            closeOnExec: Bool = true,
-            creationPermissions: FilePermissions? = nil
+            closeOnExec: Bool = true
         ) -> OpenForWriting {
             .init(
                 createFile: createIfMissing ? .createIfMissing : .never, 
