@@ -245,10 +245,9 @@ extension UnsafeSystemHandle {
     }
 
 
-    @discardableResult
-    public func read(into buffer: UnsafeMutableRawBufferPointer, length: Int64? = nil) throws(LowLevelError) -> Int64 {
+    public func read(into buffer: UnsafeMutableRawBufferPointer) throws(LowLevelError) -> Int64 {
 
-        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+        let lengthToRead = buffer.count
 
         #if canImport(WinSDK)
 
@@ -272,12 +271,23 @@ extension UnsafeSystemHandle {
         #endif
 
     }
+    
+    
+    public func read(into buffer: UnsafeMutableRawBufferPointer.SubSequence) throws(LowLevelError) -> Int64 {
+        return try self.read(into: .init(rebasing: buffer))
+    }
+    
+    
+    public func read(into buffer: inout MutableRawSpan) throws(LowLevelError) -> Int64 {
+        return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
+            try self.read(into: ptr)
+        }
+    }
 
 
-    @discardableResult
-    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64, length: Int64? = nil) throws(LowLevelError) -> Int64 {
+    public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64) throws(LowLevelError) -> Int64 {
 
-        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+        let lengthToRead = buffer.count
 
         #if canImport(WinSDK)
 
@@ -304,6 +314,18 @@ extension UnsafeSystemHandle {
 
         #endif 
 
+    }
+    
+    
+    public func pread(into buffer: UnsafeMutableRawBufferPointer.SubSequence, from offset: Int64) throws(LowLevelError) -> Int64 {
+        return try self.pread(into: .init(rebasing: buffer), from: offset)
+    }
+    
+    
+    public func pread(into buffer: inout MutableRawSpan, from offset: Int64) throws(LowLevelError) -> Int64 {
+        return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
+            try self.pread(into: ptr, from: offset)
+        }
     }
 
 
@@ -332,6 +354,20 @@ extension UnsafeSystemHandle {
         #endif 
 
     }
+    
+    
+    @discardableResult
+    public func write(contentsOf buffer: UnsafeRawBufferPointer.SubSequence) throws(LowLevelError) -> Int64 {
+        return try self.write(contentsOf: .init(rebasing: buffer))
+    }
+    
+    
+    @discardableResult
+    public func write(contentsOf buffer: RawSpan) throws(LowLevelError) -> Int64 {
+        return try buffer.withUnsafeBytes { ptr throws(LowLevelError) in
+            try self.write(contentsOf: ptr)
+        }
+    }
 
 
     @discardableResult
@@ -359,6 +395,20 @@ extension UnsafeSystemHandle {
 
         #endif
 
+    }
+    
+    
+    @discardableResult
+    public func pwrite(contentsOf buffer: UnsafeRawBufferPointer.SubSequence, to offset: Int64) throws(LowLevelError) -> Int64 {
+        return try self.pwrite(contentsOf: .init(rebasing: buffer), to: offset)
+    }
+    
+    
+    @discardableResult
+    public func pwrite(contentsOf buffer: RawSpan, to offset: Int64) throws(LowLevelError) -> Int64 {
+        return try buffer.withUnsafeBytes { ptr throws(LowLevelError) in
+            try self.pwrite(contentsOf: ptr, to: offset)
+        }
     }
 
 

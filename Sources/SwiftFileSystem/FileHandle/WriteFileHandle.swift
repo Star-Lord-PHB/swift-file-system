@@ -239,7 +239,7 @@ extension WriteFileHandle {
 
 extension WriteFileHandle {
 
-    public func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
+    public func write(_ buffer: RawSpan, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
         
     #if canImport(WinSDK)
 
@@ -247,7 +247,7 @@ extension WriteFileHandle {
             throw .init(lowLevelError: .init(kind: .invalidInput), operation: .writeHandle(originalPath: path))
         }
 
-        return try data.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
+        return try buffer.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
@@ -268,7 +268,7 @@ extension WriteFileHandle {
 
     #else
 
-        return try data.withUnsafeBytes { bufferPtr throws(PlatformError) in
+        return try buffer.withUnsafeBytes { bufferPtr throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 if let offset {
                     return try handle.pwrite(contentsOf: bufferPtr, to: offset)

@@ -98,12 +98,11 @@ extension UnsafeSystemHandle {
 
     @_lifetime(&overlapped, borrow buffer)
     public func read(
-        into buffer: UnsafeMutableRawBufferPointer, 
-        length: Int64? = nil, 
+        into buffer: UnsafeMutableRawBufferPointer,
         overlapped: inout WindowsOverlapped
     ) throws(LowLevelError) -> WindowsPendingOverlapped {
 
-        let lengthToRead = min(buffer.count, length.map { Int($0) } ?? buffer.count)
+        let lengthToRead = buffer.count
 
         var bytesRead = 0 as DWORD
 
@@ -116,6 +115,50 @@ extension UnsafeSystemHandle {
             }
         }
 
+    }
+    
+    
+    @_lifetime(&overlapped, borrow buffer)
+    public func read(
+        into buffer: UnsafeMutableRawBufferPointer.SubSequence,
+        overlapped: inout WindowsOverlapped
+    ) throws(LowLevelError) -> WindowsPendingOverlapped {
+        let rebasedBuffer = UnsafeMutableRawBufferPointer(rebasing: buffer)
+        return try _overrideLifetime(
+            read(into: rebasedBuffer, overlapped: &overlapped),
+            borrowing: buffer
+        )
+    }
+    
+    
+    // ReadFile returns as soon as the operation is queued, so the kernel keeps writing through the
+    // pointer after the withUnsafeMutableBytes below has returned. This is sound: MutableRawSpan is
+    // a frozen (pointer, byteCount) pair, so withUnsafeMutableBytes hands out the span's own base
+    // address rather than a temporary, and the &buffer lifetime dependency keeps the buffer
+    // exclusively borrowed - and so neither moved nor reallocated - until the pending overlapped
+    // is waited on.
+    @_lifetime(&overlapped, &buffer)
+    public func read(
+        into buffer: inout MutableRawSpan,
+        overlapped: inout WindowsOverlapped
+    ) throws(LowLevelError) -> WindowsPendingOverlapped {
+
+        let lengthToRead = buffer.byteCount
+        
+        var bytesRead = 0 as DWORD
+        
+        return try overlapped.startOperation { (overlapped) throws(LowLevelError) in
+            let result = buffer.withUnsafeMutableBytes { ptr in
+                ReadFile(unsafeRawHandle, ptr.baseAddress, DWORD(lengthToRead), &bytesRead, overlapped.systemOverlapped.unsafeRawPtr)
+            }
+            if result == false {
+                let errorCode = GetLastError()
+                guard errorCode == ERROR_IO_PENDING else {
+                    throw .init(rawSystemCode: errorCode)!
+                }
+            }
+        }
+        
     }
 
 
@@ -134,36 +177,19 @@ extension UnsafeSystemHandle {
         }
 
     }
-
-
-    #if swift(>=6.2)
-    @_lifetime(&overlapped, &buffer)
-    public func read(
-        into buffer: inout MutableRawSpan, 
-        length: Int64? = nil, 
-        overlapped: inout WindowsOverlapped
-    ) throws(LowLevelError) -> WindowsPendingOverlapped {
-
-        let lengthToRead = min(buffer.byteCount, length.map { Int($0) } ?? buffer.byteCount)
-
-        var bytesRead = 0 as DWORD
-
-        return try overlapped.startOperation { (overlapped) throws(LowLevelError) in
-            let result = buffer.withUnsafeMutableBytes { ptr in 
-                ReadFile(unsafeRawHandle, ptr.baseAddress, DWORD(lengthToRead), &bytesRead, overlapped.systemOverlapped.unsafeRawPtr)
-            }
-            if result == false {
-                let errorCode = GetLastError()
-                guard errorCode == ERROR_IO_PENDING else {
-                    throw .init(rawSystemCode: errorCode)!
-                }
-            }
-        }
-
+    
+    
+    @_lifetime(&overlapped, borrow buffer)
+    public func write(contentsOf buffer: UnsafeRawBufferPointer.SubSequence, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
+        let rebasedBuffer = UnsafeRawBufferPointer(rebasing: buffer)
+        return try _overrideLifetime(
+            write(contentsOf: rebasedBuffer, overlapped: &overlapped),
+            borrowing: buffer
+        )
     }
 
 
-    @_lifetime(copy buffer, &overlapped)
+    @_lifetime(&overlapped, copy buffer)
     public func write(contentsOf buffer: RawSpan, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
 
         var bytesWritten = 0 as DWORD
@@ -181,7 +207,6 @@ extension UnsafeSystemHandle {
         }
 
     }
-    #endif
 
 
     public func waitForOverlappedResult(_ overlapped: consuming WindowsPendingOverlapped) throws(LowLevelError) -> Int64 {

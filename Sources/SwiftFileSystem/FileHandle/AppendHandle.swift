@@ -202,10 +202,10 @@ extension AppendHandle {
 extension AppendHandle {
 
     @discardableResult
-    public func append(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
+    public func append(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
 
         #if canImport(WinSDK)
-        try data.withUnsafeBytes { buffer throws(PlatformError) in
+        try buffer.withUnsafeBytes { buffer throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 // Setting both Offset and OffsetHigh to 0xFFFFFFFF for append operation
                 var overlapped = WindowsOverlapped(offset: -1)
@@ -215,7 +215,7 @@ extension AppendHandle {
             }
         }
         #else
-        try data.withUnsafeBytes { buffer throws(PlatformError) in
+        try buffer.withUnsafeBytes { buffer throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 try handle.write(contentsOf: buffer)
             }

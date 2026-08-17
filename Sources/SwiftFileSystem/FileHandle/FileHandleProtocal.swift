@@ -224,8 +224,7 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
 
 public protocol ReadFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
-    @discardableResult
-    func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) -> Int64
+    func read(fromOffset offset: Int64?, into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64
 
 }
 
@@ -233,19 +232,28 @@ public protocol ReadFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
 extension ReadFileHandleProtocol where Self: ~Copyable {
 
-    public func read(length: Int64? = nil, into buffer: inout ByteBuffer) throws(PlatformError) {
-        try read(fromOffset: nil, length: length, into: &buffer)
+    public func read(into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
+        return try read(fromOffset: nil, into: &buffer)
     }
 
 
-    public func read(fromOffset offset: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) {
-        try read(fromOffset: offset, length: Int64(buffer.count), into: &buffer)
+    public func read(fromOffset offset: Int64? = nil, into buffer: consuming MutableRawSpan) throws(PlatformError) -> Int64 {
+        return try read(fromOffset: offset, into: &buffer)
+    }
+
+
+    public func read(
+        fromOffset offset: Int64? = nil,
+        into buffer: inout ByteBuffer,
+        at bufferRange: some RangeExpression<Int> = 0...
+    ) throws(PlatformError) -> Int64 {
+        return try read(fromOffset: offset, into: buffer.mutableBytes._consumingExtracting(bufferRange))
     }
 
 
     public func read(fromOffset offset: Int64? = nil, length: Int64) throws(PlatformError) -> ByteBuffer {
         var buffer = ByteBuffer(count: Int(length))
-        let bytesRead = try read(fromOffset: offset, length: length, into: &buffer)
+        let bytesRead = try read(fromOffset: offset, into: &buffer, at: ..<Int(length))
         buffer.removeLast(Int(Int64(buffer.count) - bytesRead))
         return buffer
     }
@@ -255,8 +263,9 @@ extension ReadFileHandleProtocol where Self: ~Copyable {
 
 
 public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
-
-    func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64
+    
+    @discardableResult
+    func write(_ buffer: RawSpan, toOffset offset: Int64?) throws(PlatformError) -> Int64
 
     func resize(to size: Int64) throws(PlatformError)
 
@@ -267,9 +276,16 @@ public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
 
 
 extension WriteFileHandleProtocol where Self: ~Copyable {
-
-    public func write(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
-        try write(data, toOffset: nil)
+    
+    @discardableResult
+    func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
+        return try write(buffer, toOffset: nil)
+    }
+    
+    
+    @discardableResult
+    public func write(_ data: ByteBuffer, toOffset offset: Int64? = nil) throws(PlatformError) -> Int64 {
+        return try write(data.bytes, toOffset: offset)
     }
 
 }
@@ -279,8 +295,19 @@ extension WriteFileHandleProtocol where Self: ~Copyable {
 public protocol AppendableFileHandleProtocol: ~Copyable, FileHandleProtocol {
 
     @discardableResult
-    func append(_ data: ByteBuffer) throws(PlatformError) -> Int64
+    func append(_ buffer: RawSpan) throws(PlatformError) -> Int64
 
+}
+
+
+
+extension AppendableFileHandleProtocol where Self: ~Copyable {
+    
+    @discardableResult
+    public func append(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
+        return try append(data.bytes)
+    }
+    
 }
 
 

@@ -28,15 +28,15 @@ extension FileHandleAPITests.ReadWriteTests {
 
 
     @Test
-    func `Length limits reads into a larger buffer`() throws {
+    func `Range selects where read bytes land in the buffer`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "abcdef")
         let handle = try ReadWriteFileHandle(forFileAt: path)
         var buffer = ByteBuffer(repeating: 0xFF, count: 6)
 
-        try handle.read(length: 3, into: &buffer)
+        try #expect(handle.read(into: &buffer, at: 2 ..< 5) == 3)
 
-        #expect(buffer == ByteBuffer([0x61, 0x62, 0x63, 0xFF, 0xFF, 0xFF]))
+        #expect(buffer == ByteBuffer([0xFF, 0xFF, 0x61, 0x62, 0x63, 0xFF]))
         #expect(try handle.currentOffset == 3)
 
         try handle.close()
@@ -44,17 +44,46 @@ extension FileHandleAPITests.ReadWriteTests {
     }
 
 
+    // NOTE: Range resolution, the consuming forwarding and the ByteBuffer bridging all live in the
+    // shared `ReadFileHandleProtocol` extension and are covered once in the Read group. The two
+    // tests below target the span primitive itself, which each handle type implements separately.
+
     @Test
-    func `Buffer size limits a longer read`() throws {
+    func `A span buffer is reusable across reads`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "abcdef")
         let handle = try ReadWriteFileHandle(forFileAt: path)
-        var buffer = ByteBuffer(count: 3)
+        var buffer = ByteBuffer(repeating: 0xFF, count: 3)
 
-        try handle.read(length: 6, into: &buffer)
+        do {
+            var span = buffer.mutableBytes
+            try #expect(handle.read(into: &span) == 3)
+            try #expect(handle.read(into: &span) == 3)
+        }
 
-        #expect(buffer == ByteBuffer("abc".utf8))
-        #expect(try handle.currentOffset == 3)
+        #expect(buffer == ByteBuffer("def".utf8))
+        #expect(try handle.currentOffset == 6)
+
+        try handle.close()
+
+    }
+
+
+    @Test
+    func `A consuming span buffer reads into the underlying storage`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "abcdef")
+        let handle = try ReadWriteFileHandle(forFileAt: path)
+        var buffer = ByteBuffer(repeating: 0xFF, count: 4)
+
+        try #expect(handle.read(into: buffer.mutableBytes) == 4)
+
+        #expect(buffer == ByteBuffer("abcd".utf8))
+
+        try #expect(handle.read(fromOffset: 1, into: buffer.mutableBytes) == 4)
+
+        #expect(buffer == ByteBuffer("bcde".utf8))
+        #expect(try handle.currentOffset == 4)
 
         try handle.close()
 

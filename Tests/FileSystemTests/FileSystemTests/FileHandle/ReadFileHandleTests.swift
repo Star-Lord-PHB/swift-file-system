@@ -43,7 +43,7 @@ extension FileSystemTest.ReadFileHandleTests {
             #expect(buffer2.data == content.dropFirst(4).prefix(5))
 
             var buffer3 = ByteBuffer(count: content.count - 1)
-            try readHandle.read(fromOffset: 1, into: &buffer3)
+            try #expect(readHandle.read(fromOffset: 1, into: &buffer3) == content.count - 1)
             #expect(buffer3.data == content.dropFirst(1))
 
             try #expect(readHandle.currentOffset == (5 - 1 + 5))

@@ -239,32 +239,25 @@ extension ReadWriteFileHandle {
 
 extension ReadWriteFileHandle {
 
-    @discardableResult
-    public func read(fromOffset offset: Int64?, length: Int64?, into buffer: inout ByteBuffer) throws(PlatformError) -> Int64 {
-
-        let lengthToRead = min(Int64(buffer.count), length ?? Int64(buffer.count))
-
+    public func read(fromOffset offset: Int64?, into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
+        
         #if canImport(WinSDK)
-
+        
         if let offset, offset < 0 {
             throw .init(lowLevelError: .init(kind: .invalidInput), operation: .readHandle(originalPath: path))
         }
-
+        
         return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
             do throws(LowLevelError) {
                 if let offset {
-                    return try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
-                        var overlapped = WindowsOverlapped(offset: offset)
-                        let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped)
-                        return try handle.waitForOverlappedResult(pendingOverlapped)
-                    }
+                    var overlapped = WindowsOverlapped(offset: offset)
+                    let pendingOverlapped = try handle.read(into: &buffer, overlapped: &overlapped)
+                    return try handle.waitForOverlappedResult(pendingOverlapped)
                 } else {
                     let currentOffset = _currentOffset.withLock(\.self)
-                    let bytesRead = try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
-                        var overlapped = WindowsOverlapped(offset: currentOffset)
-                        let pendingOverlapped = try handle.read(into: bufferPtr, length: lengthToRead, overlapped: &overlapped) 
-                        return try handle.waitForOverlappedResult(pendingOverlapped)
-                    }
+                    var overlapped = WindowsOverlapped(offset: currentOffset)
+                    let pendingOverlapped = try handle.read(into: &buffer, overlapped: &overlapped)
+                    let bytesRead = try handle.waitForOverlappedResult(pendingOverlapped)
                     _currentOffset.withLock {
                         $0 = currentOffset + bytesRead
                     }
@@ -274,23 +267,19 @@ extension ReadWriteFileHandle {
                 return 0
             }
         }
-
+        
         #else
-
-        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in 
+        
+        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
             if let offset {
-                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
-                    try handle.pread(into: bufferPtr, from: offset, length: lengthToRead)
-                }
+                try handle.pread(into: &buffer, from: offset)
             } else {
-                try buffer.withUnsafeMutableBytes { (bufferPtr) throws(LowLevelError) in
-                    try handle.read(into: bufferPtr, length: lengthToRead)
-                }
+                try handle.read(into: &buffer)
             }
         }
-
+        
         #endif
-
+        
     }
 
 }
@@ -299,7 +288,7 @@ extension ReadWriteFileHandle {
 
 extension ReadWriteFileHandle {
 
-    public func write(_ data: ByteBuffer, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
+    public func write(_ buffer: RawSpan, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
         
         #if canImport(WinSDK)
 
@@ -307,7 +296,7 @@ extension ReadWriteFileHandle {
             throw .init(lowLevelError: .init(kind: .invalidInput), operation: .writeHandle(originalPath: path))
         }
 
-        return try data.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
+        return try buffer.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
@@ -328,7 +317,7 @@ extension ReadWriteFileHandle {
 
         #else
 
-        return try data.withUnsafeBytes { bufferPtr throws(PlatformError) in
+        return try buffer.withUnsafeBytes { bufferPtr throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 if let offset {
                     return try handle.pwrite(contentsOf: bufferPtr, to: offset)
