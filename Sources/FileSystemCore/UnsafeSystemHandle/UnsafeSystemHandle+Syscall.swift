@@ -285,6 +285,11 @@ extension UnsafeSystemHandle {
     }
 
 
+    public func read(into buffer: consuming MutableRawSpan) throws(LowLevelError) -> Int64 {
+        return try self.read(into: &buffer)
+    }
+
+
     public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = buffer.count
@@ -326,6 +331,11 @@ extension UnsafeSystemHandle {
         return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
             try self.pread(into: ptr, from: offset)
         }
+    }
+
+
+    public func pread(into buffer: consuming MutableRawSpan, from offset: Int64) throws(LowLevelError) -> Int64 {
+        return try self.pread(into: &buffer, from: offset)
     }
 
 
