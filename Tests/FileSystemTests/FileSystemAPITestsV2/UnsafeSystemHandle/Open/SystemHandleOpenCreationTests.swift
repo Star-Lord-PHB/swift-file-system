@@ -30,7 +30,9 @@ extension UnsafeSystemHandleAPITests.OpenTests {
             openOptions: .init(access: .writeOnly(), creation: .createIfMissing)
         )
 
-        _ = try Data("Hello".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        let payload = Data("Hello".utf8)
+
+        try handle.write(contentsOf: payload.bytes)
         try handle.close()
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("Hello".utf8))
@@ -51,9 +53,9 @@ extension UnsafeSystemHandleAPITests.OpenTests {
         #expect(try handle.tell() == 0)
 
         var buffer = Data(count: 12)
-        let bytesRead = try buffer.withUnsafeMutableBytes { try handle.read(into: $0) }
 
-        #expect(bytesRead == 12)
+        try #expect(handle.read(into: buffer.mutableBytes) == 12)
+
         #expect(buffer == Data("Hello Swift!".utf8))
 
         try handle.close()
@@ -71,7 +73,9 @@ extension UnsafeSystemHandleAPITests.OpenTests {
             openOptions: .init(access: .writeOnly(), creation: .assertMissing)
         )
 
-        _ = try Data("Hello".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        let payload = Data("Hello".utf8)
+
+        try handle.write(contentsOf: payload.bytes)
         try handle.close()
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("Hello".utf8))
@@ -109,7 +113,9 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         #expect(try handle.tell() == 0)
 
-        _ = try Data("Hi".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        let payload = Data("Hi".utf8)
+
+        try handle.write(contentsOf: payload.bytes)
         try handle.close()
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("Hi".utf8))
@@ -127,7 +133,9 @@ extension UnsafeSystemHandleAPITests.OpenTests {
             openOptions: .init(access: .writeOnly(), creation: .createIfMissing, truncate: true)
         )
 
-        _ = try Data("Hi".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        let payload = Data("Hi".utf8)
+
+        try handle.write(contentsOf: payload.bytes)
         try handle.close()
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("Hi".utf8))

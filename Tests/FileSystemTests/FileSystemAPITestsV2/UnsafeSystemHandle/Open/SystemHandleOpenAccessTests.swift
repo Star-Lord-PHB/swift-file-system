@@ -14,14 +14,15 @@ extension UnsafeSystemHandleAPITests.OpenTests {
         let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
 
         var buffer = Data(count: 5)
-        let bytesRead = try buffer.withUnsafeMutableBytes { try handle.read(into: $0) }
 
-        #expect(bytesRead == 5)
+        try #expect(handle.read(into: buffer.mutableBytes) == 5)
+
         #expect(buffer == Data("Hello".utf8))
         #expect(try handle.tell() == 5)
 
         let error = #expect(throws: LowLevelError.self) {
-            try Data("nope".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+            let payload = Data("nope".utf8)
+            return try handle.write(contentsOf: payload.bytes)
         }
 
         // NOTE: The rejection surfaces as the raw platform code: EBADF on POSIX,
@@ -44,14 +45,15 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
 
-        let bytesWritten = try Data("Howdy".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        let payload = Data("Howdy".utf8)
 
-        #expect(bytesWritten == 5)
+        try #expect(handle.write(contentsOf: payload.bytes) == 5)
+
         #expect(try handle.tell() == 5)
 
         let error = #expect(throws: LowLevelError.self) {
             var buffer = Data(count: 1)
-            _ = try buffer.withUnsafeMutableBytes { try handle.read(into: $0) }
+            _ = try handle.read(into: buffer.mutableBytes)
         }
 
         #if canImport(WinSDK)
@@ -74,20 +76,22 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite()))
 
-        var buffer = Data(count: 6)
-        let bytesRead = try buffer.withUnsafeMutableBytes { try handle.read(into: $0) }
+        var head = Data(count: 6)
 
-        #expect(bytesRead == 6)
-        #expect(buffer == Data("Hello ".utf8))
+        try #expect(handle.read(into: head.mutableBytes) == 6)
 
-        _ = try Data("World!".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        #expect(head == Data("Hello ".utf8))
+
+        let payload = Data("World!".utf8)
+
+        try handle.write(contentsOf: payload.bytes)
 
         #expect(try handle.tell() == 12)
 
         try handle.seek(to: 0)
 
         var fullContents = Data(count: 12)
-        _ = try fullContents.withUnsafeMutableBytes { try handle.read(into: $0) }
+        _ = try handle.read(into: fullContents.mutableBytes)
 
         #expect(fullContents == Data("Hello World!".utf8))
 
@@ -106,16 +110,20 @@ extension UnsafeSystemHandleAPITests.OpenTests {
             openOptions: .init(access: .writeOnly(), append: true)
         )
 
-        let bytesWritten = try Data(" is Cute!".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+        let firstPayload = Data(" is Cute!".utf8)
 
-        #expect(bytesWritten == 9)
+        try #expect(handle.write(contentsOf: firstPayload.bytes) == 9)
+
         #expect(try handle.tell() == 15)
 
         // NOTE: Forced append-at-end must hold even after an explicit seek: POSIX through O_APPEND,
         // Windows through an access mask that holds FILE_APPEND_DATA without FILE_WRITE_DATA.
         // Multi-handle append interleaving is covered by the FileHandle Append suite.
         try handle.seek(to: 0)
-        _ = try Data(" Again".utf8).withUnsafeBytes { try handle.write(contentsOf: $0) }
+
+        let secondPayload = Data(" Again".utf8)
+
+        try handle.write(contentsOf: secondPayload.bytes)
 
         try handle.close()
 
@@ -133,9 +141,9 @@ extension UnsafeSystemHandleAPITests.OpenTests {
         let handle = try UnsafeSystemHandle.open(at: link)
 
         var buffer = Data(count: 15)
-        let bytesRead = try buffer.withUnsafeMutableBytes { try handle.read(into: $0) }
 
-        #expect(bytesRead == 15)
+        try #expect(handle.read(into: buffer.mutableBytes) == 15)
+
         #expect(buffer == Data("target contents".utf8))
 
         try handle.close()
