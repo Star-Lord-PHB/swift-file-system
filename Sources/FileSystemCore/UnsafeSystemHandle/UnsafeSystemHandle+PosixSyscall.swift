@@ -36,9 +36,9 @@ extension UnsafeSystemHandle {
         let timeout = waitMilliseconds.map { CInt($0) } ?? -1
 
         let result = PlatformCLib.poll(&pollDescriptor, 1, timeout)
-        guard result == 0 else { 
+        guard result != 0 else {
             // timeout
-            return nil 
+            return nil
         }
         guard result > 0 else {
             try LowLevelError.assertError()
