@@ -142,12 +142,12 @@ extension ReadFileHandle {
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
                     let pendingOverlapped = try handle.read(into: &buffer, overlapped: &overlapped)
-                    return try handle.waitForOverlappedResult(pendingOverlapped)
+                    return try pendingOverlapped.wait()
                 } else {
                     let currentOffset = _currentOffset.withLock(\.self)
                     var overlapped = WindowsOverlapped(offset: currentOffset)
                     let pendingOverlapped = try handle.read(into: &buffer, overlapped: &overlapped)
-                    let bytesRead = try handle.waitForOverlappedResult(pendingOverlapped)
+                    let bytesRead = try pendingOverlapped.wait()
                     _currentOffset.withLock {
                         $0 = currentOffset + bytesRead
                     }

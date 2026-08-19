@@ -252,12 +252,12 @@ extension WriteFileHandle {
                 if let offset {
                     var overlapped = WindowsOverlapped(offset: offset)
                     let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    return try handle.waitForOverlappedResult(pendingOverlapped)
+                    return try pendingOverlapped.wait()
                 } else {
                     let currentOffset = _currentOffset.withLock(\.self)
                     var overlapped = WindowsOverlapped(offset: currentOffset)
                     let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    let bytesWritten = try handle.waitForOverlappedResult(pendingOverlapped)
+                    let bytesWritten = try pendingOverlapped.wait()
                     _currentOffset.withLock {
                         $0 = currentOffset + Int64(bytesWritten)
                     }

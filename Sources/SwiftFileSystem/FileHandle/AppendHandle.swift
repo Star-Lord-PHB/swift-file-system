@@ -211,7 +211,7 @@ extension AppendHandle {
                 var overlapped = WindowsOverlapped(offset: -1)
                 let pending = try handle.write(contentsOf: buffer, overlapped: &overlapped)
                 // This is a synchronous handle, so this wait will not block
-                return try handle.waitForOverlappedResult(pending)
+                return try pending.wait()
             }
         }
         #else

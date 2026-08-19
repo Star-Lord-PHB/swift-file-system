@@ -72,7 +72,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let pending = try handle.read(into: buffer.mutableBytes, overlapped: &overlapped)
 
-        try #expect(handle.waitForOverlappedResult(pending) == 5)
+        try #expect(pending.wait() == 5)
 
         #expect(try handle.tell() == 0)
         #expect(buffer == Data("Swift".utf8))
@@ -99,8 +99,8 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
             try tail.withUnsafeMutableBytes { tailPointer in
                 let headPending = try handle.read(into: headPointer, overlapped: &headOverlapped)
                 let tailPending = try handle.read(into: tailPointer, overlapped: &tailOverlapped)
-                let tailResult = try handle.waitForOverlappedResult(tailPending)
-                let headResult = try handle.waitForOverlappedResult(headPending)
+                let tailResult = try tailPending.wait()
+                let headResult = try headPending.wait()
                 return (headResult, tailResult)
             }
         }
@@ -131,7 +131,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let bytesRead = try buffer.withUnsafeMutableBytes { pointer in
             let pending = try handle.read(into: pointer[2..<7], overlapped: &overlapped)
-            return try handle.waitForOverlappedResult(pending)
+            return try pending.wait()
         }
 
         #expect(bytesRead == 5)
@@ -158,7 +158,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let pending = try handle.write(contentsOf: payload.bytes, overlapped: &overlapped)
 
-        try #expect(handle.waitForOverlappedResult(pending) == 5)
+        try #expect(pending.wait() == 5)
         #expect(try handle.tell() == 0)
 
         // Once the result has been waited on, the same overlapped takes a new offset and drives
@@ -167,7 +167,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let secondPending = try handle.write(contentsOf: greeting.bytes, overlapped: &overlapped)
 
-        try #expect(handle.waitForOverlappedResult(secondPending) == 5)
+        try #expect(secondPending.wait() == 5)
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("Howdy World!".utf8))
 
@@ -193,13 +193,13 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let firstPending = try handle.write(contentsOf: first.bytes, overlapped: &overlapped)
 
-        try #expect(handle.waitForOverlappedResult(firstPending) == 5)
+        try #expect(firstPending.wait() == 5)
 
         // The same overlapped drives the second append: the kernel leaves the offset halves
         // alone, so the sentinel still resolves to the new end of the file.
         let secondPending = try handle.write(contentsOf: second.bytes, overlapped: &overlapped)
 
-        try #expect(handle.waitForOverlappedResult(secondPending) == 4)
+        try #expect(secondPending.wait() == 4)
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("Hello pipeline".utf8))
 
@@ -220,7 +220,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
             var buffer = Data(count: 4)
             var overlapped = WindowsOverlapped(offset: 100)
             let pending = try handle.read(into: buffer.mutableBytes, overlapped: &overlapped)
-            return try handle.waitForOverlappedResult(pending)
+            return try pending.wait()
         }
 
         #expect(error?.systemCode == .handleEOF)
