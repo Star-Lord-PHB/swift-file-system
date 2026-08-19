@@ -520,6 +520,9 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
+    // Frozen so that importers can partially consume the pair - moving one end out to close or
+    // keep it independently is the standard pipe workflow.
+    @frozen
     public struct PipeHandles: ~Copyable {
         public let readHandle: UnsafeSystemHandle
         public let writeHandle: UnsafeSystemHandle
@@ -547,18 +550,20 @@ extension UnsafeSystemHandle {
 
         return .init(readHandle: .init(owningRawHandle: readHandle), writeHandle: .init(owningRawHandle: writeHandle))
 
-        #else 
-
-        var fds = [0, 0] as [CInt]
-
-        try execThrowingCFunction {
-            PlatformCLib.pipe(&fds)
+        #else
+        
+        let (result, readFd, writeFd) = withUnsafeTemporaryAllocation(of: CInt.self, capacity: 2) { ptr in
+            ptr.initialize(repeating: 0)
+            return (PlatformCLib.pipe(ptr.baseAddress), ptr[0], ptr[1])
+        }
+        guard result == 0 else {
+            try LowLevelError.assertError()
         }
 
-        var readHandle = UnsafeSystemHandle(owningRawHandle: fds[0])
-        var writeHandle = UnsafeSystemHandle(owningRawHandle: fds[1])
-
-        return .init(readHandle: readHandle, writeHandle: writeHandle)
+        return .init(
+            readHandle: .init(owningRawHandle: readFd),
+            writeHandle: .init(owningRawHandle: writeFd)
+        )
 
         #endif 
 

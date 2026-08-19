@@ -28,6 +28,7 @@ extension SystemErrorCode {
     @inlinable public static var fileCorrupt: Self { .init(rawValue: .init(ERROR_FILE_CORRUPT)) }
     @inlinable public static var diskCorrupt: Self { .init(rawValue: .init(ERROR_DISK_CORRUPT)) }
     @inlinable public static var handleEOF: Self { .init(rawValue: .init(ERROR_HANDLE_EOF)) }
+    @inlinable public static var brokenPipe: Self { .init(rawValue: .init(ERROR_BROKEN_PIPE)) }
     @inlinable public static var directoryNotEmpty: Self { .init(rawValue: .init(ERROR_DIR_NOT_EMPTY)) }
     @inlinable public static var negativeSeek: Self { .init(rawValue: .init(ERROR_NEGATIVE_SEEK)) }
     @inlinable public static var badArguments: Self { .init(rawValue: .init(ERROR_BAD_ARGUMENTS)) }
