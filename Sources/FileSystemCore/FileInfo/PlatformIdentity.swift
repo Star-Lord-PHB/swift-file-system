@@ -52,7 +52,7 @@ public struct PlatformIdentity: Sendable {
                 case .unknown: SidTypeUnknown
                 case .computer: SidTypeComputer
                 case .label: SidTypeLabel
-                case .logonSession: SidTypeUnknown
+                case .logonSession: SidTypeLogonSession
             }
         }
     }

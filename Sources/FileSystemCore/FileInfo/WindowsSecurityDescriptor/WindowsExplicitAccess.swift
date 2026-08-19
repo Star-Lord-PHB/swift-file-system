@@ -108,9 +108,9 @@ extension WindowsExplicitAccess {
         public static var users: RawTrustee { .init(sid: .users, type: .wellKnownGroup) }
         public static var localService: RawTrustee { .init(sid: .localService, type: .wellKnownGroup) }
         public static var networkService: RawTrustee { .init(sid: .networkService, type: .wellKnownGroup) }
-        public static var annonymous: RawTrustee { .init(sid: .annonymous, type: .wellKnownGroup) }
-        public static var creatorOwner: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
-        public static var creatorGroup: RawTrustee { .init(sid: .everyone, type: .wellKnownGroup) }
+        public static var anonymous: RawTrustee { .init(sid: .anonymous, type: .wellKnownGroup) }
+        public static var creatorOwner: RawTrustee { .init(sid: .creatorOwner, type: .wellKnownGroup) }
+        public static var creatorGroup: RawTrustee { .init(sid: .creatorGroup, type: .wellKnownGroup) }
 
     }
 

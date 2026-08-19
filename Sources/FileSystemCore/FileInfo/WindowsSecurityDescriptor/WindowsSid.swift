@@ -139,7 +139,7 @@ extension WindowsSid {
     public static var users: WindowsSid                 { try! createWellKnownSid(type: WinBuiltinUsersSid) }
     public static var localService: WindowsSid          { try! createWellKnownSid(type: WinLocalServiceSid) }
     public static var networkService: WindowsSid        { try! createWellKnownSid(type: WinNetworkServiceSid) }
-    public static var annonymous: WindowsSid            { try! createWellKnownSid(type: WinAnonymousSid) }
+    public static var anonymous: WindowsSid             { try! createWellKnownSid(type: WinAnonymousSid) }
 
     public static var creatorOwner: WindowsSid          { try! createWellKnownSid(type: WinCreatorOwnerSid) }
     public static var creatorGroup: WindowsSid          { try! createWellKnownSid(type: WinCreatorGroupSid) }

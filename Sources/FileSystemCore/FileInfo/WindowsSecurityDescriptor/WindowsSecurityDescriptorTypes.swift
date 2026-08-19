@@ -19,7 +19,7 @@ public struct WindowsSecurityDescriptorControl: Sendable, Equatable, Hashable, E
     }
 
     public func contains(_ flag: ReadOnlyControlFlags) -> Bool {
-        return (self.rawValue & flag.rawValue) != 0
+        return (self.rawValue & flag.rawValue) == flag.rawValue
     }
 
     public mutating func insert(_ flag: WrittableControlFlags) {
