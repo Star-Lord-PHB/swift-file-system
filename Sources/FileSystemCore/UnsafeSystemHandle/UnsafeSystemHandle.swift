@@ -59,7 +59,7 @@ public struct UnsafeSystemHandle: ~Copyable {
 
 
     #if !canImport(WinSDK)
-    public mutating func setNonBlocking(_ value: Bool) throws(LowLevelError) {
+    public func setNonBlocking(_ value: Bool) throws(LowLevelError) {
 
         var flags = fcntl(unsafeRawHandle, F_GETFL)
         guard flags >= 0 else {
