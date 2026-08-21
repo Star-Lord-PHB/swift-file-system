@@ -18,8 +18,9 @@ extension PlatformTypesAPITests.WindowsSecurityTests {
 // The three states are only reachable through a security descriptor, so these tests build
 // descriptors as fixtures. The descriptor API itself is covered by its own suite.
 //
-// `WindowsRawAclState` is `~Escapable`, which the `#expect` macro cannot take as the base of a
-// member access, so its properties are read into locals before being asserted on.
+// `WindowsRawAclState` is `~Escapable`, so a bare `#expect(state.isAbsent)` fails to compile:
+// the macro rewrites it into a member access that requires `Escapable`. Comparing the property
+// instead keeps the macro on its binary-operation path.
 extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
 
     /// A descriptor straight out of `InitializeSecurityDescriptor`, which leaves both the
@@ -61,15 +62,11 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
 
         let descriptor = Self.makeDescriptorWithoutAcls()
         let state = descriptor.dacl
-        let stateCase = state.case
-        let isAbsent = state.isAbsent
-        let isNull = state.isNull
-        let defaulted = state.defaulted
 
-        #expect(stateCase == .absent)
-        #expect(isAbsent)
-        #expect(isNull == false)
-        #expect(defaulted == nil)
+        #expect(state.case == .absent)
+        #expect(state.isAbsent == true)
+        #expect(state.isNull == false)
+        #expect(state.defaulted == nil)
 
     }
 
@@ -79,15 +76,11 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
 
         let descriptor = Self.makeDescriptorWithNullDacl()
         let state = descriptor.dacl
-        let stateCase = state.case
-        let isAbsent = state.isAbsent
-        let isNull = state.isNull
-        let defaulted = state.defaulted
 
-        #expect(stateCase == .null)
-        #expect(isAbsent == false)
-        #expect(isNull)
-        #expect(defaulted == false)
+        #expect(state.case == .null)
+        #expect(state.isAbsent == false)
+        #expect(state.isNull == true)
+        #expect(state.defaulted == false)
 
     }
 
@@ -97,23 +90,20 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
 
         let descriptor = Self.makeDescriptorWithDacl()
         let state = descriptor.dacl
-        let stateCase = state.case
-        let isAbsent = state.isAbsent
-        let isNull = state.isNull
-        let defaulted = state.defaulted
 
-        #expect(stateCase == .present)
-        #expect(isAbsent == false)
-        #expect(isNull == false)
-        #expect(defaulted == false)
+        #expect(state.case == .present)
+        #expect(state.isAbsent == false)
+        #expect(state.isNull == false)
+        #expect(state.defaulted == false)
 
-        var sidString: String?
+        // Optional-chaining a subscript into the borrowed ACL crashes the Windows 6.2
+        // MoveOnlyChecker, so the ACL is bound before its ACEs are read.
         if let acl = state.value {
             #expect(acl.aceCount == 1)
-            sidString = acl[0].permission.sid.string
+            #expect(acl[0].permission.sid.string == "S-1-1-0")
+        } else {
+            Issue.record("A present DACL should expose its ACL")
         }
-
-        #expect(sidString == "S-1-1-0")
 
     }
 
@@ -126,6 +116,8 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
             return descriptor.dacl.detach()
         }()
 
+        // `WindowsRawAcl` is `~Copyable`, so the macro cannot optional-chain into it here
+        // without consuming it.
         if let detachedAcl {
             #expect(detachedAcl.aceCount == 1)
             #expect(detachedAcl[0].permission.sid.string == "S-1-1-0")
@@ -139,18 +131,8 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
     @Test
     func `detach returns nil for the absent and null states`() {
 
-        var detachedAbsent = false
-        if let _ = Self.makeDescriptorWithoutAcls().dacl.detach() {
-            detachedAbsent = true
-        }
-
-        var detachedNull = false
-        if let _ = Self.makeDescriptorWithNullDacl().dacl.detach() {
-            detachedNull = true
-        }
-
-        #expect(detachedAbsent == false)
-        #expect(detachedNull == false)
+        #expect((Self.makeDescriptorWithoutAcls().dacl.detach() == nil) == true)
+        #expect((Self.makeDescriptorWithNullDacl().dacl.detach() == nil) == true)
 
     }
 

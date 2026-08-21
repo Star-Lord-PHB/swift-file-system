@@ -92,12 +92,7 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclTraversalTests {
 
         let acl = Self.makeSampleAcl()
 
-        var leadingSidString: String?
-        if let leadingAce = acl.first {
-            leadingSidString = leadingAce.permission.sid.string
-        }
-
-        #expect(leadingSidString == "S-1-5-18")
+        #expect(acl.first?.permission.sid.string == "S-1-5-18")
 
     }
 
@@ -107,19 +102,10 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclTraversalTests {
 
         let acl = Self.makeSampleAcl()
 
-        var matchedMask: WindowsAccessMask?
-        if let matchedAce = acl.first(where: { $0.permission.sid.string == "S-1-5-32-544" }) {
-            matchedMask = matchedAce.permission.mask
-        }
+        let matchedAce = acl.first(where: { $0.permission.sid.string == "S-1-5-32-544" })
 
-        #expect(matchedMask == .delete)
-
-        var matchedAudit = false
-        if let _ = acl.first(where: { $0.type == .audit }) {
-            matchedAudit = true
-        }
-
-        #expect(matchedAudit == false)
+        #expect(matchedAce?.permission.mask == .delete)
+        #expect((acl.first(where: { $0.type == .audit }) == nil) == true)
 
     }
 
@@ -134,13 +120,7 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclTraversalTests {
 
         #expect(visitCount == 0)
         #expect(acl.map { $0.type }.isEmpty)
-
-        var hasLeadingAce = false
-        if let _ = acl.first {
-            hasLeadingAce = true
-        }
-
-        #expect(hasLeadingAce == false)
+        #expect((acl.first == nil) == true)
 
     }
 
