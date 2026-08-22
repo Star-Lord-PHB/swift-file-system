@@ -31,8 +31,8 @@ extension FileSystemTestSupport {
         var descriptor = try FileSystem()
             .getSecurityInfo(forItemAt: path, querying: .dacl, followSymlink: false)
             .makeAbsolute()
-        descriptor.addDaclEntries([entry])
-        guard let dacl = descriptor.takeDacl() else {
+        descriptor.dacl.addEntries([entry])
+        guard let dacl = descriptor.dacl.take(leaving: .absent) else {
             try #require(Bool(false), "The item has no DACL", sourceLocation: sourceLocation)
             return
         }

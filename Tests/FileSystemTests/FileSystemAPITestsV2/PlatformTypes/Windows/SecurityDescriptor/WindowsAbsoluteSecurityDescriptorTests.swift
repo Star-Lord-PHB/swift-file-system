@@ -26,7 +26,7 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
 
         let descriptor = WindowsAbsoluteSecurityDescriptor(
             control: [.daclProtected],
-            dacl: Self.makeSampleDacl(),
+            dacl: .acl(Self.makeSampleDacl()),
             owner: .administrators,
             group: .system
         )
@@ -57,26 +57,61 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
     }
 
 
-    // NOTE: this initializer always marks both ACLs present, so a nil DACL becomes the
-    // present-but-NULL shape rather than an absent one. The absent state only arises from a
-    // descriptor that never had a DACL set; see the ACL state suite.
     @Test
-    func `Nil DACL installs a present NULL DACL`() {
+    func `Null DACL state installs a present NULL DACL`() {
 
-        let descriptor = WindowsAbsoluteSecurityDescriptor(dacl: nil)
+        let descriptor = WindowsAbsoluteSecurityDescriptor(dacl: .null)
 
         #expect(descriptor.control.contains(.daclPresent))
+        #expect(descriptor.dacl.isNull == true)
         #expect(descriptor.view.dacl?.map { $0.permission.sid.string } == nil)
 
     }
 
 
     @Test
-    func `addDaclEntries merges into the existing DACL`() {
+    func `Both ACL slots default to the absent state`() {
 
-        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: Self.makeSampleDacl())
+        let descriptor = WindowsAbsoluteSecurityDescriptor()
 
-        descriptor.addDaclEntries([.init(permission: .delete, trustee: .administrators)])
+        #expect(descriptor.dacl.isAbsent == true)
+        #expect(descriptor.sacl.isAbsent == true)
+        #expect(descriptor.control.contains(.daclPresent) == false)
+        #expect(descriptor.control.contains(.saclPresent) == false)
+        #expect(descriptor.view.dacl?.map { $0.permission.sid.string } == nil)
+
+    }
+
+
+    @Test
+    func `SACL slot walks through the three states`() {
+
+        var descriptor = WindowsAbsoluteSecurityDescriptor(sacl: .acl(Self.makeSampleDacl()))
+
+        #expect(descriptor.control.contains(.saclPresent))
+        #expect(descriptor.sacl.case == .acl)
+        #expect(descriptor.view.sacl?.map { $0.permission.sid.string } == ["S-1-1-0"])
+
+        descriptor.sacl = .null
+
+        #expect(descriptor.control.contains(.saclPresent))
+        #expect(descriptor.sacl.isNull == true)
+        #expect((descriptor.view.sacl == nil) == true)
+
+        descriptor.sacl = .absent
+
+        #expect(descriptor.control.contains(.saclPresent) == false)
+        #expect(descriptor.sacl.isAbsent == true)
+
+    }
+
+
+    @Test
+    func `dacl.addEntries merges into the existing DACL`() {
+
+        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: .acl(Self.makeSampleDacl()))
+
+        descriptor.dacl.addEntries([.init(permission: .delete, trustee: .administrators)])
 
         let sidStrings = descriptor.view.dacl?.map { $0.permission.sid.string }
 
@@ -88,11 +123,11 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
 
 
     @Test
-    func `addDaclEntries creates a DACL when there is none`() {
+    func `dacl.addEntries creates a DACL when there is none`() {
 
-        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: nil)
+        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: .null)
 
-        descriptor.addDaclEntries([.init(permission: .readData, trustee: .everyone)])
+        descriptor.dacl.addEntries([.init(permission: .readData, trustee: .everyone)])
 
         #expect(descriptor.view.dacl?.map { $0.permission.sid.string } == ["S-1-1-0"])
 
@@ -100,10 +135,10 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
 
 
     @Test
-    func `removeDacl, removeOwner and removeGroup clear their members`() {
+    func `Assigning absent DACL, removeOwner and removeGroup clear their members`() {
 
         var descriptor = WindowsAbsoluteSecurityDescriptor(
-            dacl: Self.makeSampleDacl(),
+            dacl: .acl(Self.makeSampleDacl()),
             owner: .administrators,
             group: .system
         )
@@ -111,10 +146,11 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
         #expect(descriptor.owner == WindowsSid.administrators)
         #expect(descriptor.group == WindowsSid.system)
 
-        descriptor.removeDacl()
+        descriptor.dacl = .absent
         descriptor.removeOwner()
         descriptor.removeGroup()
 
+        #expect(descriptor.control.contains(.daclPresent) == false)
         #expect(descriptor.view.dacl?.map { $0.permission.sid.string } == nil)
         #expect(descriptor.owner == nil)
         #expect(descriptor.group == nil)
@@ -123,11 +159,12 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
 
 
     @Test
-    func `takeDacl hands the ACL over to the caller`() {
+    func `dacl.take hands the ACL over and leaves the requested state`() {
 
-        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: Self.makeSampleDacl())
-        let takenAcl = descriptor.takeDacl()
+        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: .acl(Self.makeSampleDacl()))
+        let takenAcl = descriptor.dacl.take(leaving: .absent)
 
+        #expect(descriptor.dacl.isAbsent == true)
         #expect(descriptor.view.dacl?.map { $0.permission.sid.string } == nil)
 
         // `WindowsRawAcl` is `~Copyable`, so the macro cannot optional-chain into it here
@@ -136,7 +173,7 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
             #expect(takenAcl.aceCount == 1)
             #expect(takenAcl[0].permission.sid.string == "S-1-1-0")
         } else {
-            Issue.record("A present DACL should be handed over by takeDacl")
+            Issue.record("A present DACL should be handed over by take(leaving:)")
         }
 
     }
@@ -145,7 +182,7 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
     @Test
     func `withUnsafeSdPtr yields a valid descriptor`() {
 
-        let descriptor = WindowsAbsoluteSecurityDescriptor(dacl: Self.makeSampleDacl())
+        let descriptor = WindowsAbsoluteSecurityDescriptor(dacl: .acl(Self.makeSampleDacl()))
 
         descriptor.withUnsafeSdPtr { descriptorPointer in
             #expect(IsValidSecurityDescriptor(descriptorPointer))

@@ -20,7 +20,7 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsSecurityDescriptorCo
     private static func makeSampleDescriptor() -> WindowsAbsoluteSecurityDescriptor {
         .init(
             control: [.daclProtected],
-            dacl: .init(entries: [.init(permission: .readData, trustee: .everyone)]),
+            dacl: .acl(.init(entries: [.init(permission: .readData, trustee: .everyone)])),
             owner: .administrators,
             group: .system
         )
@@ -63,6 +63,26 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsSecurityDescriptorCo
         let sidStrings = roundTripped.view.dacl?.map { $0.permission.sid.string }
 
         #expect(sidStrings == ["S-1-1-0"])
+
+    }
+
+
+    @Test
+    func `DACL state survives the absolute round trip`() {
+
+        let aclRoundTrip = Self.makeSampleDescriptor().makeSelfRelative().makeAbsolute()
+
+        #expect(aclRoundTrip.dacl.case == .acl)
+
+        let nullRoundTrip = WindowsAbsoluteSecurityDescriptor(dacl: .null).makeSelfRelative().makeAbsolute()
+
+        #expect(nullRoundTrip.dacl.isNull == true)
+        #expect(nullRoundTrip.control.contains(.daclPresent))
+
+        let absentRoundTrip = WindowsAbsoluteSecurityDescriptor(dacl: .absent).makeSelfRelative().makeAbsolute()
+
+        #expect(absentRoundTrip.dacl.isAbsent == true)
+        #expect(absentRoundTrip.control.contains(.daclPresent) == false)
 
     }
 

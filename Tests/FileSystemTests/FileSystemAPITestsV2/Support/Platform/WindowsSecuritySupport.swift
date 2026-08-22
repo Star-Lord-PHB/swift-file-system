@@ -11,7 +11,7 @@ extension FileSystemTestSupport {
     enum WindowsAclState: Equatable, Sendable {
         case absent
         case null
-        case present
+        case acl
     }
 
 
@@ -454,7 +454,7 @@ extension FileSystemTestSupport {
         }
 
         return WindowsAclSnapshot(
-            state: .present,
+            state: .acl,
             defaulted: defaulted,
             revision: aclPointer.pointee.AclRevision,
             aces: aces

@@ -217,10 +217,10 @@ public enum FileOperationOptions {
         }
 
         @_lifetime(copy acl)
-        public static func replace(_ acl: WindowsRawAclState) -> Self {
+        public static func replace(_ acl: WindowsRawAclStateView) -> Self {
             switch acl {
-                case .present(let view, _):  .replace(view)
-                case .absent, .null:         .remove
+                case .acl(let view, _):  .replace(view)
+                case .absent, .null:     .remove
             }
         }
 

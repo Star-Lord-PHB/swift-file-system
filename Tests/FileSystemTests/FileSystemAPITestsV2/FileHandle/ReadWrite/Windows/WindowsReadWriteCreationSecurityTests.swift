@@ -39,7 +39,7 @@ extension FileHandleAPITests.ReadWriteTests.WindowsCreationSecurityTests {
     private func makeSampleSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
         WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: makeSampleDacl()
+            dacl: .acl(makeSampleDacl())
         )
     }
 
@@ -102,7 +102,7 @@ extension FileHandleAPITests.ReadWriteTests.WindowsCreationSecurityTests {
         )
 
         #expect(
-            security.permissions.dacl.state == .present,
+            security.permissions.dacl.state == .acl,
             sourceLocation: sourceLocation
         )
         #expect(
@@ -176,9 +176,9 @@ extension FileHandleAPITests.ReadWriteTests.WindowsCreationSecurityTests {
 
         let replacementSecurity = WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: .init(entries: [
+            dacl: .acl(.init(entries: [
                 .init(permission: .genericRead, trustee: .users)
-            ])
+            ]))
         )
 
         let handle = try ReadWriteFileHandle(

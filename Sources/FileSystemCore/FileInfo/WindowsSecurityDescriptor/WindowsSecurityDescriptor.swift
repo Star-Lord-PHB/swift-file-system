@@ -107,9 +107,9 @@ extension WindowsSecurityDescriptor.WindowsACL {
 
     package init?(unsafeSecurityDescriptorPtr sdPtr: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>, type: WindowsACLType) {
 
-        let aclState = WindowsRawAclState(unsafeExtractingFromPSD: sdPtr, type: type)
+        let aclState = WindowsRawAclStateView(unsafeExtractingFromPSD: sdPtr, type: type)
 
-        guard case let .present(aclView, defaulted) = aclState else { return nil }
+        guard case let .acl(aclView, defaulted) = aclState else { return nil }
 
         self.revision = aclView.revision
         self.isDefaulted = defaulted

@@ -312,7 +312,7 @@ extension CopyItemHandler {
         let dacl = WindowsRawAcl(entries: [
             .init(permission: .genericAll, trustee: .init(sid: try getAndCacheCurrentUser().rawId, type: .unknown))
         ])
-        return .init(control: .daclProtected, dacl: .some(dacl))
+        return .init(control: .daclProtected, dacl: .acl(dacl))
     }
 
 

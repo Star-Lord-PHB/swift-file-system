@@ -62,11 +62,11 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
 
 extension WindowsSelfRelativeSecurityDescriptor {
 
-    public var dacl: WindowsRawAclState {
+    public var dacl: WindowsRawAclStateView {
         .init(unsafeExtractingFromPSD: psd.unownedView(), type: .dacl)
     }
 
-    public var sacl: WindowsRawAclState {
+    public var sacl: WindowsRawAclStateView {
         .init(unsafeExtractingFromPSD: psd.unownedView(), type: .sacl)
     }
 

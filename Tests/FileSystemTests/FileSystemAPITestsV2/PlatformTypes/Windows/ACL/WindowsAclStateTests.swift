@@ -15,124 +15,126 @@ extension PlatformTypesAPITests.WindowsSecurityTests {
 
 
 
-// The three states are only reachable through a security descriptor, so these tests build
-// descriptors as fixtures. The descriptor API itself is covered by its own suite.
-//
-// `WindowsRawAclState` is `~Escapable`, so a bare `#expect(state.isAbsent)` fails to compile:
-// the macro rewrites it into a member access that requires `Escapable`. Comparing the property
-// instead keeps the macro on its binary-operation path.
+// `WindowsRawAclState` is `~Copyable`, so a bare `#expect(state.isAbsent)` would make the
+// macro capture the state itself. Comparing the property instead keeps the macro on its
+// binary-operation path, mirroring the ACL state view suite.
 extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAclStateTests {
 
-    /// A descriptor straight out of `InitializeSecurityDescriptor`, which leaves both the
-    /// DACL and the SACL unset rather than present-and-NULL.
-    private static func makeDescriptorWithoutAcls() -> WindowsSelfRelativeSecurityDescriptor {
-        var absoluteDescriptor = SECURITY_DESCRIPTOR()
-        InitializeSecurityDescriptor(&absoluteDescriptor, DWORD(SECURITY_DESCRIPTOR_REVISION))
-
-        var size = 0 as DWORD
-        _ = withUnsafeMutablePointer(to: &absoluteDescriptor) { descriptorPointer in
-            MakeSelfRelativeSD(descriptorPointer, nil, &size)
-        }
-        let buffer = UnsafeMutableRawPointer.allocate(
-            byteCount: Int(size),
-            alignment: MemoryLayout<DWORD>.alignment
-        )
-        _ = withUnsafeMutablePointer(to: &absoluteDescriptor) { descriptorPointer in
-            MakeSelfRelativeSD(descriptorPointer, buffer, &size)
-        }
-
-        return .init(unsafeOwningSdPtr: buffer, allocator: .swift)
+    private static func makeSampleAcl() -> WindowsRawAcl {
+        .init(entries: [.init(permission: .readData, trustee: .everyone)])
     }
 
 
-    private static func makeDescriptorWithDacl() -> WindowsSelfRelativeSecurityDescriptor {
-        WindowsAbsoluteSecurityDescriptor(
-            dacl: .init(entries: [.init(permission: .readData, trustee: .everyone)])
-        ).makeSelfRelative()
-    }
-
-
-    private static func makeDescriptorWithNullDacl() -> WindowsSelfRelativeSecurityDescriptor {
-        WindowsAbsoluteSecurityDescriptor(dacl: nil).makeSelfRelative()
-    }
-
-
-    @Test
-    func `Unset DACL reports the absent state`() {
-
-        let descriptor = Self.makeDescriptorWithoutAcls()
-        let state = descriptor.dacl
-
-        #expect(state.case == .absent)
-        #expect(state.isAbsent == true)
-        #expect(state.isNull == false)
-        #expect(state.defaulted == nil)
-
-    }
-
-
-    @Test
-    func `Null DACL is present without an ACL`() {
-
-        let descriptor = Self.makeDescriptorWithNullDacl()
-        let state = descriptor.dacl
-
-        #expect(state.case == .null)
-        #expect(state.isAbsent == false)
-        #expect(state.isNull == true)
-        #expect(state.defaulted == false)
-
-    }
-
-
-    @Test
-    func `Present DACL exposes its ACEs`() {
-
-        let descriptor = Self.makeDescriptorWithDacl()
-        let state = descriptor.dacl
-
-        #expect(state.case == .present)
-        #expect(state.isAbsent == false)
-        #expect(state.isNull == false)
-        #expect(state.defaulted == false)
-
-        // Optional-chaining a subscript into the borrowed ACL crashes the Windows 6.2
-        // MoveOnlyChecker, so the ACL is bound before its ACEs are read.
+    private static func expectSingleEveryoneAce(
+        _ state: borrowing WindowsRawAclState,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
         if let acl = state.value {
-            #expect(acl.aceCount == 1)
-            #expect(acl[0].permission.sid.string == "S-1-1-0")
+            #expect(acl.aceCount == 1, sourceLocation: sourceLocation)
+            #expect(acl[0].permission.sid.string == "S-1-1-0", sourceLocation: sourceLocation)
         } else {
-            Issue.record("A present DACL should expose its ACL")
+            Issue.record("The state should hold an ACL", sourceLocation: sourceLocation)
         }
+    }
+
+
+    @Test
+    func `Absent and null states have no ACL`() {
+
+        let absent = WindowsRawAclState.absent
+
+        #expect(absent.case == .absent)
+        #expect(absent.isAbsent == true)
+        #expect(absent.isNull == false)
+        #expect((absent.value == nil) == true)
+
+        let null = WindowsRawAclState.null
+
+        #expect(null.case == .null)
+        #expect(null.isAbsent == false)
+        #expect(null.isNull == true)
+        #expect((null.value == nil) == true)
 
     }
 
 
     @Test
-    func `detach copies a present ACL and outlives its descriptor`() {
+    func `Present state exposes its ACL`() {
 
-        let detachedAcl: WindowsRawAcl? = {
-            let descriptor = Self.makeDescriptorWithDacl()
-            return descriptor.dacl.detach()
-        }()
+        let state = WindowsRawAclState.acl(Self.makeSampleAcl())
+
+        #expect(state.case == .acl)
+        #expect(state.isAbsent == false)
+        #expect(state.isNull == false)
+        Self.expectSingleEveryoneAce(state)
+
+    }
+
+
+    @Test
+    func `addEntries turns the absent and null states into a present ACL`() {
+
+        var fromAbsent = WindowsRawAclState.absent
+        fromAbsent.addEntries([.init(permission: .readData, trustee: .everyone)])
+
+        #expect(fromAbsent.case == .acl)
+        Self.expectSingleEveryoneAce(fromAbsent)
+
+        var fromNull = WindowsRawAclState.null
+        fromNull.addEntries([.init(permission: .readData, trustee: .everyone)])
+
+        #expect(fromNull.case == .acl)
+        Self.expectSingleEveryoneAce(fromNull)
+
+    }
+
+
+    @Test
+    func `addEntries merges into a present state`() {
+
+        var state = WindowsRawAclState.acl(Self.makeSampleAcl())
+        state.addEntries([.init(permission: .delete, trustee: .administrators)])
+
+        #expect(state.case == .acl)
+        #expect(state.value?.aceCount == 2)
+
+        let sidStrings = state.value?.map { $0.permission.sid.string }
+
+        #expect(sidStrings?.contains("S-1-1-0") == true)
+        #expect(sidStrings?.contains("S-1-5-32-544") == true)
+
+    }
+
+
+    @Test
+    func `take returns the ACL and installs the requested state`() {
+
+        var state = WindowsRawAclState.acl(Self.makeSampleAcl())
+        let taken = state.take(leaving: .null)
+
+        #expect(state.isNull == true)
 
         // `WindowsRawAcl` is `~Copyable`, so the macro cannot optional-chain into it here
         // without consuming it.
-        if let detachedAcl {
-            #expect(detachedAcl.aceCount == 1)
-            #expect(detachedAcl[0].permission.sid.string == "S-1-1-0")
+        if let taken {
+            #expect(taken.aceCount == 1)
+            #expect(taken[0].permission.sid.string == "S-1-1-0")
         } else {
-            Issue.record("A present DACL should detach into an owning copy")
+            Issue.record("A present state should hand its ACL over")
         }
 
     }
 
 
     @Test
-    func `detach returns nil for the absent and null states`() {
+    func `take from an empty state still installs the requested state`() {
 
-        #expect((Self.makeDescriptorWithoutAcls().dacl.detach() == nil) == true)
-        #expect((Self.makeDescriptorWithNullDacl().dacl.detach() == nil) == true)
+        var state = WindowsRawAclState.absent
+        let taken = state.take(leaving: .acl(Self.makeSampleAcl()))
+
+        #expect((taken == nil) == true)
+        #expect(state.case == .acl)
+        Self.expectSingleEveryoneAce(state)
 
     }
 

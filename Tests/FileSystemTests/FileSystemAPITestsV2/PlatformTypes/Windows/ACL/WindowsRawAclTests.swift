@@ -127,6 +127,22 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsRawAclTests {
 
 
     @Test
+    func `View detaches into an owning copy that outlives its ACL`() {
+
+        let detached = {
+            let acl = WindowsRawAcl(entries: [
+                .init(permission: .readData, trustee: .everyone)
+            ])
+            return acl.view.detach()
+        }()
+
+        #expect(detached.aceCount == 1)
+        #expect(detached[0].permission.sid.string == "S-1-1-0")
+
+    }
+
+
+    @Test
     func `View sees the same ACEs as its ACL`() {
 
         let acl = WindowsRawAcl(entries: [

@@ -39,7 +39,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
     private func makeSampleTargetSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
         return WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: makeSampleTargetDacl()
+            dacl: .acl(makeSampleTargetDacl())
         )
     }
 
@@ -58,7 +58,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
     private func makeSampleInheritableParentSecurityDescriptor() -> WindowsAbsoluteSecurityDescriptor {
         return WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: makeSampleInheritableParentDacl()
+            dacl: .acl(makeSampleInheritableParentDacl())
         )
     }
 
@@ -109,7 +109,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
             sourceLocation: sourceLocation
         )
 
-        #expect(security.permissions.dacl.state == .present, sourceLocation: sourceLocation)
+        #expect(security.permissions.dacl.state == .acl, sourceLocation: sourceLocation)
         #expect(security.permissions.dacl.aces.count == 1, sourceLocation: sourceLocation)
         #expect(
             actualAce.flags & BYTE(INHERITED_ACE) != 0,
@@ -200,9 +200,9 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
 
         let replacementSecurity = WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: .init(entries: [
+            dacl: .acl(.init(entries: [
                 .init(permission: .genericRead, trustee: .users)
-            ])
+            ]))
         )
 
         try fileSystem.createFile(
@@ -233,9 +233,9 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
 
         let replacementSecurity = WindowsAbsoluteSecurityDescriptor(
             control: .daclProtected,
-            dacl: .init(entries: [
+            dacl: .acl(.init(entries: [
                 .init(permission: .genericRead, trustee: .users)
-            ])
+            ]))
         )
 
         try fileSystem.createDirectory(

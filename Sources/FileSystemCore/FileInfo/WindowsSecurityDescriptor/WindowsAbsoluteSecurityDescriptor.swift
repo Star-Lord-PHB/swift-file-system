@@ -8,15 +8,15 @@ import struct SystemPackage.CModeT
 public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     package fileprivate(set) var psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
-    fileprivate(set) var _dacl: WindowsRawAcl?
-    fileprivate(set) var _sacl: WindowsRawAcl?
+    fileprivate(set) var _dacl: WindowsRawAclState
+    fileprivate(set) var _sacl: WindowsRawAclState
     fileprivate(set) var _owner: WindowsSid?
     fileprivate(set) var _group: WindowsSid?
 
     package init(
-        psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>, 
-        dacl: consuming WindowsRawAcl?,
-        sacl: consuming WindowsRawAcl?,
+        psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>,
+        dacl: consuming WindowsRawAclState,
+        sacl: consuming WindowsRawAclState,
         owner: WindowsSid?,
         group: WindowsSid?
     ) {
@@ -28,33 +28,33 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         self._sacl = sacl
 
         preconditionValid()
-        
+
     }
 
     public init(
-        unsafeOwningSdPtr: PSECURITY_DESCRIPTOR, 
+        unsafeOwningSdPtr: PSECURITY_DESCRIPTOR,
         allocator: WindowsMemoryAllocatorType,
-        pdacl: consuming WindowsRawAcl? = nil,
-        psacl: consuming WindowsRawAcl? = nil,
+        dacl: consuming WindowsRawAclState = .absent,
+        sacl: consuming WindowsRawAclState = .absent,
         owner: WindowsSid? = nil,
         group: WindowsSid? = nil
     ) {
         self.init(
             psd: .init(
-                owningPointer: unsafeOwningSdPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self), 
+                owningPointer: unsafeOwningSdPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self),
                 allocator: allocator.mappedInternalAllocatorType
-            ), 
-            dacl: pdacl, 
-            sacl: psacl, 
-            owner: owner, 
+            ),
+            dacl: dacl,
+            sacl: sacl,
+            owner: owner,
             group: group
         )
     }
 
     public init(
         control: WindowsSecurityDescriptorControl? = nil,
-        dacl: consuming WindowsRawAcl? = nil,
-        sacl: consuming WindowsRawAcl? = nil,
+        dacl: consuming WindowsRawAclState = .absent,
+        sacl: consuming WindowsRawAclState = .absent,
         owner: WindowsSid? = nil,
         group: WindowsSid? = nil
     ) {
@@ -70,11 +70,32 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
                 control.rawValue & writableBits
             )
         }
-        SetSecurityDescriptorDacl(psd.unsafelyCastedMutableRawPtr, true, dacl?.pacl.unsafelyCastedMutableRawPtr, false)
-        SetSecurityDescriptorSacl(psd.unsafelyCastedMutableRawPtr, true, sacl?.pacl.unsafelyCastedMutableRawPtr, false)
+        Self.unsafeApplyAclState(dacl, to: psd.unsafelyCastedMutableRawPtr, type: .dacl)
+        Self.unsafeApplyAclState(sacl, to: psd.unsafelyCastedMutableRawPtr, type: .sacl)
         SetSecurityDescriptorOwner(psd.unsafelyCastedMutableRawPtr, owner?.psid.unsafeResourcePtr, false)
         SetSecurityDescriptorGroup(psd.unsafelyCastedMutableRawPtr, group?.psid.unsafeResourcePtr, false)
         self.init(psd: psd, dacl: dacl, sacl: sacl, owner: owner, group: group)
+    }
+
+    fileprivate static func unsafeApplyAclState(
+        _ state: borrowing WindowsRawAclState,
+        to psdPtr: PSECURITY_DESCRIPTOR,
+        type: WindowsACLType
+    ) {
+        switch type {
+            case .dacl:
+                switch state {
+                    case .absent:           SetSecurityDescriptorDacl(psdPtr, false, nil, false)
+                    case .null:             SetSecurityDescriptorDacl(psdPtr, true, nil, false)
+                    case .acl(let acl):     SetSecurityDescriptorDacl(psdPtr, true, acl.pacl.unsafelyCastedMutableRawPtr, false)
+                }
+            case .sacl:
+                switch state {
+                    case .absent:           SetSecurityDescriptorSacl(psdPtr, false, nil, false)
+                    case .null:             SetSecurityDescriptorSacl(psdPtr, true, nil, false)
+                    case .acl(let acl):     SetSecurityDescriptorSacl(psdPtr, true, acl.pacl.unsafelyCastedMutableRawPtr, false)
+                }
+        }
     }
 
     public var view: WindowsSecurityDescriptorView {
@@ -103,17 +124,31 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
         precondition(self.control.contains(.selfRelative) == false, "SECURITY_DESCRIPTOR is self-relative, expected absolute", file: file, line: line)
 
-        let dacl = switch dacl {
-            case .some(let acl): acl.view
-            case .none: nil as WindowsRawAcl.View?
-        }
-        precondition(psd.pointee.Dacl == dacl?.pacl.unsafelyCastedMutableRawPtr, "DACL pointer mismatch", file: file, line: line)
+        let control = self.control
 
-        let sacl = switch sacl {
-            case .some(let acl): acl.view
-            case .none: nil as WindowsRawAcl.View?
+        // For .absent only the control bit is checked: clearing the present flag leaves the
+        // ACL pointer field untouched, so a stale pointer may legitimately remain behind it.
+        switch _dacl {
+            case .absent:
+                precondition(control.contains(.daclPresent) == false, "DACL state mismatch, expected absent", file: file, line: line)
+            case .null:
+                precondition(control.contains(.daclPresent), "DACL state mismatch, expected null", file: file, line: line)
+                precondition(psd.pointee.Dacl == nil, "DACL pointer mismatch, expected null", file: file, line: line)
+            case .acl(let acl):
+                precondition(control.contains(.daclPresent), "DACL state mismatch, expected present", file: file, line: line)
+                precondition(psd.pointee.Dacl == acl.pacl.unsafelyCastedMutableRawPtr, "DACL pointer mismatch", file: file, line: line)
         }
-        precondition(psd.pointee.Sacl == sacl?.pacl.unsafelyCastedMutableRawPtr, "SACL pointer mismatch", file: file, line: line)
+
+        switch _sacl {
+            case .absent:
+                precondition(control.contains(.saclPresent) == false, "SACL state mismatch, expected absent", file: file, line: line)
+            case .null:
+                precondition(control.contains(.saclPresent), "SACL state mismatch, expected null", file: file, line: line)
+                precondition(psd.pointee.Sacl == nil, "SACL pointer mismatch, expected null", file: file, line: line)
+            case .acl(let acl):
+                precondition(control.contains(.saclPresent), "SACL state mismatch, expected present", file: file, line: line)
+                precondition(psd.pointee.Sacl == acl.pacl.unsafelyCastedMutableRawPtr, "SACL pointer mismatch", file: file, line: line)
+        }
 
         let sidPtr = switch owner {
             case .some(let sid): sid.psid.unsafeResourcePtr
@@ -164,19 +199,19 @@ extension WindowsAbsoluteSecurityDescriptor {
         }
     }
 
-    public var dacl: WindowsRawAcl? {
+    public var dacl: WindowsRawAclState {
         _read { yield _dacl }
-        _modify { 
+        _modify {
             yield &_dacl
-            SetSecurityDescriptorDacl(psd.unsafeRawPtr, true, dacl?.pacl.unsafelyCastedMutableRawPtr, false)
+            Self.unsafeApplyAclState(_dacl, to: psd.unsafeRawPtr, type: .dacl)
         }
     }
 
-    public var sacl: WindowsRawAcl? {
+    public var sacl: WindowsRawAclState {
         _read { yield _sacl }
-        _modify { 
+        _modify {
             yield &_sacl
-            SetSecurityDescriptorSacl(psd.unsafeRawPtr, true, sacl?.pacl.unsafelyCastedMutableRawPtr, false)
+            Self.unsafeApplyAclState(_sacl, to: psd.unsafeRawPtr, type: .sacl)
         }
     }
 
@@ -197,26 +232,6 @@ extension WindowsAbsoluteSecurityDescriptor {
     }
 
 
-    public mutating func addDaclEntries(_ entries: WindowsExplicitAccessArray) {
-        if var dacl = self.dacl.take() {
-            dacl.addEntries(entries)
-            self.dacl = .some(dacl)
-        } else {
-            self.dacl = .init(entries: entries)
-        }
-    }
-
-
-    public mutating func removeDacl() {
-        self.dacl = nil
-    }
-
-
-    public mutating func removeSacl() {
-        self.sacl = nil
-    }
-
-
     public mutating func removeOwner() {
         self.owner = nil
     }
@@ -224,16 +239,6 @@ extension WindowsAbsoluteSecurityDescriptor {
 
     public mutating func removeGroup() {
         self.group = nil
-    }
-
-
-    public mutating func takeDacl() -> WindowsRawAcl? {
-        return self.dacl.take()
-    }
-
-
-    public mutating func takeSacl() -> WindowsRawAcl? {
-        return self.sacl.take()
     }
 
 }
@@ -305,11 +310,25 @@ extension WindowsAbsoluteSecurityDescriptor {
             )
         }
 
+        // MakeAbsoluteSD preserves the present bits, so when it hands back no ACL pointer
+        // the control word tells a present-but-null ACL apart from an absent one.
+        let sourceControl = WindowsSecurityDescriptorControl.make(unsafeExtractingFromPSD: selfRelativeSdPtr).control
+
+        let dacl = switch pdacl {
+            case .some(let pdacl): .acl(.init(pacl: .init(owningPointer: pdacl, allocator: .swift)))
+            case .none: sourceControl.contains(.daclPresent) ? .null : .absent
+        } as WindowsRawAclState
+
+        let sacl = switch psacl {
+            case .some(let psacl): .acl(.init(pacl: .init(owningPointer: psacl, allocator: .swift)))
+            case .none: sourceControl.contains(.saclPresent) ? .null : .absent
+        } as WindowsRawAclState
+
         self.init(
-            psd: .init(owningPointer: psd!, allocator: .swift), 
-            dacl: pdacl.map { .init(pacl: .init(owningPointer: $0, allocator: .swift)) }, 
-            sacl: psacl.map { .init(pacl: .init(owningPointer: $0, allocator: .swift)) }, 
-            owner: owner.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) }, 
+            psd: .init(owningPointer: psd!, allocator: .swift),
+            dacl: dacl,
+            sacl: sacl,
+            owner: owner.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) },
             group: group.map { .init(psid: .init(owningResource: $0, freeingFunc: { $0.deallocate() })) }
         )
 
@@ -360,10 +379,10 @@ extension WindowsAbsoluteSecurityDescriptor {
         }
 
         return .init(
-            psd: securityDescriptorPtr, 
-            dacl: dacl, 
-            sacl: nil, 
-            owner: .init(psid: .init(owningResource: userSidBuffer)), 
+            psd: securityDescriptorPtr,
+            dacl: .acl(dacl),
+            sacl: .absent,
+            owner: .init(psid: .init(owningResource: userSidBuffer)),
             group: .init(psid: .init(owningResource: groupSidBuffer))
         )
 

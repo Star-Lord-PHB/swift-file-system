@@ -30,7 +30,7 @@ extension CopyItemHandler {
         do throws(LowLevelError) {
             #if canImport(WinSDK)
             if options.windowsPreserveExactDacl, var sd = srcAttrsInternal.securityDescriptor?.makeAbsolute() {
-                sd.addDaclEntries([
+                sd.dacl.addEntries([
                     .init(permission: .genericAll, trustee: .init(sid: try getAndCacheCurrentUser().rawId, type: .unknown))
                 ])
                 try InternalFS.mkdir(at: dstPath, permissions: sd.view)
@@ -70,7 +70,7 @@ extension CopyItemHandler {
                         if options.windowsPreserveExactDacl {
                             do throws(LowLevelError) {
                                 if var sd = srcAttrsInternal.securityDescriptor?.makeAbsolute() {
-                                    sd.addDaclEntries([
+                                    sd.dacl.addEntries([
                                         .init(permission: .genericAll, trustee: .init(sid: try getAndCacheCurrentUser().rawId, type: .unknown))
                                     ])
                                     let securityInformation = srcAttrsInternal.sdControl?.contains(.daclProtected) == true

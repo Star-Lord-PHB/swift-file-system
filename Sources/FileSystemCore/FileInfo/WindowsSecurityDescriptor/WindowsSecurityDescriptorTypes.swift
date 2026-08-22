@@ -312,6 +312,23 @@ public enum WindowsACLType: Sendable, Equatable, Hashable, CustomStringConvertib
 
 
 
+public enum WindowsACLStateCase: Sendable, Equatable, Hashable, CustomStringConvertible {
+    case absent
+    case null
+    case acl
+
+    @inlinable
+    public var description: String {
+        switch self {
+            case .absent:  "absent"
+            case .null:    "null"
+            case .acl:     "acl"
+        }
+    }
+}
+
+
+
 public enum WindowsMemoryAllocatorType {
 
     case globalAlloc, localAlloc, swift, malloc

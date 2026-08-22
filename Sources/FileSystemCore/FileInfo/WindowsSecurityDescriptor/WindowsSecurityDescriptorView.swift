@@ -37,14 +37,14 @@ extension WindowsSecurityDescriptorView {
     public var dacl: WindowsRawAcl.View? {
         @_lifetime(copy self)
         get {
-            WindowsRawAclState(unsafeExtractingFromPSD: psd, type: .dacl).value
+            WindowsRawAclStateView(unsafeExtractingFromPSD: psd, type: .dacl).value
         }
     }
 
     public var sacl: WindowsRawAcl.View? {
         @_lifetime(copy self)
         get {
-            WindowsRawAclState(unsafeExtractingFromPSD: psd, type: .sacl).value
+            WindowsRawAclStateView(unsafeExtractingFromPSD: psd, type: .sacl).value
         }
     }
 

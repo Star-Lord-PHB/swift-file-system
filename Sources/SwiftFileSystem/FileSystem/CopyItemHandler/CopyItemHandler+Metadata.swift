@@ -272,7 +272,7 @@ extension CopyItemHandler {
             if !explicitAccess.isEmpty {
 
                 var sd = try handle.securityInfo(.dacl).makeAbsolute()
-                sd.addDaclEntries(explicitAccess)
+                sd.dacl.addEntries(explicitAccess)
 
                 // Stamp the result as auto-inherited (the write honors the bookkeeping
                 // bit only together with the request bit): the merged DACL is in
@@ -321,7 +321,7 @@ extension CopyItemHandler {
             if !explicitAccess.isEmpty {
 
                 var sd = try InternalFS.getSecurityInfo(forItemAt: path, members: .dacl, followSymlink: false).makeAbsolute()
-                sd.addDaclEntries(explicitAccess)
+                sd.dacl.addEntries(explicitAccess)
 
                 sd.control.insert([.daclAutoInheritReq, .daclAutoInherited])
 

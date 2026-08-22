@@ -76,7 +76,7 @@ extension FileSystemTest.WindowsFileSecurityInfoTest {
 
         let sd = try FileSystem().getSecurityInfo(forItemAt: filePath)
         
-        try #require(sd.dacl.case == .present, "DACL is nil after setting new security descriptor")
+        try #require(sd.dacl.case == .acl, "DACL is nil after setting new security descriptor")
 
         let dacl = sd.dacl.value!
         
