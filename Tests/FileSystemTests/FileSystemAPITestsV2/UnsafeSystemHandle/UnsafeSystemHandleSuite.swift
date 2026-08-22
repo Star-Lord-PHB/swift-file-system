@@ -2,7 +2,7 @@ import Testing
 
 
 
-@Suite("UnsafeSystemHandle", .catchTestCancellation)
+@Suite("UnsafeSystemHandle", .executionGroup(.default), .catchTestCancellation)
 struct UnsafeSystemHandleAPITests {
 
     typealias Support = FileSystemTestSupport

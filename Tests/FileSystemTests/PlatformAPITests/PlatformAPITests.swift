@@ -1,7 +1,7 @@
 import Testing
 
 
-@Suite
+@Suite(.executionGroup(.default))
 final class PlatformAPITest {
 
 }

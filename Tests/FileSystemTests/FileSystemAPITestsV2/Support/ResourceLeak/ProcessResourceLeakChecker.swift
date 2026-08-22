@@ -13,8 +13,9 @@ import Testing
 /// Process-wide resource counting for dedicated resource-lifetime tests.
 ///
 /// Counts are affected by every concurrently running test in the process. Do
-/// not use this helper in ordinary functional suites; run its callers with
-/// process-level isolation or with testing parallelism disabled.
+/// not use this helper in ordinary functional suites; it is reserved for the
+/// serialized ResourceLifetime suite, which runs in its own process-exclusive
+/// `TestExecutionGroup`.
 extension FileSystemTestSupport {
 
     enum ProcessResourceLeakChecker {
@@ -50,54 +51,40 @@ extension FileSystemTestSupport {
             #endif
         }
 
-        static func expectNoLeak<R>(
+        /// Verifies that `operation` does not leak process-wide fd/handle resources.
+        ///
+        /// The operation first runs once as a warm-up, so resources the OS or runtime lazily
+        /// creates on first use exist before any sample is taken. Each measurement attempt then
+        /// samples the count, runs the operation `iterations` times and samples again: a
+        /// deterministic per-call leak inflates the delta by at least `iterations`, while
+        /// unrelated background activity only shifts it by a few. A non-zero delta retries the
+        /// whole measurement (up to `attempts`), so one-off OS activity between two samples does
+        /// not fail the check, while a real leak fails every attempt.
+        static func expectNoLeak(
+            iterations: Int = 8,
+            attempts: Int = 3,
             sourceLocation: SourceLocation = #_sourceLocation,
-            preheat: (() throws -> Void)? = nil,
-            operation: () throws -> R
-        ) throws -> R {
-            try preheat?()
-            let before = try currentOpenResourceCount()
+            operation: () throws -> Void
+        ) throws {
+            try operation()
 
-            let result: Result<R, any Error>
-            do {
-                result = .success(try operation())
-            } catch {
-                result = .failure(error)
-            }
+            var deltas = [Int64]()
+            repeat {
+                let before = try currentOpenResourceCount()
+                for _ in 0 ..< iterations {
+                    try operation()
+                }
+                let after = try currentOpenResourceCount()
+                guard after != before else { return }
+                deltas.append(after - before)
+            } while deltas.count < attempts
 
-            let after = try currentOpenResourceCount()
-            expectCountsEqual(before, after, sourceLocation: sourceLocation)
-            return try result.get()
-        }
-
-        static func expectNoLeak<R>(
-            sourceLocation: SourceLocation = #_sourceLocation,
-            preheat: (() async throws -> Void)? = nil,
-            operation: () async throws -> R
-        ) async throws -> R {
-            try await preheat?()
-            let before = try currentOpenResourceCount()
-
-            let result: Result<R, any Error>
-            do {
-                result = .success(try await operation())
-            } catch {
-                result = .failure(error)
-            }
-
-            let after = try currentOpenResourceCount()
-            expectCountsEqual(before, after, sourceLocation: sourceLocation)
-            return try result.get()
-        }
-
-        private static func expectCountsEqual(
-            _ before: Int64,
-            _ after: Int64,
-            sourceLocation: SourceLocation
-        ) {
             #expect(
-                before == after,
-                "Open process resource count changed from \(before) to \(after)",
+                Bool(false),
+                """
+                Open process resource count changed on every attempt; \
+                deltas per \(iterations) iterations: \(deltas)
+                """,
                 sourceLocation: sourceLocation
             )
         }

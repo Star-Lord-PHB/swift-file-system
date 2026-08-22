@@ -5,7 +5,7 @@ import Testing
 
 
 
-@Suite("ByteBuffer")
+@Suite("ByteBuffer", .executionGroup(.default))
 final class ByteBufferTest {}
 
 

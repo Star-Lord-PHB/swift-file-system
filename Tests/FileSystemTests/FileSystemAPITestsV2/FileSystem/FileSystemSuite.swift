@@ -2,7 +2,7 @@ import Testing
 
 
 
-@Suite("FileSystem", .catchTestCancellation)
+@Suite("FileSystem", .executionGroup(.default), .catchTestCancellation)
 struct FileSystemAPITests {
 
     typealias Support = FileSystemTestSupport

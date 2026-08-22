@@ -11,7 +11,7 @@ import WinSDK
 
 // Tests of the FileSystem APIs will include resource handle leakage check, which does not work correctly
 // in parallel testing
-@Suite(.serialized, .catchTestCancellation)
+@Suite(.serialized, .executionGroup(.default), .catchTestCancellation)
 class FileSystemTest {
 
 }

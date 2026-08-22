@@ -2,5 +2,5 @@ import Testing
 
 
 
-@Suite("PlatformTypes", .catchTestCancellation)
+@Suite("PlatformTypes", .executionGroup(.default), .catchTestCancellation)
 struct PlatformTypesAPITests {}
