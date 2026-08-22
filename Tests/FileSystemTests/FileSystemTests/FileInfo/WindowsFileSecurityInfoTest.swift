@@ -43,7 +43,7 @@ extension FileSystemTest.WindowsFileSecurityInfoTest {
         let filePath = try makeFile(at: "file") 
 
         let sd = try FileSystem().getSecurityInfo(forItemAt: filePath)
-        let effectiveAccessMask = try PlatformAPI().effectiveAccessMaskForCurrentProcess(whenAccessing: sd)
+        let effectiveAccessMask = try WindowsAccessChecker().effectiveAccessMaskForCurrentProcess(whenAccessing: sd)
 
         let expectedEffectiveAccessMask = try getEffectiveAccessMask(forItemAt: filePath)
 

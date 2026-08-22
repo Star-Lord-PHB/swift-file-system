@@ -1,7 +1,11 @@
 import FileSystemCore
 
 
-public struct PlatformAPI: PlatformAPIProtocol {
+/// Queries the platform's user/group account database (POSIX passwd/group, Windows LSA).
+///
+/// Note that lookups may reach out to directory services (e.g. a Windows domain
+/// controller for domain SIDs) and can therefore block on the network.
+public struct PlatformAccountSystem: PlatformAccountSystemProtocol {
 
     public init() { }
 
@@ -9,15 +13,15 @@ public struct PlatformAPI: PlatformAPIProtocol {
 
 
 
-extension PlatformAPI {
+extension PlatformAccountSystem {
 
     public func accountName(for identity: PlatformIdentity) throws(PlatformError) -> String? {
         return try catchLowLevelError(operation: .queryAccountNameFromIdentity) { () throws(LowLevelError) in
             try InternalPlatformAPI.accountName(for: identity)
         }
     }
-    
-    
+
+
     public func identity(
         forAccountName name: String,
         resolvePreference: PlatformIdentity.AccountNameResolvePreference = .preferUser
@@ -33,24 +37,5 @@ extension PlatformAPI {
             try InternalPlatformAPI.currentIdentity()
         }
     }
-
-
-    #if canImport(WinSDK)
-    public func effectiveAccessMask(
-        for identity: PlatformIdentity, 
-        whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
-    ) throws(PlatformError) -> WindowsAccessMask {
-        return try catchLowLevelError(operation: .queryEffectiveAccessMask) { () throws(LowLevelError) in
-            try InternalPlatformAPI.effectiveAccessMask(for: identity, whenAccessing: securityDescriptor)
-        }
-    }
-
-
-    public func effectiveAccessMaskForCurrentProcess(
-        whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
-    ) throws(PlatformError) -> WindowsAccessMask {
-        try effectiveAccessMask(for: currentIdentity(), whenAccessing: securityDescriptor)
-    }
-    #endif 
 
 }

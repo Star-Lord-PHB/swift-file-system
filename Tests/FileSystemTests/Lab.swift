@@ -21,9 +21,9 @@ extension FileSystemTest.Lab {
     @Test("Current Identity & Account Name")
     func currentIdentityAndAccountName() async throws {
         
-        let platformAPI = PlatformAPI()
-        let currentIdentity = try platformAPI.currentIdentity()
-        let currentAccountName = try platformAPI.accountName(for: currentIdentity)
+        let accountSystem = PlatformAccountSystem()
+        let currentIdentity = try accountSystem.currentIdentity()
+        let currentAccountName = try accountSystem.accountName(for: currentIdentity)
         
         print("Current Identity: \(currentIdentity)")
         print("Current Account Name: \(currentAccountName ?? "nil")")
@@ -38,7 +38,7 @@ extension FileSystemTest.Lab {
         // For example, the "Administrator", "Guest" and "WDAGUtilityAccount" on Windows have SIDs depending on domain name.
         // And on Posix, "nobody", "nogroup", "wheel" and "sudo" are platform dependent.
         
-        let platformAPI = PlatformAPI()
+        let accountSystem = PlatformAccountSystem()
 
         #if canImport(WinSDK)
 
@@ -51,14 +51,14 @@ extension FileSystemTest.Lab {
         let guestsName = "Guests"
         let wdagUtilityAccountName = "WDAGUtilityAccount"
 
-        let everyoneIdentity = try platformAPI.identity(forAccountName: everyoneName)
-        let systemIdentity = try platformAPI.identity(forAccountName: systemName)
-        let administratorsIdentity = try platformAPI.identity(forAccountName: administratorsName)
-        let administratorIdentity = try platformAPI.identity(forAccountName: administratorName)
-        let authenticatedUsersIdentity = try platformAPI.identity(forAccountName: authenticatedUsersName)
-        let guestIdentity = try platformAPI.identity(forAccountName: guestName)
-        let guestsIdentity = try platformAPI.identity(forAccountName: guestsName)
-        let wdagUtilityAccountIdentity = try platformAPI.identity(forAccountName: wdagUtilityAccountName)
+        let everyoneIdentity = try accountSystem.identity(forAccountName: everyoneName)
+        let systemIdentity = try accountSystem.identity(forAccountName: systemName)
+        let administratorsIdentity = try accountSystem.identity(forAccountName: administratorsName)
+        let administratorIdentity = try accountSystem.identity(forAccountName: administratorName)
+        let authenticatedUsersIdentity = try accountSystem.identity(forAccountName: authenticatedUsersName)
+        let guestIdentity = try accountSystem.identity(forAccountName: guestName)
+        let guestsIdentity = try accountSystem.identity(forAccountName: guestsName)
+        let wdagUtilityAccountIdentity = try accountSystem.identity(forAccountName: wdagUtilityAccountName)
 
         print("Everyone Identity: \(everyoneIdentity?.description ?? "nil")")
         print("System Identity: \(systemIdentity?.description ?? "nil")")
@@ -86,20 +86,20 @@ extension FileSystemTest.Lab {
         let windowServerName = "_windowserver"
         let mdnsresponderName = "_mdnsresponder"
 
-        let rootIdentity = try platformAPI.identity(forAccountName: rootName)
-        let nobodyIdentity = try platformAPI.identity(forAccountName: nobodyName)
-        let nobodyGroupIdentity1 = try platformAPI.identity(forAccountName: nobodyGroupName1)
-        let nobodyGroupIdentity2 = try platformAPI.identity(forAccountName: nobodyGroupName2)
-        let wheelIdentity = try platformAPI.identity(forAccountName: wheelName)
-        let sudoIdentity = try platformAPI.identity(forAccountName: sudoName)
-        let staffIdentity = try platformAPI.identity(forAccountName: staffName)
-        let everyoneIdentity = try platformAPI.identity(forAccountName: everyoneName)
-        let daemonIdentity = try platformAPI.identity(forAccountName: daemonName)
-        let binIdentity = try platformAPI.identity(forAccountName: binName)
-        let systemIdentity = try platformAPI.identity(forAccountName: systemName)
-        let usersIdentity = try platformAPI.identity(forAccountName: usersName)
-        let windowServerIdentity = try platformAPI.identity(forAccountName: windowServerName)
-        let mdnsresponderIdentity = try platformAPI.identity(forAccountName: mdnsresponderName)
+        let rootIdentity = try accountSystem.identity(forAccountName: rootName)
+        let nobodyIdentity = try accountSystem.identity(forAccountName: nobodyName)
+        let nobodyGroupIdentity1 = try accountSystem.identity(forAccountName: nobodyGroupName1)
+        let nobodyGroupIdentity2 = try accountSystem.identity(forAccountName: nobodyGroupName2)
+        let wheelIdentity = try accountSystem.identity(forAccountName: wheelName)
+        let sudoIdentity = try accountSystem.identity(forAccountName: sudoName)
+        let staffIdentity = try accountSystem.identity(forAccountName: staffName)
+        let everyoneIdentity = try accountSystem.identity(forAccountName: everyoneName)
+        let daemonIdentity = try accountSystem.identity(forAccountName: daemonName)
+        let binIdentity = try accountSystem.identity(forAccountName: binName)
+        let systemIdentity = try accountSystem.identity(forAccountName: systemName)
+        let usersIdentity = try accountSystem.identity(forAccountName: usersName)
+        let windowServerIdentity = try accountSystem.identity(forAccountName: windowServerName)
+        let mdnsresponderIdentity = try accountSystem.identity(forAccountName: mdnsresponderName)
 
         print("Root Identity: \(rootIdentity?.description ?? "nil")")
         print("Nobody Identity: \(nobodyIdentity?.description ?? "nil")")

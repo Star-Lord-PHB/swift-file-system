@@ -49,7 +49,7 @@ extension PlatformAPITest.PosixAccounts {
     )
     func accountNameToIdentity(_ name: String, _ identity: PlatformIdentity, _ platform: PosixPlatform) async throws {
         guard platform.contains(.current) else { return }
-        let queriedIdentity = try PlatformAPI().identity(forAccountName: name)
+        let queriedIdentity = try PlatformAccountSystem().identity(forAccountName: name)
         #expect(queriedIdentity == identity)
     }
     
@@ -70,7 +70,7 @@ extension PlatformAPITest.PosixAccounts {
     )
     func identityToAccountName(_ identity: PlatformIdentity, _ name: String, _ platform: PosixPlatform) async throws {
         guard platform.contains(.current) else { return }
-        let queriedName = try PlatformAPI().accountName(for: identity)
+        let queriedName = try PlatformAccountSystem().accountName(for: identity)
         #expect(queriedName == name)
     }
 

@@ -29,7 +29,7 @@ extension PlatformAPITest.WindowsAccounts {
         ] as [(String, PlatformIdentity)]
     )
     func accountNameToIdentity(_ name: String, _ identity: PlatformIdentity) async throws {
-        let queriedIdentity = try PlatformAPI().identity(forAccountName: name)
+        let queriedIdentity = try PlatformAccountSystem().identity(forAccountName: name)
         #expect(queriedIdentity == identity)
     }
     
@@ -45,7 +45,7 @@ extension PlatformAPITest.WindowsAccounts {
         ] as [(PlatformIdentity, String)]
     )
     func identityToAccountName(_ identity: PlatformIdentity, _ name: String) async throws {
-        let queriedName = try PlatformAPI().accountName(for: identity)
+        let queriedName = try PlatformAccountSystem().accountName(for: identity)
         #expect(queriedName == name)
     }
     

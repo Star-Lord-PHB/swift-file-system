@@ -1,4 +1,5 @@
 import PlatformCLib
+import Synchronization
 
 
 package enum InternalPlatformAPI {
@@ -274,32 +275,92 @@ package enum InternalPlatformAPI {
 
 
     #if canImport(WinSDK)
+
+    /// Process-wide Authz resource manager handle, stored as a pointer bit pattern
+    /// (0 = not yet created). Created lazily on first use and never freed; creation
+    /// failure is not cached, so a failing call throws and the next call retries.
+    private static let sharedAuthzResourceManagerBits = Mutex<UInt>(0)
+
+
+    private static func sharedAuthzResourceManager() throws(LowLevelError) -> AUTHZ_RESOURCE_MANAGER_HANDLE {
+
+        let bits = try sharedAuthzResourceManagerBits.withLock { (bits) throws(LowLevelError) -> UInt in
+
+            if bits != 0 { return bits }
+
+            var authResourceManager = nil as AUTHZ_RESOURCE_MANAGER_HANDLE?
+            try execThrowingCFunction {
+                AuthzInitializeResourceManager(
+                    DWORD(AUTHZ_RM_FLAG_NO_AUDIT), 
+                    nil, nil, nil, nil, 
+                    &authResourceManager
+                )
+            }
+            guard let authResourceManager else {
+                try LowLevelError.assertError(fallbackToUnknownError: true)
+            }
+            return UInt(bitPattern: authResourceManager)
+
+        }
+
+        guard let handle = AUTHZ_RESOURCE_MANAGER_HANDLE(bitPattern: bits) else {
+            fatalError("Shared Authz resource manager is unexpectedly null after initialization")
+        }
+        return handle
+
+    }
+
+
     package static func effectiveAccessMask(
         for identity: PlatformIdentity, 
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
     ) throws(LowLevelError) -> WindowsAccessMask {
-        
-        var authResourceManager = nil as AUTHZ_RESOURCE_MANAGER_HANDLE?
-        try execThrowingCFunction {
-            AuthzInitializeResourceManager(
-                DWORD(AUTHZ_RM_FLAG_NO_AUDIT), 
-                nil, nil, nil, nil, 
-                &authResourceManager
-            )
-        }
-        guard let authResourceManager else {
-            try LowLevelError.assertError(fallbackToUnknownError: true)
-        }
-        defer { AuthzFreeResourceManager(authResourceManager) }
+
+        let authResourceManager = try sharedAuthzResourceManager()
 
         var authClientContext = nil as AUTHZ_CLIENT_CONTEXT_HANDLE?
         try execThrowingCFunction {
             AuthzInitializeContextFromSid(0, identity.rawId.psid.unsafeResourcePtr, authResourceManager, nil, LUID(), nil, &authClientContext)
-        } 
+        }
         guard let authClientContext else {
             try LowLevelError.assertError(fallbackToUnknownError: true)
         }
         defer { AuthzFreeContext(authClientContext) }
+
+        return try effectiveAccessMask(inContext: authClientContext, whenAccessing: securityDescriptor)
+
+    }
+
+
+    package static func effectiveAccessMaskForCurrentProcess(
+        whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
+    ) throws(LowLevelError) -> WindowsAccessMask {
+
+        let authResourceManager = try sharedAuthzResourceManager()
+        let processToken = try WindowsProcessToken.current()
+
+        var authClientContext = nil as AUTHZ_CLIENT_CONTEXT_HANDLE?
+        try execThrowingCFunction {
+            AuthzInitializeContextFromToken(0, processToken.handle.unsafeResourcePtr, authResourceManager, nil, LUID(), nil, &authClientContext)
+        }
+        guard let authClientContext else {
+            try LowLevelError.assertError(fallbackToUnknownError: true)
+        }
+        defer { AuthzFreeContext(authClientContext) }
+
+        return try effectiveAccessMask(inContext: authClientContext, whenAccessing: securityDescriptor)
+
+    }
+
+
+    // NOTE: No generic-rights mapping happens here on purpose. Authz evaluates ACE masks
+    // bit-literally and never returns GENERIC_* bits for MAXIMUM_ALLOWED (probe-verified).
+    // Windows maps generic bits when inheritable ACEs are instantiated onto children, not
+    // at access-check time.
+    private static func effectiveAccessMask(
+        inContext authClientContext: AUTHZ_CLIENT_CONTEXT_HANDLE, 
+        whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
+    ) throws(LowLevelError) -> WindowsAccessMask {
 
         var request = AUTHZ_ACCESS_REQUEST(
             DesiredAccess: DWORD(MAXIMUM_ALLOWED), 
@@ -323,22 +384,19 @@ package enum InternalPlatformAPI {
             }
         }
 
-        guard error == LowLevelError.successCode else {
-            throw .init(rawSystemCode: error)!
+        // MAXIMUM_ALLOWED-only requests encode "zero access bits granted" as
+        // ERROR_ACCESS_DENIED with a zero granted mask (AUTHZ_ACCESS_REPLY documents
+        // exactly three per-element codes; the only other one, ERROR_PRIVILEGE_NOT_HELD,
+        // requires requesting ACCESS_SYSTEM_SECURITY, which this call never does).
+        // That is a legitimate empty result, not a failure. Structural failures (bad SD,
+        // missing owner) fail the AuthzAccessCheck call itself and throw above.
+        switch (error, grantedAccessMask) {
+            case (SystemErrorCode.accessDenied.rawValue, 0): return .init(rawValue: 0)
+            case (LowLevelError.successCode, let mask): return .init(rawValue: mask)
+            case (let errorCode, _): throw .init(rawSystemCode: errorCode)!
         }
 
-        var genericMapping = GENERIC_MAPPING(
-            GenericRead: DWORD(GENERIC_READ), 
-            GenericWrite: DWORD(GENERIC_WRITE), 
-            GenericExecute: DWORD(GENERIC_EXECUTE), 
-            GenericAll: DWORD(GENERIC_ALL)
-        )
-
-        MapGenericMask(&grantedAccessMask, &genericMapping)
-
-        return .init(rawValue: grantedAccessMask)
-
     }
-    #endif 
+    #endif
 
 }
