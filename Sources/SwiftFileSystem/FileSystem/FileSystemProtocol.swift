@@ -2,7 +2,7 @@ import SystemPackage
 import FileSystemCore
 
 
-public protocol FileSystemProtocal: Sendable {
+public protocol FileSystemProtocol: Sendable {
 
     // MARK: Basic Operations
 
@@ -121,7 +121,7 @@ public protocol FileSystemProtocal: Sendable {
 
 
 #if canImport(WinSDK)
-extension FileSystemProtocal {
+extension FileSystemProtocol {
 
     public func createFile(
         at path: FilePath, 
