@@ -300,6 +300,10 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
         )
         let dst = try makeExistingTarget(kind)
         let containerSnapshot = try Support.TreeSnapshot.capture(at: workspace.path("container"))
+        var dstTargetSnapshot: Support.ItemSnapshot? = nil
+        if kind == .symlink {
+            dstTargetSnapshot = try Support.ItemSnapshot.capture(at: workspace.path("link-target"))
+        }
 
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.copyItem(
@@ -312,6 +316,13 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
 
         #expect(error?.kind == .notADirectory)
         try expectContainerUnchanged(matching: containerSnapshot)
+        if let dstTargetSnapshot {
+            try Support.expectItem(
+                at: workspace.path("link-target"),
+                matches: dstTargetSnapshot,
+                using: .unchanged
+            )
+        }
 
     }
 
@@ -327,10 +338,21 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
         )
         let dst = try makeExistingTarget(kind)
         let containerSnapshot = try Support.TreeSnapshot.capture(at: workspace.path("container"))
+        var dstTargetSnapshot: Support.ItemSnapshot? = nil
+        if kind == .symlink {
+            dstTargetSnapshot = try Support.ItemSnapshot.capture(at: workspace.path("link-target"))
+        }
 
         try fileSystem.copyItem(at: src, to: dst, options: .init(existingTarget: .skip))
 
         try expectContainerUnchanged(matching: containerSnapshot)
+        if let dstTargetSnapshot {
+            try Support.expectItem(
+                at: workspace.path("link-target"),
+                matches: dstTargetSnapshot,
+                using: .unchanged
+            )
+        }
 
     }
 
@@ -346,6 +368,10 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
         )
         let dst = try makeExistingTarget(kind)
         let containerSnapshot = try Support.TreeSnapshot.capture(at: workspace.path("container"))
+        var dstTargetSnapshot: Support.ItemSnapshot? = nil
+        if kind == .symlink {
+            dstTargetSnapshot = try Support.ItemSnapshot.capture(at: workspace.path("link-target"))
+        }
 
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.copyItem(
@@ -358,6 +384,13 @@ extension FileSystemAPITests.CopyTests.DirectoryMergeTests {
 
         #expect(error?.kind == .alreadyExists)
         try expectContainerUnchanged(matching: containerSnapshot)
+        if let dstTargetSnapshot {
+            try Support.expectItem(
+                at: workspace.path("link-target"),
+                matches: dstTargetSnapshot,
+                using: .unchanged
+            )
+        }
 
     }
 

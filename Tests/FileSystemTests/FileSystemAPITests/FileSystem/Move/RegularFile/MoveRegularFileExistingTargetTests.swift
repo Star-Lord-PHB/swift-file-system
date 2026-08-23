@@ -76,6 +76,25 @@ extension FileSystemAPITests.MoveTests.RegularFileExistingTargetTests {
     }
 
 
+    @Test
+    func `Default existing-target option is overwrite`() throws {
+
+        let src = try workspace.makeFile(at: "src.txt", contents: "new contents")
+        let dst = try workspace.makeFile(at: "dst", contents: "existing contents")
+        let srcSnapshot = try Support.ItemSnapshot.capture(at: src)
+
+        try fileSystem.moveItem(at: src, to: dst)
+
+        try Support.expectItem(
+            at: dst,
+            matches: srcSnapshot,
+            using: FileSystemAPITests.MoveTests.replacedItemPolicy
+        )
+        try Support.expectItemNotExistNoFollow(at: src)
+
+    }
+
+
     @Test(arguments: [.symlinkToFile, .symlinkToDirectory, .danglingSymlink] as [TargetKind])
     func `Overwrite replaces the symlink itself and preserves its target`(kind: TargetKind) throws {
 
