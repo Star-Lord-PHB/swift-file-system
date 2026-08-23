@@ -13,8 +13,9 @@ import FileSystemCore
 /// bits (only constructible through raw ACL APIs) contributes nothing here, which
 /// matches how real opens behave against such degenerate ACEs.
 ///
-/// The security descriptor must carry owner and DACL information; evaluating one
-/// without them fails with an invalid-parameter error.
+/// The security descriptor must carry an owner; evaluating one without it fails with
+/// an invalid-parameter error. An absent DACL is treated like a null one (unprotected,
+/// full grant), matching kernel access-check semantics.
 ///
 /// An identity that is granted nothing yields an empty access mask; only evaluation
 /// failures throw.

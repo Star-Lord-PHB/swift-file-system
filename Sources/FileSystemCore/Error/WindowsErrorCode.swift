@@ -37,6 +37,7 @@ extension SystemErrorCode {
     @inlinable public static var arithmeticOverflow: Self { .init(rawValue: .init(ERROR_ARITHMETIC_OVERFLOW)) }
     @inlinable public static var cannotResolveFilename: Self { .init(rawValue: .init(ERROR_CANT_RESOLVE_FILENAME)) }
     @inlinable public static var notAReparsePoint: Self { .init(rawValue: .init(ERROR_NOT_A_REPARSE_POINT)) }
+    @inlinable public static var invalidParameter: Self { .init(rawValue: .init(ERROR_INVALID_PARAMETER)) }
 
 
     package var defaultMappedErrorKind: PlatformErrorKind {
@@ -44,7 +45,7 @@ extension SystemErrorCode {
             case .fileNotFound, .pathNotFound: .notFound
             case .accessDenied: .permissionDenied
             case .alreadyExists, .fileExists: .alreadyExists
-            case .badArguments: .invalidInput
+            case .badArguments, .invalidParameter: .invalidInput
             case .invalidDirectoryName: .notADirectory
             case .notAReparsePoint: .notASymlink
             case .directoryNotEmpty: .notEmptyDirectory
