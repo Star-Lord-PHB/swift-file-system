@@ -28,7 +28,14 @@ package var UTIME_NOW: Int32 {
 package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
     return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)
 }
-#endif 
+#endif
+
+
+#if canImport(Glibc) || canImport(Musl) || canImport(Android)
+package func pthread_setname_current(_ name: UnsafePointer<CChar>) -> CInt {
+    return _pthread_setname_current(name)
+}
+#endif
 
 
 

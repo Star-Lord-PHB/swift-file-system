@@ -13,6 +13,10 @@ let package = Package(
             targets: ["SwiftFileSystem"]
         ),
         .library(
+            name: "SwiftAsyncFileSystem",
+            targets: ["SwiftAsyncFileSystem"]
+        ),
+        .library(
             name: "FileSystemCore",
             targets: ["FileSystemCore"]
         ),
@@ -37,6 +41,25 @@ let package = Package(
                 "CFileSystem",
                 "PlatformCLib",
                 "FileSystemCore"
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
+                .enableExperimentalFeature("NonescapableTypes"),
+                .enableExperimentalFeature("NoncopyableGenerics"),
+                .enableExperimentalFeature("BorrowingSwitch"),
+                .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults")
+            ]
+        ),
+        .target(
+            name: "SwiftAsyncFileSystem",
+            dependencies: [
+                .product(name: "SystemPackage", package: "swift-system"),
+                .product(name: "BasicContainers", package: "swift-collections"),
+                .product(name: "DequeModule", package: "swift-collections"),
+                "CFileSystem",
+                "PlatformCLib",
+                "FileSystemCore",
+                "SwiftFileSystem"
             ],
             swiftSettings: [
                 .enableExperimentalFeature("Lifetimes"),
@@ -79,7 +102,7 @@ let package = Package(
         ),
         .testTarget(
             name: "FileSystemTests",
-            dependencies: ["SwiftFileSystem", "SwiftFileSystemFoundationCompat"]
+            dependencies: ["SwiftFileSystem", "SwiftAsyncFileSystem", "SwiftFileSystemFoundationCompat"]
         ),
     ]
 )
