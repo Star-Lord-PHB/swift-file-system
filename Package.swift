@@ -66,7 +66,8 @@ let package = Package(
                 .enableExperimentalFeature("NonescapableTypes"),
                 .enableExperimentalFeature("NoncopyableGenerics"),
                 .enableExperimentalFeature("BorrowingSwitch"),
-                .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults")
+                .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault")
             ]
         ),
         .target(

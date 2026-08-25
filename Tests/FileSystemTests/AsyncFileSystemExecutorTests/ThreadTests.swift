@@ -2,7 +2,7 @@ import Testing
 @testable import SwiftAsyncFileSystem
 
 
-extension ThreadPoolTests {
+extension AsyncFileSystemExecutorTests {
 
     @Suite("Thread & ConditionalVariable")
     struct ThreadTests {}
@@ -11,20 +11,13 @@ extension ThreadPoolTests {
 
 
 
-extension ThreadPoolTests.ThreadTests {
+extension AsyncFileSystemExecutorTests.ThreadTests {
 
-    final class SharedBox<Value>: @unchecked Sendable {
-
-        var value: Value
-
-        init(_ value: Value) {
-            self.value = value
-        }
-
-    }
+    typealias SharedBox<Value> = AsyncFileSystemExecutorTests.SharedBox<Value>
 
 
-    @Test func `task runs on a started thread and join makes its effects visible`() {
+    @Test
+    func `task runs on a started thread and join makes its effects visible`() {
         let result = SharedBox(0)
         let thread = Thread(name: "fs-test-worker") {
             result.value = 42
@@ -39,10 +32,11 @@ extension ThreadPoolTests.ThreadTests {
     // are omitted there.
     #if !os(FreeBSD) && !os(OpenBSD)
 
-    @Test func `thread name is applied to the spawned thread`() {
+    @Test
+    func `thread name is applied to the spawned thread`() {
         let observedName = SharedBox(nil as String?)
         let thread = Thread(name: "fs-io-test") {
-            observedName.value = ThreadPoolTests.foundationCurrentThreadName()
+            observedName.value = AsyncFileSystemExecutorTests.foundationCurrentThreadName()
         }
         thread.start()
         thread.join()
@@ -50,11 +44,12 @@ extension ThreadPoolTests.ThreadTests {
     }
 
 
-    @Test func `overlong thread name is applied within platform limits`() {
+    @Test
+    func `overlong thread name is applied within platform limits`() {
         let longName = "thread-name-overflow-check"
         let observedName = SharedBox(nil as String?)
         let thread = Thread(name: longName) {
-            observedName.value = ThreadPoolTests.foundationCurrentThreadName()
+            observedName.value = AsyncFileSystemExecutorTests.foundationCurrentThreadName()
         }
         thread.start()
         thread.join()
@@ -69,7 +64,8 @@ extension ThreadPoolTests.ThreadTests {
     #endif
 
 
-    @Test func `lock provides mutual exclusion across threads`() {
+    @Test
+    func `lock provides mutual exclusion across threads`() {
         let condition = ConditionalVariable()
         let counter = SharedBox(0)
         let threads = (0 ..< 8).map { _ in
@@ -87,7 +83,8 @@ extension ThreadPoolTests.ThreadTests {
     }
 
 
-    @Test func `producer-consumer handshake through wait and signal`() {
+    @Test
+    func `producer-consumer handshake through wait and signal`() {
         let condition = ConditionalVariable()
         let state = SharedBox((pending: [Int](), consumed: [Int](), finished: false))
 
@@ -124,7 +121,8 @@ extension ThreadPoolTests.ThreadTests {
     }
 
 
-    @Test func `broadcast wakes every waiting thread`() {
+    @Test
+    func `broadcast wakes every waiting thread`() {
         let condition = ConditionalVariable()
         let gate = SharedBox((open: false, arrived: 0))
 
@@ -153,14 +151,16 @@ extension ThreadPoolTests.ThreadTests {
     }
 
 
-    @Test func `withLock returns the body's value`() {
+    @Test
+    func `withLock returns the body's value`() {
         let condition = ConditionalVariable()
         let value = condition.withLock { 7 }
         #expect(value == 7)
     }
 
 
-    @Test func `wait inside withLock releases and reacquires the lock`() {
+    @Test
+    func `wait inside withLock releases and reacquires the lock`() {
         let condition = ConditionalVariable()
         let flag = SharedBox(false)
 
