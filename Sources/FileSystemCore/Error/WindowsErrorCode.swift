@@ -38,6 +38,9 @@ extension SystemErrorCode {
     @inlinable public static var cannotResolveFilename: Self { .init(rawValue: .init(ERROR_CANT_RESOLVE_FILENAME)) }
     @inlinable public static var notAReparsePoint: Self { .init(rawValue: .init(ERROR_NOT_A_REPARSE_POINT)) }
     @inlinable public static var invalidParameter: Self { .init(rawValue: .init(ERROR_INVALID_PARAMETER)) }
+    @inlinable public static var pipeBusy: Self { .init(rawValue: .init(ERROR_PIPE_BUSY)) }
+    @inlinable public static var noData: Self { .init(rawValue: .init(ERROR_NO_DATA)) }
+    @inlinable public static var pipeNotConnected: Self { .init(rawValue: .init(ERROR_PIPE_NOT_CONNECTED)) }
 
 
     package var defaultMappedErrorKind: PlatformErrorKind {
@@ -55,6 +58,7 @@ extension SystemErrorCode {
             case .notSupported: .unsupported
             case .arithmeticOverflow: .arithmeticOverflow
             case .cannotResolveFilename: .pathResolutionFailed
+            case .brokenPipe, .noData, .pipeNotConnected: .brokenPipe
             default: .unknown
         }
     }

@@ -117,6 +117,18 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `SequentialReader fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try ReadFileHandle(forFileAt: path)
+        let reader = handle.sequentialReader()
+
+        #expect(try reader.fileInfo() == FileInfo(fileAt: path))
+
+    }
+
+
+    @Test
     func `WriteFileHandle sets file times`() throws {
 
         let path = try workspace.makeFile(at: "file")

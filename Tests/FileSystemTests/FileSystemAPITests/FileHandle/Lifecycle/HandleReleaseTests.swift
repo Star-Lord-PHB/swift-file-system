@@ -110,7 +110,7 @@ extension FileHandleAPITests.LifecycleTests {
 
         do {
             let handle = try WriteFileHandle(forFileAt: path, options: .newFile())
-            #expect(try handle.write(ByteBuffer("contents".utf8)) == 8)
+            #expect(try handle.write(ByteBuffer("contents".utf8), toOffset: 0) == 8)
         }
 
         #expect(try capturedContents(at: path) == ByteBuffer("contents".utf8))

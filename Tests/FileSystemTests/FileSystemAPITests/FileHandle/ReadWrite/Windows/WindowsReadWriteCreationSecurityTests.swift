@@ -165,13 +165,8 @@ extension FileHandleAPITests.ReadWriteTests.WindowsCreationSecurityTests {
     @Test
     func `Truncate preserves existing security`() throws {
 
-        let path = workspace.path("file")
-        let initialHandle = try ReadWriteFileHandle(
-            forFileAt: path,
-            creationPermissions: makeSampleSecurityDescriptor()
-        )
-        _ = try initialHandle.write(ByteBuffer("contents".utf8))
-        try initialHandle.close()
+        let path = try workspace.makeFile(at: "file", contents: "contents")
+        try Support.setProtectedNativeWindowsDacl(makeSampleDacl(), at: path, followSymlink: false)
         let securityBeforeTruncate = try Support.ItemMetadata.captureSecurity(at: path)
 
         let replacementSecurity = WindowsAbsoluteSecurityDescriptor(

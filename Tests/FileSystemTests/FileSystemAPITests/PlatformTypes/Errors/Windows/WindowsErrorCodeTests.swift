@@ -59,7 +59,10 @@ extension PlatformTypesAPITests.ErrorTests.WindowsErrorCodeTests {
             (.insufficientBuffer, DWORD(ERROR_INSUFFICIENT_BUFFER)),
             (.arithmeticOverflow, DWORD(ERROR_ARITHMETIC_OVERFLOW)),
             (.cannotResolveFilename, DWORD(ERROR_CANT_RESOLVE_FILENAME)),
-            (.notAReparsePoint, DWORD(ERROR_NOT_A_REPARSE_POINT))
+            (.notAReparsePoint, DWORD(ERROR_NOT_A_REPARSE_POINT)),
+            (.pipeBusy, DWORD(ERROR_PIPE_BUSY)),
+            (.noData, DWORD(ERROR_NO_DATA)),
+            (.pipeNotConnected, DWORD(ERROR_PIPE_NOT_CONNECTED))
         ] as [(SystemErrorCode, DWORD)]
     )
     func `Error codes wrap their native Win32 value`(
@@ -88,7 +91,10 @@ extension PlatformTypesAPITests.ErrorTests.WindowsErrorCodeTests {
             (.fileNameTooLong, .nameTooLong),
             (.notSupported, .unsupported),
             (.arithmeticOverflow, .arithmeticOverflow),
-            (.cannotResolveFilename, .pathResolutionFailed)
+            (.cannotResolveFilename, .pathResolutionFailed),
+            (.brokenPipe, .brokenPipe),
+            (.noData, .brokenPipe),
+            (.pipeNotConnected, .brokenPipe)
         ] as [(SystemErrorCode, PlatformErrorKind)]
     )
     func `Error codes map to their default kind`(
@@ -106,7 +112,7 @@ extension PlatformTypesAPITests.ErrorTests.WindowsErrorCodeTests {
     @Test(
         arguments: [
             .invalidFunction, .sharingViolation, .lockViolation, .writeProtect,
-            .handleEOF, .brokenPipe, .negativeSeek
+            .handleEOF, .negativeSeek, .pipeBusy
         ] as [SystemErrorCode]
     )
     func `Unmapped error codes fall back to unknown`(_ code: SystemErrorCode) throws {

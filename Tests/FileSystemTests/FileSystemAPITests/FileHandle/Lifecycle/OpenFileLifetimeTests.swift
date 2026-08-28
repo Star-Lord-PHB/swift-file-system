@@ -15,7 +15,7 @@ extension FileHandleAPITests.LifecycleTests {
 
         try firstHandle.close()
 
-        #expect(try secondHandle.read(length: 6) == ByteBuffer("shared".utf8))
+        #expect(try secondHandle.read(fromOffset: 0, length: 6) == ByteBuffer("shared".utf8))
 
         try secondHandle.close()
 
@@ -31,12 +31,9 @@ extension FileHandleAPITests.LifecycleTests {
         try FileManager.default.removeItem(atPath: path.string)
 
         try #require(!FileManager.default.fileExists(atPath: path.string))
-        #expect(try handle.read(length: 8) == ByteBuffer("contents".utf8))
-        #expect(try handle.write(ByteBuffer(" linger".utf8)) == 7)
-
-        try handle.seek(to: 0, relativeTo: .beginning)
-
-        #expect(try handle.read(length: 15) == ByteBuffer("contents linger".utf8))
+        #expect(try handle.read(fromOffset: 0, length: 8) == ByteBuffer("contents".utf8))
+        #expect(try handle.write(ByteBuffer(" linger".utf8), toOffset: 8) == 7)
+        #expect(try handle.read(fromOffset: 0, length: 15) == ByteBuffer("contents linger".utf8))
 
         try handle.close()
 
@@ -53,8 +50,8 @@ extension FileHandleAPITests.LifecycleTests {
         try FileManager.default.moveItem(atPath: path.string, toPath: movedPath.string)
 
         try #require(!FileManager.default.fileExists(atPath: path.string))
-        #expect(try handle.read(length: 8) == ByteBuffer("contents".utf8))
-        #expect(try handle.write(ByteBuffer(" moved".utf8)) == 6)
+        #expect(try handle.read(fromOffset: 0, length: 8) == ByteBuffer("contents".utf8))
+        #expect(try handle.write(ByteBuffer(" moved".utf8), toOffset: 8) == 6)
 
         try handle.close()
 

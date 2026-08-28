@@ -1,27 +1,16 @@
-import SystemPackage
+import struct SystemPackage.FilePath
 import FileSystemCore
 
-#if canImport(WinSDK)
-import Synchronization
-import WinSDK
-#endif
 
 
-public struct ReadWriteFileHandle: ~Copyable, ReadWriteFileHandleProtocol {
+public struct ReadWriteFileHandle
+: ~Copyable, @unchecked Sendable
+, PositionalReadFileHandleProtocol
+, PositionalWriteFileHandleProtocol, PersistentFileHandleProtocol
+, SystemHandleSupportedFileHandleProtocol {
 
     fileprivate let handle: UnsafeSystemHandle 
     public let path: FilePath
-
-    #if canImport(WinSDK)
-    // On windows, there is not direct way to allow random access (similar to pread in POSIX) 
-    // while allowing accessing with system file pointer. So we track the current offset manually.
-    private let _currentOffset: Mutex<Int64> = Mutex(0)
-    public var currentOffset: Int64 {
-        get throws(PlatformError) {
-            _currentOffset.withLock(\.self)
-        }
-    }
-    #endif 
 
 
     init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) {
@@ -36,8 +25,8 @@ public struct ReadWriteFileHandle: ~Copyable, ReadWriteFileHandleProtocol {
 extension ReadWriteFileHandle {
 
     public init(
-        forFileAt path: FilePath, 
-        options: FileOperationOptions.OpenForWriting = .editFile(), 
+        forFileAt path: FilePath,
+        options: FileOperationOptions.OpenForWriting = .editFile(),
         creationPermissions: FilePermissions? = nil
     ) throws(PlatformError) {
 
@@ -48,20 +37,17 @@ extension ReadWriteFileHandle {
         } as UnsafeSystemHandle.OpenOptions.CreationOptions
 
         var openOptions = UnsafeSystemHandle.OpenOptions(
-            access: .readWrite(), 
+            access: .readWrite(),
             creation: creationOption,
-            truncate: options.truncate, 
-            noFollow: options.noFollow, 
+            truncate: options.truncate,
+            noFollow: options.noFollow,
             closeOnExec: options.closeOnExec
         )
 
         #if canImport(WinSDK)
-        openOptions.noBlocking = true
         if options.noFollow && options.truncate && creationOption != .assertMissing {
             openOptions.truncate = false
         }
-        #else 
-        openOptions.noBlocking = false
         #endif
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
@@ -126,7 +112,6 @@ extension ReadWriteFileHandle {
             closeOnExec: options.closeOnExec
         )
 
-        openOptions.noBlocking = true
         if options.noFollow && options.truncate && creationOption != .assertMissing {
             openOptions.truncate = false
         }
@@ -183,43 +168,6 @@ extension ReadWriteFileHandle {
     #endif
 
 
-    @discardableResult
-    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64 {
-
-        #if canImport(WinSDK)
-
-        switch whence {
-            case .beginning:
-                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
-                    currentOffset = try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
-                    return currentOffset
-                }
-            case .current:
-                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
-                    currentOffset = try trySeek(from: currentOffset, by: offset, operation: .seekHandle(originalPath: path))
-                    return currentOffset
-                }
-            case .end:
-                var size = LARGE_INTEGER(QuadPart: 0)
-                try execThrowingCFunction(operation: .seekHandle(originalPath: path)) {
-                    GetFileSizeEx(handle.unsafeRawHandle, &size)
-                }
-                return try _currentOffset.withLock { (currentOffset) throws(PlatformError) in
-                    currentOffset = try trySeek(from: size.QuadPart, by: offset, operation: .seekHandle(originalPath: path))
-                    return currentOffset
-                }
-        }
-
-        #else 
-
-        try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
-            try handle.seek(to: offset, from: whence)
-        }
-
-        #endif
-    }
-
-
     public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
@@ -233,118 +181,94 @@ extension ReadWriteFileHandle {
         try body(handle)
     }
 
-}
 
-
-
-extension ReadWriteFileHandle {
-
-    public func read(fromOffset offset: Int64?, into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
-        
-        #if canImport(WinSDK)
-        
-        if let offset, offset < 0 {
-            throw .init(lowLevelError: .init(kind: .invalidInput), operation: .readHandle(originalPath: path))
-        }
-        
-        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
-            do throws(LowLevelError) {
-                if let offset {
-                    var overlapped = WindowsOverlapped(offset: offset)
-                    let pendingOverlapped = try handle.read(into: &buffer, overlapped: &overlapped)
-                    return try pendingOverlapped.wait()
-                } else {
-                    let currentOffset = _currentOffset.withLock(\.self)
-                    var overlapped = WindowsOverlapped(offset: currentOffset)
-                    let pendingOverlapped = try handle.read(into: &buffer, overlapped: &overlapped)
-                    let bytesRead = try pendingOverlapped.wait()
-                    _currentOffset.withLock {
-                        $0 = currentOffset + bytesRead
-                    }
-                    return bytesRead
-                }
-            } catch let error where error.systemCode == .handleEOF {
-                return 0
-            }
-        }
-        
-        #else
-        
-        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
-            if let offset {
-                try handle.pread(into: &buffer, from: offset)
-            } else {
-                try handle.read(into: &buffer)
-            }
-        }
-        
-        #endif
-        
+    @_lifetime(borrow self)
+    public func sequentialAccessor() -> SequentialAccessor {
+        .init(readWriteHandle: self)
     }
 
 }
 
 
 
+
 extension ReadWriteFileHandle {
 
-    public func write(_ buffer: RawSpan, toOffset offset: Int64?) throws(PlatformError) -> Int64 {
-        
-        #if canImport(WinSDK)
+    public struct SequentialAccessor
+    : ~Escapable
+    , MutatingSequentialReadFileHandleProtocol
+    , MutatingSequentialWriteFileHandleProtocol, MutatingSeekableFileHandleProtocol
+    , ResizableFileHandleProtocol, PersistentFileHandleProtocol
+    , SystemHandleSupportedFileHandleProtocol {
 
-        if let offset, offset < 0 {
-            throw .init(lowLevelError: .init(kind: .invalidInput), operation: .writeHandle(originalPath: path))
+        let handle: UnsafeUnownedSystemHandle
+        public let path: FilePath
+
+        public private(set) var currentOffset: Int64 = 0
+
+
+        @_lifetime(borrow readWriteHandle)
+        init(readWriteHandle: borrowing ReadWriteFileHandle) {
+            self.handle = readWriteHandle.handle.unownedHandle()
+            self.path = readWriteHandle.path
         }
 
-        return try buffer.withUnsafeBytes { (bufferPtr) throws(PlatformError) in
-            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
-                if let offset {
-                    var overlapped = WindowsOverlapped(offset: offset)
-                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    return try pendingOverlapped.wait()
-                } else {
-                    let currentOffset = _currentOffset.withLock(\.self)
-                    var overlapped = WindowsOverlapped(offset: currentOffset)
-                    let pendingOverlapped = try handle.write(contentsOf: bufferPtr, overlapped: &overlapped)
-                    let bytesWritten = try pendingOverlapped.wait()
-                    _currentOffset.withLock {
-                        $0 = currentOffset + Int64(bytesWritten)
+
+        public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
+            try self.handle.unsafeTemporaryConvertingToOwning { handle throws(E) in
+                try body(handle)
+            }
+        }
+
+
+        @discardableResult
+        @_lifetime(self: copy self)
+        public mutating func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence = .beginning) throws(PlatformError) -> Int64 {
+            let newOffset = switch whence {
+            case .current:
+                try trySeek(from: self.currentOffset, by: offset, operation: .seekHandle(originalPath: path))
+            case .beginning:
+                try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
+            case .end:
+                try trySeek(from: .init(fileInfo().size), by: offset, operation: .seekHandle(originalPath: path))
+            }
+            self.currentOffset = newOffset
+            return newOffset
+        }
+
+
+        @_lifetime(self: copy self)
+        @_lifetime(buffer: copy buffer)
+        public mutating func read(into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
+            try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
+                try self.handle.unsafeTemporaryConvertingToOwning { handle throws(LowLevelError) in
+                    do throws(LowLevelError) {
+                        let currentOffset = self.currentOffset
+                        let bytesRead = try handle.pread(into: &buffer, from: currentOffset)
+                        self.currentOffset = currentOffset + bytesRead
+                        return bytesRead
+                    } catch {
+                        #if canImport(WinSDK)
+                        if error.systemCode == .handleEOF { return 0 }
+                        #endif
+                        throw error
                     }
-                    return Int64(bytesWritten)
                 }
             }
         }
 
-        #else
 
-        return try buffer.withUnsafeBytes { bufferPtr throws(PlatformError) in
+        @discardableResult
+        @_lifetime(self: copy self)
+        public mutating func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
-                if let offset {
-                    return try handle.pwrite(contentsOf: bufferPtr, to: offset)
-                } else {
-                    return try handle.write(contentsOf: bufferPtr)
+                try self.handle.unsafeTemporaryConvertingToOwning { handle throws(LowLevelError) in
+                    let currentOffset = self.currentOffset
+                    let bytesWritten = try handle.pwrite(contentsOf: buffer, to: currentOffset)
+                    self.currentOffset = currentOffset + bytesWritten
+                    return bytesWritten
                 }
             }
-        }
-
-        #endif
-
-    }
-
-
-    public func resize(to size: Int64) throws(PlatformError) {
-        
-        try catchLowLevelError(operation: .resizeHandle(originalPath: path)) { () throws(LowLevelError) in
-            try handle.truncate(to: size)
-        }
-
-    }
-
-
-    public func synchronize() throws(PlatformError) {
-        
-        try catchLowLevelError(operation: .syncHandle(originalPath: path)) { () throws(LowLevelError) in
-            try handle.fsync()
         }
 
     }

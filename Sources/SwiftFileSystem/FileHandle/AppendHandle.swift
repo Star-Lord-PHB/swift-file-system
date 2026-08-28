@@ -3,7 +3,10 @@ import FileSystemCore
 
 
 
-public struct AppendHandle: ~Copyable, AppendableFileHandleProtocol {
+public struct AppendHandle
+: ~Copyable, @unchecked Sendable
+, AppendableFileHandleProtocol, PersistentFileHandleProtocol
+, SystemHandleSupportedFileHandleProtocol {
 
     fileprivate let handle: UnsafeSystemHandle
     public let path: FilePath
@@ -204,31 +207,14 @@ extension AppendHandle {
     @discardableResult
     public func append(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
 
-        #if canImport(WinSDK)
         try buffer.withUnsafeBytes { buffer throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
-                // Setting both Offset and OffsetHigh to 0xFFFFFFFF for append operation
-                var overlapped = WindowsOverlapped(offset: -1)
-                let pending = try handle.write(contentsOf: buffer, overlapped: &overlapped)
-                // This is a synchronous handle, so this wait will not block
-                return try pending.wait()
-            }
-        }
-        #else
-        try buffer.withUnsafeBytes { buffer throws(PlatformError) in
-            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
+                #if canImport(WinSDK)
+                try handle.pwrite(contentsOf: buffer, to: -1)
+                #else
                 try handle.write(contentsOf: buffer)
+                #endif
             }
-        }
-        #endif
-
-    }
-
-
-    public func synchronize() throws(PlatformError) {
-
-        try catchLowLevelError(operation: .syncHandle(originalPath: path)) { () throws(LowLevelError) in
-            try handle.fsync()
         }
 
     }

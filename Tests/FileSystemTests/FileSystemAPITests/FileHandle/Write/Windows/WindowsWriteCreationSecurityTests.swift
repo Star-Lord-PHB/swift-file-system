@@ -170,7 +170,7 @@ extension FileHandleAPITests.WriteTests.WindowsCreationSecurityTests {
             forFileAt: path,
             creationPermissions: makeSampleSecurityDescriptor()
         )
-        _ = try initialHandle.write(ByteBuffer("contents".utf8))
+        _ = try initialHandle.write(ByteBuffer("contents".utf8), toOffset: 0)
         try initialHandle.close()
         let securityBeforeTruncate = try Support.ItemMetadata.captureSecurity(at: path)
 

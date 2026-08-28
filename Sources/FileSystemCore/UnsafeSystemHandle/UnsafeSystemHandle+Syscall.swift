@@ -297,8 +297,8 @@ extension UnsafeSystemHandle {
         #if canImport(WinSDK)
 
         var overlapped = OVERLAPPED()
-        overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
-        overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+        overlapped.Offset = DWORD(UInt64(bitPattern: offset) & 0xFFFFFFFF)
+        overlapped.OffsetHigh = DWORD((UInt64(bitPattern: offset) >> 32) & 0xFFFFFFFF)
 
         var bytesRead = 0 as DWORD
 
@@ -386,8 +386,8 @@ extension UnsafeSystemHandle {
         #if canImport(WinSDK)
 
         var overlapped = OVERLAPPED()
-        overlapped.Offset = DWORD(offset & 0xFFFFFFFF)
-        overlapped.OffsetHigh = DWORD((offset >> 32) & 0xFFFFFFFF)
+        overlapped.Offset = DWORD(UInt64(bitPattern: offset) & 0xFFFFFFFF)
+        overlapped.OffsetHigh = DWORD((UInt64(bitPattern: offset) >> 32) & 0xFFFFFFFF)
         var bytesWritten = 0 as DWORD
         try execThrowingCFunction {
             WriteFile(unsafeRawHandle, buffer.baseAddress, DWORD(buffer.count), &bytesWritten, &overlapped)
@@ -445,15 +445,16 @@ extension UnsafeSystemHandle {
 
         #if canImport(WinSDK)
 
-        let currentFilePointerOffset = try self.tell()
-        defer {
-            _ = try? self.seek(to: currentFilePointerOffset, from: .beginning)
-        }
-
-        try self.seek(to: offset, from: .beginning)
+        var truncateInfo = FILE_END_OF_FILE_INFO()
+        truncateInfo.EndOfFile = LARGE_INTEGER(QuadPart: offset)
 
         try execThrowingCFunction {
-            SetEndOfFile(self.unsafeRawHandle)
+            SetFileInformationByHandle(
+                self.unsafeRawHandle,
+                FileEndOfFileInfo,
+                &truncateInfo,
+                DWORD(MemoryLayout<FILE_END_OF_FILE_INFO>.size)
+            )
         }
 
         #else 

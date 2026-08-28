@@ -69,6 +69,7 @@ extension SystemErrorCode {
             case .operationNotSupported: .unsupported
             case .valueTooLarge: .arithmeticOverflow
             case .tooManyLevelSymbolicLinks: .pathResolutionFailed
+            case .brokenPipe: .brokenPipe
             default: .unknown
         }
     }

@@ -3,19 +3,21 @@ import FileSystemCore
 
 
 
-public protocol FileHandleProtocol: ~Copyable {
+public protocol FileHandleProtocol: ~Copyable, ~Escapable {
 
     var path: FilePath { get }
-
-    consuming func close() throws(PlatformError)
-
-    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R
 
 }
 
 
 
-extension FileHandleProtocol where Self: ~Copyable {
+public protocol SystemHandleSupportedFileHandleProtocol: ~Copyable, ~Escapable {
+    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R
+}
+
+
+
+extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHandleSupportedFileHandleProtocol {
 
     public func fileInfo() throws(PlatformError) -> FileInfo {
         try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
@@ -186,7 +188,7 @@ extension FileHandleProtocol where Self: ~Copyable {
 
 
 
-public protocol SeekableFileHandleProtocol: ~Copyable, FileHandleProtocol {
+public protocol SeekableFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
     @discardableResult
     func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64
@@ -195,7 +197,7 @@ public protocol SeekableFileHandleProtocol: ~Copyable, FileHandleProtocol {
 
 
 
-extension SeekableFileHandleProtocol where Self: ~Copyable {
+extension SeekableFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
     public var currentOffset: Int64 {
         get throws(PlatformError) {
@@ -222,114 +224,26 @@ extension SeekableFileHandleProtocol where Self: ~Copyable {
 
 
 
-public protocol ReadFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
-
-    func read(fromOffset offset: Int64?, into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64
-
-}
-
-
-
-extension ReadFileHandleProtocol where Self: ~Copyable {
-
-    public func read(into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
-        return try read(fromOffset: nil, into: &buffer)
-    }
-
-
-    public func read(fromOffset offset: Int64? = nil, into buffer: consuming MutableRawSpan) throws(PlatformError) -> Int64 {
-        return try read(fromOffset: offset, into: &buffer)
-    }
-
-
-    public func read(
-        fromOffset offset: Int64? = nil,
-        into buffer: inout ByteBuffer,
-        at bufferRange: some RangeExpression<Int> = 0...
-    ) throws(PlatformError) -> Int64 {
-        return try read(fromOffset: offset, into: buffer.mutableBytes._consumingExtracting(bufferRange))
-    }
-
-
-    public func read(fromOffset offset: Int64? = nil, length: Int64) throws(PlatformError) -> ByteBuffer {
-        var buffer = ByteBuffer(count: Int(length))
-        let bytesRead = try read(fromOffset: offset, into: &buffer, at: ..<Int(length))
-        buffer.removeLast(Int(Int64(buffer.count) - bytesRead))
-        return buffer
-    }
-
-}
-
-
-
-public protocol WriteFileHandleProtocol: ~Copyable, SeekableFileHandleProtocol {
-    
-    @discardableResult
-    func write(_ buffer: RawSpan, toOffset offset: Int64?) throws(PlatformError) -> Int64
-
-    func resize(to size: Int64) throws(PlatformError)
-
-    func synchronize() throws(PlatformError)
-
-}
-
-
-
-extension WriteFileHandleProtocol where Self: ~Copyable {
-    
-    @discardableResult
-    func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
-        return try write(buffer, toOffset: nil)
-    }
-    
-    
-    @discardableResult
-    public func write(_ data: ByteBuffer, toOffset offset: Int64? = nil) throws(PlatformError) -> Int64 {
-        return try write(data.bytes, toOffset: offset)
-    }
-
-}
-
-
-
-public protocol AppendableFileHandleProtocol: ~Copyable, FileHandleProtocol {
+extension SeekableFileHandleProtocol where Self: ~Copyable & ~Escapable & SystemHandleSupportedFileHandleProtocol {
 
     @discardableResult
-    func append(_ buffer: RawSpan) throws(PlatformError) -> Int64
-
-}
-
-
-
-extension AppendableFileHandleProtocol where Self: ~Copyable {
-    
-    @discardableResult
-    public func append(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
-        return try append(data.bytes)
+    public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64 {
+        return try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
+            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
+                try handle.seek(to: offset, from: whence)
+            }
+        }
     }
-    
-}
 
 
-
-public typealias ReadWriteFileHandleProtocol = ReadFileHandleProtocol & WriteFileHandleProtocol
-
-
-
-public protocol DirectoryHandleProtocol: ~Copyable, FileHandleProtocol {
-
-    // MARK: TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
-    // associatedtype DirectoryEntryDirectSequenceType: DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable
-    // associatedtype DirectoryEntryRecursiveSequenceType: DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable
-    typealias DirectoryEntryRecursiveSequenceType = any (DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable)
-    typealias DirectoryEntryDirectSequenceType = any (DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable)
-
-    func directEntries(options: FileOperationOptions.DirectoryTraversalOption) throws(PlatformError) -> [DirectoryEntry]
-
-    @_lifetime(borrow self)
-    func entryDirectSequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryDirectSequenceType
-
-    @_lifetime(borrow self)
-    func entryRecursiveSequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryRecursiveSequenceType
+    public var currentOffset: Int64 {
+        get throws(PlatformError) {
+            try catchLowLevelError(operation: .readHandleOffset(originalPath: path)) { () throws(LowLevelError) in
+                try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
+                    try handle.tell()
+                }
+            }
+        }
+    }
 
 }

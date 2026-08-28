@@ -23,7 +23,8 @@ extension PlatformTypesAPITests.ErrorTests.ErrorKindTests {
         arguments: [
             .notFound, .permissionDenied, .alreadyExists, .invalidInput, .isADirectory,
             .notADirectory, .notASymlink, .notEmptyDirectory, .invalidHandle, .noEnoughSpace,
-            .nameTooLong, .unsupported, .arithmeticOverflow, .pathResolutionFailed, .unknown,
+            .nameTooLong, .unsupported, .arithmeticOverflow, .pathResolutionFailed,
+            .peerUnavailable, .brokenPipe, .unknown,
             .windows.permissionDeniedOrIsADirectory
         ] as [PlatformErrorKind]
     )

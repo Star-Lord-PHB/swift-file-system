@@ -18,6 +18,8 @@ public struct PlatformErrorKind: Sendable, Equatable, Hashable {
         case unsupported
         case arithmeticOverflow
         case pathResolutionFailed
+        case peerUnavailable
+        case brokenPipe
         
         case windowsPermissionDeniedOrIsADirectory
 
@@ -55,6 +57,8 @@ public struct PlatformErrorKind: Sendable, Equatable, Hashable {
     public static var unknown: PlatformErrorKind { .init(.unknown) }
     public static var arithmeticOverflow: PlatformErrorKind { .init(.arithmeticOverflow) }
     public static var pathResolutionFailed: PlatformErrorKind { .init(.pathResolutionFailed) }
+    public static var peerUnavailable: PlatformErrorKind { .init(.peerUnavailable) }
+    public static var brokenPipe: PlatformErrorKind { .init(.brokenPipe) }
 
 
     public enum Windows {
@@ -91,6 +95,8 @@ extension PlatformErrorKind: CustomStringConvertible {
             case .unsupported: "Operation not supported"
             case .arithmeticOverflow: "Arithmetic overflow"
             case .pathResolutionFailed: "Path resolution failed"
+            case .peerUnavailable: "Peer is unavailable"
+            case .brokenPipe: "Broken pipe"
 
             case .windowsPermissionDeniedOrIsADirectory: "Permission denied or item is a directory"
 

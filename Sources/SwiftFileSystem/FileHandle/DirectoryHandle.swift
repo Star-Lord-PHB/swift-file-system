@@ -1,9 +1,9 @@
-import SystemPackage
+import struct SystemPackage.FilePath
 import FileSystemCore
 
 
 
-public struct DirectoryHandle: ~Copyable, DirectoryHandleProtocol {
+public struct DirectoryHandle: ~Copyable, @unchecked Sendable, DirectoryHandleProtocol, SystemHandleSupportedFileHandleProtocol {
 
     fileprivate let handle: UnsafeSystemHandle 
     public let path: FilePath

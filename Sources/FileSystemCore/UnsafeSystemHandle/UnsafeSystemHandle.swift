@@ -97,6 +97,20 @@ package struct UnsafeUnownedSystemHandle: ~Escapable {
 
     package let unsafeRawHandle: SystemHandleType
 
+    package func unsafeTemporaryConvertingToOwning<R: ~Copyable, E: Error>(
+        _ operation: (borrowing UnsafeSystemHandle) throws(E) -> R
+    ) throws(E) -> R {
+        let unsafeTmpHandle = UnsafeSystemHandle(owningRawHandle: unsafeRawHandle)
+        do {
+            let r = try operation(unsafeTmpHandle)
+            _ = unsafeTmpHandle.take()      // This consumes the tmp handle without closing it
+            return r
+        } catch {
+            _ = unsafeTmpHandle.take()      // This consumes the tmp handle without closing it
+            throw error
+        }
+    }
+
 }
 
 
@@ -237,6 +251,7 @@ extension UnsafeSystemHandle {
                 public static var noFollow: NativeOpenFlag { .init(rawValue: O_NOFOLLOW) }
                 public static var closeOnExec: NativeOpenFlag { .init(rawValue: O_CLOEXEC) }
                 public static var nonBlocking: NativeOpenFlag { .init(rawValue: O_NONBLOCK) }
+                public static var noCtty: NativeOpenFlag { .init(rawValue: O_NOCTTY) }
                 public static var directory: NativeOpenFlag { .init(rawValue: O_DIRECTORY) }
                 #else
                 public static var truncate: NativeOpenFlag { .init(rawValue: 0) }
@@ -244,6 +259,7 @@ extension UnsafeSystemHandle {
                 public static var noFollow: NativeOpenFlag { .init(rawValue: 0) }
                 public static var closeOnExec: NativeOpenFlag { .init(rawValue: 0) }
                 public static var nonBlocking: NativeOpenFlag { .init(rawValue: 0) }
+                public static var noCtty: NativeOpenFlag { .init(rawValue: 0) }
                 public static var directory: NativeOpenFlag { .init(rawValue: 0) }
                 #endif
             }

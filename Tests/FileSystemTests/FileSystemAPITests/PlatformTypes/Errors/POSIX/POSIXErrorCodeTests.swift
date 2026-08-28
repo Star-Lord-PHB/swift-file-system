@@ -118,7 +118,8 @@ extension PlatformTypesAPITests.ErrorTests.POSIXErrorCodeTests {
             (.fileNameTooLong, .nameTooLong),
             (.operationNotSupported, .unsupported),
             (.valueTooLarge, .arithmeticOverflow),
-            (.tooManyLevelSymbolicLinks, .pathResolutionFailed)
+            (.tooManyLevelSymbolicLinks, .pathResolutionFailed),
+            (.brokenPipe, .brokenPipe)
         ] as [(SystemErrorCode, PlatformErrorKind)]
     )
     func `Error codes map to their default kind`(
@@ -136,7 +137,7 @@ extension PlatformTypesAPITests.ErrorTests.POSIXErrorCodeTests {
     @Test(
         arguments: [
             .interruptedSystemCall, .ioError, .deviceOrResourceBusy, .crossDeviceLink,
-            .brokenPipe, .staleFileHandle
+            .staleFileHandle
         ] as [SystemErrorCode]
     )
     func `Unmapped error codes fall back to unknown`(_ code: SystemErrorCode) throws {

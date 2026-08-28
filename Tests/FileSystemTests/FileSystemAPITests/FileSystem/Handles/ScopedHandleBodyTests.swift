@@ -17,7 +17,7 @@ extension FileSystemAPITests.HandlesTests {
             let probe = try handle.withUnsafeSystemHandle {
                 try Support.SystemHandleProbe(capturing: $0)
             }
-            return (probe, try handle.read(length: 8))
+            return (probe, try handle.read(fromOffset: 0, length: 8))
         }
 
         #expect(contents == ByteBuffer("contents".utf8))
@@ -35,7 +35,7 @@ extension FileSystemAPITests.HandlesTests {
             let probe = try handle.withUnsafeSystemHandle {
                 try Support.SystemHandleProbe(capturing: $0)
             }
-            return (probe, try handle.write(ByteBuffer("contents".utf8)))
+            return (probe, try handle.write(ByteBuffer("contents".utf8), toOffset: 0))
         }
 
         #expect(written == 8)
@@ -71,7 +71,7 @@ extension FileSystemAPITests.HandlesTests {
             let probe = try handle.withUnsafeSystemHandle {
                 try Support.SystemHandleProbe(capturing: $0)
             }
-            return (probe, try handle.read(length: 8))
+            return (probe, try handle.read(fromOffset: 0, length: 8))
         }
 
         #expect(contents == ByteBuffer("contents".utf8))
@@ -110,7 +110,7 @@ extension FileSystemAPITests.HandlesTests {
         let path = try workspace.makeFile(at: "file", contents: "contents")
 
         let result = try fileSystem.withFileHandle(forReadingAt: path) { handle in
-            NonCopyableResult(contents: try handle.read(length: 8))
+            NonCopyableResult(contents: try handle.read(fromOffset: 0, length: 8))
         }
 
         #expect(result.contents == ByteBuffer("contents".utf8))
@@ -237,7 +237,7 @@ extension FileSystemAPITests.HandlesTests {
         let path = try workspace.makeFile(at: "file")
 
         try fileSystem.withFileHandle(forWritingAt: path) { handle in
-            _ = try handle.write(ByteBuffer("contents".utf8))
+            _ = try handle.write(ByteBuffer("contents".utf8), toOffset: 0)
         }
 
         #expect(try capturedContents(at: path) == ByteBuffer("contents".utf8))
@@ -265,7 +265,7 @@ extension FileSystemAPITests.HandlesTests {
         let path = try workspace.makeFile(at: "file", contents: "existing contents")
 
         try fileSystem.withFileHandle(forUpdatingAt: path) { handle in
-            _ = try handle.write(ByteBuffer("replaced".utf8))
+            _ = try handle.write(ByteBuffer("replaced".utf8), toOffset: 0)
         }
 
         #expect(try capturedContents(at: path) == ByteBuffer("replaced contents".utf8))

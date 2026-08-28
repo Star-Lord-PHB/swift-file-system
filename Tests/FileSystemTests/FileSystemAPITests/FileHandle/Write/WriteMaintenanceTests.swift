@@ -6,15 +6,12 @@ import SwiftFileSystem
 extension FileHandleAPITests.WriteTests {
 
     @Test
-    func `Resize shrinks file and preserves offset`() throws {
+    func `Resize shrinks the file`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "0123456789")
         let handle = try WriteFileHandle(forFileAt: path)
-        _ = try handle.seek(to: 8, relativeTo: .beginning)
 
         try handle.resize(to: 4)
-
-        #expect(try handle.currentOffset == 8)
 
         try handle.close()
 
@@ -24,15 +21,12 @@ extension FileHandleAPITests.WriteTests {
 
 
     @Test
-    func `Resize grows file and preserves offset`() throws {
+    func `Resize grows the file with zero fill`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "abc")
         let handle = try WriteFileHandle(forFileAt: path)
-        _ = try handle.seek(to: 1, relativeTo: .beginning)
 
         try handle.resize(to: 6)
-
-        #expect(try handle.currentOffset == 1)
 
         try handle.close()
 
@@ -46,14 +40,12 @@ extension FileHandleAPITests.WriteTests {
 
         let path = try workspace.makeFile(at: "file", contents: "contents")
         let handle = try WriteFileHandle(forFileAt: path)
-        _ = try handle.seek(to: 2, relativeTo: .beginning)
 
         let error = #expect(throws: PlatformError.self) {
             try handle.resize(to: -1)
         }
 
         #expect(error?.kind == .invalidInput)
-        #expect(try handle.currentOffset == 2)
 
         try handle.close()
 
@@ -67,7 +59,7 @@ extension FileHandleAPITests.WriteTests {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try WriteFileHandle(forFileAt: path)
-        _ = try handle.write(ByteBuffer("contents".utf8))
+        _ = try handle.write(ByteBuffer("contents".utf8), toOffset: 0)
 
         try handle.synchronize()
         try handle.close()

@@ -26,6 +26,20 @@ public enum FileOperationOptions {
     }
 
 
+    public struct OpenForStreaming {
+
+        public var noFollow: Bool
+        public var closeOnExec: Bool
+
+
+        public init(noFollow: Bool = false, closeOnExec: Bool = true) {
+            self.noFollow = noFollow
+            self.closeOnExec = closeOnExec
+        }
+
+    }
+
+
     public struct OpenForDirectory {
 
         public var noFollow: Bool
