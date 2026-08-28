@@ -41,8 +41,7 @@ extension AppendHandle {
             truncate: options.truncate, 
             append: true,
             noFollow: options.noFollow, 
-            closeOnExec: options.closeOnExec,
-            noBlocking: false
+            closeOnExec: options.closeOnExec
         )
 
         #if canImport(WinSDK)
@@ -112,8 +111,7 @@ extension AppendHandle {
             truncate: options.truncate, 
             append: true,
             noFollow: options.noFollow, 
-            closeOnExec: options.closeOnExec,
-            noBlocking: false
+            closeOnExec: options.closeOnExec
         )
 
         if options.noFollow && options.truncate && creationOption != .assertMissing {

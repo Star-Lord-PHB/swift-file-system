@@ -104,10 +104,16 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
             Options(noFollow: true).openFlags
                 == DWORD(FILE_ATTRIBUTE_NORMAL) | DWORD(FILE_FLAG_OPEN_REPARSE_POINT)
         )
-        #expect(
-            Options(noBlocking: true).openFlags
-                == DWORD(FILE_ATTRIBUTE_NORMAL) | DWORD(FILE_FLAG_OVERLAPPED)
-        )
+
+    }
+
+
+    // Non-blocking is not a semantic option: overlapped I/O is requested through the
+    // native-flag diff instead.
+    @Test
+    func `Overlapped-IO diff constant wraps its native flag`() {
+
+        #expect(Options.NativeOpenFlag.windows.overlappedIO.rawValue == DWORD(FILE_FLAG_OVERLAPPED))
 
     }
 

@@ -38,9 +38,20 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
     @Test
     func `Semantic options derive the corresponding open flags`() {
 
-        let options = Options(truncate: true, append: true, closeOnExec: true, noBlocking: true)
+        let options = Options(truncate: true, append: true, closeOnExec: true)
 
-        #expect(options.openFlags == O_TRUNC | O_APPEND | O_CLOEXEC | O_NONBLOCK)
+        #expect(options.openFlags == O_TRUNC | O_APPEND | O_CLOEXEC)
+
+    }
+
+
+    // Non-blocking is not a semantic option: O_NONBLOCK and FILE_FLAG_OVERLAPPED are
+    // different concepts, so callers request each through the native-flag diff.
+    @Test
+    func `Non-blocking and no-ctty diff constants wrap their native flags`() {
+
+        #expect(Options.NativeOpenFlag.posix.nonBlocking.rawValue == O_NONBLOCK)
+        #expect(Options.NativeOpenFlag.posix.noCtty.rawValue == O_NOCTTY)
 
     }
 

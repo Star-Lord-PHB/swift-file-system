@@ -9,7 +9,7 @@ extension UnsafeSystemHandleAPITests {
     /// and fsync.
     ///
     /// Positional I/O is exercised on synchronous handles only: on Windows, `pread`/`pwrite` are
-    /// documented as invalid for handles opened with `noBlocking` (FILE_FLAG_OVERLAPPED), whose
+    /// documented as invalid for handles opened with `.windows.overlappedIO` (FILE_FLAG_OVERLAPPED), whose
     /// I/O lives in the Windows overlapped suite instead.
     @Suite("IO")
     struct IOTests {

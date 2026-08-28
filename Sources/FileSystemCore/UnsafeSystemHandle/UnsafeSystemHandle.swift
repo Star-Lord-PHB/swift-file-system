@@ -355,7 +355,6 @@ extension UnsafeSystemHandle {
         public var append: Bool 
         public var noFollow: Bool 
         public var closeOnExec: Bool
-        public var noBlocking: Bool 
 
         public var platformAccessModeFlagsDiff: NativeFlagDiff<NativeAccessModeFlag>
         public var platformCreationFlagsOverride: NativeCreationFlag?
@@ -370,7 +369,6 @@ extension UnsafeSystemHandle {
             append: Bool = false, 
             noFollow: Bool = false, 
             closeOnExec: Bool = true, 
-            noBlocking: Bool = false, 
             platformAccessModeFlagsDiff: NativeFlagDiff<NativeAccessModeFlag> = .init(),
             platformCreationFlagsOverride: NativeCreationFlag? = nil,
             platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag> = .init(),
@@ -382,7 +380,6 @@ extension UnsafeSystemHandle {
             self.append = append
             self.noFollow = noFollow
             self.closeOnExec = closeOnExec
-            self.noBlocking = noBlocking
             self.platformAccessModeFlagsDiff = platformAccessModeFlagsDiff
             self.platformCreationFlagsOverride = platformCreationFlagsOverride
             self.platformOpenFlagsDiff = platformOpenFlagsDiff
@@ -488,7 +485,6 @@ extension UnsafeSystemHandle {
 
             flags |= FlagType(bitPattern: FILE_ATTRIBUTE_NORMAL)
             if noFollow { flags |= FlagType(bitPattern: FILE_FLAG_OPEN_REPARSE_POINT) }
-            if noBlocking { flags |= FlagType(bitPattern: FILE_FLAG_OVERLAPPED) }
 
             return platformOpenFlagsDiff.apply(to: flags, mask: ~0)
 
@@ -502,7 +498,6 @@ extension UnsafeSystemHandle {
             if noFollow { flags |= O_NOFOLLOW }
             #endif 
             if closeOnExec { flags |= O_CLOEXEC }
-            if noBlocking { flags |= O_NONBLOCK }
 
             #if !(canImport(Darwin) || os(OpenBSD))
             let mask = ~(O_ACCMODE | __O_PATH | O_CREAT | O_EXCL)

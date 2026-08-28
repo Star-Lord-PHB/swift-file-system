@@ -64,7 +64,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(), noBlocking: true)
+            openOptions: .init(access: .readOnly(), platformOpenFlagsDiff: .inserted(.windows.overlappedIO))
         )
 
         var buffer = Data(count: 5)
@@ -87,7 +87,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(), noBlocking: true)
+            openOptions: .init(access: .readOnly(), platformOpenFlagsDiff: .inserted(.windows.overlappedIO))
         )
 
         var head = Data(count: 5)
@@ -123,7 +123,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(), noBlocking: true)
+            openOptions: .init(access: .readOnly(), platformOpenFlagsDiff: .inserted(.windows.overlappedIO))
         )
 
         var buffer = Data(repeating: 0xFF, count: 7)
@@ -149,7 +149,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), noBlocking: true)
+            openOptions: .init(access: .writeOnly(), platformOpenFlagsDiff: .inserted(.windows.overlappedIO))
         )
 
         let payload = Data("World".utf8)
@@ -181,7 +181,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), noBlocking: true)
+            openOptions: .init(access: .writeOnly(), platformOpenFlagsDiff: .inserted(.windows.overlappedIO))
         )
 
         // An offset of -1 is 0xFFFFFFFF in both OVERLAPPED halves, which the kernel resolves to
@@ -213,7 +213,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.OverlappedTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(), noBlocking: true)
+            openOptions: .init(access: .readOnly(), platformOpenFlagsDiff: .inserted(.windows.overlappedIO))
         )
 
         let error = #expect(throws: LowLevelError.self) {

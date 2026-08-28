@@ -23,20 +23,11 @@ enum StreamingOpen {
         options: FileOperationOptions.OpenForStreaming
     ) throws(PlatformError) -> UnsafeSystemHandle {
 
-        #if canImport(WinSDK)
-        // OpenOptions.noBlocking selects FILE_FLAG_OVERLAPPED here, which the synchronous
-        // streaming I/O cannot use.
-        let noBlockingOpen = false
-        #else
-        let noBlockingOpen = true
-        #endif
-
         let openOptions = UnsafeSystemHandle.OpenOptions(
             access: access,
             noFollow: options.noFollow,
             closeOnExec: options.closeOnExec,
-            noBlocking: noBlockingOpen,
-            platformOpenFlagsDiff: .inserted(.posix.noCtty)
+            platformOpenFlagsDiff: .inserted([.posix.nonBlocking, .posix.noCtty])
         )
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
