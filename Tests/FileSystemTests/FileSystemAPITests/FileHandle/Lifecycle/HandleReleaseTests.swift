@@ -86,6 +86,54 @@ extension FileHandleAPITests.LifecycleTests {
 
 
     @Test
+    func `StreamingReadHandle close releases the system handle`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try StreamingReadHandle(forFileAt: path)
+        let probe = try handle.withUnsafeSystemHandle {
+            try Support.SystemHandleProbe(capturing: $0)
+        }
+
+        try handle.close()
+
+        #expect(probe.isReleased)
+
+    }
+
+
+    @Test
+    func `StreamingWriteHandle close releases the system handle`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try StreamingWriteHandle(forFileAt: path)
+        let probe = try handle.withUnsafeSystemHandle {
+            try Support.SystemHandleProbe(capturing: $0)
+        }
+
+        try handle.close()
+
+        #expect(probe.isReleased)
+
+    }
+
+
+    @Test
+    func `StreamingReadWriteHandle close releases the system handle`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try StreamingReadWriteHandle(forFileAt: path)
+        let probe = try handle.withUnsafeSystemHandle {
+            try Support.SystemHandleProbe(capturing: $0)
+        }
+
+        try handle.close()
+
+        #expect(probe.isReleased)
+
+    }
+
+
+    @Test
     func `Dropping a handle without close releases the system handle`() throws {
 
         let path = try workspace.makeFile(at: "file")

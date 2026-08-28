@@ -117,6 +117,45 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `StreamingReadHandle fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try StreamingReadHandle(forFileAt: path)
+
+        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+
+        try handle.close()
+
+    }
+
+
+    @Test
+    func `StreamingWriteHandle fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try StreamingWriteHandle(forFileAt: path)
+
+        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+
+        try handle.close()
+
+    }
+
+
+    @Test
+    func `StreamingReadWriteHandle fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try StreamingReadWriteHandle(forFileAt: path)
+
+        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+
+        try handle.close()
+
+    }
+
+
+    @Test
     func `SequentialReader fileInfo matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
@@ -151,6 +190,24 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try AppendHandle(forFileAt: path)
+
+        try handle.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `StreamingWriteHandle sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try StreamingWriteHandle(forFileAt: path)
 
         try handle.setFileTimes(
             access: sampleAccessTime,
