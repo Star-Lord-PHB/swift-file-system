@@ -5,14 +5,14 @@ import PlatformCLib
 
 public enum FileOperationOptions {
 
-    public enum CreateFile {
+    public enum CreateFile: Sendable {
         case never
         case createIfMissing
         case assertMissing
     }
 
 
-    public struct OpenForReading {
+    public struct OpenForReading: Sendable {
 
         public var noFollow: Bool
         public var closeOnExec: Bool
@@ -26,7 +26,7 @@ public enum FileOperationOptions {
     }
 
 
-    public struct OpenForStreaming {
+    public struct OpenForStreaming: Sendable {
 
         public var noFollow: Bool
         public var closeOnExec: Bool
@@ -40,7 +40,7 @@ public enum FileOperationOptions {
     }
 
 
-    public struct OpenForDirectory {
+    public struct OpenForDirectory: Sendable {
 
         public var noFollow: Bool
         public var closeOnExec: Bool
@@ -54,7 +54,7 @@ public enum FileOperationOptions {
     }
 
 
-    public struct OpenForWriting {
+    public struct OpenForWriting: Sendable {
 
         public var createFile: CreateFile
         public var truncate: Bool 
