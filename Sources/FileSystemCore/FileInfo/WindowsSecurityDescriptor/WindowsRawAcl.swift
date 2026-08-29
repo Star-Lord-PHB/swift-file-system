@@ -207,4 +207,11 @@ extension WindowsRawAcl {
 
 }
 
+
+
+// A read-only view whose storage the lifetime system keeps immutably borrowed for as long
+// as the view lives (all ACL mutations are `mutating` on the owner), so concurrent reads
+// are safe; @unchecked only because the stored pointer wrapper is not Sendable.
+extension WindowsRawAcl.View: @unchecked Sendable {}
+
 #endif

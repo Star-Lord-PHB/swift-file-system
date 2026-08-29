@@ -94,7 +94,7 @@ public enum WindowsRawAclState: ~Copyable {
 /// A borrowed decode of an ACL slot (DACL or SACL) as stored in a security descriptor,
 /// including the wire-level `defaulted` flag that the owning ``WindowsRawAclState`` does
 /// not carry.
-public enum WindowsRawAclStateView: ~Escapable {
+public enum WindowsRawAclStateView: ~Escapable, Sendable {
 
     case absent
     case null(defaulted: Bool)
@@ -189,5 +189,6 @@ extension WindowsRawAclStateView {
     }
 
 }
+
 
 #endif

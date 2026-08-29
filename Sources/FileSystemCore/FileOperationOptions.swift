@@ -220,7 +220,7 @@ public enum FileOperationOptions {
         public static var allExceptSacl: Self { [.owner, .group, .dacl] }
     }
 
-    public enum WindowsAclUpdateRequest: ~Escapable {
+    public enum WindowsAclUpdateRequest: ~Escapable, Sendable {
         case replace(WindowsRawAcl.View)
         case remove
         case noChange

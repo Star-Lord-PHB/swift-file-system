@@ -66,4 +66,13 @@ extension WindowsSecurityDescriptorView {
 
 }
 
+
+
+// A read-only view whose storage the lifetime system keeps immutably borrowed for as long
+// as the view lives, so concurrent reads from any thread are safe (the same argument that
+// makes RawSpan Sendable); @unchecked only because the stored pointer wrapper is not
+// Sendable. Mutating the storage through an Unsafe escape hatch while a view is shared
+// remains the caller's responsibility, exactly as it is single-threaded.
+extension WindowsSecurityDescriptorView: @unchecked Sendable {}
+
 #endif

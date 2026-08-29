@@ -252,4 +252,11 @@ extension WindowsSid.View {
 }
 
 
+
+// A read-only view over an immutable SID (the owning WindowsSid has no mutators), so
+// concurrent reads are safe; @unchecked only because the stored pointer wrapper is not
+// Sendable.
+extension WindowsSid.View: @unchecked Sendable {}
+
+
 #endif

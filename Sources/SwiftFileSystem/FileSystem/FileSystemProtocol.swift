@@ -73,10 +73,10 @@ public protocol FileSystemProtocol: Sendable {
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
     
     func setSecurityInfo(
-        forItemAt path: FilePath, 
-        dacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
-        sacl: consuming FileOperationOptions.WindowsAclUpdateRequest, 
-        owner: PlatformIdentity?, 
+        forItemAt path: FilePath,
+        dacl: FileOperationOptions.WindowsAclUpdateRequest,
+        sacl: FileOperationOptions.WindowsAclUpdateRequest,
+        owner: PlatformIdentity?,
         group: PlatformIdentity?,
         followSymlink: Bool
     ) throws(PlatformError)
@@ -132,6 +132,7 @@ extension FileSystemProtocol {
         try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
     }
 
+
     public func createFile(
         at path: FilePath, 
         replaceExisting: Bool = false, 
@@ -149,6 +150,7 @@ extension FileSystemProtocol {
     ) throws(PlatformError) {
         try createDirectory(at: path, withIntermediateDirectories: withIntermediateDirectories, permissions: permissions.view)
     }
+
 
     public func createDirectory(
         at path: FilePath, 
