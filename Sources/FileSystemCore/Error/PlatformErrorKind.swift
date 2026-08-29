@@ -20,7 +20,8 @@ public struct PlatformErrorKind: Sendable, Equatable, Hashable {
         case pathResolutionFailed
         case peerUnavailable
         case brokenPipe
-        
+        case cancelled
+
         case windowsPermissionDeniedOrIsADirectory
 
         case unknown
@@ -59,6 +60,11 @@ public struct PlatformErrorKind: Sendable, Equatable, Hashable {
     public static var pathResolutionFailed: PlatformErrorKind { .init(.pathResolutionFailed) }
     public static var peerUnavailable: PlatformErrorKind { .init(.peerUnavailable) }
     public static var brokenPipe: PlatformErrorKind { .init(.brokenPipe) }
+    /// The operation was cancelled before or while it was performed. Without a `systemCode`
+    /// the cancellation was library-generated (Swift task cancellation) and the operation was
+    /// never performed; with one, the OS reported the cancellation (e.g. POSIX `ECANCELED`,
+    /// Windows `ERROR_OPERATION_ABORTED`) and its effects follow platform semantics.
+    public static var cancelled: PlatformErrorKind { .init(.cancelled) }
 
 
     public enum Windows {
@@ -97,6 +103,7 @@ extension PlatformErrorKind: CustomStringConvertible {
             case .pathResolutionFailed: "Path resolution failed"
             case .peerUnavailable: "Peer is unavailable"
             case .brokenPipe: "Broken pipe"
+            case .cancelled: "Operation cancelled"
 
             case .windowsPermissionDeniedOrIsADirectory: "Permission denied or item is a directory"
 

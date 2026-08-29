@@ -43,6 +43,7 @@ extension SystemErrorCode {
     @inlinable public static var staleFileHandle: Self { .init(rawValue: ESTALE) }
     @inlinable public static var noEnoughSpace: Self { .init(rawValue: ENOSPC) }
     @inlinable public static var operationNotSupported: Self { .init(rawValue: ENOTSUP) }
+    @inlinable public static var operationCanceled: Self { .init(rawValue: ECANCELED) }
 
     #if canImport(Glibc) || canImport(Musl)
     @inlinable public static var noMediumFound: Self { .init(rawValue: ENOMEDIUM) }
@@ -70,6 +71,7 @@ extension SystemErrorCode {
             case .valueTooLarge: .arithmeticOverflow
             case .tooManyLevelSymbolicLinks: .pathResolutionFailed
             case .brokenPipe: .brokenPipe
+            case .operationCanceled: .cancelled
             default: .unknown
         }
     }

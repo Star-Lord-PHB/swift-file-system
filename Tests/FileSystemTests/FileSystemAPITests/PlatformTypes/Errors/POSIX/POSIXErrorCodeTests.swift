@@ -65,7 +65,8 @@ extension PlatformTypesAPITests.ErrorTests.POSIXErrorCodeTests {
             (.tooManyLevelSymbolicLinks, ELOOP),
             (.valueTooLarge, EOVERFLOW),
             (.staleFileHandle, ESTALE),
-            (.operationNotSupported, ENOTSUP)
+            (.operationNotSupported, ENOTSUP),
+            (.operationCanceled, ECANCELED)
         ] as [(SystemErrorCode, CInt)]
     )
     func `Error codes wrap their native errno value`(
@@ -119,7 +120,8 @@ extension PlatformTypesAPITests.ErrorTests.POSIXErrorCodeTests {
             (.operationNotSupported, .unsupported),
             (.valueTooLarge, .arithmeticOverflow),
             (.tooManyLevelSymbolicLinks, .pathResolutionFailed),
-            (.brokenPipe, .brokenPipe)
+            (.brokenPipe, .brokenPipe),
+            (.operationCanceled, .cancelled)
         ] as [(SystemErrorCode, PlatformErrorKind)]
     )
     func `Error codes map to their default kind`(
