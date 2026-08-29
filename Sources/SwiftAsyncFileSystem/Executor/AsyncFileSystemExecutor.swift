@@ -7,6 +7,7 @@
 
 
 private import struct DequeModule.UniqueDeque
+package import struct FileSystemCore.PlatformError
 
 
 public final class AsyncFileSystemExecutor: Sendable {
@@ -202,6 +203,90 @@ extension AsyncFileSystemExecutor {
     }
     
 }
+
+
+extension AsyncFileSystemExecutor {
+
+    /// Like `run(_:)`, but observes Swift task cancellation at two points: before the task
+    /// is submitted, and on the worker thread right before the body starts. In both cases
+    /// `cancellationError` is thrown and the body has not run (and never will); once the
+    /// body has started it always runs to completion and its result is returned as usual,
+    /// even if the task was cancelled in the meantime.
+    ///
+    /// Worker threads run outside any Swift task context (`Task.isCancelled` is always
+    /// false there), so the in-queue check observes cancellation through a token set by
+    /// `withTaskCancellationHandler` instead.
+    ///
+    /// Package-level on purpose: the signature forces the body and the cancellation error
+    /// to share one error type, which fits this library (everything is `PlatformError`)
+    /// but is too specific a constraint to publish.
+    package func runCancellable<R: ~Copyable>(
+        cancellationError: @autoclosure @Sendable @escaping () -> PlatformError,
+        _ task: sending () throws(PlatformError) -> sending R
+    ) async throws(PlatformError) -> sending R {
+
+        guard !Task.isCancelled else {
+            throw cancellationError()
+        }
+
+        let token = CancellationToken()
+
+        return try await withoutActuallyEscaping(task) { (escapingClosure) async throws(PlatformError) in
+
+            nonisolated(unsafe) var taskWrapper = escapingClosure as (() throws -> sending R)?
+
+            do {
+                let box = try await withTaskCancellationHandler {
+                    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<NonCopyableBox<R>, any Error>) in
+                        self.submit(.init { @Sendable in
+                            guard !token.isCancelled else {
+                                // Release the unused task reference before resuming: resuming
+                                // lets `withoutActuallyEscaping` return, which traps if the
+                                // closure is still referenced at that point.
+                                taskWrapper = nil
+                                continuation.resume(throwing: cancellationError())
+                                return
+                            }
+                            do {
+                                let task = taskWrapper.take()!
+                                let result = try task()
+                                _ = consume task
+                                continuation.resume(returning: NonCopyableBox(result))
+                            } catch {
+                                continuation.resume(throwing: error)
+                            }
+                        })
+                    }
+                } onCancel: {
+                    token.cancel()
+                }
+                return box.take()!
+            } catch let error as PlatformError {
+                throw error
+            } catch {
+                preconditionFailure()
+            }
+
+        }
+
+    }
+
+
+    /// Convenience overload for the common case: cancellation surfaces as the library's
+    /// standard cancellation error — kind `.cancelled`, a `CancellationError` as the
+    /// underlying error, no system code — carrying the given operation context.
+    package func runCancellable<R: ~Copyable>(
+        operation: PlatformError.Operation,
+        _ task: sending () throws(PlatformError) -> sending R
+    ) async throws(PlatformError) -> sending R {
+        return try await runCancellable(
+            cancellationError: PlatformError(error: CancellationError(), kind: .cancelled, operation: operation),
+            task
+        )
+    }
+
+}
+
 
 
 @available(macOS 15, iOS 18, tvOS 18, watchOS 11, visionOS 2, *)
