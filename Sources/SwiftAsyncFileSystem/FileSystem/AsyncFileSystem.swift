@@ -11,17 +11,19 @@ import SwiftFileSystem
 /// Path-based async file-system operations, implemented by dispatching the synchronous
 /// `FileSystem` onto an `AsyncFileSystemExecutor`.
 ///
-/// The executor must have been started before any operation runs. Values of this type are
-/// cheap to copy and share; all state lives in the executor.
+/// The executor must already be running when the value is constructed; the default
+/// `AsyncFileSystemExecutor.defaultExecutor` starts itself on first use. Values of this
+/// type are cheap to copy and share; all state lives in the executor.
 public struct AsyncFileSystem: AsyncFileSystemProtocol {
 
     public let executor: AsyncFileSystemExecutor
-    public let fileSystem: FileSystem
+    let fileSystem: FileSystem
 
 
-    public init(executor: AsyncFileSystemExecutor, fileSystem: FileSystem = .init()) {
+    public init(executor: AsyncFileSystemExecutor = .defaultExecutor) {
+        precondition(executor.state == .running, "AsyncFileSystem requires a running executor")
         self.executor = executor
-        self.fileSystem = fileSystem
+        self.fileSystem = .init()
     }
 
 }

@@ -6,10 +6,14 @@
 //
 
 
+import PlatformCLib
 private import struct DequeModule.UniqueDeque
 package import struct FileSystemCore.PlatformError
 
 
+// TODO: Consider making the pool elastic (grow on demand, shrink when idle). The fixed
+// eager pool is the main reason defaultThreadCount stays small; with elasticity a much
+// wider cap becomes affordable for high-latency backends like network file systems.
 public final class AsyncFileSystemExecutor: Sendable {
     
     public struct CalledOnceExecutorTask: ~Copyable {
@@ -284,6 +288,37 @@ extension AsyncFileSystemExecutor {
             task
         )
     }
+
+}
+
+
+
+extension AsyncFileSystemExecutor {
+
+    /// Thread count used by `defaultExecutor`: the number of online processors clamped to
+    /// [2, 8]. Blocking file I/O parallelism is bounded by the storage device, so wider
+    /// pools mostly add idle threads.
+    public static let defaultThreadCount: Int = {
+        #if canImport(WinSDK)
+        var info = SYSTEM_INFO()
+        GetSystemInfo(&info)
+        let processorCount = Int(info.dwNumberOfProcessors)
+        #else
+        let processorCount = sysconf(Int32(_SC_NPROCESSORS_ONLN))
+        #endif
+        return max(2, min(8, processorCount))
+    }()
+
+
+    /// Shared process-wide pool, created and started on first use.
+    public static let defaultExecutor: AsyncFileSystemExecutor = {
+        let executor = AsyncFileSystemExecutor(
+            label: "swift-file-system-default-executor",
+            threadCount: defaultThreadCount
+        )
+        executor.start()
+        return executor
+    }()
 
 }
 
