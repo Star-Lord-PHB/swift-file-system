@@ -103,7 +103,10 @@ let package = Package(
         ),
         .testTarget(
             name: "FileSystemTests",
-            dependencies: ["SwiftFileSystem", "SwiftAsyncFileSystem", "SwiftFileSystemFoundationCompat"]
+            dependencies: ["SwiftFileSystem", "SwiftAsyncFileSystem", "SwiftFileSystemFoundationCompat"],
+            swiftSettings: [
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault")
+            ]
         ),
     ]
 )

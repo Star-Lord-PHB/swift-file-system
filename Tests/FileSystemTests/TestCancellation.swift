@@ -22,9 +22,10 @@ struct CatchTestCancellationSuite: TestTrait, SuiteTrait {
 
     struct TestScopeProvider: TestScoping {
 
-        func provideScope(for test: Test, testCase: Test.Case?, performing: () async throws -> Void) async throws {
+        @concurrent
+        func provideScope(for test: Test, testCase: Test.Case?, performing function: @concurrent @Sendable () async throws -> Void) async throws {
             do {
-                try await performing()
+                try await function()
             } catch let error as TestCancellationError {
                 #if swift(>=6.3)
                 Issue.record(

@@ -6,14 +6,10 @@
 //
 
 
-import PlatformCLib
 private import struct DequeModule.UniqueDeque
 package import struct FileSystemCore.PlatformError
 
 
-// TODO: Consider making the pool elastic (grow on demand, shrink when idle). The fixed
-// eager pool is the main reason defaultThreadCount stays small; with elasticity a much
-// wider cap becomes affordable for high-latency backends like network file systems.
 public final class AsyncFileSystemExecutor: Sendable {
     
     public struct CalledOnceExecutorTask: ~Copyable {
@@ -24,21 +20,27 @@ public final class AsyncFileSystemExecutor: Sendable {
     
     
     public enum State: Sendable, Equatable, Hashable {
-        case ready, running, stopped
+        case running, stopped
     }
     
     
     fileprivate final class Storage {
-        var state: State = .ready
+        var state: State = .running
         var tasks: UniqueDeque<CalledOnceExecutorTask> = .init()
+        var spawnedThreadCount: Int = 0
+        var idleThreadCount: Int = 0
+        var aliveThreadCount: Int = 0
     }
-    
+
     
     fileprivate struct LockedCondition: Sendable {
         private unowned let cond: ConditionalVariable
         init(_ cond: ConditionalVariable) { self.cond = cond }
         func wait() {
             cond.wait()
+        }
+        func wait(until deadline: MonotonicInstant) -> Bool {
+            cond.wait(until: deadline)
         }
         func signal() {
             cond.signal()
@@ -70,88 +72,173 @@ public final class AsyncFileSystemExecutor: Sendable {
     
     
     public let label: String
-    fileprivate let threads: [Thread]
+    public let minimumThreadCount: Int
+    public let maximumThreadCount: Int
+    fileprivate let idleTimeout: MonotonicDuration
     fileprivate let storage: AtomicStorage
     
     public var state: State { storage.state }
-    
-    
-    public init(label: String, threadCount: Int) {
+    public var idleTimeoutNano: Int64 { idleTimeout.nanoseconds }
 
-        precondition(threadCount > 0, "Executor needs at least one thread")
+    
+    public convenience init(label: String, threadCount: Int) {
+        self.init(
+            label: label,
+            minimumThreadCount: threadCount,
+            maximumThreadCount: threadCount,
+            idleTimeout: .init(nanoseconds: .max)
+        )
+    }
+
+
+    public init(label: String, minimumThreadCount: Int = 0, maximumThreadCount: Int, idleTimeout: MonotonicDuration = .seconds(10)) {
+
+        precondition(maximumThreadCount > 0, "Maximum thread count must be greater than 0")
+        precondition(minimumThreadCount <= maximumThreadCount, "Minimum thread count must be less than or equal to maximum thread count")
+        precondition(idleTimeout.nanoseconds > 0, "Idle timeout must be greater than 0")
 
         self.label = label
-        
-        let storage = AtomicStorage()
-        self.storage = storage
-        
-        self.threads = (0 ..< threadCount).map { i in
-            .init(
-                name: "\(label)-thread-\(i)",
-                task: { Self.threadTask(storage) }
-            )
+        self.minimumThreadCount = minimumThreadCount
+        self.maximumThreadCount = maximumThreadCount
+        self.idleTimeout = idleTimeout
+
+        let atomicStorage = AtomicStorage()
+        self.storage = atomicStorage
+
+        self.storage.withLock { storage, _ in
+            for i in 0 ..< minimumThreadCount {
+                Thread(name: Self.makeThreadName(label: label, id: i)) {
+                    Self.persistentThreadTask(atomicStorage)
+                }.start()
+            }
+            storage.aliveThreadCount = minimumThreadCount
+            storage.spawnedThreadCount = minimumThreadCount
         }
-        
+
     }
-    
-    
+
+
     deinit {
         storage.withLock { storage, cond in
             storage.state = .stopped
             cond.broadcast()
         }
     }
+
+
+    fileprivate static func makeThreadName(label: String, id: Int) -> String {
+        let idStr = "-\(id)"
+        let maxLabelLength = max(15 - idStr.utf8.count, 0)
+        return "\(label.prefix(maxLabelLength))\(idStr)"
+    }
+
     
-    
-    fileprivate static func threadTask(_ storage: AtomicStorage) {
+    fileprivate static func persistentThreadTask(_ storage: AtomicStorage) {
 
         while true {
-            
+
             let task = storage.withLock { storage, cond in
-                
-                while storage.state == .running && storage.tasks.isEmpty {
+
+                while true {
+
+                    if storage.state == .stopped {
+                        storage.aliveThreadCount -= 1
+                        return nil as CalledOnceExecutorTask?
+                    } else if let task = storage.tasks.popFirst() {
+                        return task
+                    }
+
+                    storage.idleThreadCount += 1
                     cond.wait()
+                    storage.idleThreadCount -= 1
+
                 }
-                
-                if storage.state == .stopped {
-                    return nil as CalledOnceExecutorTask?
-                }
-                
-                guard let task = storage.tasks.popFirst() else {
-                    preconditionFailure("Thread unexpectedly woken up with no task while executor is still running")
-                }
-                
-                return task
-                
+
             }
-            
+
             guard let task else { break }
-            
+
             task()
-            
+
         }
-        
+
     }
-    
-    
-    public func start() {
-        precondition(state == .ready, "Trying to start an already started executor")
-        storage.withLock { storage, _ in
-            storage.state = .running
+
+
+    fileprivate static func elasticThreadTask(_ storage: AtomicStorage, _ idleTimeout: MonotonicDuration) {
+
+        while true {
+
+            let task = storage.withLock { storage, cond in
+
+                if storage.state == .stopped {
+                    storage.aliveThreadCount -= 1
+                    return nil as CalledOnceExecutorTask?
+                } else if let task = storage.tasks.popFirst() {
+                    return task
+                }
+
+                let deadline = MonotonicInstant.now() + idleTimeout
+
+                while true {
+
+                    storage.idleThreadCount += 1
+                    let signaled = cond.wait(until: deadline)
+                    storage.idleThreadCount -= 1
+
+                    if storage.state == .stopped {
+                        storage.aliveThreadCount -= 1
+                        return nil as CalledOnceExecutorTask?
+                    } else if let tasks = storage.tasks.popFirst() {
+                        return tasks
+                    } else if !signaled {
+                        storage.aliveThreadCount -= 1
+                        return nil as CalledOnceExecutorTask?
+                    }
+
+                }
+
+            }
+
+            guard let task else { break }
+
+            task()
+
         }
-        for thread in threads {
-            thread.start()
-        }
+
     }
     
     
     public func submit(_ task: consuming sending CalledOnceExecutorTask) {
+
         precondition(state == .running, "Cannot submit tasks to an executor that is not running")
+
         var task = Optional.some(task)
+
         storage.withLock { storage, cond in
+
             storage.tasks.append(task.take()!)
+
+            if storage.idleThreadCount == 0 && storage.aliveThreadCount < maximumThreadCount {
+                let threadName = Self.makeThreadName(label: label, id: storage.spawnedThreadCount)
+                let thread = Thread(name: threadName) { [atomicStorage = self.storage, idleTimeout] in
+                    Self.elasticThreadTask(atomicStorage, idleTimeout)
+                }
+                if thread.startReturningFailure() == nil {
+                    storage.aliveThreadCount += 1
+                    storage.spawnedThreadCount += 1
+                } else if storage.aliveThreadCount == 0 {
+                    // Growth being skipped is survivable while workers exist (the queued
+                    // task will be drained by one of them), but with no worker at all the
+                    // task could wait forever.
+                    fatalError("Thread exhaustion left the executor without any worker thread")
+                }
+            }
+
             cond.signal()
+
         }
+
     }
     
 }
@@ -295,30 +382,31 @@ extension AsyncFileSystemExecutor {
 
 extension AsyncFileSystemExecutor {
 
-    /// Thread count used by `defaultExecutor`: the number of online processors clamped to
-    /// [2, 8]. Blocking file I/O parallelism is bounded by the storage device, so wider
-    /// pools mostly add idle threads.
-    public static let defaultThreadCount: Int = {
-        #if canImport(WinSDK)
-        var info = SYSTEM_INFO()
-        GetSystemInfo(&info)
-        let processorCount = Int(info.dwNumberOfProcessors)
+    /// Default `maximumThreadCount` for `defaultExecutor`. This is a burst-width cap, not a
+    /// steady state: the pool starts at zero threads and shrinks back when idle. Blocking
+    /// file I/O parallelism is bounded by the storage backend rather than the CPU, so the
+    /// cap is a flat per-platform constant — wide on desktop/server platforms (deep NVMe
+    /// queues, high-latency network file systems), trimmed on app-constrained Apple
+    /// platforms where storage is local flash and the process-wide thread budget is shared
+    /// with the host app.
+    public static let defaultMaximumThreadCount: Int = {
+        #if os(watchOS)
+        return 8
+        #elseif os(iOS) || os(tvOS) || os(visionOS)
+        return 32
         #else
-        let processorCount = sysconf(Int32(_SC_NPROCESSORS_ONLN))
+        return 64
         #endif
-        return max(2, min(8, processorCount))
     }()
 
 
-    /// Shared process-wide pool, created and started on first use.
-    public static let defaultExecutor: AsyncFileSystemExecutor = {
-        let executor = AsyncFileSystemExecutor(
-            label: "swift-file-system-default-executor",
-            threadCount: defaultThreadCount
-        )
-        executor.start()
-        return executor
-    }()
+    /// Shared process-wide pool, created on first use. Starts with zero threads, grows on
+    /// demand up to `defaultMaximumThreadCount`, and shrinks back after the default idle
+    /// timeout.
+    public static let defaultExecutor: AsyncFileSystemExecutor = .init(
+        label: "fs-io",
+        maximumThreadCount: defaultMaximumThreadCount
+    )
 
 }
 

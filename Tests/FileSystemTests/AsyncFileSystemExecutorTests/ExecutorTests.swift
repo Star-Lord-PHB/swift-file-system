@@ -25,12 +25,18 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     // MARK: - State & lifecycle
 
     @Test
-    func `executor starts in the ready state and start moves it to running`() {
-        let executor = AsyncFileSystemExecutor(label: "st", threadCount: 1)
-        #expect(executor.label == "st")
-        #expect(executor.state == .ready)
-        executor.start()
-        #expect(executor.state == .running)
+    func `executor is running from construction`() {
+        let fixed = AsyncFileSystemExecutor(label: "st", threadCount: 2)
+        #expect(fixed.label == "st")
+        #expect(fixed.state == .running)
+        #expect(fixed.minimumThreadCount == 2)
+        #expect(fixed.maximumThreadCount == 2)
+
+        let elastic = AsyncFileSystemExecutor(label: "el", maximumThreadCount: 4, idleTimeout: .milliseconds(50))
+        #expect(elastic.state == .running)
+        #expect(elastic.minimumThreadCount == 0)
+        #expect(elastic.maximumThreadCount == 4)
+        #expect(elastic.idleTimeoutNano == 50_000_000)
     }
 
 
@@ -38,8 +44,7 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     func `executor deallocates after the last reference is dropped`() async {
         weak var weakExecutor: AsyncFileSystemExecutor?
         do {
-            let executor = AsyncFileSystemExecutor(label: "gone", threadCount: 2)
-            executor.start()
+            let executor = AsyncFileSystemExecutor(label: "gone", maximumThreadCount: 2)
             await executor.run {}
             weakExecutor = executor
         }
@@ -47,12 +52,11 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     }
 
 
-    // MARK: - submit
+    // MARK: - submit & elasticity
 
     @Test(.timeLimit(.minutes(1)))
     func `every submitted task runs exactly once`() async {
-        let executor = AsyncFileSystemExecutor(label: "subN", threadCount: 4)
-        executor.start()
+        let executor = AsyncFileSystemExecutor(label: "subN", maximumThreadCount: 4)
 
         let (indices, continuation) = AsyncStream.makeStream(of: Int.self)
         for index in 0 ..< 100 {
@@ -64,19 +68,32 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     }
 
 
-    @Test(.timeLimit(.minutes(1)))
-    func `the pool runs tasks concurrently up to its thread count`() async {
-        let executor = AsyncFileSystemExecutor(label: "par", threadCount: 4)
-        executor.start()
+    // The (1, 2) case is the regression guard for idle pre-seeding: growth must also
+    // happen while every persistent thread is blocked inside a task.
+    @Test(
+        .timeLimit(.minutes(1)),
+        arguments: [
+            (0, 4),
+            (1, 2),
+        ] as [(Int, Int)]
+    )
+    func `the pool grows on demand to run tasks concurrently up to its maximum`(
+        minimumThreadCount: Int, maximumThreadCount: Int
+    ) async {
+        let executor = AsyncFileSystemExecutor(
+            label: "par",
+            minimumThreadCount: minimumThreadCount,
+            maximumThreadCount: maximumThreadCount
+        )
 
         let condition = NSCondition()
         let released = SharedBox(false)
         let (arrivals, arrivalContinuation) = AsyncStream.makeStream(of: Void.self)
         let (completions, completionContinuation) = AsyncStream.makeStream(of: Void.self)
 
-        // Each task blocks until the test observed all four inside the pool simultaneously,
-        // so the test only completes if four workers really run concurrently.
-        for _ in 0 ..< 4 {
+        // Every task blocks until all of them sit inside the pool simultaneously, so the
+        // test only completes if the pool grew to `maximumThreadCount` concurrent workers.
+        for _ in 0 ..< maximumThreadCount {
             executor.submit(.init {
                 arrivalContinuation.yield()
                 condition.lock()
@@ -88,14 +105,41 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
             })
         }
 
-        for await _ in arrivals.prefix(4) {}
+        for await _ in arrivals.prefix(maximumThreadCount) {}
 
         condition.withLock {
             released.value = true
             condition.broadcast()
         }
 
-        for await _ in completions.prefix(4) {}
+        for await _ in completions.prefix(maximumThreadCount) {}
+    }
+
+
+    @Test(.timeLimit(.minutes(1)))
+    func `the pool never runs more tasks concurrently than its maximum`() async {
+        let executor = AsyncFileSystemExecutor(label: "cap", maximumThreadCount: 1)
+
+        let lock = NSLock()
+        let counters = SharedBox((current: 0, peak: 0))
+        let (completions, continuation) = AsyncStream.makeStream(of: Void.self)
+
+        for _ in 0 ..< 3 {
+            executor.submit(.init {
+                lock.withLock {
+                    counters.value.current += 1
+                    counters.value.peak = max(counters.value.peak, counters.value.current)
+                }
+                Thread.sleep(forTimeInterval: 0.02)
+                lock.withLock {
+                    counters.value.current -= 1
+                }
+                continuation.yield()
+            })
+        }
+
+        for await _ in completions.prefix(3) {}
+        #expect(lock.withLock { counters.value.peak } == 1)
     }
 
 
@@ -104,8 +148,6 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     @Test
     func `run returns the value produced by the task`() async {
         let executor = AsyncFileSystemExecutor(label: "run1", threadCount: 2)
-        executor.start()
-
         let value = await executor.run { 21 * 2 }
         #expect(value == 42)
     }
@@ -113,9 +155,7 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
 
     @Test
     func `run executes its task exactly once`() async {
-        let executor = AsyncFileSystemExecutor(label: "once", threadCount: 2)
-        executor.start()
-
+        let executor = AsyncFileSystemExecutor(label: "once", maximumThreadCount: 2)
         await confirmation("run executed the task") { executed in
             await executor.run { executed() }
         }
@@ -129,8 +169,6 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
         }
 
         let executor = AsyncFileSystemExecutor(label: "runNC", threadCount: 1)
-        executor.start()
-
         let payload = await executor.run { Payload(value: 9) }
         #expect(payload.value == 9)
     }
@@ -138,9 +176,7 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
 
     @Test
     func `run rethrows the typed error thrown by the task`() async {
-        let executor = AsyncFileSystemExecutor(label: "runE", threadCount: 1)
-        executor.start()
-
+        let executor = AsyncFileSystemExecutor(label: "runE", maximumThreadCount: 1)
         await #expect(throws: RunFailure(code: 7)) {
             try await executor.run { throw RunFailure(code: 7) }
         }
@@ -149,9 +185,7 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
 
     @Test
     func `concurrent runs complete with their own results`() async {
-        let executor = AsyncFileSystemExecutor(label: "many", threadCount: 4)
-        executor.start()
-
+        let executor = AsyncFileSystemExecutor(label: "many", maximumThreadCount: 4)
         let total = await withTaskGroup(of: Int.self) { group in
             for index in 0 ..< 64 {
                 group.addTask {
@@ -164,15 +198,27 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     }
 
 
-    // MARK: - Pool thread identity
+    @Test
+    func `the shared default executor runs work`() async {
+        let executor = AsyncFileSystemExecutor.defaultExecutor
+        #expect(executor.label == "fs-io")
+        #expect(executor.minimumThreadCount == 0)
+        #expect(executor.maximumThreadCount == AsyncFileSystemExecutor.defaultMaximumThreadCount)
+        #expect(AsyncFileSystemExecutor.defaultMaximumThreadCount > 0)
 
-    // FreeBSD/OpenBSD skip thread naming, so the name-asserting tests are omitted there.
+        let value = await executor.run { 7 }
+        #expect(value == 7)
+    }
+
+
+    // MARK: - Pool thread identity & elasticity observed through names
+
+    // FreeBSD/OpenBSD skip thread naming, so the name-based tests are omitted there.
     #if !os(FreeBSD) && !os(OpenBSD)
 
     @Test(.timeLimit(.minutes(1)))
     func `submitted task runs on the labeled pool thread`() async {
-        let executor = AsyncFileSystemExecutor(label: "sub1", threadCount: 1)
-        executor.start()
+        let executor = AsyncFileSystemExecutor(label: "sub1", maximumThreadCount: 1)
 
         let (names, continuation) = AsyncStream.makeStream(of: String.self)
         executor.submit(.init {
@@ -180,17 +226,59 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
         })
 
         let observed = await names.first { _ in true }
-        #expect(observed == "sub1-thread-0")
+        #expect(observed == "sub1-0")
     }
 
 
     @Test
     func `run executes its task on the labeled pool thread`() async {
         let executor = AsyncFileSystemExecutor(label: "run2", threadCount: 1)
-        executor.start()
-
         let name = await executor.run { AsyncFileSystemExecutorTests.foundationCurrentThreadName() }
-        #expect(name == "run2-thread-0")
+        #expect(name == "run2-0")
+    }
+
+
+    @Test
+    func `an overlong label is truncated while the thread id survives`() async {
+        let executor = AsyncFileSystemExecutor(label: "abcdefghijklmnopqrst", maximumThreadCount: 1)
+        let name = await executor.run { AsyncFileSystemExecutorTests.foundationCurrentThreadName() }
+        #expect(name == "abcdefghijklm-0")
+    }
+
+
+    @Test
+    func `an elastic thread above the minimum retires after the idle timeout`() async throws {
+        let executor = AsyncFileSystemExecutor(label: "shr", maximumThreadCount: 1, idleTimeout: .milliseconds(50))
+
+        let first = await executor.run { AsyncFileSystemExecutorTests.foundationCurrentThreadName() }
+        #expect(first == "shr-0")
+
+        // Far past the idle timeout: the sole worker must have retired by now.
+        try await Task.sleep(nanoseconds: 1_000_000_000)
+
+        // A retired worker leaves no idle thread, so this run spawns a fresh one, visible
+        // through the monotonic id in its name.
+        let second = await executor.run { AsyncFileSystemExecutorTests.foundationCurrentThreadName() }
+        #expect(second == "shr-1")
+    }
+
+
+    @Test
+    func `persistent threads outlive the idle timeout`() async throws {
+        let executor = AsyncFileSystemExecutor(
+            label: "per",
+            minimumThreadCount: 1,
+            maximumThreadCount: 1,
+            idleTimeout: .milliseconds(50)
+        )
+
+        let first = await executor.run { AsyncFileSystemExecutorTests.foundationCurrentThreadName() }
+        #expect(first == "per-0")
+
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        let second = await executor.run { AsyncFileSystemExecutorTests.foundationCurrentThreadName() }
+        #expect(second == "per-0")
     }
 
 
@@ -198,12 +286,10 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
     @Test
     func `executor can serve as a task executor preference`() async {
         let executor = AsyncFileSystemExecutor(label: "texec", threadCount: 1)
-        executor.start()
-
         let name = await Task(executorPreference: executor) {
             AsyncFileSystemExecutorTests.foundationCurrentThreadName()
         }.value
-        #expect(name == "texec-thread-0")
+        #expect(name == "texec-0")
     }
 
     #endif

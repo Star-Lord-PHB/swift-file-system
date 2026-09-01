@@ -36,7 +36,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test
     func `runCancellable returns the value produced by the task`() async throws {
         let executor = AsyncFileSystemExecutor(label: "cxl1", threadCount: 2)
-        executor.start()
 
         let value = try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { 21 * 2 }
         #expect(value == 42)
@@ -50,7 +49,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
         }
 
         let executor = AsyncFileSystemExecutor(label: "cxlNC", threadCount: 1)
-        executor.start()
 
         let payload = try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { Payload(value: 9) }
         #expect(payload.value == 9)
@@ -60,7 +58,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test
     func `runCancellable rethrows the error thrown by the task`() async {
         let executor = AsyncFileSystemExecutor(label: "cxlE", threadCount: 1)
-        executor.start()
 
         let error = await #expect(throws: PlatformError.self) {
             try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { () throws(PlatformError) -> Void in
@@ -75,7 +72,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test
     func `the cancellation error is only constructed when cancellation fires`() async throws {
         let executor = AsyncFileSystemExecutor(label: "cxlLazy", threadCount: 1)
-        executor.start()
 
         let constructions = SharedBox(0)
         let value = try await executor.runCancellable(cancellationError: Self.countingCancellationError(constructions)) { 7 }
@@ -89,7 +85,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test(.timeLimit(.minutes(1)))
     func `an already cancelled task throws the cancellation error without running the body`() async {
         let executor = AsyncFileSystemExecutor(label: "cxlPre", threadCount: 1)
-        executor.start()
 
         let bodyRan = SharedBox(false)
         let task = Task {
@@ -116,7 +111,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test(.timeLimit(.minutes(1)))
     func `the operation overload produces the standard cancellation error`() async {
         let executor = AsyncFileSystemExecutor(label: "cxlOp", threadCount: 1)
-        executor.start()
 
         let bodyRan = SharedBox(false)
         let task = Task {
@@ -142,7 +136,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test(.timeLimit(.minutes(1)))
     func `cancellation while the task waits in the queue throws without running the body`() async {
         let executor = AsyncFileSystemExecutor(label: "cxlQ", threadCount: 1)
-        executor.start()
 
         let condition = NSCondition()
         let released = SharedBox(false)
@@ -194,7 +187,6 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     @Test(.timeLimit(.minutes(1)))
     func `cancellation after the body has started does not affect its result`() async throws {
         let executor = AsyncFileSystemExecutor(label: "cxlMid", threadCount: 1)
-        executor.start()
 
         let condition = NSCondition()
         let released = SharedBox(false)

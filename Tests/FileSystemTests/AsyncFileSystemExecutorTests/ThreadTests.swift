@@ -181,4 +181,68 @@ extension AsyncFileSystemExecutorTests.ThreadTests {
         #expect(flag.value)
     }
 
+
+    @Test
+    func `monotonic instants are non-decreasing and do arithmetic`() {
+        let start = MonotonicInstant.now()
+        let end = MonotonicInstant.now()
+        #expect(start <= end)
+
+        #expect(MonotonicDuration.seconds(1) == .milliseconds(1_000))
+        #expect(MonotonicDuration.milliseconds(1) == .microseconds(1_000))
+        #expect(MonotonicDuration.microseconds(1) == .nanoseconds(1_000))
+
+        let later = start + .milliseconds(5)
+        #expect(later > start)
+        #expect(later - start == .milliseconds(5))
+    }
+
+
+    @Test
+    func `timed wait returns false once the deadline passes`() {
+        let condition = ConditionalVariable()
+        let start = MonotonicInstant.now()
+        let deadline = start + .milliseconds(50)
+
+        condition.lock()
+        // No signaler exists, but the platform contract still allows spurious wakeups
+        // (wait returning true); re-waiting with the same deadline keeps the test
+        // deterministic instead of codifying "no spurious wakeups" as an assumption.
+        while condition.wait(until: deadline) {}
+        condition.unlock()
+
+        // A false return guarantees the deadline passed on MonotonicInstant's own clock.
+        #expect(MonotonicInstant.now() - start >= .milliseconds(50))
+    }
+
+
+    @Test
+    func `timed wait wakes on signal before the deadline`() {
+        let condition = ConditionalVariable()
+        let flag = SharedBox(false)
+        let deadline = MonotonicInstant.now() + .seconds(30)
+
+        let signaler = Thread {
+            condition.lock()
+            flag.value = true
+            condition.signal()
+            condition.unlock()
+        }
+
+        condition.lock()
+        signaler.start()
+        var sawTimeout = false
+        // Loops only when a spurious wakeup fires before the signaler set the flag; the
+        // timeout arm is the failure path, turning a lost signal into a loud assertion
+        // failure instead of an unbounded hang.
+        while !flag.value && !sawTimeout {
+            sawTimeout = !condition.wait(until: deadline)
+        }
+        condition.unlock()
+        signaler.join()
+
+        #expect(flag.value)
+        #expect(!sawTimeout)
+    }
+
 }

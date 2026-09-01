@@ -18,8 +18,10 @@ internal typealias PlatformThreadHandle = pthread_t
 /// A minimal joinable native thread (pthread / Win32) for the async executor's worker pool.
 ///
 /// Lifecycle contract (the object is not internally synchronized):
-/// - `start()` must be called exactly once, and `join()` at most once after it; the caller
-///   must order the two calls (same thread, or an external happens-before).
+/// - `start()`/`startReturningFailure()` may succeed at most once, and `join()` may be
+///   called at most once after a successful start; the caller must order the calls (same
+///   thread, or an external happens-before). A failed `startReturningFailure()` leaves the
+///   thread in its initial state, so starting may be retried.
 /// - Deallocating a started-but-unjoined `Thread` detaches it: the thread keeps running and
 ///   the system reclaims its resources when it exits.
 final class Thread: @unchecked Sendable {
@@ -52,6 +54,17 @@ final class Thread: @unchecked Sendable {
 
 
     func start() {
+        if let code = startReturningFailure() {
+            fatalError("Native thread creation failed with error \(code)")
+        }
+    }
+
+
+    /// Like `start()`, but returns the platform error code instead of trapping when the
+    /// system cannot create the thread (thread exhaustion: `EAGAIN` on POSIX, typically
+    /// `ERROR_NOT_ENOUGH_MEMORY` on Windows). On failure the instance stays in its initial
+    /// state, so starting may be retried later. Returns `nil` on success.
+    func startReturningFailure() -> Int64? {
         guard case .initial(let name, let task) = state else {
             preconditionFailure("start() called twice on the same Thread")
         }
@@ -62,9 +75,10 @@ final class Thread: @unchecked Sendable {
         guard let handle = CreateThread(nil, 0, threadEntryPoint, context, 0, nil) else {
             let code = GetLastError()
             Unmanaged<ThreadStartContext>.fromOpaque(context).release()
-            fatalError("CreateThread failed with error \(code)")
+            return Int64(code)
         }
         state = .started(handle)
+        return nil
 
         #else
 
@@ -79,7 +93,7 @@ final class Thread: @unchecked Sendable {
         let code = pthread_create(&handle, nil, threadEntryPoint, context)
         guard code == 0 else {
             Unmanaged<ThreadStartContext>.fromOpaque(context).release()
-            fatalError("pthread_create failed with error \(code)")
+            return Int64(code)
         }
 
         #if canImport(Darwin)
@@ -87,6 +101,7 @@ final class Thread: @unchecked Sendable {
         #else
         state = .started(handle)
         #endif
+        return nil
 
         #endif
     }

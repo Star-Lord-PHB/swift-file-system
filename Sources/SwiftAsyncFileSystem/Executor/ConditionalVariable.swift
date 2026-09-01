@@ -11,8 +11,8 @@ import PlatformCLib
 /// A mutex + condition variable pair (NSCondition-style): `lock`/`unlock` guard the shared
 /// state, and `wait()` atomically releases the lock and sleeps until signaled.
 ///
-/// - `wait()` must be called with the lock held, and only inside a loop that re-checks the
-///   predicate: spurious wakeups are possible on every platform.
+/// - `wait()` and `wait(until:)` must be called with the lock held, and only inside a loop
+///   that re-checks the predicate: spurious wakeups are possible on every platform.
 /// - `signal()`/`broadcast()` may be called with or without the lock held.
 final class ConditionalVariable: @unchecked Sendable {
 
@@ -40,7 +40,23 @@ final class ConditionalVariable: @unchecked Sendable {
         #else
         let mutexCode = pthread_mutex_init(lockStorage, nil)
         precondition(mutexCode == 0, "pthread_mutex_init failed with error \(mutexCode)")
+
+        #if canImport(Darwin)
+        // Darwin has no pthread_condattr_setclock; wait(until:) compensates by waiting with
+        // the relative pthread_cond_timedwait_relative_np instead of an absolute deadline.
         let conditionCode = pthread_cond_init(conditionStorage, nil)
+        #else
+        // Bind the condvar to CLOCK_MONOTONIC — the clock MonotonicInstant reads — so timed
+        // waits take deadlines as absolute times and are immune to wall-clock adjustments.
+        var conditionAttributes = pthread_condattr_t()
+        let attributesCode = pthread_condattr_init(&conditionAttributes)
+        precondition(attributesCode == 0, "pthread_condattr_init failed with error \(attributesCode)")
+        let clockCode = pthread_condattr_setclock(&conditionAttributes, CLOCK_MONOTONIC)
+        precondition(clockCode == 0, "pthread_condattr_setclock failed with error \(clockCode)")
+        let conditionCode = pthread_cond_init(conditionStorage, &conditionAttributes)
+        pthread_condattr_destroy(&conditionAttributes)
+        #endif
+
         precondition(conditionCode == 0, "pthread_cond_init failed with error \(conditionCode)")
         #endif
     }
@@ -89,6 +105,57 @@ final class ConditionalVariable: @unchecked Sendable {
         #else
         let code = pthread_cond_wait(conditionStorage, lockStorage)
         precondition(code == 0, "pthread_cond_wait failed with error \(code)")
+        #endif
+    }
+
+
+    /// Atomically releases the lock and blocks until signaled or until `deadline` passes,
+    /// then reacquires the lock before returning. The caller must hold the lock.
+    ///
+    /// Returns `false` when the deadline passed and `true` when woken up (spurious wakeups
+    /// included). Either way the caller re-checks its predicate: a `false` return says
+    /// nothing about the predicate, and a `true` return does not guarantee progress.
+    func wait(until deadline: MonotonicInstant) -> Bool {
+        #if canImport(WinSDK)
+        // SleepConditionVariableSRW only takes relative milliseconds, so the deadline cannot
+        // pass through absolutely: loop and re-wait the remainder whenever a timeout fires
+        // before the actual deadline (a scheduler tick can end waits early, and waits longer
+        // than the DWORD range get clamped below INFINITE, which would sleep forever). The
+        // millisecond conversion rounds up, clamping before the round-up so it cannot
+        // overflow.
+        while true {
+            let remaining = deadline - .now()
+            guard remaining > .zero else { return false }
+            let cappedNanoseconds = min(remaining.nanoseconds, 0xFFFF_FFFE * 1_000_000)
+            let milliseconds = DWORD((cappedNanoseconds + 999_999) / 1_000_000)
+            let result = SleepConditionVariableSRW(conditionStorage, lockStorage, milliseconds, 0)
+            if result { return true }
+            let code = GetLastError()
+            precondition(code == ERROR_TIMEOUT, "SleepConditionVariableSRW failed with error \(code)")
+        }
+        #else
+        let remaining = deadline - .now()
+        guard remaining > .zero else { return false }
+
+        #if canImport(Darwin)
+        var timeout = timespec(
+            tv_sec: Int(remaining.nanoseconds / 1_000_000_000),
+            tv_nsec: Int(remaining.nanoseconds % 1_000_000_000)
+        )
+        let code = pthread_cond_timedwait_relative_np(conditionStorage, lockStorage, &timeout)
+        precondition(code == 0 || code == ETIMEDOUT, "pthread_cond_timedwait_relative_np failed with error \(code)")
+        return code == 0
+        #else
+        // The condvar is bound to CLOCK_MONOTONIC (see init), the clock MonotonicInstant
+        // reads, so the deadline passes through absolutely and re-waits never reset it.
+        var absoluteDeadline = timespec(
+            tv_sec: time_t(deadline.rawNanoseconds / 1_000_000_000),
+            tv_nsec: Int(deadline.rawNanoseconds % 1_000_000_000)
+        )
+        let code = pthread_cond_timedwait(conditionStorage, lockStorage, &absoluteDeadline)
+        precondition(code == 0 || code == ETIMEDOUT, "pthread_cond_timedwait failed with error \(code)")
+        return code == 0
+        #endif
         #endif
     }
 
