@@ -161,7 +161,7 @@ extension AsyncFileSystemAPITests.POSIXForwardingTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.getPosixPermissions(forItemAt: path)
         }
 
@@ -174,7 +174,7 @@ extension AsyncFileSystemAPITests.POSIXForwardingTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.setPosixPermissions(forItemAt: path, permissions: [])
         }
 

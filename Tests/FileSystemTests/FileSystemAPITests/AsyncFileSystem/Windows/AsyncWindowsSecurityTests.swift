@@ -196,7 +196,7 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
         let path = workspace.path("file")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             let security = Self.makeSampleTargetSecurityDescriptor()
             return try await asyncFileSystem.createFile(at: path, permissions: security)
         }
@@ -212,7 +212,7 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
         let path = workspace.path("directory")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             let security = Self.makeSampleTargetSecurityDescriptor()
             return try await asyncFileSystem.createDirectory(at: path, permissions: security)
         }
@@ -228,7 +228,7 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             _ = try await asyncFileSystem.getSecurityInfo(forItemAt: path)
         }
 
@@ -241,7 +241,7 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.setSecurityInfo(forItemAt: path)
         }
 

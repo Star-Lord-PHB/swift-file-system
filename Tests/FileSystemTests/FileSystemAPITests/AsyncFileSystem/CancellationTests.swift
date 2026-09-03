@@ -55,7 +55,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("file")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.createFile(at: path)
         }
 
@@ -70,7 +70,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("directory")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.createDirectory(at: path)
         }
 
@@ -86,7 +86,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let destination = workspace.path("destination")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.moveItem(at: source, to: destination)
         }
 
@@ -102,7 +102,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.contentsOfDirectory(at: path)
         }
 
@@ -116,7 +116,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let target = workspace.path("target")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.createSymLink(at: link, pointingTo: target)
         }
 
@@ -132,7 +132,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let existing = try workspace.makeFile(at: "existing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.createHardLink(at: link, for: existing)
         }
 
@@ -147,7 +147,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.destinationOfSymLink(at: path)
         }
 
@@ -160,7 +160,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.info(ofItemAt: path)
         }
 
@@ -173,7 +173,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.setTimes(forItemAt: path)
         }
 
@@ -186,7 +186,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.setAttributes(forItemAt: path, attributes: [])
         }
 
@@ -199,7 +199,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.canAccess(itemAt: path)
         }
 
@@ -212,7 +212,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.getOwner(forItemAt: path)
         }
 
@@ -225,7 +225,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.setOwner(forItemAt: path, owner: nil, group: nil)
         }
 
@@ -237,7 +237,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.currentWorkingDirectoryPath()
         }
 
@@ -249,7 +249,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.executablePath()
         }
 
@@ -261,7 +261,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.homeDirectoryPath()
         }
 
@@ -273,7 +273,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.tempDirectoryPath()
         }
 
@@ -285,7 +285,7 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.cacheDirectoryPath()
         }
 

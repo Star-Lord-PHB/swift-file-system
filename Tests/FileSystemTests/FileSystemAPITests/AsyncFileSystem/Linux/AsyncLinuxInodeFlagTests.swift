@@ -65,7 +65,7 @@ extension AsyncFileSystemAPITests.LinuxInodeFlagForwardingTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.getInodeFlags(forItemAt: path)
         }
 
@@ -78,7 +78,7 @@ extension AsyncFileSystemAPITests.LinuxInodeFlagForwardingTests {
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
-        await AsyncFileSystemAPITests.expectPreCancelled {
+        await Support.expectPreCancelled {
             try await asyncFileSystem.setInodeFlags(forItemAt: path, flags: [])
         }
 

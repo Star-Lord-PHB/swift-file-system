@@ -30,31 +30,3 @@ struct AsyncFileSystemAPITests {
     typealias Support = FileSystemTestSupport
 
 }
-
-
-
-extension AsyncFileSystemAPITests {
-
-    /// Runs `body` inside a task that is already cancelled when the operation is entered and
-    /// expects the standard library-level cancellation error.
-    static func expectPreCancelled<R: Sendable>(
-        sourceLocation: SourceLocation = #_sourceLocation,
-        _ body: @escaping @Sendable () async throws -> R
-    ) async {
-        let task = Task {
-            // Guarantee the cancellation is observable before the operation is entered, so
-            // the pre-submit checkpoint deterministically fires.
-            while !Task.isCancelled { await Task.yield() }
-            return try await body()
-        }
-        task.cancel()
-
-        let error = await #expect(throws: PlatformError.self, sourceLocation: sourceLocation) {
-            try await task.value
-        }
-        #expect(error?.kind == .cancelled, sourceLocation: sourceLocation)
-        #expect(error?.systemCode == nil, sourceLocation: sourceLocation)
-        #expect(error?.underlyingError is CancellationError, sourceLocation: sourceLocation)
-    }
-
-}
