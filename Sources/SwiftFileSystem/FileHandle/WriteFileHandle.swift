@@ -167,6 +167,11 @@ extension WriteFileHandle {
     #endif
 
 
+    package consuming func takeUnsafeSystemHandle() -> UnsafeSystemHandle {
+        self.handle
+    }
+
+
     public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
@@ -198,53 +203,34 @@ extension WriteFileHandle {
     , ResizableFileHandleProtocol, PersistentFileHandleProtocol
     , SystemHandleSupportedFileHandleProtocol {
 
-        let handle: UnsafeUnownedSystemHandle
-        public let path: FilePath
+        private var accessor: PositionalHandleAccessor
 
-        public private(set) var currentOffset: Int64 = 0
+        public var path: FilePath { accessor.path }
+        public var currentOffset: Int64 { accessor.currentOffset }
 
 
         @_lifetime(borrow writeHandle)
         init(writeHandle: borrowing WriteFileHandle) {
-            self.handle = writeHandle.handle.unownedHandle()
-            self.path = writeHandle.path
+            self.accessor = .init(handle: writeHandle.handle, path: writeHandle.path)
         }
 
 
         public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
-            try self.handle.unsafeTemporaryConvertingToOwning { handle throws(E) in
-                try body(handle)
-            }
+            try accessor.withUnsafeSystemHandle(body)
         }
 
 
         @discardableResult
         @_lifetime(self: copy self)
         public mutating func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence = .beginning) throws(PlatformError) -> Int64 {
-            let newOffset = switch whence {
-            case .current:
-                try trySeek(from: self.currentOffset, by: offset, operation: .seekHandle(originalPath: path))
-            case .beginning:
-                try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
-            case .end:
-                try trySeek(from: .init(fileInfo().size), by: offset, operation: .seekHandle(originalPath: path))
-            }
-            self.currentOffset = newOffset
-            return newOffset
+            try accessor.seek(to: offset, relativeTo: whence)
         }
 
 
         @discardableResult
         @_lifetime(self: copy self)
         public mutating func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
-            try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
-                try self.handle.unsafeTemporaryConvertingToOwning { handle throws(LowLevelError) in
-                    let currentOffset = self.currentOffset
-                    let bytesWritten = try handle.pwrite(contentsOf: buffer, to: currentOffset)
-                    self.currentOffset = currentOffset + bytesWritten
-                    return bytesWritten
-                }
-            }
+            try accessor.write(buffer)
         }
 
     }

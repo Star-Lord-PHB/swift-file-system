@@ -54,6 +54,11 @@ extension ReadFileHandle {
     }
 
 
+    package consuming func takeUnsafeSystemHandle() -> UnsafeSystemHandle {
+        self.handle
+    }
+
+
     public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
@@ -84,60 +89,34 @@ extension ReadFileHandle {
     , MutatingSequentialReadFileHandleProtocol, MutatingSeekableFileHandleProtocol
     , SystemHandleSupportedFileHandleProtocol {
 
-        let handle: UnsafeUnownedSystemHandle
-        public let path: FilePath
+        private var accessor: PositionalHandleAccessor
 
-        public private(set) var currentOffset: Int64 = 0
+        public var path: FilePath { accessor.path }
+        public var currentOffset: Int64 { accessor.currentOffset }
 
 
         @_lifetime(borrow readHandle)
         init(readHandle: borrowing ReadFileHandle) {
-            self.handle = readHandle.handle.unownedHandle()
-            self.path = readHandle.path
+            self.accessor = .init(handle: readHandle.handle, path: readHandle.path)
         }
 
 
         public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
-            try self.handle.unsafeTemporaryConvertingToOwning { handle throws(E) in
-                try body(handle)
-            }
+            try accessor.withUnsafeSystemHandle(body)
         }
 
 
         @discardableResult
         @_lifetime(self: copy self)
         public mutating func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence = .beginning) throws(PlatformError) -> Int64 {
-            let newOffset = switch whence {
-            case .current:
-                try trySeek(from: self.currentOffset, by: offset, operation: .seekHandle(originalPath: path))
-            case .beginning:
-                try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
-            case .end:
-                try trySeek(from: .init(fileInfo().size), by: offset, operation: .seekHandle(originalPath: path))
-            }
-            self.currentOffset = newOffset
-            return newOffset
+            try accessor.seek(to: offset, relativeTo: whence)
         }
 
 
         @_lifetime(self: copy self)
         @_lifetime(buffer: copy buffer)
         public mutating func read(into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
-            try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
-                try self.handle.unsafeTemporaryConvertingToOwning { handle throws(LowLevelError) in
-                    do throws(LowLevelError) {
-                        let currentOffset = self.currentOffset
-                        let bytesRead = try handle.pread(into: &buffer, from: currentOffset)
-                        self.currentOffset = currentOffset + bytesRead
-                        return bytesRead
-                    } catch {
-                        #if canImport(WinSDK)
-                        if error.systemCode == .handleEOF { return 0 }
-                        #endif
-                        throw error
-                    }
-                }
-            }
+            try accessor.read(into: &buffer)
         }
 
     }

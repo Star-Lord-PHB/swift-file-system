@@ -181,6 +181,11 @@ extension AppendHandle {
     #endif
 
 
+    package consuming func takeUnsafeSystemHandle() -> UnsafeSystemHandle {
+        self.handle
+    }
+
+
     public consuming func close() throws(PlatformError) {
         do {
             try handle.close()
