@@ -12,9 +12,9 @@ extension AsyncFileSystem {
 
     @concurrent
     public func info(ofItemAt path: FilePath, followSymlinks: Bool = true) async throws(PlatformError) -> FileInfo {
-        return try await executor.runCancellable(operation: .fetchMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.info(ofItemAt: path, followSymlinks: followSymlinks)
-        }
+        }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
@@ -26,7 +26,7 @@ extension AsyncFileSystem {
         creationTime: FileTimeSpec? = nil,
         followSymlink: Bool = true
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .setMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setTimes(
                 forItemAt: path,
                 accessTime: accessTime,
@@ -34,7 +34,7 @@ extension AsyncFileSystem {
                 creationTime: creationTime,
                 followSymlink: followSymlink
             )
-        }
+        }.getThrowingPlatformError(operation: .setMeta(path))
     }
 
 
@@ -44,9 +44,9 @@ extension AsyncFileSystem {
         attributes: PlatformFileAttributes,
         followSymlink: Bool = true
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .setMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setAttributes(forItemAt: path, attributes: attributes, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .setMeta(path))
     }
 
 
@@ -54,17 +54,17 @@ extension AsyncFileSystem {
 
     @concurrent
     public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> LinuxInodeFlags {
-        return try await executor.runCancellable(operation: .fetchMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.getInodeFlags(forItemAt: path, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func setInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool = true) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .setMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setInodeFlags(forItemAt: path, flags: flags, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .setMeta(path))
     }
 
     #endif

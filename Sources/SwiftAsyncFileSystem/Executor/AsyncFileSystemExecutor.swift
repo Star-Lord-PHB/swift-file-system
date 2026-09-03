@@ -7,7 +7,7 @@
 
 
 private import struct DequeModule.UniqueDeque
-package import struct FileSystemCore.PlatformError
+import struct FileSystemCore.PlatformError
 
 
 public final class AsyncFileSystemExecutor: Sendable {
@@ -306,72 +306,133 @@ extension AsyncFileSystemExecutor {
 }
 
 
+
+extension AsyncFileSystemExecutor {
+
+    public enum Result<V: ~Copyable, E: Error>: ~Copyable {
+
+        case success(V)
+        case failure(E)
+        case cancelled
+
+        public consuming func get() throws -> V {
+            switch consume self {
+            case .success(let v): return v
+            case .failure(let e): throw e
+            case .cancelled: throw CancellationError()
+            }
+        }
+
+        public consuming func get<C: Error>(mappingCancellation error: @autoclosure () -> C) throws -> V {
+            switch consume self {
+            case .success(let v): return v
+            case .failure(let e): throw e
+            case .cancelled: throw error()
+            }
+        }
+
+        public consuming func get(mappingCancellation error: @autoclosure () -> E) throws(E) -> V {
+            switch consume self {
+            case .success(let v): return v
+            case .failure(let e): throw e
+            case .cancelled: throw error()
+            }
+        }
+
+        public consuming func get<C: Error>(mappingCancellation error: @autoclosure () -> C) throws(C) -> V where E == Never {
+            switch consume self {
+            case .success(let v): return v
+            case .failure: preconditionFailure("unreachable")
+            case .cancelled: throw error()
+            }
+        }
+
+        package consuming func getThrowingPlatformError(
+            operation: @autoclosure () -> PlatformError.Operation
+        ) throws(PlatformError) -> V where E == PlatformError {
+            switch consume self {
+            case .success(let v): return v
+            case .failure(let e): throw e
+            case .cancelled: throw .init(error: CancellationError(), kind: .cancelled, operation: operation())
+            }
+        }
+
+        public consuming func getThrowingPlatformError(
+            operation: @autoclosure () -> PlatformError.Operation
+        ) throws(PlatformError) -> V where E == LowLevelError {
+            switch consume self {
+            case .success(let v): return v
+            case .failure(let e): throw .init(lowLevelError: e, operation: operation())
+            case .cancelled: throw .init(error: CancellationError(), kind: .cancelled, operation: operation())
+            }
+        }
+
+        public consuming func mapError<E2: Error>(_ transform: (E) -> E2) -> Result<V, E2> {
+            switch consume self {
+            case .success(let v): return .success(v)
+            case .failure(let e): return .failure(transform(e))
+            case .cancelled: return .cancelled
+            }
+        }
+
+    }
+
+}
+
+
+
+extension AsyncFileSystemExecutor.Result: Sendable where V: Sendable {}
+
+
+
 extension AsyncFileSystemExecutor {
 
     @concurrent
-    package func runCancellable<R: ~Copyable>(
-        cancellationError: @autoclosure @Sendable @escaping () -> PlatformError,
-        _ task: () throws(PlatformError) -> sending R
-    ) async throws(PlatformError) -> sending R {
+    package func runCancellable<R: ~Copyable, E: Error>(
+        _ task: () throws(E) -> sending R
+    ) async -> sending Result<R, E> {
 
         guard !Task.isCancelled else {
-            throw cancellationError()
+            return .cancelled
         }
 
         let token = CancellationToken()
 
-        return try await withoutActuallyEscaping(task) { (escapingClosure) async throws(PlatformError) in
+        return await withoutActuallyEscaping(task) { (escapingTask) async in
 
-            nonisolated(unsafe) var taskWrapper = escapingClosure as (() throws -> sending R)?
+            nonisolated(unsafe) var taskWrapper = escapingTask as (() throws -> sending R)?
 
-            do {
-                return try await withTaskCancellationHandler {
-                    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<NonCopyableBox<R>, any Error>) in
-                        self.submit(.init { @Sendable in
-                            guard !token.isCancelled else {
-                                    // Release the unused task reference before resuming: resuming
-                                    // lets `withoutActuallyEscaping` return, which traps if the
-                                    // closure is still referenced at that point.
-                                taskWrapper = nil
-                                continuation.resume(throwing: cancellationError())
-                                return
-                            }
-                            do {
-                                let task = taskWrapper.take()!
-                                let result = try task()
-                                _ = consume task
-                                continuation.resume(returning: NonCopyableBox(result))
-                            } catch {
-                                continuation.resume(throwing: error)
-                            }
-                        })
-                    }
-                } onCancel: {
-                    token.cancel()
+            typealias ContinuationType = CheckedContinuation<NonCopyableBox<Result<R, E>>, Never>
+
+            return await withTaskCancellationHandler {
+                await withCheckedContinuation { (continuation: ContinuationType) in
+                    self.submit(.init { @Sendable in
+                        guard !token.isCancelled else {
+                                // Release the unused task reference before resuming: resuming
+                                // lets `withoutActuallyEscaping` return, which traps if the
+                                // closure is still referenced at that point.
+                            taskWrapper = nil
+                            continuation.resume(returning: NonCopyableBox(.cancelled))
+                            return
+                        }
+                        do {
+                            let task = taskWrapper.take()!
+                            let result = try task()
+                            _ = consume task
+                            continuation.resume(returning: NonCopyableBox(.success(result)))
+                        } catch let error as E {
+                            continuation.resume(returning: NonCopyableBox(.failure(error)))
+                        } catch {
+                            preconditionFailure()
+                        }
+                    })
                 }
-            } catch let error as PlatformError {
-                throw error
-            } catch {
-                preconditionFailure()
+            } onCancel: {
+                token.cancel()
             }
 
         }.take()!
 
-    }
-
-
-    /// Convenience overload for the common case: cancellation surfaces as the library's
-    /// standard cancellation error — kind `.cancelled`, a `CancellationError` as the
-    /// underlying error, no system code — carrying the given operation context.
-    @concurrent
-    package func runCancellable<R: ~Copyable>(
-        operation: PlatformError.Operation,
-        _ task: () throws(PlatformError) -> sending R
-    ) async throws(PlatformError) -> sending R {
-        return try await runCancellable(
-            cancellationError: PlatformError(error: CancellationError(), kind: .cancelled, operation: operation),
-            task
-        )
     }
 
 
@@ -388,22 +449,10 @@ extension AsyncFileSystemExecutor {
     /// Package-level on purpose: the signature forces the body and the cancellation error
     /// to share one error type, which fits this library (everything is `PlatformError`)
     /// but is too specific a constraint to publish.
-    package func runCancellableSending<R: ~Copyable>(
-        cancellationError: @autoclosure @Sendable @escaping () -> PlatformError,
-        _ task: sending () throws(PlatformError) -> sending R
-    ) async throws(PlatformError) -> sending R {
-        return try await runCancellable(cancellationError: cancellationError(), task)
-    }
-
-
-    package func runCancellableSending<R: ~Copyable>(
-        operation: PlatformError.Operation,
-        _ task: sending () throws(PlatformError) -> sending R
-    ) async throws(PlatformError) -> sending R {
-        return try await runCancellableSending(
-            cancellationError: PlatformError(error: CancellationError(), kind: .cancelled, operation: operation),
-            task
-        )
+    package func runCancellableSending<R: ~Copyable, E: Error>(
+        _ task: sending () throws(E) -> sending R
+    ) async -> sending Result<R, E> {
+        return await runCancellable(task)
     }
 
 }

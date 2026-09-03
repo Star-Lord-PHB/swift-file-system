@@ -290,7 +290,7 @@ extension UnsafeSystemHandle {
 
     #if canImport(WinSDK)
 
-    package func securityInfo(_ members: FileOperationOptions.WindowsSecurityInfoMembers) throws(LowLevelError) -> WindowsSelfRelativeSecurityDescriptor {
+    package func securityInfo(_ members: FileOperationOptions.WindowsSecurityInfoMembers) throws(LowLevelError) -> sending WindowsSelfRelativeSecurityDescriptor {
 
         var psd = nil as PSECURITY_DESCRIPTOR?
 
@@ -307,7 +307,11 @@ extension UnsafeSystemHandle {
 
         precondition(psd != nil, "Read security descriptor success but returned null pointer")
 
-        return .init(psd: .init(owningPointer: psd!.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self), allocator: .localAlloc))
+        // The queried descriptor is completely independent and is not aliased by anything else
+        nonisolated(unsafe) let descriptor = WindowsSelfRelativeSecurityDescriptor(
+            psd: .init(owningPointer: psd!.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self), allocator: .localAlloc)
+        )
+        return descriptor
 
     }
 

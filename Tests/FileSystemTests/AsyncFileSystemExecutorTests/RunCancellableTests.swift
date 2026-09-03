@@ -37,7 +37,8 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
     func `runCancellable returns the value produced by the task`() async throws {
         let executor = AsyncFileSystemExecutor(label: "cxl1", threadCount: 2)
 
-        let value = try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { 21 * 2 }
+        let value = try await executor.runCancellable { 21 * 2 }
+            .get(mappingCancellation: Self.stubCancellationError(operationName: "unused"))
         #expect(value == 42)
     }
 
@@ -50,7 +51,8 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
 
         let executor = AsyncFileSystemExecutor(label: "cxlNC", threadCount: 1)
 
-        let payload = try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { Payload(value: 9) }
+        let payload = try await executor.runCancellable { Payload(value: 9) }
+            .get(mappingCancellation: Self.stubCancellationError(operationName: "unused"))
         #expect(payload.value == 9)
     }
 
@@ -60,9 +62,10 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
         let executor = AsyncFileSystemExecutor(label: "cxlE", threadCount: 1)
 
         let error = await #expect(throws: PlatformError.self) {
-            try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { () throws(PlatformError) -> Void in
+            try await executor.runCancellable { () throws(PlatformError) -> Void in
                 throw PlatformError(error: CocoaError(.fileNoSuchFile), kind: .invalidInput, operation: .custom(name: "body-failure"))
             }
+            .get(mappingCancellation: Self.stubCancellationError(operationName: "unused"))
         }
         #expect(error?.kind == .invalidInput)
         #expect(error?.operation == .custom(name: "body-failure"))
@@ -74,7 +77,7 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
         let executor = AsyncFileSystemExecutor(label: "cxlLazy", threadCount: 1)
 
         let constructions = SharedBox(0)
-        let value = try await executor.runCancellable(cancellationError: Self.countingCancellationError(constructions)) { 7 }
+        let value = try await executor.runCancellable { 7 }.get(mappingCancellation: Self.countingCancellationError(constructions))
         #expect(value == 7)
         #expect(constructions.value == 0)
     }
@@ -91,10 +94,11 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
             // Guarantee the cancellation is observable before runCancellable is entered, so
             // this deterministically exercises the pre-submit check.
             while !Task.isCancelled { await Task.yield() }
-            return try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "pre-check")) { () throws(PlatformError) -> Int in
+            return try await executor.runCancellable { () throws(PlatformError) -> Int in
                 bodyRan.value = true
                 return 1
             }
+            .get(mappingCancellation: Self.stubCancellationError(operationName: "pre-check"))
         }
         task.cancel()
 
@@ -115,10 +119,11 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
         let bodyRan = SharedBox(false)
         let task = Task {
             while !Task.isCancelled { await Task.yield() }
-            return try await executor.runCancellable(operation: .custom(name: "op-overload")) { () throws(PlatformError) -> Int in
+            return try await executor.runCancellable { () throws(PlatformError) -> Int in
                 bodyRan.value = true
                 return 1
             }
+            .getThrowingPlatformError(operation: .custom(name: "op-overload"))
         }
         task.cancel()
 
@@ -157,10 +162,11 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
         let (entered, enteredContinuation) = AsyncStream.makeStream(of: Void.self)
         let task = Task {
             enteredContinuation.yield()
-            return try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "queue-check")) { () throws(PlatformError) -> Int in
+            return try await executor.runCancellable { () throws(PlatformError) -> Int in
                 bodyRan.value = true
                 return 2
             }
+            .get(mappingCancellation: Self.stubCancellationError(operationName: "queue-check"))
         }
 
         for await _ in entered.prefix(1) {}
@@ -193,7 +199,7 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
         let (bodyStarted, bodyStartedContinuation) = AsyncStream.makeStream(of: Void.self)
 
         let task = Task {
-            try await executor.runCancellable(cancellationError: Self.stubCancellationError(operationName: "unused")) { () throws(PlatformError) -> Int in
+            try await executor.runCancellable { () throws(PlatformError) -> Int in
                 bodyStartedContinuation.yield()
                 condition.lock()
                 while !released.value {
@@ -202,6 +208,7 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
                 condition.unlock()
                 return 42
             }
+            .get(mappingCancellation: Self.stubCancellationError(operationName: "unused"))
         }
 
         for await _ in bodyStarted.prefix(1) {}

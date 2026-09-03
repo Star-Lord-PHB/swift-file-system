@@ -130,7 +130,7 @@ extension InternalFS {
         forItemAt path: FilePath,
         members: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
-    ) throws(LowLevelError) -> WindowsSelfRelativeSecurityDescriptor {
+    ) throws(LowLevelError) -> sending WindowsSelfRelativeSecurityDescriptor {
         
         var psd = nil as PSECURITY_DESCRIPTOR?
         
@@ -159,7 +159,11 @@ extension InternalFS {
 
         precondition(psd != nil, "Read security descriptor success but returned null pointer")
 
-        return .init(psd: .init(owningPointer: psd!.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self), allocator: .localAlloc))
+        // The queried descriptor is completely independent and is not aliased by anything else
+        nonisolated(unsafe) let descriptor = WindowsSelfRelativeSecurityDescriptor(
+            psd: .init(owningPointer: psd!.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self), allocator: .localAlloc)
+        )
+        return descriptor
 
     }
 

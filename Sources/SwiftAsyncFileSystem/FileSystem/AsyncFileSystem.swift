@@ -47,9 +47,9 @@ extension AsyncFileSystem {
         permissions: FilePermissions? = nil,
         content: ByteBuffer? = nil
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .createFile(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.createFile(at: path, replaceExisting: replaceExisting, permissions: permissions, content: content)
-        }
+        }.getThrowingPlatformError(operation: .createFile(path))
     }
 
 
@@ -59,9 +59,9 @@ extension AsyncFileSystem {
         withIntermediateDirectories: Bool = false,
         permissions: FilePermissions? = nil
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .createDirectory(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.createDirectory(at: path, withIntermediateDirectories: withIntermediateDirectories, permissions: permissions)
-        }
+        }.getThrowingPlatformError(operation: .createDirectory(path))
     }
 
 
@@ -74,9 +74,9 @@ extension AsyncFileSystem {
         permissions: WindowsSecurityDescriptorView,
         content: ByteBuffer? = nil
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .createFile(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.createFile(at: path, replaceExisting: replaceExisting, permissions: permissions, content: content)
-        }
+        }.getThrowingPlatformError(operation: .createFile(path))
     }
 
 
@@ -86,9 +86,9 @@ extension AsyncFileSystem {
         withIntermediateDirectories: Bool = false,
         permissions: WindowsSecurityDescriptorView
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .createDirectory(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.createDirectory(at: path, withIntermediateDirectories: withIntermediateDirectories, permissions: permissions)
-        }
+        }.getThrowingPlatformError(operation: .createDirectory(path))
     }
 
     #endif
@@ -100,9 +100,9 @@ extension AsyncFileSystem {
         to dstPath: FilePath,
         onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption = .overwrite
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .move(srcPath: srcPath, dstPath: dstPath)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.moveItem(at: srcPath, to: dstPath, onExistingTarget: targetExistOption)
-        }
+        }.getThrowingPlatformError(operation: .move(srcPath: srcPath, dstPath: dstPath))
     }
 
 
@@ -111,35 +111,33 @@ extension AsyncFileSystem {
         at path: FilePath,
         options: FileOperationOptions.DirectoryTraversalOption = []
     ) async throws(PlatformError) -> [DirectoryEntry] {
-        return try await executor.runCancellable(operation: .readDirectory(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.contentsOfDirectory(at: path, options: options)
-        }
+        }.getThrowingPlatformError(operation: .readDirectory(path))
     }
 
 
     @concurrent
     public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .createSymlink(linkPath: path, dstPath: destPath)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.createSymLink(at: path, pointingTo: destPath)
-        }
+        }.getThrowingPlatformError(operation: .createSymlink(linkPath: path, dstPath: destPath))
     }
 
 
     @concurrent
     public func createHardLink(at path: FilePath, for existingPath: FilePath) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .createHardLink(linkPath: path, existingPath: existingPath)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.createHardLink(at: path, for: existingPath)
-        }
+        }.getThrowingPlatformError(operation: .createHardLink(linkPath: path, existingPath: existingPath))
     }
 
 
     @concurrent
     public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) async throws(PlatformError) -> FilePath {
-        return try await executor.runCancellable(
-            operation: recursive ? .recursiveResolveSymlink(path) : .readSymlink(path)
-        ) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.destinationOfSymLink(at: path, recursive: recursive)
-        }
+        }.getThrowingPlatformError(operation: recursive ? .recursiveResolveSymlink(path) : .readSymlink(path))
     }
 
 }

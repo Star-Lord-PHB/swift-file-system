@@ -16,9 +16,9 @@ extension AsyncFileSystem {
         for accessMode: FileOperationOptions.FileAccessMode = [.read, .write],
         followSymlink: Bool = true
     ) async throws(PlatformError) -> Bool {
-        return try await executor.runCancellable(operation: .fetchMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.canAccess(itemAt: path, for: accessMode, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
@@ -30,9 +30,9 @@ extension AsyncFileSystem {
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
         followSymlink: Bool = true
     ) async throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
-        return try await executor.runCancellable(operation: .fetchMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.getSecurityInfo(forItemAt: path, querying: members, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
@@ -45,7 +45,7 @@ extension AsyncFileSystem {
         group: PlatformIdentity? = nil,
         followSymlink: Bool = true
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .setMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setSecurityInfo(
                 forItemAt: path,
                 dacl: dacl,
@@ -54,24 +54,24 @@ extension AsyncFileSystem {
                 group: group,
                 followSymlink: followSymlink
             )
-        }
+        }.getThrowingPlatformError(operation: .setMeta(path))
     }
 
     #else
 
     @concurrent
     public func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> FilePermissions {
-        return try await executor.runCancellable(operation: .fetchMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.getPosixPermissions(forItemAt: path, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func setPosixPermissions(forItemAt path: FilePath, permissions: FilePermissions, followSymlink: Bool = true) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .setMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setPosixPermissions(forItemAt: path, permissions: permissions, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .setMeta(path))
     }
 
     #endif
@@ -82,9 +82,9 @@ extension AsyncFileSystem {
         forItemAt path: FilePath,
         followSymlink: Bool = true
     ) async throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
-        return try await executor.runCancellable(operation: .fetchMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.getOwner(forItemAt: path, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
@@ -95,9 +95,9 @@ extension AsyncFileSystem {
         group: PlatformIdentity?,
         followSymlink: Bool = true
     ) async throws(PlatformError) {
-        return try await executor.runCancellable(operation: .setMeta(path)) { () throws(PlatformError) in
+        return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setOwner(forItemAt: path, owner: owner, group: group, followSymlink: followSymlink)
-        }
+        }.getThrowingPlatformError(operation: .setMeta(path))
     }
 
 }
