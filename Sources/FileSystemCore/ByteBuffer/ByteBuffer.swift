@@ -122,9 +122,12 @@ extension ByteBuffer: Equatable, Hashable {
             return true
         }
         guard lhs.count == rhs.count else { return false }
-        guard 
-            let lhsPtr = lhs.storage.baseAddress?.advanced(by: lhs.startOffsetInStorage), 
-            let rhsPtr = rhs.storage.baseAddress?.advanced(by: rhs.startOffsetInStorage) 
+        // Two empty buffers are equal even when one of them never allocated storage and
+        // has no base address.
+        guard lhs.count > 0 else { return true }
+        guard
+            let lhsPtr = lhs.storage.baseAddress?.advanced(by: lhs.startOffsetInStorage),
+            let rhsPtr = rhs.storage.baseAddress?.advanced(by: rhs.startOffsetInStorage)
         else { return false }
         return memcmp(lhsPtr, rhsPtr, lhs.count) == 0
     }
