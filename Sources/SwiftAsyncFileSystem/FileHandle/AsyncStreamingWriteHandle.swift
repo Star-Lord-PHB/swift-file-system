@@ -33,15 +33,21 @@ public struct AsyncStreamingWriteHandle
     }
 
 
+    /// Closes the handle on the executor. Unlike the other operations, closing never
+    /// observes task cancellation: the handle is consumed either way, so a cancelled close
+    /// could not be retried and would only move the actual closing to the deinit on the
+    /// calling thread.
     @concurrent
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor
         let path = self.path
         var handle = Optional.some(self.handle)
-        return try await executor.runCancellable { () throws(LowLevelError) in
-            let handle = handle.take()!
-            try handle.close()
-        }.getThrowingPlatformError(operation: .closeHandle(originalPath: path))
+        return try await executor.run { () throws(PlatformError) in
+            try catchLowLevelError(operation: .closeHandle(originalPath: path)) { () throws(LowLevelError) in
+                let handle = handle.take()!
+                try handle.close()
+            }
+        }
     }
 
 
