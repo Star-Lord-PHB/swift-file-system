@@ -16,9 +16,13 @@ import PlatformCLib
 /// closed, and a succeeding query is compared against the captured file identity so a
 /// raw value recycled by an unrelated open (which is expected under parallel test
 /// execution) still counts as released.
+///
+/// Sendable by declaration: the probe is an immutable snapshot and never dereferences the
+/// raw value, but on Windows that value is a pointer, which blocks the implicit conformance
+/// the async handle tests rely on when a probe is captured on the executor.
 extension FileSystemTestSupport {
 
-    struct SystemHandleProbe {
+    struct SystemHandleProbe: @unchecked Sendable {
 
         private let rawHandle: UnsafeSystemHandle.SystemHandleType
         private let identity: Identity
