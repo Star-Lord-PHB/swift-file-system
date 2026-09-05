@@ -92,6 +92,10 @@ extension PlatformError {
     }
 
 
+    public static func taskCancelled(operation: Operation) -> Self {
+        .init(error: CancellationError(), kind: .cancelled, operation: operation)
+    }
+
 
     public init?(rawSystemCode: PlatformInteropTypes.ErrorCode?, kind: PlatformErrorKind? = nil, operation: Operation) {
         self.init(systemCode: rawSystemCode.map { .init(rawValue: $0) }, kind: kind, operation: operation)
