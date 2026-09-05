@@ -95,7 +95,7 @@ extension FileSystemAPITests.HandlesTests {
             let probe = try handle.withUnsafeSystemHandle {
                 try Support.SystemHandleProbe(capturing: $0)
             }
-            return (probe, try handle.directEntries())
+            return (probe, try handle.entries())
         }
 
         #expect(entries.map(\.name).sorted() == ["file", "subdir"])

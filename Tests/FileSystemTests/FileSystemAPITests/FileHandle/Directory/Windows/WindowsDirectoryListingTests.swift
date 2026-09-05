@@ -1,5 +1,6 @@
 #if canImport(WinSDK)
 
+import Foundation
 import WinSDK
 import SystemPackage
 import Testing
@@ -7,13 +8,12 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests {
+extension FileHandleAPITests.DirectoryTests {
 
-    @Suite("Windows traversal errors")
-    struct WindowsTraversalErrorTests {
+    @Suite("Windows listing")
+    struct WindowsListingTests {
 
-        typealias Support = DirectorySequenceAPITests.Support
-        typealias TraversalLog = DirectorySequenceAPITests.ErrorHandlingTests.TraversalLog
+        typealias Support = FileHandleAPITests.Support
 
         let workspace: Support.Workspace
 
@@ -28,7 +28,7 @@ extension DirectorySequenceAPITests.ErrorHandlingTests {
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTests {
+extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
 
     private func denyListing(
         at path: FilePath,
@@ -82,79 +82,87 @@ extension DirectorySequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTest
         }
     }
 
+}
+
+
+
+extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
 
     @Test
-    func `List-denied subdirectory reports a sub-tree error and siblings are still visited`() throws {
+    func `List-denied directory open fails`() throws {
+
+        let path = try workspace.makeDirectory(at: "locked")
+        try denyListing(at: path)
+        defer { restoreFullAccess(at: path) }
+        try requireListingDenied(at: path)
+
+        let error = #expect(throws: PlatformError.self) {
+            _ = try DirectoryHandle(forDirAt: path)
+        }
+
+        #expect(error?.kind == .permissionDenied)
+
+    }
+
+
+    @Test
+    func `Listing a directory list-denied after open fails once and ends`() throws {
 
         let path = try workspace.makeFixture(
             at: "directory",
             [
-                "a-file": .file(contents: "a"),
-                "locked": [
-                    "inner": .file(contents: "inner contents")
-                ],
-                "z-file": .file(contents: "z")
+                "file": .file(contents: "contents")
             ]
         )
-        let lockedPath = path.appending("locked")
-        try denyListing(at: lockedPath)
-        defer { restoreFullAccess(at: lockedPath) }
-        try requireListingDenied(at: lockedPath)
-
-        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
-        let log = TraversalLog(elements: elements)
-
-        #expect(log.entries.map(\.path).contains("a-file"))
-        #expect(log.entries.map(\.path).contains("z-file"))
-        #expect(log.entries.map(\.path).contains("locked"))
-        #expect(!log.entries.map(\.path).contains("locked/inner"))
-        try #require(log.subTreeErrors.count == 1)
-        #expect(log.subTreeErrors[0].path == "locked")
-        #expect(log.subTreeErrors[0].error.kind == .permissionDenied)
-        #expect(log.cleanLeavingDirectories.isEmpty)
-        #expect(log.leavingDirectoryErrors.isEmpty)
-        #expect(log.entryErrors.isEmpty)
-
-    }
-
-
-    @Test
-    func `Direct sequence fails to open a list-denied root`() throws {
-
-        let path = try workspace.makeDirectory(at: "locked-root")
+        let handle = try DirectoryHandle(forDirAt: path)
         try denyListing(at: path)
         defer { restoreFullAccess(at: path) }
         try requireListingDenied(at: path)
 
+        // The listing goes through FindFirstFile on the origin path, so a deny ACE installed after
+        // open is observed even though the handle itself stays valid.
         let error = #expect(throws: PlatformError.self) {
-            _ = try DirectoryEntryDirectSequence(dirAt: path)
+            _ = try handle.entries()
         }
-
         #expect(error?.kind == .permissionDenied)
 
-    }
-
-
-    @Test
-    func `Recursive sequence reports a list-denied root and ends`() throws {
-
-        let path = try workspace.makeDirectory(at: "locked-root")
-        try denyListing(at: path)
-        defer { restoreFullAccess(at: path) }
-        try requireListingDenied(at: path)
-
-        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
+        let sequence = handle.entrySequence()
         var iterator = sequence.makeIterator()
-
         let first = iterator.next()
-        let error = #expect(throws: PlatformError.self) {
+        let firstError = #expect(throws: PlatformError.self) {
             try first?.get()
         }
-        #expect(error?.kind == .permissionDenied)
+        #expect(firstError?.kind == .permissionDenied)
         #expect(iterator.next() == nil)
+        #expect(iterator.ended == true)
+
+    }
+
+
+    @Test
+    func `Listing after directory rename reports not-found`() throws {
+
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "file": .file(contents: "contents")
+            ]
+        )
+        let movedPath = workspace.path("moved")
+        let handle = try DirectoryHandle(forDirAt: path)
+
+        try FileManager.default.moveItem(atPath: path.string, toPath: movedPath.string)
+
+        // NOTE: Windows lists through FindFirstFile on the origin path rather than through the handle,
+        // so a rename after open makes the listing fail. POSIX keeps listing the renamed directory
+        // through the descriptor (see the POSIX listing suite).
+        try #require(!FileManager.default.fileExists(atPath: path.string))
+        let error = #expect(throws: PlatformError.self) {
+            _ = try handle.entries()
+        }
+        #expect(error?.kind == .notFound)
+
+        try handle.close()
 
     }
 

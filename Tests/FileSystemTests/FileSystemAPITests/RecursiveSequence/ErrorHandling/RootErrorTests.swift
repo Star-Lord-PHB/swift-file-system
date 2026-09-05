@@ -4,12 +4,12 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests {
+extension RecursiveSequenceAPITests {
 
     @Suite("Error handling")
     struct ErrorHandlingTests {
 
-        typealias Support = DirectorySequenceAPITests.Support
+        typealias Support = RecursiveSequenceAPITests.Support
 
         let workspace: Support.Workspace
 
@@ -24,7 +24,7 @@ extension DirectorySequenceAPITests {
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests {
+extension RecursiveSequenceAPITests.ErrorHandlingTests {
 
     /// Recursive-traversal elements grouped by case, keeping the reported errors.
     struct TraversalLog {
@@ -58,49 +58,7 @@ extension DirectorySequenceAPITests.ErrorHandlingTests {
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests {
-
-    @Test
-    func `Direct sequence fails to open a missing root`() throws {
-
-        let path = workspace.path("missing")
-
-        let error = #expect(throws: PlatformError.self) {
-            _ = try DirectoryEntryDirectSequence(dirAt: path)
-        }
-
-        #expect(error?.kind == .notFound)
-
-    }
-
-
-    @Test
-    func `Direct sequence fails to open a regular file root`() throws {
-
-        let path = try workspace.makeFile(at: "file")
-
-        let error = #expect(throws: PlatformError.self) {
-            _ = try DirectoryEntryDirectSequence(dirAt: path)
-        }
-
-        #expect(error?.kind == .notADirectory)
-
-    }
-
-
-    @Test
-    func `Direct sequence fails to open a dangling symlink root`() throws {
-
-        let path = try workspace.makeSymlink(at: "dangling", pointingTo: "missing")
-
-        let error = #expect(throws: PlatformError.self) {
-            _ = try DirectoryEntryDirectSequence(dirAt: path)
-        }
-
-        #expect(error?.kind == .notFound)
-
-    }
-
+extension RecursiveSequenceAPITests.ErrorHandlingTests {
 
     @Test
     func `Recursive sequence reports a missing root and ends`() throws {

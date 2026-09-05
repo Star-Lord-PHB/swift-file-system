@@ -56,13 +56,29 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
 
 
     @Test
-    func `Fully consumed direct sequence does not leak resources`() throws {
+    func `Fully consumed entry sequence does not leak resources`() throws {
 
         try LeakChecker.expectNoLeak {
-            let sequence = try DirectoryEntryDirectSequence(dirAt: root)
-            try sequence.forEach { result in
+            let handle = try DirectoryHandle(forDirAt: root)
+            try handle.entrySequence().forEach { result in
                 _ = try result.get()
             }
+        }
+
+    }
+
+
+    @Test
+    func `Abandoned entry iteration does not leak resources`() throws {
+
+        // Stopping after the first entry leaves the reopened directory stream to the drop of the
+        // iterator rather than to a completed enumeration.
+        try LeakChecker.expectNoLeak {
+            let handle = try DirectoryHandle(forDirAt: root)
+            let sequence = handle.entrySequence()
+            var iterator = sequence.makeIterator()
+            let first = iterator.next()
+            #expect(first != nil)
         }
 
     }
@@ -97,24 +113,6 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
                 }
             }
             #expect(reachedDeepestEntry)
-        }
-
-    }
-
-
-    @Test
-    func `Direct sequence init failure does not leak resources`() throws {
-
-        let filePath = try workspace.makeFile(at: "file.txt", contents: "contents")
-        let missing = workspace.path("missing")
-
-        try LeakChecker.expectNoLeak {
-            #expect(throws: PlatformError.self) {
-                _ = try DirectoryEntryDirectSequence(dirAt: filePath)
-            }
-            #expect(throws: PlatformError.self) {
-                _ = try DirectoryEntryDirectSequence(dirAt: missing)
-            }
         }
 
     }

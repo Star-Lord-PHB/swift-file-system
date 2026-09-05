@@ -4,12 +4,12 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests {
+extension RecursiveSequenceAPITests {
 
-    @Suite("Recursive")
-    struct RecursiveTests {
+    @Suite("Traversal")
+    struct TraversalTests {
 
-        typealias Support = DirectorySequenceAPITests.Support
+        typealias Support = RecursiveSequenceAPITests.Support
 
         let workspace: Support.Workspace
 
@@ -24,7 +24,7 @@ extension DirectorySequenceAPITests {
 
 
 
-extension DirectorySequenceAPITests.RecursiveTests {
+extension RecursiveSequenceAPITests.TraversalTests {
 
     struct RecursiveContents {
 
@@ -107,7 +107,7 @@ extension DirectorySequenceAPITests.RecursiveTests {
 
 
 
-extension DirectorySequenceAPITests.RecursiveTests {
+extension RecursiveSequenceAPITests.TraversalTests {
 
     @Test
     func `Visits the complete tree with leaving-directory markers`() throws {

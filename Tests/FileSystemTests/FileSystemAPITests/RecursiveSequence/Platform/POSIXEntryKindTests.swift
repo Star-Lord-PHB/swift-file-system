@@ -7,12 +7,12 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests {
+extension RecursiveSequenceAPITests {
 
     @Suite("POSIX entry kinds")
     struct POSIXEntryKindTests {
 
-        typealias Support = DirectorySequenceAPITests.Support
+        typealias Support = RecursiveSequenceAPITests.Support
 
         let workspace: Support.Workspace
 
@@ -27,26 +27,7 @@ extension DirectorySequenceAPITests {
 
 
 
-extension DirectorySequenceAPITests.POSIXEntryKindTests {
-
-    @Test
-    func `Direct sequence reports the fifo entry kind`() throws {
-
-        let path = try workspace.makeDirectory(at: "directory")
-        let fifoPath = path.appending("fifo")
-        try #require(mkfifo(fifoPath.string, 0o644) == 0)
-
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
-
-        try #require(entries.count == 1)
-        #expect(entries[0].path == "fifo")
-        #expect(entries[0].type == .fifo)
-
-    }
-
+extension RecursiveSequenceAPITests.POSIXEntryKindTests {
 
     @Test
     func `Recursive sequence reports the fifo entry kind`() throws {

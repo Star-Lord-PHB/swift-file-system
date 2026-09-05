@@ -1,55 +1,12 @@
-import SystemPackage
 import Testing
 import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests {
-
-    @Suite("Direct")
-    struct DirectTests {
-
-        typealias Support = DirectorySequenceAPITests.Support
-
-        let workspace: Support.Workspace
-
-
-        init() throws {
-            workspace = try Support.Workspace()
-        }
-
-    }
-
-}
-
-
-
-extension DirectorySequenceAPITests.DirectTests {
-
-    private func entry(
-        _ path: FilePath,
-        type: FileKind,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws -> DirectoryEntry {
-        try #require(
-            DirectoryEntry(path: path, type: type),
-            sourceLocation: sourceLocation
-        )
-    }
-
-
-    private func expectEntries(
-        _ entries: [DirectoryEntry],
-        match expected: Set<DirectoryEntry>,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) {
-        #expect(entries.count == expected.count, sourceLocation: sourceLocation)
-        #expect(Set(entries) == expected, sourceLocation: sourceLocation)
-    }
-
+extension FileHandleAPITests.DirectoryTests {
 
     @Test
-    func `Enumerates immediate children without descending or following symlinks`() throws {
+    func `Entries return immediate children without descending or following symlinks`() throws {
 
         let path = try workspace.makeFixture(
             at: "directory",
@@ -63,11 +20,9 @@ extension DirectorySequenceAPITests.DirectTests {
                 "dangling-link": .symlink(target: "missing")
             ]
         )
+        let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try handle.entries()
 
         expectEntries(
             entries,
@@ -80,20 +35,22 @@ extension DirectorySequenceAPITests.DirectTests {
             ]
         )
 
+        try handle.close()
+
     }
 
 
     @Test
-    func `Empty directory yields no entries`() throws {
+    func `Entries return no children for an empty directory`() throws {
 
         let path = try workspace.makeDirectory(at: "empty")
+        let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try handle.entries()
 
         expectEntries(entries, match: [])
+
+        try handle.close()
 
     }
 
@@ -107,11 +64,9 @@ extension DirectorySequenceAPITests.DirectTests {
                 "file": .file(contents: "contents")
             ]
         )
+        let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path, options: .includeDotEntries)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try handle.entries(options: .includeDotEntries)
 
         expectEntries(
             entries,
@@ -121,6 +76,8 @@ extension DirectorySequenceAPITests.DirectTests {
                 try entry("file", type: .regular)
             ]
         )
+
+        try handle.close()
 
     }
 
@@ -138,11 +95,9 @@ extension DirectorySequenceAPITests.DirectTests {
                 "dir-link": .symlink(target: "subdir")
             ]
         )
+        let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path, options: .skipDir)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try handle.entries(options: .skipDir)
 
         expectEntries(
             entries,
@@ -151,6 +106,8 @@ extension DirectorySequenceAPITests.DirectTests {
                 try entry("dir-link", type: .symlink)
             ]
         )
+
+        try handle.close()
 
     }
 
@@ -167,14 +124,9 @@ extension DirectorySequenceAPITests.DirectTests {
                 ]
             ]
         )
+        let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = try DirectoryEntryDirectSequence(
-            dirAt: path,
-            options: [.includeDotEntries, .skipDir]
-        )
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try handle.entries(options: [.includeDotEntries, .skipDir])
 
         expectEntries(
             entries,
@@ -183,35 +135,46 @@ extension DirectorySequenceAPITests.DirectTests {
             ]
         )
 
+        try handle.close()
+
     }
 
 
     @Test
-    func `Directory symlink root enumerates its target`() throws {
+    func `Entries can be listed repeatedly from the same handle`() throws {
 
-        let target = try workspace.makeFixture(
-            at: "target",
+        let path = try workspace.makeFixture(
+            at: "directory",
             [
-                "file": .file(contents: "contents"),
-                "subdir": [
-                    "nested": .file(contents: "nested contents")
-                ]
+                "file-a": .file(contents: "a"),
+                "file-b": .file(contents: "b"),
+                "subdir": [:]
             ]
         )
-        let link = try workspace.makeSymlink(at: "link", pointingTo: target)
+        let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = try DirectoryEntryDirectSequence(dirAt: link)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let first = try handle.entries()
+        let second = try handle.entries(options: .skipDir)
+        let third = try handle.entries()
 
         expectEntries(
-            entries,
+            first,
             match: [
-                try entry("file", type: .regular),
+                try entry("file-a", type: .regular),
+                try entry("file-b", type: .regular),
                 try entry("subdir", type: .directory)
             ]
         )
+        expectEntries(
+            second,
+            match: [
+                try entry("file-a", type: .regular),
+                try entry("file-b", type: .regular)
+            ]
+        )
+        expectEntries(third, match: Set(first))
+
+        try handle.close()
 
     }
 

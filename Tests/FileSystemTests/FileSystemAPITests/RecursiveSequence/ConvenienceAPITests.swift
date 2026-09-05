@@ -4,12 +4,12 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests.RecursiveTests {
+extension RecursiveSequenceAPITests {
 
     @Suite("Convenience APIs")
     struct ConvenienceAPITests {
 
-        typealias Support = DirectorySequenceAPITests.Support
+        typealias Support = RecursiveSequenceAPITests.Support
 
         let workspace: Support.Workspace
 
@@ -24,7 +24,7 @@ extension DirectorySequenceAPITests.RecursiveTests {
 
 
 
-extension DirectorySequenceAPITests.RecursiveTests.ConvenienceAPITests {
+extension RecursiveSequenceAPITests.ConvenienceAPITests {
 
     // every element path, including the leaving-directory marker of "subdir"
     private var sampleDirectoryElementPaths: [FilePath] {

@@ -8,13 +8,13 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests {
+extension RecursiveSequenceAPITests.ErrorHandlingTests {
 
     @Suite("POSIX traversal errors")
     struct POSIXTraversalErrorTests {
 
-        typealias Support = DirectorySequenceAPITests.Support
-        typealias TraversalLog = DirectorySequenceAPITests.ErrorHandlingTests.TraversalLog
+        typealias Support = RecursiveSequenceAPITests.Support
+        typealias TraversalLog = RecursiveSequenceAPITests.ErrorHandlingTests.TraversalLog
 
         let workspace: Support.Workspace
 
@@ -29,7 +29,7 @@ extension DirectorySequenceAPITests.ErrorHandlingTests {
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests {
+extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests {
 
     private func setPermissions(_ permissions: Int, at path: FilePath) throws {
         try FileManager.default.setAttributes(
@@ -48,7 +48,7 @@ extension DirectorySequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
 
 
 
-extension DirectorySequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests {
+extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests {
 
     @Test
     func `Unreadable subdirectory reports a sub-tree error and siblings are still visited`() throws {
@@ -123,26 +123,6 @@ extension DirectorySequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
         #expect(log.cleanLeavingDirectories == ["read-only"])
         #expect(log.leavingDirectoryErrors.isEmpty)
         #expect(log.subTreeErrors.isEmpty)
-
-    }
-
-
-    @Test
-    func `Direct sequence fails to open an unreadable root`() throws {
-
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
-
-        let path = try workspace.makeDirectory(at: "locked-root")
-        try setPermissions(0o000, at: path)
-        defer { restoreDefaultDirectoryPermissions(at: path) }
-
-        let error = #expect(throws: PlatformError.self) {
-            _ = try DirectoryEntryDirectSequence(dirAt: path)
-        }
-
-        #expect(error?.kind == .permissionDenied)
 
     }
 

@@ -4,12 +4,12 @@ import SwiftFileSystem
 
 
 
-extension DirectorySequenceAPITests.DirectTests {
+extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
 
     @Suite("Convenience APIs")
     struct ConvenienceAPITests {
 
-        typealias Support = DirectorySequenceAPITests.Support
+        typealias Support = FileHandleAPITests.Support
 
         let workspace: Support.Workspace
 
@@ -24,7 +24,7 @@ extension DirectorySequenceAPITests.DirectTests {
 
 
 
-extension DirectorySequenceAPITests.DirectTests.ConvenienceAPITests {
+extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITests {
 
     private var sampleDirectoryEntryPaths: Set<FilePath> { ["file-a", "file-b", "subdir"] }
 
@@ -45,7 +45,8 @@ extension DirectorySequenceAPITests.DirectTests.ConvenienceAPITests {
     func `forEach visits every entry`() throws {
 
         let path = try createSampleDirectory()
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
+        let handle = try DirectoryHandle(forDirAt: path)
+        let sequence = handle.entrySequence()
 
         var paths = [FilePath]()
         try sequence.forEach { result in
@@ -62,7 +63,8 @@ extension DirectorySequenceAPITests.DirectTests.ConvenienceAPITests {
     func `map transforms every entry`() throws {
 
         let path = try createSampleDirectory()
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
+        let handle = try DirectoryHandle(forDirAt: path)
+        let sequence = handle.entrySequence()
 
         let names = try sequence.map { result in
             try result.get().name
@@ -78,7 +80,8 @@ extension DirectorySequenceAPITests.DirectTests.ConvenienceAPITests {
     func `compactMap drops nil transform results`() throws {
 
         let path = try createSampleDirectory()
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
+        let handle = try DirectoryHandle(forDirAt: path)
+        let sequence = handle.entrySequence()
 
         let regularFilePaths = try sequence.compactMap { result in
             let entry = try result.get()
@@ -94,7 +97,8 @@ extension DirectorySequenceAPITests.DirectTests.ConvenienceAPITests {
     func `reduce combines every entry`() throws {
 
         let path = try createSampleDirectory()
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
+        let handle = try DirectoryHandle(forDirAt: path)
+        let sequence = handle.entrySequence()
 
         let paths = try sequence.reduce([FilePath]()) { partialResult, result in
             partialResult + [try result.get().path]
@@ -110,7 +114,8 @@ extension DirectorySequenceAPITests.DirectTests.ConvenienceAPITests {
     func `reduce-into combines every entry`() throws {
 
         let path = try createSampleDirectory()
-        let sequence = try DirectoryEntryDirectSequence(dirAt: path)
+        let handle = try DirectoryHandle(forDirAt: path)
+        let sequence = handle.entrySequence()
 
         var paths = Set<FilePath>()
         try sequence.reduce(into: &paths) { partialResult, result in
