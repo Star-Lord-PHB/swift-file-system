@@ -127,20 +127,12 @@ extension DirectoryHandle {
             mutating func next() throws(LowLevelError) -> DirectoryEntry? {
                 switch consume self {
                     case .ready(let handle, let path, let options):
-                        #if canImport(WinSDK)
-                        self = .opened(.init(path: path, options: options))
-                        #else
                         do throws(LowLevelError) {
-                            let newHandle = openat(handle.unsafeRawHandle, ".", O_RDONLY | O_DIRECTORY | O_CLOEXEC)
-                            guard newHandle >= 0 else {
-                                try LowLevelError.assertError()
-                            }
-                            self = .opened(try .init(unsafeSystemHandle: .init(owningRawHandle: newHandle), path: path, options: options))
+                            self = .opened(try .init(unsafeSystemHandle: handle.reOpenForDir(), path: path, options: options))
                         } catch {
                             self = .ended(path)
                             throw error
                         }
-                        #endif
                     case let s: 
                         self = s
                 }

@@ -235,3 +235,87 @@ package struct UnsafeUnownedMutableRawPointer: ~Escapable {
     }
 
 }
+
+
+
+package struct UnsafeOwnedMutableRawBufferPointer: ~Copyable {
+
+    package let unsafeRawPtr: UnsafeMutableRawBufferPointer
+    package let allocator: MemoryAllocatorType
+
+    package var byteCount: Int {
+        unsafeRawPtr.count
+    }
+
+    package var baseAddress: UnsafeUnownedMutableRawPointer? {
+        if let baseAddress = unsafeRawPtr.baseAddress {
+            return .init(unownedPointer: baseAddress)
+        }
+        return nil
+    }
+
+
+    package init(owningBuffer ptr: UnsafeMutableRawBufferPointer, allocator: MemoryAllocatorType) {
+        self.unsafeRawPtr = ptr
+        self.allocator = allocator
+    }
+
+    deinit {
+        if let baseAddress = unsafeRawPtr.baseAddress {
+            allocator.dealloc(pointer: baseAddress)
+        }
+    }
+
+    package consuming func deallocate() {
+        let allocator = self.allocator
+        let baseAddress = unsafeRawPtr.baseAddress
+        discard self
+        if let baseAddress {
+            allocator.dealloc(pointer: baseAddress)
+        }
+    }
+
+    package consuming func assumingMemoryBound<Pointee>(to type: Pointee.Type) -> UnsafeOwnedMutableAutoBufferPointer<Pointee> {
+        let typedPtr = unsafeRawPtr.assumingMemoryBound(to: Pointee.self)
+        let allocator = self.allocator
+        discard self
+        return .init(owningBuffer: typedPtr, allocator: allocator)
+    }
+
+    package consuming func bindMemory<Pointee>(to type: Pointee.Type) -> UnsafeOwnedMutableAutoBufferPointer<Pointee> {
+        let typedPtr = unsafeRawPtr.bindMemory(to: Pointee.self)
+        let allocator = self.allocator
+        discard self
+        return .init(owningBuffer: typedPtr, allocator: allocator)
+    }
+
+
+    package consuming func take() -> UnsafeMutableRawBufferPointer {
+        let ptr = unsafeRawPtr
+        discard self
+        return ptr
+    }
+
+    package static func swiftAllocate(byteCount: Int, alignment: Int) -> UnsafeOwnedMutableRawBufferPointer {
+        let ptr = UnsafeMutableRawBufferPointer.allocate(byteCount: byteCount, alignment: alignment)
+        return .init(owningBuffer: ptr, allocator: .swift)
+    }
+
+    package static func mallocAllocate(byteCount: Int) -> UnsafeOwnedMutableRawBufferPointer {
+        let ptr = malloc(byteCount)!
+        return .init(owningBuffer: .init(start: ptr, count: byteCount), allocator: .malloc)
+    }
+
+    #if canImport(WinSDK)
+    package static func globalAllocAllocate(byteCount: Int) -> UnsafeOwnedMutableRawBufferPointer {
+        let ptr = GlobalAlloc(UINT(GMEM_FIXED), SIZE_T(byteCount))!
+        return .init(owningBuffer: .init(start: ptr, count: byteCount), allocator: .globalAlloc)  
+    }
+
+    package static func localAllocAllocate(byteCount: Int) -> UnsafeOwnedMutableRawBufferPointer {
+        let ptr = LocalAlloc(UINT(LMEM_FIXED), SIZE_T(byteCount))!
+        return .init(owningBuffer: .init(start: ptr, count: byteCount), allocator: .localAlloc)  
+    }
+    #endif
+
+}

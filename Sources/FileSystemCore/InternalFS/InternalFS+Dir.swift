@@ -212,6 +212,67 @@ extension InternalFS {
 
     }
 
+
+
+    package struct WindowsByHandleDirInfoStream: ~Copyable {
+
+        let handle: UnsafeSystemHandle
+        private let buffer: UnsafeOwnedMutableRawBufferPointer = .swiftAllocate(
+            byteCount: 64 * 1024, 
+            alignment: MemoryLayout<_FILE_ID_EXTD_DIR_INFO>.alignment
+        )
+        private var currentPtr: UnsafeRawPointer? = nil
+
+        package init(unsafeSystemHandle: consuming UnsafeSystemHandle) {
+            self.handle = unsafeSystemHandle
+        }
+
+        package consuming func close() throws(LowLevelError) {
+            try handle.close()
+        }
+
+        package mutating func next() throws(LowLevelError) -> UnsafeUnownedPointer<_FILE_ID_EXTD_DIR_INFO>? {
+
+            let nextOffset = currentPtr?.assumingMemoryBound(to: _FILE_ID_EXTD_DIR_INFO.self).pointee.NextEntryOffset
+
+            if let nextOffset, nextOffset > 0 {
+
+                currentPtr = currentPtr!.advanced(by: Int(nextOffset))
+
+            } else {
+
+                let infoClass = currentPtr == nil ? FileIdExtdDirectoryRestartInfo : FileIdExtdDirectoryInfo
+                
+                guard GetFileInformationByHandleEx(
+                    handle.unsafeRawHandle, 
+                    infoClass, 
+                    buffer.baseAddress!.unsafeRawPtr, 
+                    DWORD(buffer.byteCount)
+                ) else {
+                    let error = GetLastError()
+                    if error == ERROR_NO_MORE_FILES {
+                        return nil
+                    }
+                    throw LowLevelError(rawSystemCode: error)!
+                }
+
+                currentPtr = .init(buffer.baseAddress!.unsafeRawPtr)
+
+            }
+
+            if let currentPtr {
+                return _overrideLifetime(
+                    UnsafeUnownedPointer(unownedPointer: currentPtr.assumingMemoryBound(to: _FILE_ID_EXTD_DIR_INFO.self)),
+                    borrowing: self
+                )
+            }
+
+            return nil
+
+        }
+
+    }
+
     #endif 
 
 }

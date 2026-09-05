@@ -119,8 +119,9 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
         defer { restoreFullAccess(at: path) }
         try requireListingDenied(at: path)
 
-        // The listing goes through FindFirstFile on the origin path, so a deny ACE installed after
-        // open is observed even though the handle itself stays valid.
+        // Each listing reopens the directory through the handle (`ReOpenDir`), which runs a fresh
+        // access check, so a deny ACE installed after open is observed even though the handle
+        // itself stays valid.
         let error = #expect(throws: PlatformError.self) {
             _ = try handle.entries()
         }
@@ -140,7 +141,7 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
 
 
     @Test
-    func `Listing after directory rename reports not-found`() throws {
+    func `Open handle outlives directory rename`() throws {
 
         let path = try workspace.makeFixture(
             at: "directory",
@@ -153,14 +154,11 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
 
         try FileManager.default.moveItem(atPath: path.string, toPath: movedPath.string)
 
-        // NOTE: Windows lists through FindFirstFile on the origin path rather than through the handle,
-        // so a rename after open makes the listing fail. POSIX keeps listing the renamed directory
-        // through the descriptor (see the POSIX listing suite).
+        // The listing reopens the directory through the handle rather than through the origin path,
+        // so it keeps working after the rename, the same as the POSIX listing suite.
         try #require(!FileManager.default.fileExists(atPath: path.string))
-        let error = #expect(throws: PlatformError.self) {
-            _ = try handle.entries()
-        }
-        #expect(error?.kind == .notFound)
+        let entries = try handle.entries()
+        #expect(entries.map(\.name) == ["file"])
 
         try handle.close()
 

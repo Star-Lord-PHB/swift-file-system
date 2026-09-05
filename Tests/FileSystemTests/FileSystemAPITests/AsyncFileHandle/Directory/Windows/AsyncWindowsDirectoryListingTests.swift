@@ -85,8 +85,9 @@ extension AsyncFileHandleAPITests.DirectoryTests.WindowsListingTests {
 
 
 // NOTE: A directory list-denied after open is the one deterministic way to make the synchronous
-// iterator fail on its first `next()` (the listing resolves the origin path again), which is
-// what pins the async error path: the failure surfaces once and the iterator then ends.
+// iterator fail on its first `next()` (the listing reopens the directory through the handle, which
+// runs a fresh access check), which is what pins the async error path: the failure surfaces once
+// and the iterator then ends.
 extension AsyncFileHandleAPITests.DirectoryTests.WindowsListingTests {
 
     @Test

@@ -6,8 +6,8 @@ import SystemPackage
 package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
     #if canImport(WinSDK)
-    package typealias SystemEntryDataType = WIN32_FIND_DATAW
-    private var findHandle: InternalFS.WindowsFindHandle?
+    package typealias SystemEntryDataType = UnsafeUnownedPointer<_FILE_ID_EXTD_DIR_INFO>
+    private var dirStream: InternalFS.WindowsByHandleDirInfoStream?
     package let rootPath: FilePath
     #else
     package typealias SystemEntryDataType = dirent
@@ -30,33 +30,12 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
         #if canImport(WinSDK)
         self.rootPath = path
-        self.findHandle = .init(path: path)
+        self.dirStream = .init(unsafeSystemHandle: unsafeSystemHandle)
         #else
         self.rootPath = path
         self.dirStream = try .init(unsafeSystemHandle: unsafeSystemHandle)
         #endif
 
-    }
-
-
-    #if canImport(WinSDK)
-    package init(
-        path: FilePath, 
-        options: FileOperationOptions.DirectoryTraversalOption
-    ) {
-        self.options = options
-        self.rootPath = path
-        self.findHandle = .init(path: path)
-    }
-    #endif
-
-
-    deinit {
-        #if canImport(WinSDK)
-        try? findHandle?.close()
-        #else
-        try? dirStream?.close()
-        #endif
     }
 
 
@@ -81,18 +60,20 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
     private mutating func _next() throws(LowLevelError) -> DirectoryEntry? {
         #if canImport(WinSDK)
-        while let entry = try findHandle?.next() {
-            lazy var path = extractPath(from: entry)
-            let type = extractType(from: entry)
-            if options.contains(.skipDir) && type == .directory { continue }
-            if !options.contains(.includeDotEntries) && path.lastComponent?.kind != .regular { continue }
+        let skipDir = options.contains(.skipDir)
+        let includeDotEntries = options.contains(.includeDotEntries)
+        while let entry = try dirStream?.next() {
+            lazy var path = Self.extractPath(from: entry)
+            let type = Self.extractType(from: entry)
+            if skipDir && type == .directory { continue }
+            if !includeDotEntries && path.lastComponent?.kind != .regular { continue }
             return .init(path: path, type: type)
         }
         return nil
         #else
         while let entry = try dirStream?.next() {
-            lazy var path = extractPath(from: entry)
-            let type = extractType(from: entry)
+            lazy var path = Self.extractPath(from: entry)
+            let type = Self.extractType(from: entry)
             if options.contains(.skipDir) && type == .directory { continue }
             if !options.contains(.includeDotEntries) && path.lastComponent?.kind != .regular { continue }
             return .init(path: path, type: type)
@@ -102,14 +83,16 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private func extractPath(from systemEntry: borrowing SystemEntryDataType) -> FilePath {
+    private static func extractPath(from systemEntry: borrowing SystemEntryDataType) -> FilePath {
         
         #if canImport(WinSDK)
-        return withUnsafePointer(to: systemEntry.cFileName) { ptr in 
-            ptr.withMemoryRebound(to: WCHAR.self, capacity: Int(MAX_PATH)) { wcharPtr in
-                FilePath(platformString: wcharPtr)
+        let nameLength = Int(systemEntry.pointee.FileNameLength) / MemoryLayout<WCHAR>.size
+        return systemEntry.pointer(to: \.FileName).unsafeRawPtr
+            .withMemoryRebound(to: WCHAR.self, capacity: nameLength) { wcharPtr in
+                var charArray = [WCHAR](UnsafeBufferPointer<WCHAR>(start: wcharPtr, count: nameLength))
+                charArray.append(0) // Null-terminate the string
+                return FilePath(platformString: charArray)
             }
-        } 
         #else
         let nameLen = withUnsafeBytes(of: systemEntry.d_name) { $0.count }
         return withUnsafePointer(to: systemEntry.d_name) { originalPtr in 
@@ -122,13 +105,13 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
-    private func extractType(from systemEntry: borrowing SystemEntryDataType) -> FileKind {
+    private static func extractType(from systemEntry: borrowing SystemEntryDataType) -> FileKind {
 
         #if canImport(WinSDK)
 
         return FileKind(
-            windowsFileAttributes: systemEntry.dwFileAttributes,
-            reparseTag: systemEntry.dwReserved0
+            windowsFileAttributes: systemEntry.pointee.FileAttributes,
+            reparseTag: systemEntry.pointee.ReparsePointTag
         )
 
         #else
@@ -155,7 +138,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
 
         #if canImport(WinSDK)
         
-        try findHandle.take()?.close()
+        try dirStream.take()?.close()
 
         #else
 

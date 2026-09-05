@@ -139,8 +139,8 @@ extension FileHandleAPITests.DirectoryTests.POSIXListingTests {
 
         try FileManager.default.moveItem(atPath: path.string, toPath: movedPath.string)
 
-        // NOTE: the listing is anchored to the descriptor, so it keeps working after the rename. Windows
-        // resolves the origin path instead and reports notFound (see the Windows listing suite).
+        // The listing is anchored to the descriptor (`openat(fd, ".")`), so it keeps working after the
+        // rename; Windows reopens through the handle as well (see the Windows listing suite).
         try #require(!FileManager.default.fileExists(atPath: path.string))
         let entries = try handle.entries()
         #expect(entries.map(\.name) == ["file"])
