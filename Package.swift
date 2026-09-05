@@ -95,7 +95,10 @@ let package = Package(
         ),
         .target(
             name: "CFileSystem",
-            publicHeadersPath: ""
+            publicHeadersPath: "",
+            linkerSettings: [
+                .linkedLibrary("ntdll", .when(platforms: [.windows]))
+            ]
         ),
         .target(
             name: "PlatformCLib",
