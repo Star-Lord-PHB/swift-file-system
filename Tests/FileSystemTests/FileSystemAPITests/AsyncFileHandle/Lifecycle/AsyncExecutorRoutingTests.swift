@@ -47,5 +47,23 @@ extension AsyncFileHandleAPITests.LifecycleTests {
 
     }
 
+
+    @Test(.timeLimit(.minutes(1)))
+    func `Directory handle work runs on the executor it was opened with`() async throws {
+
+        let path = try workspace.makeDirectory(at: "directory")
+        let executor = AsyncFileSystemExecutor(label: "droute", threadCount: 1)
+        let handle = try await AsyncDirectoryHandle(forDirAt: path, executor: executor)
+
+        let threadName = try await handle.withUnsafeSystemHandleInExecutor { _ in
+            Thread.current.name
+        }.get()
+
+        #expect(threadName == "droute-0")
+
+        try await handle.close()
+
+    }
+
 }
 #endif

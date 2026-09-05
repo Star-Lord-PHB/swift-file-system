@@ -121,6 +121,22 @@ extension AsyncFileHandleAPITests.LifecycleTests {
 
 
     @Test
+    func `AsyncDirectoryHandle close releases the system handle`() async throws {
+
+        let path = try workspace.makeDirectory(at: "directory")
+        let handle = try await AsyncDirectoryHandle(forDirAt: path)
+        let probe = try await handle.withUnsafeSystemHandle {
+            try Support.SystemHandleProbe(capturing: $0)
+        }
+
+        try await handle.close()
+
+        #expect(probe.isReleased)
+
+    }
+
+
+    @Test
     func `Dropping a handle without close releases the system handle`() async throws {
 
         let path = try workspace.makeFile(at: "file")
@@ -153,6 +169,33 @@ extension AsyncFileHandleAPITests.LifecycleTests {
             }
             var reader = handle.sequentialReader()
             #expect(try await reader.read(length: 8) == ByteBuffer("contents".utf8))
+        }
+
+        #expect(probe.isReleased)
+
+    }
+
+
+    // The same holds for a directory handle that served an entry sequence.
+    @Test
+    func `Dropping a directory handle after deriving an entry sequence releases the system handle`() async throws {
+
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "file": .file(contents: "contents")
+            ]
+        )
+        let probe: Support.SystemHandleProbe
+
+        do {
+            let handle = try await AsyncDirectoryHandle(forDirAt: path)
+            probe = try await handle.withUnsafeSystemHandle {
+                try Support.SystemHandleProbe(capturing: $0)
+            }
+            let sequence = handle.entrySequence()
+            let entries = try await sequence.map { $0 }
+            #expect(entries.map(\.name) == ["file"])
         }
 
         #expect(probe.isReleased)

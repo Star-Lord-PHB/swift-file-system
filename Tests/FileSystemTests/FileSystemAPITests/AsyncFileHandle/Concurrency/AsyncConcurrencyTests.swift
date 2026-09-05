@@ -154,4 +154,44 @@ extension AsyncFileHandleAPITests.ConcurrencyTests {
 
     }
 
+
+    // The directory handle is Sendable as well: every listing reopens the directory for a cursor
+    // of its own, so concurrent listings through one handle must each see the whole directory.
+    @Test(.timeLimit(.minutes(1)))
+    func `Concurrent listings share one handle`() async throws {
+
+        let taskCount = 8
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "file-a": .file(contents: "a"),
+                "file-b": .file(contents: "b"),
+                "file-c": .file(contents: "c"),
+                "subdir": [:]
+            ]
+        )
+        let handle = try await AsyncDirectoryHandle(forDirAt: path)
+        let expectedNames: Set<String> = ["file-a", "file-b", "file-c", "subdir"]
+
+        let listings = try await withThrowingTaskGroup(of: [DirectoryEntry].self) { group in
+            for _ in 0 ..< taskCount {
+                group.addTask { @Sendable in
+                    try await handle.entries()
+                }
+            }
+            var listings = [[DirectoryEntry]]()
+            for try await listing in group {
+                listings.append(listing)
+            }
+            return listings
+        }
+
+        #expect(listings.count == taskCount)
+        for listing in listings {
+            #expect(listing.count == expectedNames.count)
+            #expect(Set(listing.map(\.name)) == expectedNames)
+        }
+
+    }
+
 }

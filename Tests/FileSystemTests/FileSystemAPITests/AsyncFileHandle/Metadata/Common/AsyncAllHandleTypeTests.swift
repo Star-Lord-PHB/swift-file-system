@@ -157,6 +157,19 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `AsyncDirectoryHandle fileInfo matches path-based FileInfo`() async throws {
+
+        let path = try workspace.makeDirectory(at: "directory")
+        let handle = try await AsyncDirectoryHandle(forDirAt: path)
+
+        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+
+        try await handle.close()
+
+    }
+
+
+    @Test
     func `SequentialReader fileInfo matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
