@@ -39,6 +39,18 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
     }
 
 
+    #if canImport(WinSDK)
+    package init(
+        path: FilePath, 
+        options: FileOperationOptions.DirectoryTraversalOption
+    ) {
+        self.options = options
+        self.rootPath = path
+        self.findHandle = .init(path: path)
+    }
+    #endif
+
+
     deinit {
         #if canImport(WinSDK)
         try? findHandle?.close()

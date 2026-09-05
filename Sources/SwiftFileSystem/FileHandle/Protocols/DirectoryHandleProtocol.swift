@@ -12,19 +12,12 @@ import FileSystemCore
 
 public protocol DirectoryHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
-        // MARK: TODO: Migrate to associatedtype when non-copyable associated types in protocols are supported
-        // associatedtype DirectoryEntryDirectSequenceType: DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable
-        // associatedtype DirectoryEntryRecursiveSequenceType: DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable
-    typealias DirectoryEntryRecursiveSequenceType = any (DirectoryEntryRecursiveSequenceProtocol & ~Escapable & ~Copyable)
-    typealias DirectoryEntryDirectSequenceType = any (DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable)
+    // MARK: TODO: Add entrySequence into protocol when non-copyable associated types in protocols are supported
+    // associatedtype DirectoryEntryDirectSequenceType: DirectoryEntryDirectSequenceProtocol & ~Escapable & ~Copyable
+    // 
+    // @_lifetime(borrow self)
+    // func entrySequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryDirectSequenceType
 
-    func directEntries(options: FileOperationOptions.DirectoryTraversalOption) throws(PlatformError) -> [DirectoryEntry]
-
-    @_lifetime(borrow self)
-    func entryDirectSequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryDirectSequenceType
-
-    @_lifetime(borrow self)
-    func entryRecursiveSequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryRecursiveSequenceType
+    func entries(options: FileOperationOptions.DirectoryTraversalOption) throws(PlatformError) -> [DirectoryEntry]
 
 }
-

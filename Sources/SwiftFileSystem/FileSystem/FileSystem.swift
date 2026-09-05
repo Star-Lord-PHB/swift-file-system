@@ -199,10 +199,7 @@ extension FileSystem {
 
 
     public func contentsOfDirectory(at path: FilePath, options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) -> [DirectoryEntry] {
-        try DirectoryEntryDirectSequence(dirAt: path, options: options)
-            .compactMap { (result) throws(PlatformError) in
-                try result.get()
-            }
+        try DirectoryHandle(forDirAt: path).entries(options: options)
     }
 
 
