@@ -112,20 +112,20 @@ extension CopyItemHandler {
     }
 
 
-    fileprivate struct RecursiveCopyDirStack: ~Copyable {
+    struct RecursiveCopyDirStack: ~Copyable {
 
         enum DirCachedAttrs: ~Copyable {
             case full(CachedCopySrcItemAttrs)
             case skipped(srcAccessTime: FileTimeSpec)
 
-            var srcAccessTime: FileTimeSpec {
+            fileprivate var srcAccessTime: FileTimeSpec {
                 switch self {
                     case .full(let attrs): return attrs.accessTime
                     case .skipped(let accessTime): return accessTime
                 }
             }
 
-            var value: CachedCopySrcItemAttrs? {
+            fileprivate var value: CachedCopySrcItemAttrs? {
                 consuming get {
                     switch consume self {
                         case .full(let attrs): return attrs
@@ -135,17 +135,17 @@ extension CopyItemHandler {
             }
         }
 
-        private(set) var dirAttrsStack: UniqueArray<DirCachedAttrs?> = .init()
-        private(set) var currDirRelativePath: FilePath = .init(root: nil)
+        fileprivate private(set) var dirAttrsStack: UniqueArray<DirCachedAttrs?> = .init()
+        fileprivate private(set) var currDirRelativePath: FilePath = .init(root: nil)
 
-        init(rootDirAttrs: consuming DirCachedAttrs?) {
+        fileprivate init(rootDirAttrs: consuming DirCachedAttrs?) {
             dirAttrsStack.append(rootDirAttrs)
         }
 
         var isEmpty: Bool { dirAttrsStack.isEmpty }
         var isNotEmpty: Bool { !isEmpty }
 
-        mutating func push(name: String, attrs: consuming DirCachedAttrs?) {
+        fileprivate mutating func push(name: String, attrs: consuming DirCachedAttrs?) {
             if self.isEmpty {
                 assert(name.isEmpty, "Internal error: Unexpected non-empty name when pushing to an empty dirAttrsStack")
             } else {
@@ -155,7 +155,7 @@ extension CopyItemHandler {
             currDirRelativePath.append(name)
         }
 
-        mutating func popAndPerform<R: ~Copyable, E: Error>(
+        fileprivate mutating func popAndPerform<R: ~Copyable, E: Error>(
             _ action: (_ relativePath: FilePath, _ attrs: consuming DirCachedAttrs??
         ) throws(E) -> R) throws(E) -> R {
             let attrs = dirAttrsStack.popLast()
@@ -163,7 +163,7 @@ extension CopyItemHandler {
             return try action(currDirRelativePath, attrs)
         }
 
-        mutating func removeTopAndPerform<R: ~Copyable, E: Error>(
+        fileprivate mutating func removeTopAndPerform<R: ~Copyable, E: Error>(
             _ action: (_ relativePath: FilePath, _ attrs: consuming DirCachedAttrs?) throws(E) -> R
         ) throws(E) -> R {
             assert(isNotEmpty, "Internal error: Unexpected empty dirAttrsStack when removing top")
@@ -174,16 +174,40 @@ extension CopyItemHandler {
 
     }
 
+}
 
-    /// Recursively copies the directory tree rooted at the copy root.
-    ///
-    /// Every path handled here is relative to the copy roots, which is also what the traversal and the error
-    /// report use; ``RecursiveCopyDirStack`` maintains the relative path of the directory currently being visited.
-    mutating func copyDirectoryRecursive(srcAttrs: consuming CachedCopySrcItemAttrs) throws(RecursiveCopyAbortError) {
+
+
+extension CopyItemHandler {
+
+    struct CopyDirContext: ~Copyable {
+
+        fileprivate var dirStack: RecursiveCopyDirStack
+        fileprivate var enumerator: SkipableDirectoryEntryEnumerator
+        fileprivate var skipCurrentDir: Bool = false
+
+    }
+
+
+    mutating func startCopyDirectoryRecursive(srcAttrs: consuming CachedCopySrcItemAttrs) throws(RecursiveCopyAbortError) {
+
+        switch self.state {
+            case .copying(.none, .none):
+                // valid state
+                break
+            case .copying(_, .some(_)): 
+                preconditionFailure("there is already an in-progress file copy")
+            case .copying(.some(_), .none):
+                preconditionFailure("there is already an in-progress directory copy")
+            default: 
+                preconditionFailure("Invalid State")
+        }
+
+        // TODO: Cancellation check here
 
         assert(srcAttrs.type == .directory, "srcAttrs must represent a directory")
 
-        var dirStack: RecursiveCopyDirStack
+        let dirStack: RecursiveCopyDirStack
 
         switch try copyDir(itemRelativePath: .init(), srcAttrs: srcAttrs) {
             case .copied(let srcAttrs):             // dst not exist or dst is sucessfully overwritten
@@ -196,25 +220,82 @@ extension CopyItemHandler {
                 return
         }
 
-        // Traversing a source dir updates its access time, and the original one is only restored when the dir is
-        // left. If the copy aborts halfway, every dir still on the stack has already been read but not yet
-        // restored, so restore them here as a best effort. The destination times are deliberately not written:
-        // that part of the destination tree is incomplete anyway.
-        defer {
-            if options.preserveSrcAccessTime {
-                while dirStack.isNotEmpty {
-                    dirStack.removeTopAndPerform { dirRelativePath, attrs in
-                        guard let srcAccessTime = attrs?.srcAccessTime else { return }
-                        try? InternalFS.setFileTimes(
-                            forItemAt: srcAbsolutePath(of: dirRelativePath),
-                            access: srcAccessTime,
-                            modification: nil,
-                            followSymlink: false
-                        )
-                    }
+        let context = CopyDirContext(dirStack: dirStack, enumerator: .init(path: srcAbsolutePath(of: .init())))
+
+        switch self.state.take() {
+            case .copying(.none, .none):
+                self.state = .copying(dirCopyContext: context, fileCopyContext: .none)
+            default:
+                preconditionFailure("Invalid State")
+        }
+
+    }
+
+
+    @discardableResult
+    mutating func copyDirectoryRecursiveStep() throws(RecursiveCopyAbortError) -> StepResult {
+
+        var context: CopyDirContext
+        var hasInProgressFileCopy = false
+        switch self.state.take() {
+            case .copying(.some(let dirCopyContext), let fileCopyContext):
+                hasInProgressFileCopy = fileCopyContext != nil
+                context = dirCopyContext
+                self.state = .copying(fileCopyContext: fileCopyContext)
+            case .copying(.none, .none):
+                preconditionFailure("No in-progress directory copy context")
+            default: 
+                preconditionFailure("Invalid State")
+        }
+
+        let result = Result { () throws(RecursiveCopyAbortError) in
+            if hasInProgressFileCopy {
+                try copyFileStep()
+            } else {
+                try _copyDirectoryRecursiveStep(context: &context)
+            }
+        }
+
+        switch result {
+            case .success(.completed) where hasInProgressFileCopy:
+                fallthrough
+            case .success(.paused):
+                switch self.state.take() {
+                    case .copying(.none, let fileCopyContext): 
+                        self.state = .copying(dirCopyContext: context, fileCopyContext: fileCopyContext)
+                    default:
+                        preconditionFailure("Invalid State")
+                }
+                return .paused
+            default:
+                cleanCopyDirContext(context)
+                return try result.get()
+        }
+
+    }
+
+
+    fileprivate func cleanCopyDirContext(_ context: consuming CopyDirContext) {
+        if options.preserveSrcAccessTime {
+            while context.dirStack.isNotEmpty {
+                context.dirStack.removeTopAndPerform { dirRelativePath, attrs in
+                    guard let srcAccessTime = attrs?.srcAccessTime else { return }
+                    try? InternalFS.setFileTimes(
+                        forItemAt: srcAbsolutePath(of: dirRelativePath),
+                        access: srcAccessTime,
+                        modification: nil,
+                        followSymlink: false
+                    )
                 }
             }
         }
+    }
+
+
+    private mutating func _copyDirectoryRecursiveStep(context: inout CopyDirContext) throws(RecursiveCopyAbortError) -> StepResult {
+
+        // TODO: Cancellation check here. Only reached while no file copy is in progress: the caller forwards
+        // to `copyFileStep` otherwise, which does its own check after taking the file context out of the state.
 
         func commitDirCopy(dirRelativePath: FilePath, attrs: consuming RecursiveCopyDirStack.DirCachedAttrs?) throws(RecursiveCopyAbortError) {
             guard let attrs else { return }
@@ -266,76 +347,70 @@ extension CopyItemHandler {
             }
         }
 
-        var enumerator = SkipableDirectoryEntryEnumerator(path: srcAbsolutePath(of: .init()))
-        var skipCurrentDir = false
-
-        dirIterLoop: while true {
-
-            let entryResult = Result { () throws(LowLevelError) in
-                try enumerator.next(skipCurrentDir: skipCurrentDir)
-            }
-
-            skipCurrentDir = false
-
-            let entry: DirectoryEntry
-
-            switch entryResult {
-                case .failure(let err):
-                    errorCollector.currentItemRelativePath = enumerator.currentDirRelativePath
-                    try errorCollector.handleErrorAndAbort(err, operation: .copyContents)
-                case .success(.none):
-                    break dirIterLoop
-                case .success(.entryError(let path, let error)):
-                    errorCollector.currentItemRelativePath = path
-                    try errorCollector.handleError(error, operation: .getSrcMetadata)
-                    continue
-                case .success(.leavingDir(let path, let error)), .success(.subTreeError(let path, let error as LowLevelError?)):
-                    errorCollector.currentItemRelativePath = path
-                    if let error {
-                        try errorCollector.handleError(error, operation: .copyContents)
-                    }
-                    try dirStack.removeTopAndPerform(commitDirCopy)
-                    continue
-                case .success(.entry(let e)):
-                    errorCollector.currentItemRelativePath = e.path
-                    entry = e
-            }
-
-            // technically not necessary since the enumerator will skip '.' and '..' by default, just be defensive
-            guard entry.path.lastComponent?.kind == .regular else { continue }
-
-            // the enumerator's element paths are already relative to the source root, which is the copy root here
-            let itemRelativePath = entry.path
-
-            switch entry.type {
-                case .regular:
-                    try copyFile(itemRelativePath: itemRelativePath)
-                case .symlink:
-                    try copySymlink(itemRelativePath: itemRelativePath)
-                case .directory:
-                    switch try copyDir(itemRelativePath: itemRelativePath) {
-                        case .copied(let srcAttrs):
-                            dirStack.push(name: entry.name, attrs: .full(srcAttrs))
-                        case .skipped(let srcAccessTime):
-                            dirStack.push(name: entry.name, attrs: .skipped(srcAccessTime: srcAccessTime))
-                        case .skippedNonDir:
-                            skipCurrentDir = true
-                        case .error:
-                            skipCurrentDir = true
-                    }
-                default:
-                    // sockets, fifos, devices, and (on Windows) reparse points that are not symlinks cannot be
-                    // copied; report them per item so that the error strategy decides, instead of dropping them
-                    // silently. This matches what `copyItem` reports when such an item is the root of the copy.
-                    try errorCollector.handleError(.init(kind: .unsupported), operation: .copyContents)
-            }
-
+        let entryResult = Result { () throws(LowLevelError) in
+            try context.enumerator.next(skipCurrentDir: context.skipCurrentDir)
         }
 
-        errorCollector.currentItemRelativePath = .init(root: nil)
-        try dirStack.removeTopAndPerform(commitDirCopy)
+        context.skipCurrentDir = false
 
-        assert(dirStack.isEmpty, "Internal error: Unexpected non-empty dirAttrsStack after dir traversal")
+        let entry: DirectoryEntry
+
+        switch entryResult {
+            case .failure(let err):
+                errorCollector.currentItemRelativePath = context.enumerator.currentDirRelativePath
+                try errorCollector.handleErrorAndAbort(err, operation: .copyContents)
+            case .success(.none):
+                // Finishing the root dir
+                errorCollector.currentItemRelativePath = .init(root: nil)
+                try context.dirStack.removeTopAndPerform(commitDirCopy)
+                assert(context.dirStack.isEmpty, "Internal error: Unexpected non-empty dirAttrsStack after dir traversal")
+                return .completed
+            case .success(.entryError(let path, let error)):
+                errorCollector.currentItemRelativePath = path
+                try errorCollector.handleError(error, operation: .getSrcMetadata)
+                return .paused
+            case .success(.leavingDir(let path, let error)), .success(.subTreeError(let path, let error as LowLevelError?)):
+                errorCollector.currentItemRelativePath = path
+                if let error {
+                    try errorCollector.handleError(error, operation: .copyContents)
+                }
+                try context.dirStack.removeTopAndPerform(commitDirCopy)
+                return .paused
+            case .success(.entry(let e)):
+                errorCollector.currentItemRelativePath = e.path
+                entry = e
+        }
+
+        // technically not necessary since the enumerator will skip '.' and '..' by default, just be defensive
+        guard entry.path.lastComponent?.kind == .regular else { return .paused }
+
+        // the enumerator's element paths are already relative to the source root, which is the copy root here
+        let itemRelativePath = entry.path
+
+        switch entry.type {
+            case .regular:
+                try startCopyFile(itemRelativePath: itemRelativePath)
+            case .symlink:
+                try copySymlink(itemRelativePath: itemRelativePath)
+            case .directory:
+                switch try copyDir(itemRelativePath: itemRelativePath) {
+                    case .copied(let srcAttrs):
+                        context.dirStack.push(name: entry.name, attrs: .full(srcAttrs))
+                    case .skipped(let srcAccessTime):
+                        context.dirStack.push(name: entry.name, attrs: .skipped(srcAccessTime: srcAccessTime))
+                    case .skippedNonDir:
+                        context.skipCurrentDir = true
+                    case .error:
+                        context.skipCurrentDir = true
+                }
+            default:
+                // sockets, fifos, devices, and (on Windows) reparse points that are not symlinks cannot be
+                // copied; report them per item so that the error strategy decides, instead of dropping them
+                // silently. This matches what `copyItem` reports when such an item is the root of the copy.
+                try errorCollector.handleError(.init(kind: .unsupported), operation: .copyContents)
+        }
+
+        return .paused
 
     }
 
