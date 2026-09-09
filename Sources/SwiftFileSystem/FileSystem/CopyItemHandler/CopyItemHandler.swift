@@ -20,7 +20,7 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
     let dstRootPath: FilePath
 
     /// The source root the copy actually reads from: ``srcRootPath``, or its resolved target when
-    /// `symlinkOption` is `.copyTarget`. Assigned once at the beginning of ``perform()``.
+    /// `symlinkOption` is `.copyTarget`. Assigned once by the first ``copyStep()``.
     private var srcCopyRootPath: FilePath
 
     let options: FileOperationOptions.CopyItemOptions
@@ -117,7 +117,6 @@ extension CopyItemHandler {
 
     mutating func perform() throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
 
-        startCopy()
         while copyStep() == .paused {}
 
         return try errorStrategy.reportResult(.init(
@@ -130,25 +129,16 @@ extension CopyItemHandler {
     }
 
 
-    mutating func startCopy() {
-
-        do throws(RecursiveCopyAbortError) {
-            try _startCopy()
-        } catch {
-            abortCleanup(error)
-        }
-
-        switch self.state?.case {
-            case .rootDispatching, .ended:
-                break
-            case let s:
-                preconditionFailure("Invalid state after start: \(String(describing: s))")
-        }
-
-    }
-
-
     mutating func copyStep() -> StepResult {
+
+        defer {
+            switch self.state?.case {
+                case .copying, .ended: 
+                    break
+                case let s: 
+                    preconditionFailure("Invalid state after copy step: \(String(describing: s))")
+            }
+        }
 
         do throws(RecursiveCopyAbortError) {
             return try _copyStep()
@@ -177,51 +167,33 @@ extension CopyItemHandler {
     }
 
 
-    fileprivate mutating func _startCopy() throws(RecursiveCopyAbortError) {
-
-        guard self.state?.case == .ready else {
-            preconditionFailure("Trying to start copying when not in ready state")
-        }
-
-        // resolve symlink first if needed
-        if options.symlinkOption == .copyTarget {
-            do {
-                srcCopyRootPath = try InternalFS.realpath(of: srcRootPath)
-            } catch {
-                try errorCollector.handleErrorAndAbort(error, operation: .getSrcMetadata)
-            }
-        }
-
-        guard let srcAttrs = try cacheItemAttrsForCopy(forItemAt: .init()) else {
-            try errorCollector.abort()
-        }
-
-        let type = srcAttrs.type
-
-        if type != .regular && type != .directory && type != .symlink {
-            try errorCollector.handleErrorAndAbort(.init(kind: .unsupported), operation: .copyContents)
-        }
-
-        self.state = .rootDispatching(srcAttrs: srcAttrs)
-
-    }
-
-
     fileprivate mutating func _copyStep() throws(RecursiveCopyAbortError) -> StepResult {
 
         switch self.state.take() {
 
-            case .rootDispatching(let rootItemAttrs):
+            case .ready:
                 self.state = .copying()
-                let type = rootItemAttrs.type
+                try checkCancellationRequest()
+                if options.symlinkOption == .copyTarget {
+                    do {
+                        srcCopyRootPath = try InternalFS.realpath(of: srcRootPath)
+                    } catch {
+                        try errorCollector.handleErrorAndAbort(error, operation: .getSrcMetadata)
+                    }
+                }
+                guard let srcAttrs = try cacheItemAttrsForCopy(forItemAt: .init()) else {
+                    try errorCollector.abort()
+                }
+
+                let type = srcAttrs.type
 
                 switch type {
                     case .regular: 
-                        try startCopyFile(itemRelativePath: .init(), srcAttrs: rootItemAttrs)
+                        try startCopyFile(itemRelativePath: .init(), srcAttrs: srcAttrs)
                     case .directory: 
-                        try startCopyDirectoryRecursive(srcAttrs: rootItemAttrs)
+                        try startCopyDirectoryRecursive(srcAttrs: srcAttrs)
                     case .symlink:
-                        try copySymlink(itemRelativePath: .init(), srcAttrs: rootItemAttrs)
+                        try copySymlink(itemRelativePath: .init(), srcAttrs: srcAttrs)
                     default: 
                         try errorCollector.handleErrorAndAbort(.init(kind: .unsupported), operation: .copyContents)
                 }
@@ -240,8 +212,6 @@ extension CopyItemHandler {
             case .ended(let cancelled):
                 self.state = .ended(cancelled: cancelled)
 
-            case .ready:
-                preconditionFailure("Should not reach .ready state when copying in progress")
             
             case .none: 
                 preconditionFailure("Unreachable")
@@ -275,21 +245,19 @@ extension CopyItemHandler {
 
     enum State: ~Copyable {
         case ready
-        case rootDispatching(srcAttrs: CachedCopySrcItemAttrs)
         case copying(dirCopyContext: CopyDirContext? = nil, fileCopyContext: CopyFileContentContext? = nil)
         case ended(cancelled: Bool = false)
 
         var `case`: Case {
             switch self {
                 case .ready: .ready
-                case .rootDispatching: .rootDispatching
                 case .copying: .copying
                 case .ended: .ended
             }
         }
 
         enum Case: Equatable {
-            case ready, rootDispatching, copying, ended
+            case ready, copying, ended
         }
 
     }
@@ -304,7 +272,7 @@ extension CopyItemHandler {
     struct RecursiveCopyErrorCollector {
 
         /// The report is only materialized once there is something to put in it, since
-        /// ``RecursiveCopyErrorReport`` cannot represent an empty error list.
+        /// ``RecursiveCopyResult.NonEmptyItemErrorList`` cannot represent an empty error list.
         enum LazyErrors {
             case none
             case some(RecursiveCopyResult.NonEmptyItemErrorList)
