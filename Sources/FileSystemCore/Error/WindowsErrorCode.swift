@@ -43,6 +43,7 @@ extension SystemErrorCode {
     @inlinable public static var pipeNotConnected: Self { .init(rawValue: .init(ERROR_PIPE_NOT_CONNECTED)) }
     @inlinable public static var operationAborted: Self { .init(rawValue: .init(ERROR_OPERATION_ABORTED)) }
     @inlinable public static var cancelled: Self { .init(rawValue: .init(ERROR_CANCELLED)) }
+    @inlinable public static var requestAborted: Self { .init(rawValue: .init(ERROR_REQUEST_ABORTED)) }
 
 
     package var defaultMappedErrorKind: PlatformErrorKind {
@@ -61,7 +62,7 @@ extension SystemErrorCode {
             case .arithmeticOverflow: .arithmeticOverflow
             case .cannotResolveFilename: .pathResolutionFailed
             case .brokenPipe, .noData, .pipeNotConnected: .brokenPipe
-            case .operationAborted, .cancelled: .cancelled
+            case .operationAborted, .cancelled, .requestAborted: .cancelled
             default: .unknown
         }
     }

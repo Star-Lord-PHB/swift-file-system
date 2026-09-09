@@ -4,19 +4,23 @@ import enum FileSystemCore.FileOperationOptions
 extension FileOperationOptions {
 
     public protocol RecursiveCopyErrorStrategyProtocol {
-        associatedtype ReturnedError
+        associatedtype Returned
         associatedtype ThrowedError: Error
-        func handleError(_ error: RecursiveCopySingleItemError) -> (collectError: Bool, abort: Bool)
-        func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(ThrowedError) -> ReturnedError
+        func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool)
+        func reportResult(_ result: RecursiveCopyResult) throws(ThrowedError) -> Returned
     }
 
 
     public struct RecursiveCopyAbortOnErrorStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: RecursiveCopySingleItemError) -> (collectError: Bool, abort: Bool) {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
             return (collectError: true, abort: true)
         }
-        public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(PlatformError) -> Void {
-            guard let errorReport else { return } 
+        public func reportResult(_ result: RecursiveCopyResult) throws(PlatformError) -> Void {
+            if result.operationCancelled {
+                assert(result.itemErrors == nil, "Abort on error strategy should not have an error report when cancelled")
+                throw .taskCancelled(operation: .recursiveCopy(srcRootPath: result.srcRootPath, dstRootPath: result.dstRootPath))
+            }
+            guard let errorReport = result.makeItemErrorReport() else { return } 
             assert(errorReport.errors.count == 1, "Abort on error strategy should only have one error in the report")
             let error = errorReport.errors.first
             throw .init(
@@ -32,32 +36,32 @@ extension FileOperationOptions {
 
 
     public struct RecursiveCopyCollectAndThrowStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: RecursiveCopySingleItemError) -> (collectError: Bool, abort: Bool) {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
             return (collectError: true, abort: false)
         }
-        public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(PlatformError) -> Void {
-            guard let errorReport else { return }
-            try errorReport.throwAsPlatformError()
+        public func reportResult(_ result: RecursiveCopyResult) throws(PlatformError) -> Void {
+            try result.throwOnErrorOrCancelled()
         }
     }
 
 
     public struct RecursiveCopyCollectAndReturnStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: RecursiveCopySingleItemError) -> (collectError: Bool, abort: Bool) {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
             return (collectError: true, abort: false)
         }
-        public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(Never) -> RecursiveCopyErrorReport? {
-            return errorReport
+        public func reportResult(_ result: RecursiveCopyResult) throws(Never) -> RecursiveCopyResult {
+            return result
         }
     }
 
 
     public struct RecursiveCopyIgnoreAllStrategy: RecursiveCopyErrorStrategyProtocol {
-        public func handleError(_ error: RecursiveCopySingleItemError) -> (collectError: Bool, abort: Bool) {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
             return (collectError: false, abort: false)
         }
-        public func reportError(_ errorReport: RecursiveCopyErrorReport?) throws(Never) -> Void {
-            // do nothing (ignore all errors)
+        public func reportResult(_ result: RecursiveCopyResult) throws(PlatformError) -> Void {
+            assert(result.itemErrors == nil, "Ignore all strategy should not have an error report")
+            try result.throwOnErrorOrCancelled()
         }
     }
 

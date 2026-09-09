@@ -104,7 +104,7 @@ extension FileSystemAPITests.CopyTests.WindowsTraversalErrorTests {
         defer { restoreFullAccess(at: lockedPath) }
         try requireListingDenied(at: lockedPath)
 
-        let report = try fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+        let report = try fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 
         // Restore listing on the copied directory (its DACL was copied from the deny-listing
         // source state) so the exact-tree sweep below can enumerate it.

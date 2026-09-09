@@ -58,7 +58,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             at: src,
             to: dstReturn,
             errorStrategy: .collectAndReturn
-        )
+        ).makeItemErrorReport()
         try CopyTests.expectReport(
             returnedReport,
             srcRoot: src,
@@ -66,7 +66,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             errors: [("", .getSrcMetadata, .notFound)]
         )
 
-        fileSystem.copyItem(at: src, to: dstIgnore, errorStrategy: .ignoreAll)
+        try fileSystem.copyItem(at: src, to: dstIgnore, errorStrategy: .ignoreAll)
 
         for dst in [dstAbort, dstThrow, dstReturn, dstIgnore] {
             try Support.expectItemNotExistNoFollow(at: dst)
@@ -111,7 +111,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             at: src,
             to: dstReturn,
             errorStrategy: .collectAndReturn
-        )
+        ).makeItemErrorReport()
         try CopyTests.expectReport(
             returnedReport,
             srcRoot: src,
@@ -119,7 +119,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             errors: [("", .copyContents, .unsupported)]
         )
 
-        fileSystem.copyItem(at: src, to: dstIgnore, errorStrategy: .ignoreAll)
+        try fileSystem.copyItem(at: src, to: dstIgnore, errorStrategy: .ignoreAll)
 
         for dst in [dstAbort, dstThrow, dstReturn, dstIgnore] {
             try Support.expectItemNotExistNoFollow(at: dst)
@@ -161,7 +161,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             at: src,
             to: dstReturn,
             errorStrategy: .collectAndReturn
-        )
+        ).makeItemErrorReport()
         try CopyTests.expectReport(
             returnedReport,
             srcRoot: src,
@@ -169,7 +169,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             errors: [("", .copyContents, .notFound)]
         )
 
-        fileSystem.copyItem(at: src, to: dstIgnore, errorStrategy: .ignoreAll)
+        try fileSystem.copyItem(at: src, to: dstIgnore, errorStrategy: .ignoreAll)
 
         for dst in [dstAbort, dstThrow, dstReturn, dstIgnore] {
             try Support.expectItemNotExistNoFollow(at: dst)
@@ -200,7 +200,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
             to: dst,
             options: .init(existingTarget: .error),
             errorStrategy: .collectAndReturn
-        )
+        ).makeItemErrorReport()
 
         try CopyTests.expectReport(report, srcRoot: src, dstRoot: dst, errors: [("", .copyContents, .alreadyExists)])
         try Support.expectTree(at: dst, matches: dstSnapshot, using: .unchanged)

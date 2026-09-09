@@ -34,10 +34,10 @@ extension FileSystemAPITests.CopyTests {
     /// deliberately unordered (directory enumeration order is platform-dependent), and an
     /// item may legitimately appear once per failed operation.
     static func expectReport(
-        _ report: RecursiveCopyErrorReport?,
+        _ report: RecursiveCopyResult.ItemErrorReport?,
         srcRoot: FilePath,
         dstRoot: FilePath,
-        errors expectedErrors: [(FilePath, RecursiveCopySingleItemError.Operation, PlatformErrorKind)],
+        errors expectedErrors: [(FilePath, RecursiveCopyResult.ItemOperation, PlatformErrorKind)],
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
         let report = try #require(report, sourceLocation: sourceLocation)
@@ -59,14 +59,14 @@ extension FileSystemAPITests.CopyTests {
     static func requireThrownReport(
         by body: () throws -> Void,
         sourceLocation: SourceLocation = #_sourceLocation
-    ) throws -> RecursiveCopyErrorReport {
+    ) throws -> RecursiveCopyResult.ItemErrorReport {
         let error = #expect(throws: PlatformError.self, sourceLocation: sourceLocation) {
             try body()
         }
         let platformError = try #require(error, sourceLocation: sourceLocation)
         #expect(platformError.kind == .unknown, sourceLocation: sourceLocation)
         let report = try #require(
-            platformError.underlyingError as? RecursiveCopyErrorReport,
+            platformError.underlyingError as? RecursiveCopyResult.ItemErrorReport,
             sourceLocation: sourceLocation
         )
         #expect(

@@ -25,6 +25,8 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
 
     let options: FileOperationOptions.CopyItemOptions
 
+    let cancellationToken: CancellationToken
+
     var errorCollector: RecursiveCopyErrorCollector
 
     private var _currentUser: PlatformIdentity? = nil
@@ -35,17 +37,28 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
 
     var errorStrategy: ErrorStrategy { errorCollector.strategy }
 
+    /// Returns true if the copy operation was truly cancelled (i.e. the cancellation request 
+    /// was actually responded)
+    var operationCancelled: Bool {
+        switch self.state {
+            case .ended(cancelled: true): true
+            default: false
+        }
+    }
+
 
     init(
         srcRootPath: FilePath,
         dstRootPath: FilePath,
         options: FileOperationOptions.CopyItemOptions = .init(),
+        cancellationToken: CancellationToken = .init(),
         errorStrategy: ErrorStrategy = .collectAndThrow
     ) {
         self.srcRootPath = srcRootPath
         self.dstRootPath = dstRootPath
         self.srcCopyRootPath = srcRootPath
         self.options = options
+        self.cancellationToken = cancellationToken
         self.errorCollector = .init(srcRootPath: srcRootPath, dstRootPath: dstRootPath, strategy: errorStrategy)
     }
 
@@ -79,7 +92,7 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
         to dstPath: FilePath,
         options: FileOperationOptions.CopyItemOptions = .init(),
         errorStrategy: ErrorStrategy = .collectAndThrow
-    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
+    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
         var handler = Self(
             srcRootPath: srcPath,
             dstRootPath: dstPath,
@@ -89,18 +102,30 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
         return try handler.perform()
     }
 
+
+    func checkCancellationRequest() throws(RecursiveCopyAbortError) {
+        if cancellationToken.isCancelled {
+            throw .cancelled
+        }
+    }
+
 }
 
 
 
 extension CopyItemHandler {
 
-    mutating func perform() throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
+    mutating func perform() throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
 
         startCopy()
         while copyStep() == .paused {}
 
-        return try errorStrategy.reportError(errorCollector.report.value)
+        return try errorStrategy.reportResult(.init(
+            srcRootPath: srcRootPath, 
+            dstRootPath: dstRootPath, 
+            itemErrors: errorCollector.errors.value, 
+            operationCancelled: operationCancelled
+        ))
 
     }
 
@@ -110,7 +135,14 @@ extension CopyItemHandler {
         do throws(RecursiveCopyAbortError) {
             try _startCopy()
         } catch {
-            abortCleanup()
+            abortCleanup(error)
+        }
+
+        switch self.state?.case {
+            case .rootDispatching, .ended:
+                break
+            case let s:
+                preconditionFailure("Invalid state after start: \(String(describing: s))")
         }
 
     }
@@ -121,7 +153,7 @@ extension CopyItemHandler {
         do throws(RecursiveCopyAbortError) {
             return try _copyStep()
         } catch {
-            abortCleanup()
+            abortCleanup(error)
         }
 
         return .completed
@@ -129,7 +161,7 @@ extension CopyItemHandler {
     }
 
 
-    fileprivate mutating func abortCleanup() {
+    fileprivate mutating func abortCleanup(_ abortError: RecursiveCopyAbortError) {
         switch self.state.take() {
             case .copying(_, .some):
                 preconditionFailure("File copy context not cleaned up")
@@ -138,7 +170,10 @@ extension CopyItemHandler {
             default:
                 break
         }
-        self.state = .ended
+        self.state = switch abortError {
+            case .errorAborted: .ended(cancelled: false)
+            case .cancelled: .ended(cancelled: true)
+        }
     }
 
 
@@ -146,17 +181,6 @@ extension CopyItemHandler {
 
         guard self.state?.case == .ready else {
             preconditionFailure("Trying to start copying when not in ready state")
-        }
-
-        defer {
-            switch (self.state?.case)! {
-                case .ready:
-                    self.state = .ended
-                case .rootDispatching:
-                    break
-                case let s:
-                    preconditionFailure("Invalid state: \(s)")
-            }
         }
 
         // resolve symlink first if needed
@@ -169,7 +193,7 @@ extension CopyItemHandler {
         }
 
         guard let srcAttrs = try cacheItemAttrsForCopy(forItemAt: .init()) else {
-            return
+            try errorCollector.abort()
         }
 
         let type = srcAttrs.type
@@ -211,10 +235,10 @@ extension CopyItemHandler {
                 try copyFileStep()
 
             case .copying(.none, .none):
-                self.state = .ended
+                self.state = .ended()
 
-            case .ended:
-                self.state = .ended
+            case .ended(let cancelled):
+                self.state = .ended(cancelled: cancelled)
 
             case .ready:
                 preconditionFailure("Should not reach .ready state when copying in progress")
@@ -225,11 +249,11 @@ extension CopyItemHandler {
         }
 
         switch self.state.take() {
-            case .ended: 
-                self.state = .ended
+            case .ended(let cancelled):
+                self.state = .ended(cancelled: cancelled)
                 return .completed
             case .copying(.none, .none):
-                self.state = .ended
+                self.state = .ended()
                 return .completed
             case let state: 
                 self.state = state
@@ -253,7 +277,7 @@ extension CopyItemHandler {
         case ready
         case rootDispatching(srcAttrs: CachedCopySrcItemAttrs)
         case copying(dirCopyContext: CopyDirContext? = nil, fileCopyContext: CopyFileContentContext? = nil)
-        case ended
+        case ended(cancelled: Bool = false)
 
         var `case`: Case {
             switch self {
@@ -271,20 +295,23 @@ extension CopyItemHandler {
     }
 
 
-    struct RecursiveCopyAbortError: Error {}
+    enum RecursiveCopyAbortError: Error {
+        case errorAborted
+        case cancelled
+    }
 
 
     struct RecursiveCopyErrorCollector {
 
         /// The report is only materialized once there is something to put in it, since
         /// ``RecursiveCopyErrorReport`` cannot represent an empty error list.
-        enum LazyReport {
+        enum LazyErrors {
             case none
-            case some(RecursiveCopyErrorReport)
-            var value: RecursiveCopyErrorReport? {
+            case some(RecursiveCopyResult.NonEmptyItemErrorList)
+            var value: RecursiveCopyResult.NonEmptyItemErrorList? {
                 switch self {
                     case .none: return nil
-                    case .some(let report): return report
+                    case .some(let errors): return errors
                 }
             }
         }
@@ -296,7 +323,7 @@ extension CopyItemHandler {
         var currentItemRelativePath: FilePath = .init(root: nil) {
             didSet { assert(currentItemRelativePath.isRelative, "currentItemRelativePath must be relative") }
         }
-        private(set) var report: LazyReport = .none
+        private(set) var errors: LazyErrors = .none
         private(set) var aborted: Bool = false
         
 
@@ -307,23 +334,23 @@ extension CopyItemHandler {
         }
 
 
-        private mutating func collect(_ error: RecursiveCopySingleItemError) {
-            switch report {
+        private mutating func collect(_ error: RecursiveCopyResult.SingleItemError) {
+            switch errors {
                 case .none:
-                    report = .some(.init(srcRootPath: srcRootPath, dstRootPath: dstRootPath, firstError: error))
+                    errors = .some([error])
                 case .some(var existing):
                     existing.append(error)
-                    report = .some(existing)
+                    errors = .some(existing)
             }
         }
 
 
         mutating func handleError(
             _ error: LowLevelError, 
-            operation: RecursiveCopySingleItemError.Operation
+            operation: RecursiveCopyResult.ItemOperation
         ) throws(RecursiveCopyAbortError) {
             assert(aborted == false, "Should not handle further error after aborted")
-            let error = RecursiveCopySingleItemError(
+            let error = RecursiveCopyResult.SingleItemError(
                 itemRelativePath: currentItemRelativePath, operation: operation, code: error.systemCode, kind: error.kind
             )
             let (collect, abort) = strategy.handleError(error)
@@ -332,24 +359,34 @@ extension CopyItemHandler {
             }
             if abort {
                 aborted = true
-                throw .init()
+                throw .errorAborted
             }
         }
 
 
         mutating func handleErrorAndAbort(
-            _ error: LowLevelError, 
-            operation: RecursiveCopySingleItemError.Operation
+            _ error: LowLevelError,
+            operation: RecursiveCopyResult.ItemOperation
         ) throws(RecursiveCopyAbortError) -> Never {
             assert(aborted == false, "Should not handle further error after aborted")
             defer { aborted = true }
             try handleError(error, operation: operation)
-            throw .init()
+            throw .errorAborted
+        }
+
+
+        /// Aborts without registering a new item error: for use where the error has already been
+        /// reported through ``handleError(_:operation:)`` but the copy cannot continue regardless of
+        /// what the strategy decided.
+        mutating func abort() throws(RecursiveCopyAbortError) -> Never {
+            assert(aborted == false, "Should not abort after aborted")
+            aborted = true
+            throw .errorAborted
         }
 
 
         mutating func execute<R: ~Copyable>(
-            operation: @autoclosure () -> RecursiveCopySingleItemError.Operation, 
+            operation: @autoclosure () -> RecursiveCopyResult.ItemOperation, 
             _ task: () throws -> R
         ) throws(RecursiveCopyAbortError) -> R? {
             do {
@@ -368,7 +405,7 @@ extension CopyItemHandler {
 
 
         mutating func executeAndAbortOnError<R: ~Copyable>(
-            operation: @autoclosure () -> RecursiveCopySingleItemError.Operation, 
+            operation: @autoclosure () -> RecursiveCopyResult.ItemOperation,
             _ task: () throws -> R
         ) throws(RecursiveCopyAbortError) -> R {
             do {

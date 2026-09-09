@@ -10,7 +10,7 @@ extension CopyItemHandler {
         srcAttrs: consuming CachedCopySrcItemAttrs? = nil
     ) throws(RecursiveCopyAbortError) {
 
-        // TODO: Cancellation check here
+        try checkCancellationRequest()
 
         let srcAttrs = switch consume srcAttrs {
             case .some(let srcAttrs): srcAttrs
@@ -345,7 +345,7 @@ extension CopyItemHandler {
                 var copied = false
                 for _ in 0 ..< 24 {
                     do throws(LowLevelError) {
-                        try InternalFS.copyRegularFileOrSymlink(from: srcPath, to: tmpPath, overwrite: false)
+                        try InternalFS.copyRegularFileOrSymlink(from: srcPath, to: tmpPath, overwrite: false, callbackArg: nil, callback: nil)
                         copied = true
                         break
                     } catch let error where error.kind == .alreadyExists { 

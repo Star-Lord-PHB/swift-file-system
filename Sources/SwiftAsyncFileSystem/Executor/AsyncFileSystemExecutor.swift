@@ -8,6 +8,7 @@
 
 private import struct DequeModule.UniqueDeque
 import struct FileSystemCore.PlatformError
+import class FileSystemCore.CancellationToken
 
 
 public final class AsyncFileSystemExecutor: Sendable {

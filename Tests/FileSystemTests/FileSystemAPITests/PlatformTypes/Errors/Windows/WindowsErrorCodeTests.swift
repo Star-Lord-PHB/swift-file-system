@@ -64,7 +64,8 @@ extension PlatformTypesAPITests.ErrorTests.WindowsErrorCodeTests {
             (.noData, DWORD(ERROR_NO_DATA)),
             (.pipeNotConnected, DWORD(ERROR_PIPE_NOT_CONNECTED)),
             (.operationAborted, DWORD(ERROR_OPERATION_ABORTED)),
-            (.cancelled, DWORD(ERROR_CANCELLED))
+            (.cancelled, DWORD(ERROR_CANCELLED)),
+            (.requestAborted, DWORD(ERROR_REQUEST_ABORTED))
         ] as [(SystemErrorCode, DWORD)]
     )
     func `Error codes wrap their native Win32 value`(
@@ -98,7 +99,8 @@ extension PlatformTypesAPITests.ErrorTests.WindowsErrorCodeTests {
             (.noData, .brokenPipe),
             (.pipeNotConnected, .brokenPipe),
             (.operationAborted, .cancelled),
-            (.cancelled, .cancelled)
+            (.cancelled, .cancelled),
+            (.requestAborted, .cancelled)
         ] as [(SystemErrorCode, PlatformErrorKind)]
     )
     func `Error codes map to their default kind`(

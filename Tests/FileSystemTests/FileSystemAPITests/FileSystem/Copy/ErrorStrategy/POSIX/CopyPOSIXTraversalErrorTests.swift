@@ -72,7 +72,7 @@ extension FileSystemAPITests.CopyTests.POSIXTraversalErrorTests {
         try setPermissions(0o000, at: lockedPath)
         defer { restoreDefaultDirectoryPermissions(at: lockedPath) }
 
-        let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+        let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 
         // The directory is created and committed with its (restricted) source metadata, only
         // its children are missing. Restore its mode so the assertions can enumerate it; the
@@ -135,7 +135,7 @@ extension FileSystemAPITests.CopyTests.POSIXTraversalErrorTests {
         try setPermissions(0o444, at: rOnlyPath)
         defer { restoreDefaultDirectoryPermissions(at: rOnlyPath) }
 
-        let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+        let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 
         // Restore the copied directory's mode (it received the restricted source mode, which
         // is excluded from comparison below) so the exact-tree sweep can enumerate it.

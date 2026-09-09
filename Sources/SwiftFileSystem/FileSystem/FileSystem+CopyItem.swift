@@ -9,7 +9,7 @@ extension FileSystem {
         to dstPath: FilePath,
         options: FileOperationOptions.CopyItemOptions = .init(),
         errorStrategy: ErrorStrategy = .collectAndThrow
-    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError {
+    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
         return try CopyItemHandler.copyItem(at: srcPath, to: dstPath, options: options, errorStrategy: errorStrategy)
     }
 

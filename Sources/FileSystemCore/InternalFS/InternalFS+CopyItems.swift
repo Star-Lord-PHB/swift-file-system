@@ -83,7 +83,8 @@ extension InternalFS {
         from srcPath: FilePath, 
         to dstPath: FilePath, 
         overwrite: Bool, 
-        cancellationIndicator: UnsafeUnownedPointer<WindowsBool>? = nil
+        callbackArg: UnsafeUnownedMutableRawPointer?,
+        callback: LPPROGRESS_ROUTINE?
     ) throws(LowLevelError) {
 
         let flags = DWORD(COPY_FILE_COPY_SYMLINK) | (overwrite ? 0 : DWORD(COPY_FILE_FAIL_IF_EXISTS))
@@ -91,7 +92,7 @@ extension InternalFS {
         try execThrowingCFunction {
             srcPath.withPlatformString { srcPtr in 
                 dstPath.withPlatformString { dstPtr in 
-                    CopyFileExW(srcPtr, dstPtr, nil, nil, cancellationIndicator?.unsafelyCastedMutableRawPtr, flags)
+                    CopyFileExW(srcPtr, dstPtr, callback, callbackArg?.unsafeRawPtr, nil, flags)
                 }
             }
         }

@@ -35,7 +35,7 @@ extension FileSystemAPITests.CopyTests {
 extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
 
     /// The per-item failures produced by merging the mismatch fixtures.
-    private var mismatchErrors: [(FilePath, RecursiveCopySingleItemError.Operation, PlatformErrorKind)] {
+    private var mismatchErrors: [(FilePath, RecursiveCopyResult.ItemOperation, PlatformErrorKind)] {
         [("clash-dir", .copyContents, .notADirectory), ("clash-file", .copyContents, .isADirectory)]
     }
 
@@ -158,7 +158,7 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
             to: dst,
             options: .init(existingTarget: .overwrite),
             errorStrategy: .collectAndReturn
-        )
+        ).makeItemErrorReport()
 
         try CopyTests.expectReport(report, srcRoot: src, dstRoot: dst, errors: mismatchErrors)
         try Support.expectTree(
@@ -200,7 +200,7 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
         let srcSnapshot = try Support.TreeSnapshot.capture(at: src)
         let dstSnapshot = try Support.TreeSnapshot.capture(at: dst)
 
-        fileSystem.copyItem(
+        try fileSystem.copyItem(
             at: src,
             to: dst,
             options: .init(existingTarget: .overwrite),
@@ -245,7 +245,7 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
             to: dst,
             options: .init(existingTarget: .overwrite),
             errorStrategy: .collectAndReturn
-        )
+        ).makeItemErrorReport()
 
         try CopyTests.expectReport(
             report,
@@ -292,7 +292,7 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
         let dst = workspace.path("dst")
         let srcSnapshot = try Support.TreeSnapshot.capture(at: src)
 
-        let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+        let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 
         try CopyTests.expectReport(
             report,
@@ -335,7 +335,7 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
         // followed contents from the expectation below.
         let srcSnapshot = try Support.TreeSnapshot.capture(at: src)
 
-        let report = try fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+        let report = try fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 
         try CopyTests.expectReport(
             report,

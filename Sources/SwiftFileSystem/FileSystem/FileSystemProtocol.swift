@@ -26,7 +26,7 @@ public protocol FileSystemProtocol: Sendable {
         to dstPath: FilePath,
         options: FileOperationOptions.CopyItemOptions,
         errorStrategy: ErrorStrategy
-    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.ReturnedError
+    ) throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned
 
     func moveItem(at srcPath: FilePath, to dstPath: FilePath, onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption) throws(PlatformError)
 

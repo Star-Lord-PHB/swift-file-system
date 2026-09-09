@@ -140,7 +140,7 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         let dst = workspace.path("dst-link")
 
-        let report = fileSystem.copyItem(at: link, to: dst, errorStrategy: .collectAndReturn)
+        let report = fileSystem.copyItem(at: link, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 
         #expect(report == nil)
         try Support.expectItemExistNoFollow(at: dst)

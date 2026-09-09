@@ -15,7 +15,7 @@ import PlatformCLib
 /// like this instead.
 ///
 /// Setting is irreversible, and both operations are safe from any thread.
-struct CancellationToken: ~Copyable, @unchecked Sendable {
+package final class CancellationToken: @unchecked Sendable {
 
     // Deliberately heap-allocated for a stable address: atomic operations must all target
     // the one true storage location, while `&property` inout bridging may pass a temporary
@@ -23,8 +23,15 @@ struct CancellationToken: ~Copyable, @unchecked Sendable {
     // cancel/isCancelled calls would overlap and trap under exclusivity enforcement.
     private let flag: UnsafeMutablePointer<CFSAtomicFlag>
 
+    package var unsafeFlagPtr: UnsafeUnownedMutablePointer<CFSAtomicFlag> {
+        @_lifetime(borrow self)
+        get {
+            .init(unownedPointer: flag)
+        }
+    }
 
-    init() {
+
+    package init() {
         flag = .allocate(capacity: 1)
         flag.initialize(to: .init())
         cfsAtomicFlagInitialize(flag)
@@ -37,12 +44,12 @@ struct CancellationToken: ~Copyable, @unchecked Sendable {
     }
 
 
-    func cancel() {
+    package func cancel() {
         cfsAtomicFlagSet(flag)
     }
 
 
-    var isCancelled: Bool {
+    package var isCancelled: Bool {
         cfsAtomicFlagIsSet(flag)
     }
 

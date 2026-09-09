@@ -98,7 +98,7 @@ extension ResourceLifetimeTests.OperationLeakTests {
         let dst = workspace.path("dst")
 
         try LeakChecker.expectNoLeak {
-            let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+            let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
             #expect(report != nil)
             try fileSystem.removeItem(at: dst)
         }
@@ -117,7 +117,7 @@ extension ResourceLifetimeTests.OperationLeakTests {
         let dst = workspace.path("dst")
 
         try LeakChecker.expectNoLeak {
-            let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+            let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
             #expect(report != nil)
             try fileSystem.removeItem(at: dst)
         }

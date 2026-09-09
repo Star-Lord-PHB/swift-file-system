@@ -57,7 +57,7 @@ extension CopyItemHandler {
                 preconditionFailure("Invalid State")
         }
 
-        // TODO: Cancellation check here
+        try checkCancellationRequest()
 
         defer {
             switch self.state {
@@ -201,7 +201,12 @@ extension CopyItemHandler {
                 preconditionFailure("Invalid State")
         }
 
-        // TODO: Cancellation check here
+        do {
+            try checkCancellationRequest()
+        } catch {
+            try? InternalFS.unlink(fileAt: context.dstTmpAbsPath ?? context.dstAbsPath)
+            throw error
+        }
 
         let stepResult = Result { () throws(LowLevelError) in
             try copyFileContentStep(&context)
@@ -338,7 +343,14 @@ extension CopyItemHandler {
                 preconditionFailure("Invalid State")
         }
 
-        // TODO: Cancellation check here
+        do {
+            try checkCancellationRequest()
+        } catch {
+            if let dstTmpAbsPath = context.dstTmpAbsPath {
+                cleanTmpFile(tmpFileHandle: context.dstHandle, tmpDstPath: dstTmpAbsPath)
+            }
+            throw error
+        }
 
         let stepResult = Result { () throws(LowLevelError) in
             try copyFileContentStep(&context)
@@ -348,6 +360,9 @@ extension CopyItemHandler {
             case .failure(let error): 
                 if let dstTmpAbsPath = context.dstTmpAbsPath {
                     cleanTmpFile(tmpFileHandle: context.dstHandle, tmpDstPath: dstTmpAbsPath)
+                }
+                if error.kind == .cancelled && cancellationToken.isCancelled {
+                    throw .cancelled
                 }
                 try errorCollector.handleError(error, operation: .copyContents)
                 return .completed
@@ -491,6 +506,15 @@ extension CopyItemHandler {
 
         var copied = false
 
+        let callbackArg = UnsafeUnownedMutableRawPointer(unownedPointer: cancellationToken.unsafeFlagPtr.unsafeRawPtr)
+        let callback = { _, _, _, _, _, _, _, _, argPtr in
+            if let argPtr {
+                let flag = argPtr.assumingMemoryBound(to: CFSAtomicFlag.self)
+                return cfsAtomicFlagIsSet(flag) ? DWORD(PROGRESS_CANCEL) : DWORD(PROGRESS_CONTINUE)
+            }
+            return DWORD(PROGRESS_CONTINUE)
+        } as LPPROGRESS_ROUTINE
+
         for _ in 0 ..< 24 {
 
             context.dstTmpAbsPath = InternalFS.makeRandomTmpName(baseOn: context.dstAbsPath)
@@ -508,9 +532,15 @@ extension CopyItemHandler {
                         ),
                         creationPermissions: makeWindowsTmpFileSecurityDescriptor()
                     )
-                    try InternalFS.copyRegularFileOrSymlink(from: context.srcAbsPath, to: context.dstTmpAbsPath!, overwrite: true)
+                    try InternalFS.copyRegularFileOrSymlink(
+                        from: context.srcAbsPath, to: context.dstTmpAbsPath!, overwrite: true, 
+                        callbackArg: callbackArg, callback: callback
+                    )
                 } else {
-                    try InternalFS.copyRegularFileOrSymlink(from: context.srcAbsPath, to: context.dstTmpAbsPath!, overwrite: false)
+                    try InternalFS.copyRegularFileOrSymlink(
+                        from: context.srcAbsPath, to: context.dstTmpAbsPath!, overwrite: false, 
+                        callbackArg: callbackArg, callback: callback
+                    )
                 }
 
                 copied = true

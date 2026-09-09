@@ -63,7 +63,7 @@ public struct PlatformErrorKind: Sendable, Equatable, Hashable {
     /// The operation was cancelled before or while it was performed. Without a `systemCode`
     /// the cancellation was library-generated (Swift task cancellation) and the operation was
     /// never performed; with one, the OS reported the cancellation (e.g. POSIX `ECANCELED`,
-    /// Windows `ERROR_OPERATION_ABORTED`) and its effects follow platform semantics.
+    /// Windows `ERROR_OPERATION_ABORTED` or `ERROR_REQUEST_ABORTED`) and its effects follow platform semantics.
     public static var cancelled: PlatformErrorKind { .init(.cancelled) }
 
 

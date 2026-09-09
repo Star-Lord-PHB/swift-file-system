@@ -203,7 +203,7 @@ extension CopyItemHandler {
                 preconditionFailure("Invalid State")
         }
 
-        // TODO: Cancellation check here
+        try checkCancellationRequest()
 
         assert(srcAttrs.type == .directory, "srcAttrs must represent a directory")
 
@@ -294,8 +294,7 @@ extension CopyItemHandler {
 
     private mutating func _copyDirectoryRecursiveStep(context: inout CopyDirContext) throws(RecursiveCopyAbortError) -> StepResult {
 
-        // TODO: Cancellation check here. Only reached while no file copy is in progress: the caller forwards
-        // to `copyFileStep` otherwise, which does its own check after taking the file context out of the state.
+        try checkCancellationRequest()
 
         func commitDirCopy(dirRelativePath: FilePath, attrs: consuming RecursiveCopyDirStack.DirCachedAttrs?) throws(RecursiveCopyAbortError) {
             guard let attrs else { return }
