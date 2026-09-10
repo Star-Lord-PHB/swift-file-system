@@ -1,5 +1,6 @@
 #if canImport(Glibc) || canImport(Musl)
 
+import Foundation
 import PlatformCLib
 import SystemPackage
 import Testing
@@ -144,6 +145,43 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
 
         #expect(report == nil)
         try Support.expectItemExistNoFollow(at: dst)
+
+    }
+
+
+    @Test
+    func `Copies procfs contents without unsupported flag errors`() throws {
+
+        // /proc/version has stable contents and is only read. All destination writes stay
+        // in the workspace, and source access-time restoration is explicitly disabled.
+        let src: FilePath = "/proc/version"
+        let descriptor = src.withPlatformString { open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
+        if descriptor < 0 && (errno == ENOENT || errno == EACCES) {
+            try Test.cancel("A readable /proc/version is unavailable")
+        }
+        try #require(descriptor >= 0)
+        defer { close(descriptor) }
+
+        var flags: PlatformInteropTypes.PosixInodeFlags = 0
+        let queryResult = ioctl(descriptor, _FS_IOC_GETFLAGS, &flags)
+        let queryError = errno
+        try #require(queryResult == -1)
+        try #require(queryError == ENOTTY)
+
+        let contents = try Data(contentsOf: URL(filePath: src.string))
+        try #require(!contents.isEmpty)
+        let dst = workspace.path("version.txt")
+
+        let result = fileSystem.copyItem(
+            at: src,
+            to: dst,
+            options: .init(preserveSrcAccessTime: false),
+            errorStrategy: .collectAndReturn
+        )
+
+        #expect(result.itemErrors == nil)
+        #expect(result.operationCancelled == false)
+        #expect(try Data(contentsOf: URL(filePath: dst.string)) == contents)
 
     }
 
