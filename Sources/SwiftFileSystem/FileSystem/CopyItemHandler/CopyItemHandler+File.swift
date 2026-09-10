@@ -22,9 +22,18 @@ extension CopyItemHandler {
         let srcAttrs: CachedCopySrcItemAttrs
 
         #if !canImport(WinSDK) && !canImport(Darwin)
+        /// How the content is transferred. Starts with `copy_file_range`; a mechanism that turns out to be
+        /// unusable for this pair of files before anything was transferred hands over to the next one.
+        enum ContentCopyMechanism {
+            case copyFileRange
+            #if os(Linux) || os(Android)
+            case sendfile
+            #endif
+            case readWrite
+        }
+        var mechanism: ContentCopyMechanism = .copyFileRange
         var srcOffset: off_t = 0
         var dstOffset: off_t = 0
-        var useManualCopy = false
         #endif
 
 
@@ -458,49 +467,72 @@ extension CopyItemHandler {
 
         #elseif !canImport(WinSDK)
 
-        copyFileRangePath: if !context.useManualCopy {
-            // faster path using copy_file_range if available
+        // A mechanism only hands over to the next one while nothing has been transferred yet: the offsets kept
+        // here and the file positions the later mechanisms rely on agree only at zero. The cases are ordered by
+        // preference, so handing over is a `fallthrough` into the next case.
+        switch context.mechanism {
 
-            let byteCopied = copy_file_range(
-                context.srcHandle.unsafeRawHandle, &context.srcOffset, context.dstHandle.unsafeRawHandle, &context.dstOffset, 
-                8 * 1024 * 1024, 0
-            )
-            if byteCopied < 0 && errno == ENOSYS {
-                // copy_file_range not available, fallback to manual copy
-                context.useManualCopy = true
-                break copyFileRangePath
-            }
-            // EINTR (interrupted) can be ignored and simply retry
-            guard byteCopied >= 0 else {
-                if errno == EINTR {
-                    return .paused
+            case .copyFileRange:
+                // in-kernel copy with filesystem acceleration (reflink, server-side copy) where available; the
+                // C shim reports ENOSYS for every "not for this pair of files" outcome (ENOSYS, EXDEV, EINVAL,
+                // EOPNOTSUPP), including any cross-filesystem copy since Linux 5.19
+                let byteCopied = copy_file_range(
+                    context.srcHandle.unsafeRawHandle, &context.srcOffset, context.dstHandle.unsafeRawHandle, &context.dstOffset,
+                    8 * 1024 * 1024, 0
+                )
+                if byteCopied < 0 && errno == ENOSYS && context.srcOffset == 0 {
+                    #if os(Linux) || os(Android)
+                    context.mechanism = .sendfile
+                    #else
+                    context.mechanism = .readWrite
+                    #endif
+                    fallthrough
                 }
-                try LowLevelError.assertError()
-            }
-            if byteCopied > 0 {
+                // EINTR (interrupted) can be ignored and simply retry
+                guard byteCopied >= 0 else {
+                    if errno == EINTR {
+                        return .paused
+                    }
+                    try LowLevelError.assertError()
+                }
+                return byteCopied > 0 ? .paused : .completed
+
+            #if os(Linux) || os(Android)
+            case .sendfile:
+                // in-kernel copy through the splice path, which also works across filesystems. The destination is
+                // written at its file position, still 0 at this point. Sources without splice support (procfs,
+                // sysfs) report EINVAL.
+                let byteCopied = sendfile(
+                    context.dstHandle.unsafeRawHandle, context.srcHandle.unsafeRawHandle, &context.srcOffset, 8 * 1024 * 1024
+                )
+                if byteCopied < 0 && (errno == EINVAL || errno == ENOSYS) && context.srcOffset == 0 {
+                    context.mechanism = .readWrite
+                    fallthrough
+                }
+                guard byteCopied >= 0 else {
+                    if errno == EINTR {
+                        return .paused
+                    }
+                    try LowLevelError.assertError()
+                }
+                return byteCopied > 0 ? .paused : .completed
+            #endif
+
+            case .readWrite:
+                // plain copy through a user-space buffer, for the pairs of files the kernel cannot copy itself
+                if fileContentCopyBuffer == nil {
+                    fileContentCopyBuffer = .init(count: 1024 * 1024)
+                }
+                let bytesRead = try fileContentCopyBuffer!.withUnsafeMutableBytes { (ptr) throws(LowLevelError) in
+                    try context.srcHandle.read(into: ptr)
+                }
+                guard bytesRead > 0 else { return .completed }
+                try fileContentCopyBuffer!.withUnsafeBytes { (ptr) throws(LowLevelError) in
+                    _ = try context.dstHandle.write(contentsOf: ptr.prefix(Int(bytesRead)))
+                }
                 return .paused
-            }
-
-            return .completed
 
         }
-
-        // manual copy, only used when copy_file_range is not available
-        if fileContentCopyBuffer == nil {
-            fileContentCopyBuffer = .init(count: 1024 * 1024)
-        }
-
-        let bytesRead = try fileContentCopyBuffer!.withUnsafeMutableBytes { (ptr) throws(LowLevelError) in
-            try context.srcHandle.read(into: ptr)
-        }
-
-        guard bytesRead > 0 else { return .completed }
-
-        try fileContentCopyBuffer!.withUnsafeBytes { (ptr) throws(LowLevelError) in
-            _ = try context.dstHandle.write(contentsOf: ptr.prefix(Int(bytesRead)))
-        }
-
-        return .paused
 
         #else
 
