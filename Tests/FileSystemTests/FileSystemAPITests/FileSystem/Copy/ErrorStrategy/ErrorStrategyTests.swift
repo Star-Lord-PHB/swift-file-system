@@ -146,6 +146,29 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
 
 
     @Test
+    func `Collect and return describes an error-free copy`() throws {
+
+        let src = try workspace.makeFixture(
+            at: "src",
+            [
+                "file.txt": .file(contents: "src file")
+            ]
+        )
+        let dst = workspace.path("dst")
+        let srcSnapshot = try Support.TreeSnapshot.capture(at: src)
+
+        let result = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn)
+
+        #expect(result.srcRootPath == src)
+        #expect(result.dstRootPath == dst)
+        #expect(result.itemErrors == nil)
+        #expect(result.operationCancelled == false)
+        try Support.expectTree(at: dst, matches: srcSnapshot, using: .copiedItem)
+
+    }
+
+
+    @Test
     func `Collect and return reports every failure and copies the rest`() throws {
 
         let src = try makeMismatchSrc()
