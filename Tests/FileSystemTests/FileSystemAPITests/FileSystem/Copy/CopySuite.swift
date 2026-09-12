@@ -16,6 +16,16 @@ extension FileSystemAPITests {
 // Helpers shared by more than one copy suite.
 extension FileSystemAPITests.CopyTests {
 
+    // The most bytes one content step transfers: the platform's block size. Windows copies a
+    // whole file in one step and has no block size. Block-related assertions refer to this
+    // constant instead of spelling the size out.
+    #if canImport(Darwin)
+    static let contentCopyChunkSize = 1 << 20
+    #elseif !canImport(WinSDK)
+    static let contentCopyChunkSize = 8 << 20
+    #endif
+
+
     /// Policy for an existing directory whose metadata the copy overwrites in place.
     ///
     /// On Darwin and FreeBSD the copy writes the creation time by lowering the destination's
