@@ -141,3 +141,55 @@ extension FileSystemTestSupport.Workspace {
     }
 
 }
+
+extension FileSystemTestSupport.Workspace {
+
+    /// Creates a file of exactly `byteCount` bytes whose contents differ from block to block.
+    ///
+    /// The file is written in `largeFileBlockSize` blocks. Each block has its own fill byte and
+    /// every 4 KiB page starts with its page index, so a copy that drops, repeats or reorders a
+    /// block, or stops short of the end, differs from the source in a byte-for-byte comparison.
+    @discardableResult
+    func makeLargeFile(at itemPath: FilePath, byteCount: Int) throws -> FilePath {
+        precondition(byteCount >= 0)
+        let absolutePath = path(itemPath)
+        try createParentDirectory(for: absolutePath)
+        let url = URL(filePath: absolutePath.string)
+        try Data().write(to: url)
+        let handle = try FileHandle(forWritingTo: url)
+        var offset = 0
+        while offset < byteCount {
+            let blockIndex = offset / Self.largeFileBlockSize
+            let length = min(Self.largeFileBlockSize, byteCount - offset)
+            try handle.write(contentsOf: Self.largeFileBlock(index: blockIndex, length: length))
+            offset += length
+        }
+        try handle.close()
+        return absolutePath
+    }
+
+    @discardableResult
+    func makeLargeFile(at itemPath: String, byteCount: Int) throws -> FilePath {
+        try makeLargeFile(at: FilePath(itemPath), byteCount: byteCount)
+    }
+
+    static let largeFileBlockSize = 1 << 20
+
+    /// The contents of block `index` of a large file, truncated to `length` bytes.
+    static func largeFileBlock(index: Int, length: Int) -> Data {
+        precondition(length >= 0 && length <= largeFileBlockSize)
+        // An odd multiplier keeps the fill bytes of the first 256 blocks distinct, and the offset
+        // keeps block 0 away from all zeros.
+        var block = Data(repeating: UInt8(truncatingIfNeeded: index &* 37 &+ 11), count: length)
+        let pageSize = 4096
+        let firstPageIndex = index * (largeFileBlockSize / pageSize)
+        for pageOffset in stride(from: 0, to: length, by: pageSize) {
+            let pageIndex = firstPageIndex + pageOffset / pageSize
+            for byteIndex in 0 ..< min(4, length - pageOffset) {
+                block[pageOffset + byteIndex] = UInt8(truncatingIfNeeded: pageIndex >> (8 * byteIndex))
+            }
+        }
+        return block
+    }
+
+}

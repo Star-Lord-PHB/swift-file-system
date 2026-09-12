@@ -55,18 +55,27 @@ extension FileSystemTestSupport {
         at path: FilePath,
         matches expected: TreeSnapshot,
         using policy: ItemComparisonPolicy,
+        allowingMissingItems: Bool = false,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
         try expectTree(
             at: path,
             matches: TreeExpectation(matching: expected, using: policy),
+            allowingMissingItems: allowingMissingItems,
             sourceLocation: sourceLocation
         )
     }
 
+    /// Checks the tree at `path` against `expectation`: every expected item that exists is compared
+    /// under its policy, and entries the expectation does not list fail the test.
+    ///
+    /// By default every expected item must exist. With `allowingMissingItems` the tree may instead be
+    /// any subset of the expectation, which is the contract of an interrupted copy: nothing the source
+    /// does not have, and whatever is there is complete.
     static func expectTree(
         at path: FilePath,
         matches expectation: TreeExpectation,
+        allowingMissingItems: Bool = false,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
         try expectItem(
@@ -102,11 +111,13 @@ extension FileSystemTestSupport {
         let missingPaths = expectedPaths.subtracting(actualPaths).sorted { $0.string < $1.string }
         let unexpectedPaths = actualPaths.subtracting(expectedPaths).sorted { $0.string < $1.string }
 
-        #expect(
-            missingPaths.isEmpty,
-            "Missing filesystem entries: \(missingPaths.map(\.string))",
-            sourceLocation: sourceLocation
-        )
+        if !allowingMissingItems {
+            #expect(
+                missingPaths.isEmpty,
+                "Missing filesystem entries: \(missingPaths.map(\.string))",
+                sourceLocation: sourceLocation
+            )
+        }
         #expect(
             unexpectedPaths.isEmpty,
             "Unexpected filesystem entries: \(unexpectedPaths.map(\.string))",

@@ -175,6 +175,59 @@ struct FileSystemTestSupportTests {
 
     }
 
+    @Test
+    func `makeLargeFile writes the exact size with block-varying contents`() throws {
+
+        let workspace = try Support.Workspace(keepArtifacts: false)
+        let blockSize = Support.Workspace.largeFileBlockSize
+        let path = try workspace.makeLargeFile(at: "large.bin", byteCount: 2 * blockSize + 4097)
+        let empty = try workspace.makeLargeFile(at: "empty.bin", byteCount: 0)
+
+        let contents = try Data(contentsOf: URL(filePath: path.string))
+        #expect(contents.count == 2 * blockSize + 4097)
+        #expect(
+            contents == Support.Workspace.largeFileBlock(index: 0, length: blockSize)
+                + Support.Workspace.largeFileBlock(index: 1, length: blockSize)
+                + Support.Workspace.largeFileBlock(index: 2, length: 4097)
+        )
+        // Fill bytes differ between blocks and every page carries its own index.
+        #expect(contents[8] != contents[blockSize + 8])
+        #expect(contents[4096] == 1)
+        #expect(contents[blockSize] == 0 && contents[blockSize + 1] == 1)
+        #expect(try Data(contentsOf: URL(filePath: empty.string)).isEmpty)
+
+    }
+
+    @Test
+    func `expectTree allowingMissingItems accepts a subset of the expectation`() throws {
+
+        let workspace = try Support.Workspace(keepArtifacts: false)
+        let source = try workspace.makeFixture(
+            at: "source",
+            [
+                "file.txt": .file(contents: "root contents"),
+                "link": .symlink(target: "file.txt"),
+                "directory": [
+                    "nested.txt": .file(contents: "nested contents"),
+                    "other.txt": .file(contents: "other contents"),
+                ],
+            ]
+        )
+        let subset = try workspace.makeFixture(
+            at: "subset",
+            [
+                "directory": [
+                    "nested.txt": .file(contents: "nested contents")
+                ]
+            ]
+        )
+        let snapshot = try Support.TreeSnapshot.capture(at: source)
+
+        try Support.expectTree(at: subset, matches: snapshot, using: .logicalContents, allowingMissingItems: true)
+        try Support.expectTree(at: source, matches: snapshot, using: .unchanged, allowingMissingItems: true)
+
+    }
+
     #if canImport(Darwin) || os(FreeBSD)
     @Test
     func `ageCreationTime lowers birth time and preserves modification time`() throws {
