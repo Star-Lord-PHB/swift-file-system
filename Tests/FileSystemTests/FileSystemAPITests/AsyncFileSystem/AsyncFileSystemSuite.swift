@@ -2,8 +2,10 @@ import Testing
 import SwiftAsyncFileSystem
 
 
-/// Contract tests for `AsyncFileSystem`, whose every method is a thin shell dispatching the
-/// fully tested synchronous `FileSystem` through `AsyncFileSystemExecutor.runCancellable`.
+/// Contract tests for `AsyncFileSystem`, whose every method except `copyItem` is a thin shell
+/// dispatching the fully tested synchronous `FileSystem` through
+/// `AsyncFileSystemExecutor.runCancellable` (`copyItem` drives the copy session itself and
+/// has its own group, `CopyTests`).
 /// File-system semantics are deliberately not re-tested here; the synchronous test groups
 /// remain their single source of truth. Each async method gets:
 ///
