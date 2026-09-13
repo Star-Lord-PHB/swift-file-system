@@ -42,6 +42,14 @@ public protocol AsyncFileSystemProtocol: Sendable {
     #endif
 
     @concurrent
+    func copyItem<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
+        at srcPath: FilePath,
+        to dstPath: FilePath,
+        options: FileOperationOptions.CopyItemOptions,
+        errorStrategy: ErrorStrategy
+    ) async throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned
+
+    @concurrent
     func moveItem(at srcPath: FilePath, to dstPath: FilePath, onExistingTarget targetExistOption: FileOperationOptions.CopyTargetExistOption) async throws(PlatformError)
 
     @concurrent

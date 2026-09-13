@@ -12,20 +12,20 @@ import struct SystemPackage.FilePath
 /// places where the two are composed.
 ///
 /// An instance performs a single copy; it is not reusable.
-struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>: ~Copyable {
+package struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>: ~Copyable {
 
     /// The source root as given by the caller. Only used to describe the operation in the error report; the copy
     /// itself resolves against ``srcCopyRootPath``, which differs when `symlinkOption` is `.copyTarget`.
-    let srcRootPath: FilePath
-    let dstRootPath: FilePath
+    package let srcRootPath: FilePath
+    package let dstRootPath: FilePath
 
     /// The source root the copy actually reads from: ``srcRootPath``, or its resolved target when
     /// `symlinkOption` is `.copyTarget`. Assigned once by the first ``copyStep()``.
     private var srcCopyRootPath: FilePath
 
-    let options: FileOperationOptions.CopyItemOptions
+    package let options: FileOperationOptions.CopyItemOptions
 
-    let cancellationToken: CancellationToken
+    package let cancellationToken: CancellationToken
 
     var errorCollector: RecursiveCopyErrorCollector
 
@@ -35,11 +35,11 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
 
     var fileContentCopyBuffer: ByteBuffer?
 
-    var errorStrategy: ErrorStrategy { errorCollector.strategy }
+    package var errorStrategy: ErrorStrategy { errorCollector.strategy }
 
     /// Returns true if the copy operation was truly cancelled (i.e. the cancellation request 
     /// was actually responded)
-    var operationCancelled: Bool {
+    package var operationCancelled: Bool {
         switch self.state {
             case .ended(cancelled: true): true
             default: false
@@ -47,7 +47,7 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
     }
 
 
-    init(
+    package init(
         srcRootPath: FilePath,
         dstRootPath: FilePath,
         options: FileOperationOptions.CopyItemOptions = .init(),
@@ -115,21 +115,13 @@ struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStr
 
 extension CopyItemHandler {
 
-    mutating func perform() throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
-
+    package mutating func perform() throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
         while copyStep() == .paused {}
-
-        return try errorStrategy.reportResult(.init(
-            srcRootPath: srcRootPath, 
-            dstRootPath: dstRootPath, 
-            itemErrors: errorCollector.errors.value, 
-            operationCancelled: operationCancelled
-        ))
-
+        return try reportResult()
     }
 
 
-    mutating func copyStep() -> StepResult {
+    package mutating func copyStep() -> StepResult {
 
         defer {
             switch self.state?.case {
@@ -147,6 +139,23 @@ extension CopyItemHandler {
         }
 
         return .completed
+
+    }
+
+
+    package func reportResult() throws(ErrorStrategy.ThrowedError) -> ErrorStrategy.Returned {
+
+        switch self.state {
+            case .ended: break
+            default: preconditionFailure("Cannot report result before copy is completed or cancelled")
+        }
+
+        return try errorStrategy.reportResult(.init(
+            srcRootPath: srcRootPath, 
+            dstRootPath: dstRootPath, 
+            itemErrors: errorCollector.errors.value, 
+            operationCancelled: operationCancelled
+        ))
 
     }
 
@@ -238,7 +247,7 @@ extension CopyItemHandler {
 
 extension CopyItemHandler {
 
-    enum StepResult {
+    package enum StepResult {
         case paused, completed
     }
 

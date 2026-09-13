@@ -19,6 +19,12 @@ public struct AsyncFileSystem: AsyncFileSystemProtocol {
     public let executor: AsyncFileSystemExecutor
     let fileSystem: FileSystem
 
+    #if os(watchOS)
+    package static let defaultMultiStepExecTimeSlice: MonotonicDuration = .milliseconds(5)
+    #else
+    package static let defaultMultiStepExecTimeSlice: MonotonicDuration = .milliseconds(10)
+    #endif
+
 
     public init(executor: AsyncFileSystemExecutor = .defaultExecutor) {
         precondition(executor.state == .running, "AsyncFileSystem requires a running executor")
