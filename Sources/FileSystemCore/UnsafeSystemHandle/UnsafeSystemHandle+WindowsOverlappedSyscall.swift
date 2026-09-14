@@ -80,7 +80,7 @@ public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
     /// > Warning: 
     /// > Mutating the OVERLAPPED value that is in use by an ongoing I/O operation is extremely dangerous, 
     /// > use this function only if you are absolutely sure of what you are doing.
-    @_lifetime(copy self)
+    @_lifetime(self: copy self)
     public mutating func withUnsafeMutableSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafeMutablePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
         return try body(self.systemOverlapped)
     }
