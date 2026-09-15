@@ -170,4 +170,50 @@ extension FileSystemAPITests.RemovalTests {
 
     }
 
+    @Test
+    func `Removes entries whose names start with a dot or are not ASCII`() throws {
+
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                ".hidden": .file(contents: "hidden contents"),
+                "..dots": .file(contents: "dots contents"),
+                ".hidden-dir": [
+                    ".nested": .file(contents: "nested contents")
+                ],
+                "文件": .file(contents: "unicode contents"),
+                "目录": [
+                    "嵌套": .file(contents: "nested unicode contents")
+                ],
+            ] as Support.Fixture
+        )
+
+        try fileSystem.removeItem(at: path)
+
+        try Support.expectItemNotExistNoFollow(at: path)
+
+    }
+
+
+    @Test
+    func `Removes a tree of empty directories`() throws {
+
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "a": [
+                    "b": [
+                        "c": [:]
+                    ]
+                ],
+                "d": [:],
+            ] as Support.Fixture
+        )
+
+        try fileSystem.removeItem(at: path)
+
+        try Support.expectItemNotExistNoFollow(at: path)
+
+    }
+
 }
