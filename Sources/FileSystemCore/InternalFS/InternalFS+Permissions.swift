@@ -100,9 +100,20 @@ extension InternalFS {
         guard !members.isEmpty else { return }
         
         if followSymlink {
+            // Request exactly the rights `SetSecurityInfo` checks for the members being set (READ_CONTROL is
+            // still required next to WRITE_DAC).
+            var accessFlags = [.windows.readControl] as UnsafeSystemHandle.OpenOptions.NativeAccessModeFlag
+            if members.contains(.dacl) { accessFlags.insert(.windows.writeDac) }
+            if !members.isDisjoint(with: [.owner, .group]) { accessFlags.insert(.windows.writeOwner) }
+            if members.contains(.sacl) { accessFlags.insert(.windows.accessSystemSecurity) }
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+                openOptions: .init(
+                    access: .none,
+                    noFollow: !followSymlink,
+                    platformAccessModeFlagsDiff: .inserted(accessFlags),
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                )
             )
             try handle.setSecurityInfo(members, dacl: dacl, sacl: sacl, owner: owner, group: group)
             try handle.close()
@@ -135,9 +146,17 @@ extension InternalFS {
         var psd = nil as PSECURITY_DESCRIPTOR?
         
         if followSymlink {
+            // Reading a security descriptor needs READ_CONTROL only (plus ACCESS_SYSTEM_SECURITY for the SACL)
+            var accessFlags = [.windows.readControl] as UnsafeSystemHandle.OpenOptions.NativeAccessModeFlag
+            if members.contains(.sacl) { accessFlags.insert(.windows.accessSystemSecurity) }
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+                openOptions: .init(
+                    access: .none,
+                    noFollow: !followSymlink,
+                    platformAccessModeFlagsDiff: .inserted(accessFlags),
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                )
             )
             let sd = try handle.securityInfo(members)
             try handle.close()

@@ -171,6 +171,7 @@ extension UnsafeSystemHandle {
                 public static var writeAttributes: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_WRITE_ATTRIBUTES)) }
                 public static var writeDac: NativeAccessModeFlag { .init(rawValue: DWORD(WRITE_DAC)) }
                 public static var writeOwner: NativeAccessModeFlag { .init(rawValue: DWORD(WRITE_OWNER)) }
+                public static var accessSystemSecurity: NativeAccessModeFlag { .init(rawValue: DWORD(ACCESS_SYSTEM_SECURITY)) }
                 public static var genericWrite: NativeAccessModeFlag { .init(rawValue: DWORD(GENERIC_WRITE)) }
                 public static var appendData: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_APPEND_DATA)) }
                 #else
@@ -180,6 +181,7 @@ extension UnsafeSystemHandle {
                 public static var writeAttributes: NativeAccessModeFlag { .init(rawValue: 0) }
                 public static var writeDac: NativeAccessModeFlag { .init(rawValue: 0) }
                 public static var writeOwner: NativeAccessModeFlag { .init(rawValue: 0) }
+                public static var accessSystemSecurity: NativeAccessModeFlag { .init(rawValue: 0) }
                 public static var genericWrite: NativeAccessModeFlag { .init(rawValue: 0) }
                 public static var appendData: NativeAccessModeFlag { .init(rawValue: 0) }
                 #endif

@@ -120,7 +120,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `Setting owner preserves group and DACL`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        try prepareProtectedDacl(at: path)
+        // Setting the owner needs WRITE_OWNER, which no generic file mask includes and which is never
+        // granted implicitly; grant it explicitly so the test does not depend on an elevated token.
+        try prepareProtectedDacl(at: path, secondaryPermission: .writeOwner)
         let securityBeforeSet = try captureSecurity(at: path)
         guard 
             let replacementOwner = try Support.replacementOwner(
@@ -147,7 +149,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `Setting group preserves owner and DACL`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        try prepareProtectedDacl(at: path)
+        // Setting the primary group needs WRITE_OWNER, which no generic file mask includes and which is
+        // never granted implicitly; grant it explicitly so the test does not depend on an elevated token.
+        try prepareProtectedDacl(at: path, secondaryPermission: .writeOwner)
         let securityBeforeSet = try captureSecurity(at: path)
         guard 
             let replacementGroup = try Support.replacementGroup(

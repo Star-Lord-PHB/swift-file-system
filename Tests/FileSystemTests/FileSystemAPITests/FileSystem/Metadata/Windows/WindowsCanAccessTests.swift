@@ -42,7 +42,11 @@ extension FileSystemAPITests.MetadataTests.WindowsCanAccessTests {
     private var fileExecuteAccess: WindowsAccessMask { Self.fileExecuteAccess }
 
 
-    private var testMaintenanceAccess: WindowsAccessMask { [.delete, .readControl, .writeDAC] }
+    /// Rights every fixture DACL grants on top of the access under test: DELETE / WRITE_DAC so the test can
+    /// clean up and restore, READ_CONTROL so the descriptor can be read back, and SYNCHRONIZE because
+    /// `CreateFileW` adds it to every open — an allow ACE without it cannot be opened through Win32 at all
+    /// (icacls, .NET and Explorer add it silently; `WindowsExplicitAccess` writes the exact mask).
+    private var testMaintenanceAccess: WindowsAccessMask { [.delete, .readControl, .writeDAC, .synchronize] }
 
 
     private func prepareProtectedDacl(

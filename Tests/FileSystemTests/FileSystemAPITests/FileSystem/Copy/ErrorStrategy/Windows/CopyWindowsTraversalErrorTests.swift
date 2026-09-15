@@ -119,8 +119,11 @@ extension FileSystemAPITests.CopyTests.WindowsTraversalErrorTests {
         var expectation = Support.TreeExpectation(matching: srcSnapshot, using: .copiedItem)
         expectation.removeItem(at: "locked/inner")
         // The directory itself is created and committed; its DACL came from the current
-        // (deny-listing) source state, which the pre-deny snapshot cannot match.
-        try expectation.updatePolicies(["locked": .copiedItem.excluding(.permissions)])
+        // (deny-listing) source state, which the pre-deny snapshot cannot match. NTFS also bumps a
+        // directory's access time whenever its DACL is written, so `denyListing` moved the source's
+        // atime after the snapshot (the copy carried that value over) and `restoreFullAccess` moved the
+        // destination's again; the POSIX twin is unaffected because chmod leaves atime alone.
+        try expectation.updatePolicies(["locked": .copiedItem.excluding([.permissions, .accessTime])])
         try Support.expectTree(at: dst, matches: expectation)
 
     }

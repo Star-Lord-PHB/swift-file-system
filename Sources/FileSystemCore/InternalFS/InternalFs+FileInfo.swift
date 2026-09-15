@@ -210,9 +210,15 @@ extension InternalFS {
 
         #if canImport(WinSDK)
 
+        // needs FILE_WRITE_ATTRIBUTES only
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .writeOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+            openOptions: .init(
+                access: .none,
+                noFollow: !followSymlink,
+                platformAccessModeFlagsDiff: .inserted(.windows.writeAttributes),
+                platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+            )
         )
         try handle.setFileTimes(access: access, modification: modification, creation: creation)
         try handle.close()
@@ -342,9 +348,15 @@ extension InternalFS {
         #if canImport(WinSDK)
         
         if followSymlink {
+            // needs FILE_WRITE_ATTRIBUTES only
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .readWrite(metadataOnly: true), noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+                openOptions: .init(
+                    access: .none,
+                    noFollow: false,
+                    platformAccessModeFlagsDiff: .inserted(.windows.writeAttributes),
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                )
             )
             try handle.setFileAttributes(attributes)
             try handle.close()
