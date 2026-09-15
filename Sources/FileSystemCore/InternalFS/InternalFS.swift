@@ -182,14 +182,25 @@ package enum InternalFS {
     }
 
 
+    /// Removes a file, a symlink or an empty directory without probing its type first.
+    ///
+    /// Windows has no `remove(3)`: `DeleteFileW` is tried first and, since it answers
+    /// `ERROR_ACCESS_DENIED` for any directory (directory symlinks and junctions included),
+    /// `RemoveDirectoryW` is tried on that failure. When the second call answers
+    /// `ERROR_DIRECTORY` the item is not a directory after all, so the original `DeleteFileW`
+    /// failure (a read-only file, a missing delete permission) is the one reported.
     package static func remove(itemAt path: FilePath) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
         do {
             try unlink(fileAt: path)
-        } catch let error where error.kind == .permissionDenied {
-            try rmdir(at: path)
+        } catch let unlinkError where unlinkError.kind == .permissionDenied {
+            do {
+                try rmdir(at: path)
+            } catch let rmdirError where rmdirError.systemCode == .invalidDirectoryName {
+                throw unlinkError
+            }
         }
 
         #else 
