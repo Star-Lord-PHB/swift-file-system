@@ -7,9 +7,12 @@ import WinSDK
 
 private typealias Options = UnsafeSystemHandle.OpenOptions
 
-private let readMeta = DWORD(bitPattern: FILE_READ_ATTRIBUTES | READ_CONTROL)
-private let writeMeta = DWORD(bitPattern: FILE_WRITE_ATTRIBUTES | WRITE_DAC | WRITE_OWNER | READ_CONTROL)
+private let genericRead = GENERIC_READ
 private let genericWrite = DWORD(bitPattern: GENERIC_WRITE)
+private let fileGenericRead = FILE_GENERIC_READ
+private let fileGenericWrite = FILE_GENERIC_WRITE
+private let appendWrite = FILE_GENERIC_WRITE & ~DWORD(bitPattern: FILE_WRITE_DATA)
+private let implicitCreateFileRights = DWORD(bitPattern: FILE_READ_ATTRIBUTES | SYNCHRONIZE)
 
 
 
@@ -24,16 +27,15 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests {
 
 extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
 
+    // The access mode derives the data rights only; every right beyond reading and writing the
+    // data is requested explicitly through `windowsExtraAccess`.
     @Test(arguments: [
-        (.readOnly(), GENERIC_READ | readMeta),
-        (.readOnly(metadataOnly: true), readMeta),
-        (.writeOnly(), genericWrite | writeMeta),
-        (.writeOnly(metadataOnly: true), writeMeta),
-        (.readWrite(), GENERIC_READ | genericWrite | readMeta | writeMeta),
-        (.readWrite(metadataOnly: true), readMeta | writeMeta),
+        (.readOnly, genericRead),
+        (.writeOnly, genericWrite),
+        (.readWrite, genericRead | genericWrite),
         (.none, 0),
     ] as [(Options.AccessMode, Options.FlagType)])
-    func `Access mode derives the exact access mask`(
+    func `Access mode derives only the data access`(
         access: UnsafeSystemHandle.OpenOptions.AccessMode,
         expected: DWORD
     ) {
@@ -44,13 +46,13 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
 
 
     @Test
-    func `Append derives append-data instead of generic write`() {
+    func `Append derives the file generic write rights without write-data`() {
 
-        let writeOnly = Options(access: .writeOnly(), append: true)
-        let readWrite = Options(access: .readWrite(), append: true)
+        let writeOnly = Options(access: .writeOnly, append: true)
+        let readWrite = Options(access: .readWrite, append: true)
 
-        #expect(writeOnly.accessModeFlags == DWORD(bitPattern: FILE_APPEND_DATA) | writeMeta)
-        #expect(readWrite.accessModeFlags == GENERIC_READ | DWORD(bitPattern: FILE_APPEND_DATA) | readMeta | writeMeta)
+        #expect(writeOnly.accessModeFlags == appendWrite)
+        #expect(readWrite.accessModeFlags == genericRead | appendWrite)
 
     }
 
@@ -58,9 +60,49 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
     @Test
     func `Truncate adds generic write to the access mask`() {
 
-        let options = Options(access: .readOnly(), truncate: true)
+        let options = Options(access: .readOnly, truncate: true)
 
-        #expect(options.accessModeFlags == GENERIC_READ | readMeta | genericWrite)
+        #expect(options.accessModeFlags == genericRead | genericWrite)
+
+    }
+
+
+    @Test
+    func `Extra Windows access is added on top of the derived mask`() {
+
+        let metadataOnly = Options(access: .none, windowsExtraAccess: .writeAttributes)
+        let readWithSecurity = Options(access: .readOnly, windowsExtraAccess: [.writeDAC, .writeOwner])
+
+        #expect(metadataOnly.accessModeFlags == DWORD(FILE_WRITE_ATTRIBUTES))
+        #expect(readWithSecurity.accessModeFlags == genericRead | DWORD(WRITE_DAC | WRITE_OWNER))
+
+    }
+
+
+    // The estimate stands in for the rights a `CreateFileW` open actually granted: the generic
+    // rights expand the way the object manager maps them for files, and the two rights
+    // `CreateFileW` adds to every request are always present.
+    @Test
+    func `Estimated mapped access expands generic rights and adds the implicit CreateFileW rights`() {
+
+        #expect(Options(access: .readOnly).estimatedMappedWindowsAccess.rawValue == genericRead | fileGenericRead)
+        #expect(
+            Options(access: .writeOnly).estimatedMappedWindowsAccess.rawValue
+                == genericWrite | fileGenericWrite | DWORD(FILE_READ_ATTRIBUTES)
+        )
+        #expect(
+            Options(access: .readWrite).estimatedMappedWindowsAccess.rawValue
+                == genericRead | genericWrite | fileGenericRead | fileGenericWrite
+        )
+        #expect(
+            Options(access: .writeOnly, append: true).estimatedMappedWindowsAccess.rawValue
+                == appendWrite | DWORD(FILE_READ_ATTRIBUTES)
+        )
+        #expect(Options(access: .none).estimatedMappedWindowsAccess.rawValue == implicitCreateFileRights)
+        #expect(
+            Options(access: .none, windowsExtraAccess: .writeAttributes).estimatedMappedWindowsAccess.rawValue
+                == DWORD(FILE_WRITE_ATTRIBUTES) | implicitCreateFileRights
+        )
 
     }
 
@@ -139,10 +181,9 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
         // NOTE: POSIX-only diff constants have rawValue 0 on Windows so that cross-platform code
         // can insert them without conditional compilation.
         options.platformOpenFlagsDiff.insert([.posix.directory, .posix.closeOnExec])
-        options.platformAccessModeFlagsDiff.insert(.posix.path)
 
         #expect(options.openFlags == DWORD(FILE_ATTRIBUTE_NORMAL))
-        #expect(options.accessModeFlags == GENERIC_READ | readMeta)
+        #expect(options.accessModeFlags == genericRead)
 
     }
 

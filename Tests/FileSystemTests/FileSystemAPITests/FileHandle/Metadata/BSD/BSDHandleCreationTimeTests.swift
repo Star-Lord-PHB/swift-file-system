@@ -79,7 +79,7 @@ extension FileHandleAPITests.MetadataTests.BSDCreationTimeTests {
             from: creationTimeBeforeSet,
             by: -3_600
         )
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setFileTimes(
             modification: requestedModificationTime,
@@ -113,7 +113,7 @@ extension FileHandleAPITests.MetadataTests.BSDCreationTimeTests {
             from: creationTimeBeforeSet,
             by: -3_600
         )
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setFileTimes(modification: requestedModificationTime)
 
@@ -144,7 +144,7 @@ extension FileHandleAPITests.MetadataTests.BSDCreationTimeTests {
             from: creationTimeBeforeSet,
             by: 3_600
         )
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setFileTimes(creation: requestedCreationTime)
 

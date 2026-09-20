@@ -34,7 +34,7 @@ extension AsyncFileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
         var preparedFlags = try Support.captureNativeInodeFlags(at: path)
         preparedFlags.insert(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: path)
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let flags = try await handle.inodeFlags()
 
@@ -52,7 +52,7 @@ extension AsyncFileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
         let path = try workspace.makeFile(at: "file")
         var requestedFlags = try Support.captureNativeInodeFlags(at: path)
         requestedFlags.insert(.noDump)
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setInodeFlags(requestedFlags)
 
@@ -67,7 +67,7 @@ extension AsyncFileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
     func `Pre-cancelled inodeFlags reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.inodeFlags()
@@ -80,7 +80,7 @@ extension AsyncFileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
     func `Pre-cancelled setInodeFlags reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.setInodeFlags([])

@@ -26,9 +26,11 @@ extension FileHandleAPITests.MetadataTests {
 extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
     // NOTE: The metadata APIs share one implementation across all handle kinds, so each
-    // kind only gets a representative query and, for write-capable handles, a
-    // representative setter. Metadata setters through read-only and directory handles
-    // diverge by platform; see the POSIX and Windows non-writable handle setter suites.
+    // kind and each view gets one representative query and one representative setter. The
+    // setter does not depend on the access mode the handle was opened with: POSIX metadata
+    // syscalls ignore the descriptor's mode, and on Windows a handle that lacks the right
+    // reopens for the call while a handle that holds it (the write-capable kinds and
+    // FILE_WRITE_ATTRIBUTES) is used as is. The deep semantic suites run on `ReadFileHandle`.
 
     private var sampleAccessTime: FileTimeSpec {
         .init(seconds: 1_706_745_678, nanoseconds: 123_456_700)
@@ -81,6 +83,19 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try WriteFileHandle(forFileAt: path)
+
+        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+
+        try handle.close()
+
+    }
+
+
+    @Test
+    func `ReadWriteFileHandle fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try ReadWriteFileHandle(forFileAt: path)
 
         #expect(try handle.fileInfo() == FileInfo(fileAt: path))
 
@@ -168,10 +183,70 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `SequentialWriter fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try WriteFileHandle(forFileAt: path)
+        let writer = handle.sequentialWriter()
+
+        #expect(try writer.fileInfo() == FileInfo(fileAt: path))
+
+    }
+
+
+    @Test
+    func `SequentialAccessor fileInfo matches path-based FileInfo`() throws {
+
+        let path = try workspace.makeFile(at: "file", contents: "file contents")
+        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let accessor = handle.sequentialAccessor()
+
+        #expect(try accessor.fileInfo() == FileInfo(fileAt: path))
+
+    }
+
+
+    @Test
+    func `ReadFileHandle sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try ReadFileHandle(forFileAt: path)
+
+        try handle.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
     func `WriteFileHandle sets file times`() throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try WriteFileHandle(forFileAt: path)
+
+        try handle.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `ReadWriteFileHandle sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try ReadWriteFileHandle(forFileAt: path)
 
         try handle.setFileTimes(
             access: sampleAccessTime,
@@ -204,6 +279,42 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `DirectoryHandle sets file times`() throws {
+
+        let path = try workspace.makeDirectory(at: "directory")
+        let handle = try DirectoryHandle(forDirAt: path)
+
+        try handle.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `StreamingReadHandle sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try StreamingReadHandle(forFileAt: path)
+
+        try handle.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
     func `StreamingWriteHandle sets file times`() throws {
 
         let path = try workspace.makeFile(at: "file")
@@ -215,6 +326,75 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         )
 
         try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `StreamingReadWriteHandle sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try StreamingReadWriteHandle(forFileAt: path)
+
+        try handle.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `SequentialReader sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try ReadFileHandle(forFileAt: path)
+        let reader = handle.sequentialReader()
+
+        try reader.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `SequentialWriter sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try WriteFileHandle(forFileAt: path)
+        let writer = handle.sequentialWriter()
+
+        try writer.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `SequentialAccessor sets file times`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let accessor = handle.sequentialAccessor()
+
+        try accessor.setFileTimes(
+            access: sampleAccessTime,
+            modification: sampleModificationTime
+        )
 
         try expectSampleTimes(at: path)
 

@@ -21,7 +21,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let error = #expect(throws: LowLevelError.self) {
             _ = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .writeOnly(), truncate: true, noFollow: true)
+                openOptions: .init(access: .writeOnly, truncate: true, noFollow: true)
             )
         }
 
@@ -43,7 +43,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
             _ = try UnsafeSystemHandle.open(
                 at: path,
                 openOptions: .init(
-                    access: .writeOnly(),
+                    access: .writeOnly,
                     truncate: true,
                     platformOpenFlagsDiff: .inserted(.windows.openReparsePoint)
                 )
@@ -66,7 +66,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let handle = try UnsafeSystemHandle.open(
             at: path,
             openOptions: .init(
-                access: .writeOnly(),
+                access: .writeOnly,
                 truncate: true,
                 noFollow: true,
                 platformOpenFlagsDiff: .removed(.windows.openReparsePoint)
@@ -86,7 +86,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let path = try workspace.makeFile(at: "file", contents: "contents")
 
         var options = UnsafeSystemHandle.OpenOptions(
-            access: .writeOnly(),
+            access: .writeOnly,
             truncate: true,
             noFollow: true
         )
@@ -111,7 +111,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let handle = try UnsafeSystemHandle.open(
             at: path,
             openOptions: .init(
-                access: .writeOnly(),
+                access: .writeOnly,
                 creation: .assertMissing,
                 truncate: true,
                 noFollow: true
@@ -137,7 +137,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let error = #expect(throws: LowLevelError.self) {
             _ = try UnsafeSystemHandle.open(
                 at: link,
-                openOptions: .init(access: .writeOnly(), truncate: true, noFollow: true)
+                openOptions: .init(access: .writeOnly, truncate: true, noFollow: true)
             )
         }
 

@@ -11,7 +11,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var buffer = Data(count: 5)
 
@@ -43,7 +43,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         let payload = Data("Howdy".utf8)
 
@@ -74,7 +74,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite))
 
         var head = Data(count: 6)
 
@@ -107,7 +107,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), append: true)
+            openOptions: .init(access: .writeOnly, append: true)
         )
 
         let firstPayload = Data(" is Cute!".utf8)

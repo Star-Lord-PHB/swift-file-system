@@ -131,7 +131,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(metadataOnly: true))
+            openOptions: .init(access: .none)
         )
 
         #expect(try handle.type() == .regular)
@@ -158,7 +158,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: link,
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: true)
+            openOptions: .init(access: .none, noFollow: true)
         )
 
         #expect(try handle.type() == .symlink)

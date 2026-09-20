@@ -52,7 +52,7 @@ extension AsyncFileHandleAPITests.MetadataTests.POSIXForwardingTests {
 
         let path = try workspace.makeFile(at: "file")
         try setFoundationPermissions(FilePermissions(rawValue: 0o640), at: path)
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let permissions = try await handle.posixPermissions()
 
@@ -69,7 +69,7 @@ extension AsyncFileHandleAPITests.MetadataTests.POSIXForwardingTests {
 
         let path = try workspace.makeFile(at: "file")
         let requested = FilePermissions(rawValue: 0o640)
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setPosixPermissions(requested)
 
@@ -92,7 +92,7 @@ extension AsyncFileHandleAPITests.MetadataTests.POSIXForwardingTests {
         else {
             try Test.cancel("No alternate group is available to the current process")
         }
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setOwner(owner: nil, group: replacementGroup)
 
@@ -109,7 +109,7 @@ extension AsyncFileHandleAPITests.MetadataTests.POSIXForwardingTests {
     func `Pre-cancelled posixPermissions reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.posixPermissions()
@@ -122,7 +122,7 @@ extension AsyncFileHandleAPITests.MetadataTests.POSIXForwardingTests {
     func `Pre-cancelled setPosixPermissions reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.setPosixPermissions(FilePermissions(rawValue: 0o640))

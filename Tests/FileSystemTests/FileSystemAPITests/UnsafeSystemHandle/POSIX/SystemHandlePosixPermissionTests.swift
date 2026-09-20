@@ -35,7 +35,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing)
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing)
         )
 
         try handle.close()
@@ -54,7 +54,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing),
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing),
             creationPermissions: requested
         )
 
@@ -78,7 +78,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing),
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing),
             creationPermissions: FilePermissions(rawValue: 0o777)
         )
 
@@ -98,7 +98,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         // NOTE: The semantic creation stays .never; the creation behavior and the mode argument
         // both follow the effective flags after the override injects O_CREAT.
-        var options = UnsafeSystemHandle.OpenOptions(access: .writeOnly())
+        var options = UnsafeSystemHandle.OpenOptions(access: .writeOnly)
         options.platformCreationFlagsOverride = .posix.create
 
         let handle = try UnsafeSystemHandle.open(
@@ -125,7 +125,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing),
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing),
             creationPermissions: []
         )
 
@@ -136,7 +136,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
         try handle.close()
 
         let error = #expect(throws: LowLevelError.self) {
-            _ = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+            _ = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
         }
 
         #expect(error?.kind == .permissionDenied)

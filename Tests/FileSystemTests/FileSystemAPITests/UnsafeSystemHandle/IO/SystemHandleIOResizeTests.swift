@@ -11,7 +11,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         try handle.truncate(to: 5)
         try handle.close()
@@ -26,7 +26,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "AB")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         try handle.truncate(to: 5)
         try handle.close()
@@ -41,7 +41,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         // NOTE: POSIX ftruncate never touches the offset. The Windows implementation moves the
         // file pointer to cut at the requested size, and must restore it afterwards - including
@@ -66,7 +66,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         try handle.seek(to: 5)
         try handle.truncate()
@@ -87,7 +87,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing)
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing)
         )
 
         let payload = Data("Hello".utf8)

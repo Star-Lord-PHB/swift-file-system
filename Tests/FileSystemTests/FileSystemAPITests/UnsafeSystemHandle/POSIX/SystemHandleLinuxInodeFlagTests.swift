@@ -48,7 +48,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
         // the test, so this does not risk reusing a descriptor closed behind its owner.
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(metadataOnly: true))
+            openOptions: .init(access: .none)
         )
 
         let error = #expect(throws: LowLevelError.self) {

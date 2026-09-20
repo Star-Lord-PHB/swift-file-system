@@ -46,7 +46,7 @@ extension FileHandleAPITests.MetadataTests.BSDAttributeTests {
 
         let path = try workspace.makeFile(at: "file")
         try setNativeAttributes([.bsd.noDump], at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.fileAttributes()
         let expected = try Support.ItemMetadata.captureAttributes(at: path).values
@@ -64,7 +64,7 @@ extension FileHandleAPITests.MetadataTests.BSDAttributeTests {
 
         let requestedAttributes: PlatformFileAttributes = [.bsd.noDump]
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setFileAttributes(requestedAttributes)
 
@@ -80,7 +80,7 @@ extension FileHandleAPITests.MetadataTests.BSDAttributeTests {
 
         let path = try workspace.makeFile(at: "file")
         try setNativeAttributes([.bsd.noDump], at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setFileAttributes([])
 

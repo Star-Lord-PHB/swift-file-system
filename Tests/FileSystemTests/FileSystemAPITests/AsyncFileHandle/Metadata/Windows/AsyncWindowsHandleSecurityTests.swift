@@ -27,9 +27,11 @@ extension AsyncFileHandleAPITests.MetadataTests {
 
 
 // NOTE: The Windows security shells and the creation-time parameter of `setFileTimes` are
-// conditional source. Handles are opened before a restrictive protected DACL is installed:
-// security access rights are checked at open time, so the open handle keeps updating the
-// security info afterwards.
+// conditional source. Handles are opened before a restrictive protected DACL is installed: the
+// open holds no security-write rights, each setter reopens the handle for the call with
+// READ_CONTROL and WRITE_DAC, and the owner holds those implicitly whatever the DACL says, so
+// the update still succeeds. The read handle is the subject: it holds none of the
+// security-write rights, so every setter here goes through the reopen.
 extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
 
     private static func makeSampleDacl() -> WindowsRawAcl {
@@ -46,7 +48,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
     func `securityInfo matches Win32`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let descriptor = try await handle.securityInfo()
 
@@ -64,7 +66,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
 
         let path = try workspace.makeFile(at: "file")
         let members = .owner as FileOperationOptions.WindowsSecurityInfoMembers
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let descriptor = try await handle.securityInfo(members)
 
@@ -83,7 +85,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
     func `setSecurityInfo forwards a DACL replacement`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
         try Support.setProtectedNativeWindowsDacl(
             .init(entries: [
                 .init(permission: .genericRead, trustee: .users)
@@ -115,7 +117,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
         let requestedCreationTime = creationTimeBeforeSet
             .adding(seconds: -7_200)
             .fileTimeSpec
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setFileTimes(creation: requestedCreationTime)
 
@@ -140,7 +142,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
     func `Pre-cancelled securityInfo reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             _ = try await handle.securityInfo()
@@ -153,7 +155,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
     func `Pre-cancelled setSecurityInfo reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.setSecurityInfo(dacl: .remove)

@@ -4,11 +4,12 @@ import SwiftAsyncFileSystem
 
 
 
-// NOTE: `withUnsafeSystemHandleInExecutor` is the one public entry that runs a caller closure
-// on the handle's executor, so it is the observation point for "the handle's work is
-// dispatched to the executor it was opened with": a single persistent pool thread carries the
-// label in its name, read back through Foundation as in the executor tests. The views reach
-// the executor through the positional accessor, hence their own case.
+// NOTE: `withUnsafeSystemHandleInExecutor` and `withUnsafeHandleContextInExecutor` are the
+// public entries that run a caller closure on the handle's executor, so they are the
+// observation points for "the handle's work is dispatched to the executor it was opened with":
+// a single persistent pool thread carries the label in its name, read back through Foundation
+// as in the executor tests. The views reach the executor through the positional accessor,
+// hence their own case.
 // FreeBSD/OpenBSD skip thread naming, so the tests are omitted there.
 #if !os(FreeBSD) && !os(OpenBSD)
 extension AsyncFileHandleAPITests.LifecycleTests {
@@ -25,6 +26,24 @@ extension AsyncFileHandleAPITests.LifecycleTests {
         }.get()
 
         #expect(threadName == "route-0")
+
+        try await handle.close()
+
+    }
+
+
+    @Test(.timeLimit(.minutes(1)))
+    func `Handle context work runs on the executor it was opened with`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let executor = AsyncFileSystemExecutor(label: "croute", threadCount: 1)
+        let handle = try await AsyncReadFileHandle(forFileAt: path, executor: executor)
+
+        let threadName = try await handle.withUnsafeHandleContextInExecutor { _ in
+            Thread.current.name
+        }.get()
+
+        #expect(threadName == "croute-0")
 
         try await handle.close()
 

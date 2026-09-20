@@ -29,7 +29,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
     func `fileInfo matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.fileInfo()
         let expected = try FileInfo(fileAt: path)
@@ -45,7 +45,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
     func `type returns regular`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         #expect(try handle.type() == .regular)
 
@@ -58,7 +58,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
     func `fileTimes matches independently captured times`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
         let expected = try Support.ItemMetadata.Times.capture(at: path)
 
         let actual = try handle.fileTimes()

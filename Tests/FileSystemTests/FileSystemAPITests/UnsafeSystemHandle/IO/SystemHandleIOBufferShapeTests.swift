@@ -15,7 +15,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var buffer = Data(repeating: 0xFF, count: 9)
         let bytesRead = try buffer.withUnsafeMutableBytes { try handle.read(into: $0[2..<7]) }
@@ -35,7 +35,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing)
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing)
         )
 
         let payload = Data("XXHelloYY".utf8)
@@ -55,7 +55,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var buffer = Data(repeating: 0xFF, count: 4)
         var span = buffer.mutableBytes
@@ -78,7 +78,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var buffer = Data(repeating: 0xFF, count: 5)
 
@@ -97,7 +97,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "abc")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite))
 
         var emptyIn = Data()
         let bytesRead = try emptyIn.withUnsafeMutableBytes { try handle.read(into: $0) }

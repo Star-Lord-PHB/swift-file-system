@@ -25,9 +25,10 @@ extension AsyncFileHandleAPITests.MetadataTests {
 
 
 // NOTE: The metadata family is one protocol extension shared by every async handle kind and
-// view; each method is executor dispatch of the synchronous extension on `SyncHandleView`, so
-// the forwarding and cancellation contracts are proven once here on the read-write handle,
-// whose open rights let every method succeed. The platform-conditional shells (POSIX
+// view; each method is executor dispatch of the synchronous extension on `SyncHandleAdapter`, so
+// the forwarding and cancellation contracts are proven once here on the read handle, the
+// least privileged kind: on Windows every setter reopens for the rights it needs, so this is
+// the path with the most machinery behind it. The platform-conditional shells (POSIX
 // permissions, Linux inode flags, Windows security) live in their own suites, and the
 // per-kind plumbing is covered by the all-handle-types suite. `SwiftFileSystem` is imported
 // for the path-based `FileInfo` oracle only.
@@ -47,7 +48,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `fileInfo matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let actual = try await handle.fileInfo()
         let expected = try FileInfo(fileAt: path)
@@ -63,7 +64,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `type returns regular`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         #expect(try await handle.type() == .regular)
 
@@ -76,7 +77,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `fileTimes matches independently captured times`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
         let expected = try Support.ItemMetadata.Times.capture(at: path)
 
         let actual = try await handle.fileTimes()
@@ -111,7 +112,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `setFileTimes forwards distinct access and modification times`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
@@ -136,7 +137,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `fileAttributes matches captured attributes`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let actual = try await handle.fileAttributes()
         let expected = try Support.ItemMetadata.captureAttributes(at: path).values
@@ -163,7 +164,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let requestedAttributes = [.bsd.noDump] as PlatformFileAttributes
         let expectedAttribute = PlatformFileAttributes.bsd.noDump
         #endif
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setFileAttributes(requestedAttributes)
 
@@ -181,7 +182,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `owner matches captured ownership`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let actual = try await handle.owner()
         let expected = try Support.ItemMetadata.captureSecurity(at: path).ownership
@@ -205,7 +206,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled fileInfo reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.fileInfo()
@@ -218,7 +219,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled type reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.type()
@@ -231,7 +232,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled fileTimes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.fileTimes()
@@ -244,7 +245,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled setFileTimes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
         let accessTime = sampleAccessTime
 
         await Support.expectPreCancelled {
@@ -258,7 +259,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled fileAttributes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.fileAttributes()
@@ -271,7 +272,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled setFileAttributes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.setFileAttributes([])
@@ -284,7 +285,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
     func `Pre-cancelled owner reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.owner()
@@ -298,7 +299,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
         let path = try workspace.makeFile(at: "file")
         let currentGroup = try Support.ItemMetadata.captureSecurity(at: path).ownership.group
-        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
             try await handle.setOwner(owner: nil, group: currentGroup)

@@ -36,7 +36,7 @@ extension FileHandleAPITests.MetadataTests.WindowsCreationTimeTests {
         let requestedCreationTime = creationTimeBeforeSet
             .adding(seconds: -7_200)
             .fileTimeSpec
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setFileTimes(creation: requestedCreationTime)
 

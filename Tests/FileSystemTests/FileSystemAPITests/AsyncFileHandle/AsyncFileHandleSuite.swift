@@ -7,7 +7,7 @@ import Testing
 ///
 /// - thin shells: every initializer, `close()`, the executor-dispatched I/O primitives,
 ///   resize/synchronize and the metadata family forward to the synchronous implementation
-///   through the executor (`SyncHandleView` runs the very same synchronous protocol
+///   through the executor (`SyncHandleAdapter` runs the very same synchronous protocol
 ///   extensions). They get forwarding tests whose arguments carry non-default observable
 ///   values, plus pre-cancelled tests; the file semantics themselves stay pinned by the
 ///   synchronous `FileHandle` groups and are not re-tested;

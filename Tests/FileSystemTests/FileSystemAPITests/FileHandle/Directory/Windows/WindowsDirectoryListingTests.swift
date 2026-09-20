@@ -119,7 +119,7 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
         defer { restoreFullAccess(at: path) }
         try requireListingDenied(at: path)
 
-        // Each listing reopens the directory through the handle (`ReOpenDir`), which runs a fresh
+        // Each listing reopens the directory through the handle (`ReOpenHandle`), which runs a fresh
         // access check, so a deny ACE installed after open is observed even though the handle
         // itself stays valid.
         let error = #expect(throws: PlatformError.self) {

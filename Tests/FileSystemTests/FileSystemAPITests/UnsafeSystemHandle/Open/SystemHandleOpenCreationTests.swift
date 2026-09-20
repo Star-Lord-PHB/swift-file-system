@@ -12,7 +12,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: LowLevelError.self) {
-            _ = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+            _ = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
         }
 
         #expect(error?.kind == .notFound)
@@ -27,7 +27,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing)
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing)
         )
 
         let payload = Data("Hello".utf8)
@@ -47,7 +47,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readWrite(), creation: .createIfMissing)
+            openOptions: .init(access: .readWrite, creation: .createIfMissing)
         )
 
         #expect(try handle.tell() == 0)
@@ -70,7 +70,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .assertMissing)
+            openOptions: .init(access: .writeOnly, creation: .assertMissing)
         )
 
         let payload = Data("Hello".utf8)
@@ -91,7 +91,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
         let error = #expect(throws: LowLevelError.self) {
             _ = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .writeOnly(), creation: .assertMissing)
+                openOptions: .init(access: .writeOnly, creation: .assertMissing)
             )
         }
 
@@ -108,7 +108,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), truncate: true)
+            openOptions: .init(access: .writeOnly, truncate: true)
         )
 
         #expect(try handle.tell() == 0)
@@ -130,7 +130,7 @@ extension UnsafeSystemHandleAPITests.OpenTests {
 
         let handle = try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .writeOnly(), creation: .createIfMissing, truncate: true)
+            openOptions: .init(access: .writeOnly, creation: .createIfMissing, truncate: true)
         )
 
         let payload = Data("Hi".utf8)

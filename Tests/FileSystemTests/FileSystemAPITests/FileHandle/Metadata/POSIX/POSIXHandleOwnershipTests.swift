@@ -39,7 +39,7 @@ extension FileHandleAPITests.MetadataTests.POSIXOwnershipTests {
     func `Ownership query matches stat`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.owner()
         let expected = try captureOwnership(at: path)
@@ -72,7 +72,7 @@ extension FileHandleAPITests.MetadataTests.POSIXOwnershipTests {
         else {
             try Test.cancel("No alternate group is available to the current process")
         }
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: nil, group: replacementGroup)
 
@@ -90,7 +90,7 @@ extension FileHandleAPITests.MetadataTests.POSIXOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: nil, group: nil)
 

@@ -51,7 +51,7 @@ extension FileHandleAPITests.MetadataTests.POSIXPermissionTests {
         let expected = FilePermissions(rawValue: 0o6750)
         let path = try workspace.makeFile(at: "file")
         try setFoundationPermissions(expected, at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.posixPermissions()
         let nativeValue = try capturePermissions(at: path)
@@ -68,7 +68,7 @@ extension FileHandleAPITests.MetadataTests.POSIXPermissionTests {
 
         let requestedPermissions = FilePermissions(rawValue: 0o6750)
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setPosixPermissions(requestedPermissions)
 

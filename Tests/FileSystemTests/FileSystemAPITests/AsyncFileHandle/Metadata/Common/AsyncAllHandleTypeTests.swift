@@ -25,11 +25,12 @@ extension AsyncFileHandleAPITests.MetadataTests {
 
 
 // NOTE: The metadata APIs share one implementation across all async handle kinds and views;
-// what differs per kind is the `withUnsafeSystemHandle` plumbing into the executor (each
-// handle's own, and the views' delegation to the positional accessor), so each kind gets a
-// representative query and, for write-capable kinds, a representative setter. Setters
-// through read-only handles diverge by platform in the synchronous layer and are not
-// re-tested here. `SwiftFileSystem` is imported for the path-based `FileInfo` oracle only.
+// what differs per kind is the `unsafeHandleContext` plumbing into the executor (each
+// handle's own, and the views' delegation to the positional accessor), so each kind and each
+// view gets one representative query and one representative setter. The setter does not
+// depend on the access mode: on Windows a handle that lacks the right reopens for the call in
+// the synchronous layer. `SwiftFileSystem` is imported for the path-based `FileInfo` oracle
+// only.
 extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
     private var sampleAccessTime: FileTimeSpec {
@@ -206,10 +207,40 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `AsyncReadFileHandle sets file times`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
+
+        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try await handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
     func `AsyncWriteFileHandle sets file times`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
+
+        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try await handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `AsyncReadWriteFileHandle sets file times`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
 
         try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
@@ -251,6 +282,65 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
+    func `AsyncStreamingReadHandle sets file times`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try await AsyncStreamingReadHandle(forFileAt: path)
+
+        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try await handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `AsyncStreamingReadWriteHandle sets file times`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try await AsyncStreamingReadWriteHandle(forFileAt: path)
+
+        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try await handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `AsyncDirectoryHandle sets file times`() async throws {
+
+        let path = try workspace.makeDirectory(at: "directory")
+        let handle = try await AsyncDirectoryHandle(forDirAt: path)
+
+        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try await handle.close()
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `SequentialReader sets file times`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try await AsyncReadFileHandle(forFileAt: path)
+        let reader = handle.sequentialReader()
+
+        try await reader.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
     func `SequentialWriter sets file times`() async throws {
 
         let path = try workspace.makeFile(at: "file")
@@ -258,6 +348,20 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let writer = handle.sequentialWriter()
 
         try await writer.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+
+        try expectSampleTimes(at: path)
+
+    }
+
+
+    @Test
+    func `SequentialAccessor sets file times`() async throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
+        let accessor = handle.sequentialAccessor()
+
+        try await accessor.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try expectSampleTimes(at: path)
 

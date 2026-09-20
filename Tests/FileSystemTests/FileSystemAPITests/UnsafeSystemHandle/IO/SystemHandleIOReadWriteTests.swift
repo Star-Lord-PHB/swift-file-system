@@ -11,7 +11,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var head = Data(count: 5)
 
@@ -37,7 +37,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "abc")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         try handle.seek(to: 0, from: .end)
 
@@ -58,7 +58,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         let head = Data("Write".utf8)
 
@@ -85,7 +85,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var head = Data(count: 5)
         _ = try handle.read(into: head.mutableBytes)
@@ -116,7 +116,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello Swift!")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readWrite))
 
         var head = Data(count: 5)
         _ = try handle.read(into: head.mutableBytes)
@@ -146,7 +146,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "Hello")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly))
 
         var tail = Data(repeating: 0xFF, count: 4)
         let tailBytesRead = try handle.pread(into: tail.mutableBytes, from: 3)
@@ -179,7 +179,7 @@ extension UnsafeSystemHandleAPITests.IOTests {
 
         let path = try workspace.makeFile(at: "file", contents: "AB")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly()))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .writeOnly))
 
         let payload = Data("Z".utf8)
         let bytesWritten = try handle.pwrite(contentsOf: payload.bytes, to: 4)

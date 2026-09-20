@@ -88,7 +88,7 @@ extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `Default query matches Win32`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let descriptor = try handle.securityInfo()
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
@@ -106,7 +106,7 @@ extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
         let members = .dacl as FileOperationOptions.WindowsSecurityInfoMembers
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let descriptor = try handle.securityInfo(members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
@@ -127,15 +127,16 @@ extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
 
 extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
 
-    // NOTE: Handles are opened before the restrictive protected DACL is installed;
-    // security access rights are checked at open time, so an already-open handle may
-    // keep updating the security info afterwards.
+    // NOTE: Handles are opened before the restrictive protected DACL is installed. The open
+    // itself holds no security-write rights; each setter reopens the handle for the call with
+    // READ_CONTROL and WRITE_DAC, which the owner holds implicitly whatever the DACL says, so
+    // the updates still succeed under the restrictive DACL.
 
     @Test
     func `Replacing DACL preserves ownership`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
         try Support.setProtectedNativeWindowsDacl(
             makeWindowsTestDacl(),
             at: path,
@@ -161,7 +162,7 @@ extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
     func `Removing DACL installs null DACL`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
         try Support.setProtectedNativeWindowsDacl(
             makeWindowsTestDacl(),
             at: path,
@@ -187,7 +188,7 @@ extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
         let securityBeforeSet = try captureSecurity(at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setSecurityInfo()
 

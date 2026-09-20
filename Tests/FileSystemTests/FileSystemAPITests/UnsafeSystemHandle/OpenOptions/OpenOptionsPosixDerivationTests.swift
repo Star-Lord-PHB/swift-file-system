@@ -76,17 +76,15 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
     }
 
 
+    // `.none` is the metadata-only open: O_PATH where the platform has it, otherwise the closest
+    // thing, a plain read-only descriptor.
     @Test
-    func `Metadata-only access derives the path flag where available`() {
+    func `No access derives the path flag where available`() {
 
         #if !(canImport(Darwin) || os(OpenBSD))
-        #expect(Options(access: .readOnly(metadataOnly: true)).accessModeFlags == O_RDONLY | __O_PATH)
-        #expect(Options(access: .none).accessModeFlags == O_RDONLY | __O_PATH)
-        #expect(Options.NativeAccessModeFlag.posix.path.rawValue == __O_PATH)
+        #expect(Options(access: .none).accessModeFlags == __O_PATH)
         #else
-        #expect(Options(access: .readOnly(metadataOnly: true)).accessModeFlags == O_RDONLY)
         #expect(Options(access: .none).accessModeFlags == O_RDONLY)
-        #expect(Options.NativeAccessModeFlag.posix.path.rawValue == 0)
         #endif
 
     }
@@ -102,20 +100,6 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
         options.platformOpenFlagsDiff.remove(.posix.closeOnExec)
 
         #expect(options.openFlags == 0)
-
-    }
-
-
-    @Test
-    func `Access-mode diff bits outside the access jurisdiction are dropped`() {
-
-        var options = Options(truncate: true, closeOnExec: false)
-
-        options.platformAccessModeFlagsDiff.insert(O_APPEND)
-        options.platformAccessModeFlagsDiff.remove(O_TRUNC)
-
-        #expect(options.accessModeFlags == O_RDONLY)
-        #expect(options.openFlags == O_TRUNC)
 
     }
 
@@ -140,7 +124,7 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
     @Test
     func `Creation override keeps only the creation bits`() {
 
-        var options = Options(access: .writeOnly())
+        var options = Options(access: .writeOnly)
 
         options.platformCreationFlagsOverride = .init(rawValue: O_CREAT | O_EXCL | O_TRUNC | O_APPEND)
 
@@ -171,10 +155,10 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
 
         var options = Options(closeOnExec: false)
 
-        // NOTE: Windows-only diff constants have rawValue 0 on POSIX so that cross-platform code
-        // can insert them without conditional compilation.
+        // NOTE: Windows-only diff constants and access rights have rawValue 0 on POSIX so that
+        // cross-platform code can insert them without conditional compilation.
         options.platformOpenFlagsDiff.insert([.windows.backupSemantics, .windows.overlappedIO])
-        options.platformAccessModeFlagsDiff.insert(.windows.genericWrite)
+        options.windowsExtraAccess.insert([.writeDAC, .writeOwner])
 
         #expect(options.openFlags == 0)
         #expect(options.accessModeFlags == O_RDONLY)

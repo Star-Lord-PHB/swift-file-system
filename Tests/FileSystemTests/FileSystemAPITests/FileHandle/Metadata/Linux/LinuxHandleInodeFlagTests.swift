@@ -33,7 +33,7 @@ extension FileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
         let path = try workspace.makeFile(at: "file")
         let preparedFlags = try Support.captureNativeInodeFlags(at: path).union(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.inodeFlags()
         let expected = try Support.captureNativeInodeFlags(at: path)
@@ -51,7 +51,7 @@ extension FileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
 
         let path = try workspace.makeFile(at: "file")
         let requestedFlags = try Support.captureNativeInodeFlags(at: path).union(.noDump)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setInodeFlags(requestedFlags)
 
@@ -68,7 +68,7 @@ extension FileHandleAPITests.MetadataTests.LinuxInodeFlagTests {
         let path = try workspace.makeFile(at: "file")
         let flagsBeforeSet = try Support.captureNativeInodeFlags(at: path)
         try Support.setNativeInodeFlags(flagsBeforeSet.union(.noDump), at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setInodeFlags(flagsBeforeSet)
 

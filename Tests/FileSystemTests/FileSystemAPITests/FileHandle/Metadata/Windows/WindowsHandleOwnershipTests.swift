@@ -34,11 +34,33 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
     }
 
 
+    // Installs a protected DACL granting everyone read, write and execute but not WRITE_OWNER;
+    // `.delete` is included so the workspace can remove the file afterwards.
+    private func installProtectedDaclWithoutWriteOwner(
+        at path: FilePath,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        try Support.setProtectedNativeWindowsDacl(
+            WindowsRawAcl(entries: [
+                WindowsExplicitAccess(
+                    permission: .init(rawValue: FILE_GENERIC_READ | FILE_GENERIC_WRITE | FILE_GENERIC_EXECUTE)
+                        .union(.delete),
+                    inheritance: .noInheritance,
+                    trustee: .everyone
+                )
+            ]),
+            at: path,
+            followSymlink: false,
+            sourceLocation: sourceLocation
+        )
+    }
+
+
     @Test
     func `Ownership query matches Win32`() throws {
 
         let path = try workspace.makeFile(at: "file")
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.owner()
         let expected = try captureOwnership(at: path)
@@ -72,7 +94,7 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
         else {
             try Test.cancel("The current token has no alternate assignable owner")
         }
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: replacementOwner, group: nil)
 
@@ -97,7 +119,7 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
         else {
             try Test.cancel("The current token has no alternate enabled group")
         }
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: nil, group: replacementGroup)
 
@@ -110,12 +132,41 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
     }
 
 
+    // WRITE_OWNER is never implicit, so a DACL without it denies the reopen behind the setter
+    // even for the owner.
+    @Test
+    func `Group set is denied when the DACL lacks write-owner`() throws {
+
+        let path = try workspace.makeFile(at: "file")
+        let ownershipBeforeSet = try captureOwnership(at: path)
+        guard
+            let replacementGroup = try Support.replacementGroup(
+                excluding: ownershipBeforeSet.group.rawId
+            )
+        else {
+            try Test.cancel("The current token has no alternate enabled group")
+        }
+        let handle = try ReadFileHandle(forFileAt: path)
+        try installProtectedDaclWithoutWriteOwner(at: path)
+
+        let error = #expect(throws: PlatformError.self) {
+            try handle.setOwner(owner: nil, group: replacementGroup)
+        }
+
+        #expect(error?.kind == .permissionDenied)
+        #expect(try captureOwnership(at: path).group == ownershipBeforeSet.group)
+
+        try handle.close()
+
+    }
+
+
     @Test
     func `Nil owner and group leave ownership unchanged`() throws {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        let handle = try ReadWriteFileHandle(forFileAt: path)
+        let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: nil, group: nil)
 
