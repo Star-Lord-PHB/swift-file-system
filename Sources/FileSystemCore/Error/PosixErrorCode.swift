@@ -45,7 +45,7 @@ extension SystemErrorCode {
     @inlinable public static var operationNotSupported: Self { .init(rawValue: ENOTSUP) }
     @inlinable public static var operationCanceled: Self { .init(rawValue: ECANCELED) }
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     @inlinable public static var noMediumFound: Self { .init(rawValue: ENOMEDIUM) }
     @inlinable public static var wrongMediumType: Self { .init(rawValue: EMEDIUMTYPE) }
     #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)

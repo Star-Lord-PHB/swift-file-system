@@ -1,14 +1,6 @@
 import Testing
 
-#if canImport(WinSDK)
-    import WinSDK
-#elseif canImport(Darwin)
-    import Darwin
-#elseif canImport(Glibc)
-    import Glibc
-#elseif canImport(Musl)
-    import Musl
-#endif
+import PlatformCLib
 
 /// Process-wide resource counting for dedicated resource-lifetime tests.
 ///

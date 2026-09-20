@@ -111,7 +111,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
 
 
     public func setFileAttributes(_ attributes: PlatformFileAttributes) throws(PlatformError) {
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         try self.setInodeFlags(InternalFS.fileAttributesToInodeFlags(attributes))
         #else
         try withUnsafeSystemHandleForMetadata(
@@ -124,7 +124,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     public func inodeFlags() throws(PlatformError) -> LinuxInodeFlags {
         try withUnsafeSystemHandle(operation: .fetchMeta(path)) { (handle) throws(LowLevelError) in
             try handle.fileInodeFlags()

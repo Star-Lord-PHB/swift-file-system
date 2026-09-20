@@ -11,7 +11,7 @@ extension FileSystemTestSupport {
             static let supportsWindowsSecurity = false
         #endif
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
             static let supportsLinuxInodeFlags = true
         #else
             static let supportsLinuxInodeFlags = false

@@ -92,7 +92,7 @@ extension AsyncFileSystemAPITests.MetadataForwardingTests {
         var requestedAttributes = try Support.ItemMetadata.captureAttributes(at: path).values
         requestedAttributes.insert(.windows.isHidden)
         let expectedAttribute = PlatformFileAttributes.windows.isHidden
-        #elseif canImport(Glibc) || canImport(Musl)
+        #elseif os(Linux) || os(Android)
         let requestedAttributes = [.linux.noDump] as PlatformFileAttributes
         let expectedAttribute = PlatformFileAttributes.linux.noDump
         #else

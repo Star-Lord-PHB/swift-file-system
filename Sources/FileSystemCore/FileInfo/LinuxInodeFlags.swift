@@ -1,4 +1,4 @@
-#if canImport(Glibc) || canImport(Musl)
+#if os(Linux) || os(Android)
 
 import PlatformCLib
 import struct SystemPackage.FilePath

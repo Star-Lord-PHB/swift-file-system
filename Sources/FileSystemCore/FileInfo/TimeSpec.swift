@@ -1,10 +1,6 @@
 import PlatformCLib
 import CFileSystem
 
-#if canImport(Glibc) || canImport(Musl)
-import struct CSystem.timespec
-#endif
-
 
 public struct FileTimeSpec: Sendable, Equatable, Hashable {
 

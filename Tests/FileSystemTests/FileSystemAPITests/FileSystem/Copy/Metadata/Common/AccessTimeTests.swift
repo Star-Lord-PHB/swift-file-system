@@ -166,7 +166,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
     #endif
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     @Test
     func `Restoring the access time updates the status-change time`() throws {
 

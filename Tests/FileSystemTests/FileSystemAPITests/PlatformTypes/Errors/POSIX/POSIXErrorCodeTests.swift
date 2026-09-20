@@ -79,7 +79,7 @@ extension PlatformTypesAPITests.ErrorTests.POSIXErrorCodeTests {
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     @Test(
         arguments: [
             (.noMediumFound, ENOMEDIUM),

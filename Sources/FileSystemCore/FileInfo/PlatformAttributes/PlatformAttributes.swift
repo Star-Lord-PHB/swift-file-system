@@ -116,7 +116,7 @@ extension PlatformFileAttributes {
     public typealias CurrentPlatform = FreeBSD
     #elseif os(OpenBSD)
     public typealias CurrentPlatform = OpenBSD
-    #elseif canImport(Glibc) || canImport(Musl)
+    #elseif os(Linux) || os(Android)
     public typealias CurrentPlatform = Linux
     #elseif canImport(WinSDK)
     public typealias CurrentPlatform = Windows

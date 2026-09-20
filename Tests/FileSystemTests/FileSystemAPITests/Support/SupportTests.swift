@@ -89,7 +89,7 @@ struct FileSystemTestSupportTests {
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.accessTime))
         #expect(!Support.ItemComparisonPolicy.copiedItem.fields.contains(.statusChangeTime))
         #expect(Support.ItemComparisonPolicy.unchanged.fields.contains(.creationTime))
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         #expect(!Support.ItemComparisonPolicy.copiedItem.fields.contains(.creationTime))
         #else
         #expect(Support.ItemComparisonPolicy.copiedItem.fields.contains(.creationTime))

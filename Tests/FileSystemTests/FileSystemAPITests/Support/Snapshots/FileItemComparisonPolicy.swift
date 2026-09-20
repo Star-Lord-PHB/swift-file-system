@@ -46,7 +46,7 @@ extension FileSystemTestSupport {
                 .permissions,
                 .ownership,
             ]
-            #if canImport(Glibc) || canImport(Musl)
+            #if os(Linux) || os(Android)
             fields.subtract(.creationTime)
             #endif
             return .init(fields: fields)

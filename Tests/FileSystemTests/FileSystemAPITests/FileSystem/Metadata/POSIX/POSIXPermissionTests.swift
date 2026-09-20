@@ -216,7 +216,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
             )
             #expect(try capturePermissions(at: link) == requestedPermissions)
         } catch {
-            #if canImport(Glibc) || canImport(Musl)
+            #if os(Linux) || os(Android)
                 let platformError = try #require(error as? PlatformError)
                 #expect(platformError.kind == .unsupported)
             #else
@@ -243,7 +243,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
             )
             #expect(try capturePermissions(at: link) == requestedPermissions)
         } catch {
-            #if canImport(Glibc) || canImport(Musl)
+            #if os(Linux) || os(Android)
                 let platformError = try #require(error as? PlatformError)
                 #expect(platformError.kind == .unsupported)
             #else

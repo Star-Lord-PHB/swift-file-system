@@ -17,7 +17,9 @@
 @_exported import CFileSystem
 
 
-#if canImport(Glibc) || canImport(Musl)
+// The Linux shims in CFileSystem exist under `__linux__`, which covers every Linux libc (glibc, musl, Bionic)
+// and nothing else; `os(Linux) || os(Android)` is the Swift-side spelling of that same condition.
+#if os(Linux) || os(Android)
 
 package var UTIME_OMIT: Int32 {
     Int32(_UTIME_OMIT)
@@ -25,13 +27,11 @@ package var UTIME_OMIT: Int32 {
 package var UTIME_NOW: Int32 {
     Int32(_UTIME_NOW)
 }
+
 package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
     return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)
 }
-#endif
 
-
-#if os(Linux) || os(Android)
 package func copy_file_range(
     _ fdIn: CInt, _ offIn: UnsafeMutablePointer<off_t>?,
     _ fdOut: CInt, _ offOut: UnsafeMutablePointer<off_t>?,
@@ -39,13 +39,11 @@ package func copy_file_range(
 ) -> Int {
     return _copy_file_range(fdIn, offIn, fdOut, offOut, size, flags)
 }
-#endif
 
-
-#if canImport(Glibc) || canImport(Musl) || canImport(Android)
 package func pthread_setname_current(_ name: UnsafePointer<CChar>) -> CInt {
     return _pthread_setname_current(name)
 }
+
 #endif
 
 

@@ -54,7 +54,7 @@ public protocol FileSystemProtocol: Sendable {
     
     func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(PlatformError)
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> LinuxInodeFlags
 
     func setInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(PlatformError)

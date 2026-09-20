@@ -4,12 +4,12 @@ import CFileSystem
 
 extension PlatformFileAttributes {
 
-    #if !(canImport(Glibc) || canImport(Musl))
+    #if !(os(Linux) || os(Android))
     @available(*, unavailable, message: "Only available on Linux platforms")
     #endif
     public enum Linux {
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
 
         @inlinable public static var isCompressed: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_COMPRESSED)) }
         @inlinable public static var isImmutable: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_IMMUTABLE)) }
@@ -39,7 +39,7 @@ extension PlatformFileAttributes {
 
     }
 
-    #if !(canImport(Glibc) || canImport(Musl))
+    #if !(os(Linux) || os(Android))
     @available(*, unavailable, message: "Only available on Linux platforms")
     #endif
     public static var linux: Linux.Type { Linux.self }
@@ -48,7 +48,7 @@ extension PlatformFileAttributes {
 
 
 
-#if canImport(Glibc) || canImport(Musl)
+#if os(Linux) || os(Android)
 
 extension PlatformFileAttributes {
 

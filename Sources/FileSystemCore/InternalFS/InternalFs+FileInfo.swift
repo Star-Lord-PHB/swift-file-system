@@ -403,7 +403,7 @@ extension InternalFS {
 
     }
 
-    #elseif canImport(Glibc) || canImport(Musl)
+    #elseif os(Linux) || os(Android)
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
     package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {

@@ -52,7 +52,7 @@ extension FileSystemAPITests.CopyTests.POSIXTraversalErrorTests {
         if geteuid() == 0 {
             try Test.cancel("Root is not subject to POSIX permission checks")
         }
-        #if !canImport(Darwin) && !canImport(Glibc) && !canImport(Musl)
+        #if !(canImport(Darwin) || os(Linux))
         try Test.cancel("Unverified platform behavior")
         #endif
 

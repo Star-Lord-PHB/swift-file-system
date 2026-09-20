@@ -85,7 +85,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     @concurrent
     func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) async throws(PlatformError)
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     @concurrent
     func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> LinuxInodeFlags
 

@@ -37,7 +37,7 @@ extension FileSystemAPITests.CopyTests {
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     /// The mechanism the file copy in progress is using, or nil while no file is in progress.
     static func contentMechanism<S: CopyErrorStrategy>(
         of handler: borrowing CopyItemHandler<S>

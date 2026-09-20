@@ -50,7 +50,7 @@ extension AsyncFileSystem {
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
 
     @concurrent
     public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> LinuxInodeFlags {

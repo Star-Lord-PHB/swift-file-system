@@ -152,7 +152,7 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
 
     @concurrent
     public func inodeFlags() async throws(PlatformError) -> LinuxInodeFlags {

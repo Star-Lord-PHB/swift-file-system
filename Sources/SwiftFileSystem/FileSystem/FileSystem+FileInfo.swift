@@ -30,7 +30,7 @@ extension FileSystem {
 
     public func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool = true) throws(PlatformError) {
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         try self.setInodeFlags(forItemAt: path, flags: InternalFS.fileAttributesToInodeFlags(attributes), followSymlink: followSymlink)
         #else
         try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
@@ -41,7 +41,7 @@ extension FileSystem {
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> LinuxInodeFlags {
         try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
             try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: followSymlink)

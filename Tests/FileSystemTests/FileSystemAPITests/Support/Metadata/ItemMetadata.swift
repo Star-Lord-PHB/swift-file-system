@@ -147,7 +147,7 @@ extension FileSystemTestSupport.ItemMetadata.Times {
     ) throws -> FileSystemTestSupport.ItemMetadata.Timestamp? {
         #if canImport(Darwin) || os(FreeBSD)
         .init(platformTime: metadata.st_birthtim)
-        #elseif canImport(Glibc) || canImport(Musl)
+        #elseif os(Linux) || os(Android)
         try linuxCreationTimestamp(
             at: path,
             followSymlink: followSymlink,
@@ -161,7 +161,7 @@ extension FileSystemTestSupport.ItemMetadata.Times {
     }
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     private static func linuxCreationTimestamp(
         at path: FilePath,
         followSymlink: Bool,

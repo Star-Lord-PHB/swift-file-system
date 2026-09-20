@@ -12,7 +12,7 @@ public enum PlatformInteropTypes {
     #endif
 
 
-    #if canImport(Glibc) || canImport(Musl)
+    #if os(Linux) || os(Android)
     public typealias FileAttribute = UInt64
     #elseif canImport(WinSDK)
     public typealias FileAttribute = DWORD

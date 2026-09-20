@@ -32,7 +32,7 @@ extension CopyItemHandler {
         var statusChangeTime: FileTimeSpec { info.times.lastChange }
         var creationTime: FileTimeSpec? { info.times.creation }
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         // on Linux, inode flags are not available for symlinks
         let attributes: LinuxInodeFlags?
         #else
@@ -65,7 +65,7 @@ extension CopyItemHandler {
         #endif
 
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         init(stat: PlatformInteropTypes.Stat, attributes: LinuxInodeFlags?) {
             self.info = .init(stat: stat)
             self.attributes = attributes
@@ -105,7 +105,7 @@ extension CopyItemHandler {
         }
         guard let stat else { return nil }
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
 
         do {
             let flags = try handle.fileInodeFlags()
@@ -151,7 +151,7 @@ extension CopyItemHandler {
         }
         guard let stat else { return nil }
 
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
 
         do {
             // Reading inode flags requires opening the item. Only regular files and directories
@@ -526,7 +526,7 @@ extension CopyItemHandler {
         forHandle handle: borrowing UnsafeSystemHandle, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         do throws(LowLevelError) {
             if let flags = cachedAttrs.attributes {
                 try handle.setFileInodeFlags(flags)
@@ -548,7 +548,7 @@ extension CopyItemHandler {
         forItemAt path: FilePath, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
-        #if canImport(Glibc) || canImport(Musl)
+        #if os(Linux) || os(Android)
         do throws(LowLevelError) {
             if let flags = cachedAttrs.attributes {
                 try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags, followSymlink: false)
