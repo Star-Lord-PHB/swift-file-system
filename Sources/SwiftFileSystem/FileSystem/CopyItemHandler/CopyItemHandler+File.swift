@@ -94,7 +94,7 @@ extension CopyItemHandler {
         let path = srcAbsolutePath(of: itemRelativePath)
 
         let srcHandle = try errorCollector.execute(operation: .copyContents) {
-            try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: true))
+            try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, noFollow: true))
         }
         guard let srcHandle else { return }
         let srcCachedAttrs = switch consume srcAttrs {
@@ -152,7 +152,7 @@ extension CopyItemHandler {
                     // try to create directly
                     handle = try UnsafeSystemHandle.open(
                         at: dstPath,
-                        openOptions: .init(access: .writeOnly(), creation: .assertMissing, noFollow: true),
+                        openOptions: .init(access: .writeOnly, creation: .assertMissing, noFollow: true),
                         creationPermissions: srcFileAttrs.permission
                     )
                 } catch let error where error.kind == .alreadyExists && options.existingTarget == .skip {
@@ -557,9 +557,10 @@ extension CopyItemHandler {
                     context.dstHandle = try UnsafeSystemHandle.open(
                         at: context.dstTmpAbsPath!,
                         openOptions: .init(
-                            access: .writeOnly(metadataOnly: true), 
+                            access: .none, 
                             creation: .assertMissing, 
                             noFollow: true,
+                            windowsExtraAccess: [.readControl, .writeDAC, .writeAttributes],
                             windowsShareMode: [.read, .write, .delete]
                         ),
                         creationPermissions: makeWindowsTmpFileSecurityDescriptor()

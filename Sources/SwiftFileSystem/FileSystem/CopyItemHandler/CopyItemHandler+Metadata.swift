@@ -571,15 +571,16 @@ extension CopyItemHandler {
         return try UnsafeSystemHandle.open(
             at: path,
             openOptions: .init(
-                access: .readWrite(metadataOnly: true), 
+                access: .none,
                 noFollow: true, 
-                platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
+                windowsExtraAccess: [.readControl, .readAttributes, .writeDAC, .writeAttributes]
             )
         )
         #else
         return try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly(), noFollow: true)
+            openOptions: .init(access: .readOnly, noFollow: true)
         )
         #endif
     }

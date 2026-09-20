@@ -44,7 +44,7 @@ extension InternalFS {
             do {
                 let handle = try UnsafeSystemHandle.open(
                     at: tmpPath, 
-                    openOptions: .init(access: .readWrite(), creation: .assertMissing)
+                    openOptions: .init(access: .readWrite, creation: .assertMissing)
                 )
                 return .init(path: tmpPath, handle: handle)
             } catch let error where error.kind == .alreadyExists {

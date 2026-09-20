@@ -265,12 +265,12 @@ extension AsyncFileSystemExecutor {
 
     @concurrent
     public func run<R: ~Copyable, E: Error>(
-        _ task: () throws(E) -> sending R
-    ) async throws(E) -> sending R {
+        _ task: () throws(E) -> R
+    ) async throws(E) -> R {
 
         return try await withoutActuallyEscaping(task) { (escapingClosure) async throws(E) in
 
-            nonisolated(unsafe) var taskWrapper = escapingClosure as (() throws -> sending R)?
+            nonisolated(unsafe) var taskWrapper = escapingClosure as (() throws -> R)?
 
             do {
                 return try await withCheckedThrowingContinuation { continuation in
@@ -390,8 +390,8 @@ extension AsyncFileSystemExecutor {
 
     @concurrent
     package func runCancellable<R: ~Copyable, E: Error>(
-        _ task: () throws(E) -> sending R
-    ) async -> sending Result<R, E> {
+        _ task: () throws(E) -> R
+    ) async -> Result<R, E> {
 
         guard !Task.isCancelled else {
             return .cancelled
@@ -401,7 +401,7 @@ extension AsyncFileSystemExecutor {
 
         return await withoutActuallyEscaping(task) { (escapingTask) async in
 
-            nonisolated(unsafe) var taskWrapper = escapingTask as (() throws -> sending R)?
+            nonisolated(unsafe) var taskWrapper = escapingTask as (() throws -> R)?
 
             typealias ContinuationType = CheckedContinuation<NonCopyableBox<Result<R, E>>, Never>
 

@@ -43,7 +43,7 @@ extension FileSystem {
         let handle = try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
             try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
+                openOptions: .init(access: .writeOnly, creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
                 creationPermissions: permissions
             )
         } kindConversion: { error in 
@@ -115,7 +115,7 @@ extension FileSystem {
         let handle = try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
             try UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .writeOnly(), creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
+                openOptions: .init(access: .writeOnly, creation: replaceExisting ? .createIfMissing : .assertMissing, truncate: replaceExisting),
                 creationPermissions: permissions
             )
         } kindConversion: { error in 

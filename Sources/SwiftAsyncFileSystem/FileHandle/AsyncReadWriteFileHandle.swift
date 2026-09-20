@@ -14,7 +14,7 @@ public struct AsyncReadWriteFileHandle
 , AsyncPositionalWriteFileHandleProtocol, AsyncPersistentFileHandleProtocol
 , AutoSynthesisAsyncFileHandleProtocol {
 
-    fileprivate let handle: UnsafeSystemHandle
+    fileprivate let context: UnsafeHandleContext
     public let executor: AsyncFileSystemExecutor
     public let path: FilePath
 
@@ -25,9 +25,11 @@ public struct AsyncReadWriteFileHandle
         creationPermissions: FilePermissions? = nil,
         executor: AsyncFileSystemExecutor = .defaultExecutor
     ) async throws(PlatformError) {
-        self.handle = try await executor.runCancellable { () throws(PlatformError) in
-            try ReadWriteFileHandle(forFileAt: path, options: options, creationPermissions: creationPermissions).takeUnsafeSystemHandle()
-        }.getThrowingPlatformError(operation: .open(path))
+        self.context = try await executor.runCancellable { () throws(PlatformError) in
+            try ReadWriteFileHandle(forFileAt: path, options: options, creationPermissions: creationPermissions)
+        }
+        .getThrowingPlatformError(operation: .open(path))
+        .takeUnsafeHandleContext()
         self.executor = executor
         self.path = path
     }
@@ -40,9 +42,11 @@ public struct AsyncReadWriteFileHandle
         creationPermissions: WindowsSecurityDescriptorView,
         executor: AsyncFileSystemExecutor = .defaultExecutor
     ) async throws(PlatformError) {
-        self.handle = try await executor.runCancellable { () throws(PlatformError) in
-            try ReadWriteFileHandle(forFileAt: path, options: options, creationPermissions: creationPermissions).takeUnsafeSystemHandle()
-        }.getThrowingPlatformError(operation: .open(path))
+        self.context = try await executor.runCancellable { () throws(PlatformError) in
+            try ReadWriteFileHandle(forFileAt: path, options: options, creationPermissions: creationPermissions)
+        }
+        .getThrowingPlatformError(operation: .open(path))
+        .takeUnsafeHandleContext()
         self.executor = executor
         self.path = path
     }
@@ -77,21 +81,18 @@ public struct AsyncReadWriteFileHandle
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor
         let path = self.path
-        var handle = Optional.some(self.handle)
+        var context = Optional.some(self.context)
         return try await executor.run { () throws(PlatformError) in
             try catchLowLevelError(operation: .closeHandle(originalPath: path)) { () throws(LowLevelError) in
-                let handle = handle.take()!
+                let handle = context.take()!
                 try handle.close()
             }
         }
     }
 
 
-    @concurrent
-    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
-        _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> sending R
-    ) async throws(E) -> sending R {
-        return try await operation(handle)
+    public var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get { context.view }
     }
 
 }
@@ -123,15 +124,16 @@ extension AsyncReadWriteFileHandle {
 
         @_lifetime(borrow readWriteHandle)
         init(readWriteHandle: borrowing AsyncReadWriteFileHandle) {
-            self.accessor = .init(handle: readWriteHandle.handle, path: readWriteHandle.path, executor: readWriteHandle.executor)
+            self.accessor = .init(
+                unsafeHandleContext: readWriteHandle.context, 
+                path: readWriteHandle.path, 
+                executor: readWriteHandle.executor
+            )
         }
 
 
-        @concurrent
-        public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
-            _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> sending R
-        ) async throws(E) -> sending R {
-            try await accessor.withUnsafeSystemHandle(operation)
+        public var unsafeHandleContext: UnsafeHandleContextView {
+            @_lifetime(copy self) get { accessor.unsafeHandleContext }
         }
 
 

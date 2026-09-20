@@ -12,36 +12,76 @@ public protocol FileHandleProtocol: ~Copyable, ~Escapable {
 
 
 public protocol SystemHandleSupportedFileHandleProtocol: ~Copyable, ~Escapable {
-    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R
+
+    var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get 
+    }
+
+}
+
+
+
+extension SystemHandleSupportedFileHandleProtocol where Self: ~Copyable & ~Escapable {
+
+    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
+        _ body: (borrowing UnsafeSystemHandle) throws(E) -> R
+    ) throws(E) -> R {
+        try unsafeHandleContext.withUnsafeSystemHandle(body)
+    }
+
 }
 
 
 
 extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHandleSupportedFileHandleProtocol {
 
+    func withUnsafeSystemHandle<R: ~Copyable>(
+        operation: PlatformError.Operation,
+        _ body: (borrowing UnsafeSystemHandle) throws(LowLevelError) -> R
+    ) throws(PlatformError) -> R {
+        try catchLowLevelError(operation: operation) { () throws(LowLevelError) in
+            try withUnsafeSystemHandle(body)
+        }
+    }
+
+
+    func withUnsafeSystemHandleForMetadata<R: ~Copyable>(
+        requiringAccess metadataAccess: FileOperationOptions.MetadataHandleAccess,
+        operation: PlatformError.Operation,
+        _ body: (borrowing UnsafeSystemHandle) throws(LowLevelError) -> R
+    ) throws(PlatformError) -> R {
+        try catchLowLevelError(operation: operation) { () throws(LowLevelError) in
+            try unsafeHandleContext.withUnsafeMetadataHandle(requiringAccess: metadataAccess, body)
+        }
+    }
+
+
     public func fileInfo() throws(PlatformError) -> FileInfo {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.fileInfo()
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.readAttributes,
+            operation: .fetchMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.fileInfo()
         }
     }
 
 
     public func type() throws(PlatformError) -> FileKind {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.type()
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.readAttributes,
+            operation: .fetchMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.type()
         }
     }
 
 
     public func fileTimes() throws(PlatformError) -> FileTimes {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.fileTimes()
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.readAttributes,
+            operation: .fetchMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.fileTimes()
         }
     }
 
@@ -51,19 +91,21 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
     ) throws(PlatformError) {
-        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.setFileTimes(access: access, modification: modification, creation: creation)
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.writeAttributes,
+            operation: .setMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.setFileTimes(access: access, modification: modification, creation: creation)
         }
     }
 
 
     public func fileAttributes() throws(PlatformError) -> PlatformFileAttributes {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.fileAttributes()
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.readAttributes,
+            operation: .fetchMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.fileAttributes()
         }
     }
 
@@ -71,11 +113,12 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     public func setFileAttributes(_ attributes: PlatformFileAttributes) throws(PlatformError) {
         #if canImport(Glibc) || canImport(Musl)
         try self.setInodeFlags(InternalFS.fileAttributesToInodeFlags(attributes))
-        #else 
-        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.setFileAttributes(attributes)
-            }
+        #else
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.writeAttributes,
+            operation: .setMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.setFileAttributes(attributes)
         }
         #endif
     }
@@ -83,19 +126,15 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
 
     #if canImport(Glibc) || canImport(Musl)
     public func inodeFlags() throws(PlatformError) -> LinuxInodeFlags {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.fileInodeFlags()
-            }
+        try withUnsafeSystemHandle(operation: .fetchMeta(path)) { (handle) throws(LowLevelError) in
+            try handle.fileInodeFlags()
         }
     }
 
 
     public func setInodeFlags(_ flags: LinuxInodeFlags) throws(PlatformError) {
-        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.setFileInodeFlags(flags)
-            }
+        try withUnsafeSystemHandle(operation: .setMeta(path)) { (handle) throws(LowLevelError) in
+            try handle.setFileInodeFlags(flags)
         }
     }
     #endif
@@ -105,10 +144,11 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
     ) throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
-        return try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try SendableBox(sysHandle.securityInfo(members))
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.readControl,
+            operation: .fetchMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try SendableBox(handle.securityInfo(members))
         }.take()
     }
 
@@ -121,66 +161,70 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     ) throws(PlatformError) {
         
         var members = [] as FileOperationOptions.WindowsSecurityInfoMembers
+        var access = [.windows.readControl] as FileOperationOptions.MetadataHandleAccess
 
         switch dacl {
             case .noChange: break
-            default:        members.insert(.dacl)
+            default:        
+                members.insert(.dacl)
+                access.insert(.windows.writeDAC)
         }
         switch sacl {
             case .noChange: break
-            default:        members.insert(.sacl)
+            default:
+                members.insert(.sacl)
+                access.insert(.windows.accessSystemSecurity)
         }
-        if owner != nil { members.insert(.owner) }
-        if group != nil { members.insert(.group) }
+        if owner != nil { 
+            members.insert(.owner) 
+            access.insert(.windows.writeOwner)
+        }
+        if group != nil { 
+            members.insert(.group) 
+            access.insert(.windows.writeOwner)
+        }
 
         guard !members.isEmpty else { return }
 
-        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in  
-                try sysHandle.setSecurityInfo(
-                    members, 
-                    dacl: dacl.aclView, 
-                    sacl: sacl.aclView, 
-                    owner: owner?.rawId, 
-                    group: group?.rawId
-                )
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: access,
+            operation: .setMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.setSecurityInfo(members, dacl: dacl.aclView, sacl: sacl.aclView, owner: owner?.rawId, group: group?.rawId)
         }
 
     }
     #else
     public func posixPermissions() throws(PlatformError) -> FilePermissions {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.posixPermissions()
-            }
+        try withUnsafeSystemHandle(operation: .fetchMeta(path)) { (handle) throws(LowLevelError) in
+            try handle.posixPermissions()
         }
     }
     
     public func setPosixPermissions(_ permissions: FilePermissions) throws(PlatformError) {
-        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in 
-                try sysHandle.setPosixPermissions(permissions)
-            }
+        try withUnsafeSystemHandle(operation: .setMeta(path)) { (handle) throws(LowLevelError) in
+            try handle.setPosixPermissions(permissions)
         }
     }
     #endif
     
     
     public func owner() throws(PlatformError) -> (owner: PlatformIdentity?, group: PlatformIdentity?) {
-        try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in
-                try sysHandle.owner()
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.readControl,
+            operation: .fetchMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.owner()
         }
     }
 
 
     public func setOwner(owner: PlatformIdentity?, group: PlatformIdentity?) throws(PlatformError) {
-        try catchLowLevelError(operation: .setMeta(path)) { () throws(LowLevelError) in
-            try withUnsafeSystemHandle { (sysHandle) throws(LowLevelError) in
-                try sysHandle.fchown(owner: owner, group: group)
-            }
+        try withUnsafeSystemHandleForMetadata(
+            requiringAccess: .windows.writeOwner,
+            operation: .setMeta(path)
+        ) { (handle) throws(LowLevelError) in
+            try handle.fchown(owner: owner, group: group)
         }
     }
 
@@ -193,32 +237,7 @@ public protocol SeekableFileHandleProtocol: ~Copyable, ~Escapable, FileHandlePro
     @discardableResult
     func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64
 
-}
-
-
-
-extension SeekableFileHandleProtocol where Self: ~Copyable & ~Escapable {
-
-    public var currentOffset: Int64 {
-        get throws(PlatformError) {
-            do {
-                return try seek(to: 0, relativeTo: .current)
-            } catch {
-                throw .init(cause: error.cause, operation: .readHandleOffset(originalPath: path))
-            }
-        }
-    }
-
-
-    func trySeek(from offset: Int64, by amount: Int64, operation: @autoclosure () -> PlatformError.Operation) throws(PlatformError) -> Int64 {
-        let (result, overflow) = offset.addingReportingOverflow(amount)
-        if overflow {
-            throw .init(lowLevelError: .init(kind: .arithmeticOverflow), operation: operation())
-        } else if result < 0 {
-            throw .init(lowLevelError: .init(kind: .invalidInput), operation: operation())
-        }
-        return result
-    }
+    var currentOffset: Int64 { get throws(PlatformError) }
 
 }
 
@@ -228,20 +247,16 @@ extension SeekableFileHandleProtocol where Self: ~Copyable & ~Escapable & System
 
     @discardableResult
     public func seek(to offset: Int64, relativeTo whence: FileOperationOptions.SeekWhence) throws(PlatformError) -> Int64 {
-        return try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                try handle.seek(to: offset, from: whence)
-            }
+        return try withUnsafeSystemHandle(operation: .seekHandle(originalPath: path)) { (handle) throws(LowLevelError) in
+            try handle.seek(to: offset, from: whence)
         }
     }
 
 
     public var currentOffset: Int64 {
         get throws(PlatformError) {
-            try catchLowLevelError(operation: .readHandleOffset(originalPath: path)) { () throws(LowLevelError) in
-                try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                    try handle.tell()
-                }
+            try withUnsafeSystemHandle(operation: .readHandleOffset(originalPath: path)) { (handle) throws(LowLevelError) in
+                try handle.tell()
             }
         }
     }

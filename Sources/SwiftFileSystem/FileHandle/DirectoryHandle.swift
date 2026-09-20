@@ -5,12 +5,12 @@ import FileSystemCore
 
 public struct DirectoryHandle: ~Copyable, @unchecked Sendable, DirectoryHandleProtocol, SystemHandleSupportedFileHandleProtocol {
 
-    fileprivate let handle: UnsafeSystemHandle 
+    fileprivate let context: UnsafeHandleContext
     public let path: FilePath
 
 
-    init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) {
-        self.handle = unsafeSystemHandle
+    init(unsafeHandleContext: consuming UnsafeHandleContext, path: FilePath) {
+        self.context = unsafeHandleContext
         self.path = path
     }
 
@@ -23,7 +23,7 @@ extension DirectoryHandle {
     public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(PlatformError) { 
 
         let systemOpenOptions = UnsafeSystemHandle.OpenOptions(
-            access: .readOnly(), 
+            access: .readOnly, 
             noFollow: options.noFollow, 
             closeOnExec: options.closeOnExec, 
             platformOpenFlagsDiff: .inserted([.posix.directory, .windows.backupSemantics])
@@ -41,13 +41,16 @@ extension DirectoryHandle {
         }
         #endif
 
-        self.init(unsafeSystemHandle: handle, path: path)
+        self.init(
+            unsafeHandleContext: .init(handle: handle, openOptions: systemOpenOptions),
+            path: path,
+        )
 
     }
 
 
     public func entries(options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) -> [DirectoryEntry] {
-        try EntrySequence(unsafeSystemHandle: handle, path: path, options: options)
+        try EntrySequence(unsafeSystemHandle: context.systemHandle, path: path, options: options)
             .map { entry throws(PlatformError) in
                 try entry.get()
             }
@@ -56,26 +59,26 @@ extension DirectoryHandle {
 
     @_lifetime(borrow self)
     public func entrySequence(options: FileOperationOptions.DirectoryTraversalOption = []) -> EntrySequence {
-        return .init(unsafeSystemHandle: handle, path: path, options: options)
+        return .init(unsafeSystemHandle: context.systemHandle, path: path, options: options)
+    }
+
+
+    package consuming func takeUnsafeHandleContext() -> UnsafeHandleContext {
+        self.context
     }
 
 
     public consuming func close() throws(PlatformError) {
         do {
-            try handle.close()
+            try context.close()
         } catch {
             throw .init(lowLevelError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
 
-    package consuming func takeUnsafeSystemHandle() -> UnsafeSystemHandle {
-        self.handle
-    }
-
-
-    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
-        try body(handle)
+    public var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get { context.view }
     }
 
 }

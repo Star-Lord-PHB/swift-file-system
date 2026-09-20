@@ -1,5 +1,5 @@
 //
-//  SyncHandleView.swift
+//  SyncHandleAdapter.swift
 //  swift-file-system
 //
 //  Created by SerikaPHB  on 2026/8/29.
@@ -15,35 +15,32 @@ internal import FileSystemCore
 ///
 /// The view conforms to every synchronous capability protocol at once; each async handle
 /// only reaches the subset its own protocols forward to.
-struct SyncHandleView
+struct SyncHandleAdapter
 : ~Copyable, ~Escapable
 , PositionalReadFileHandleProtocol, PositionalWriteFileHandleProtocol
 , SequentialReadFileHandleProtocol, SequentialWriteFileHandleProtocol
 , PersistentFileHandleProtocol, ResizableFileHandleProtocol
 , SystemHandleSupportedFileHandleProtocol {
 
-    let handle: UnsafeUnownedSystemHandle
+    let handle: UnsafeHandleContextView
     let path: FilePath
 
 
-    @_lifetime(borrow systemHandle)
-    init(systemHandle: borrowing UnsafeSystemHandle, path: FilePath) {
-        self.handle = systemHandle.unownedHandle()
+    @_lifetime(borrow unsafeHandleContext)
+    init(unsafeHandleContext: borrowing UnsafeHandleContext, path: FilePath) {
+        self.init(unsafeHandleContext: unsafeHandleContext.view, path: path)
+    }
+
+
+    @_lifetime(copy unsafeHandleContext)
+    init(unsafeHandleContext: UnsafeHandleContextView, path: FilePath) {
+        self.handle = unsafeHandleContext
         self.path = path
     }
 
 
-    @_lifetime(copy unownedHandle)
-    init(unownedHandle: UnsafeUnownedSystemHandle, path: FilePath) {
-        self.handle = unownedHandle
-        self.path = path
-    }
-
-
-    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
-        try self.handle.unsafeTemporaryConvertingToOwning { handle throws(E) in
-            try body(handle)
-        }
+    var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(copy self) get { handle }
     }
 
 }

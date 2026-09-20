@@ -15,7 +15,7 @@ public struct AsyncStreamingWriteHandle
 : ~Copyable
 , AsyncSequentialWriteFileHandleProtocol, AutoSynthesisAsyncFileHandleProtocol {
 
-    fileprivate let handle: UnsafeSystemHandle
+    fileprivate let context: UnsafeHandleContext
     public let path: FilePath
     public let executor: AsyncFileSystemExecutor
 
@@ -25,9 +25,11 @@ public struct AsyncStreamingWriteHandle
         options: FileOperationOptions.OpenForStreaming = .init(),
         executor: AsyncFileSystemExecutor = .defaultExecutor
     ) async throws(PlatformError) {
-        self.handle = try await executor.runCancellable { () throws(PlatformError) in
-            try StreamingWriteHandle(forFileAt: path, options: options).takeUnsafeSystemHandle()
-        }.getThrowingPlatformError(operation: .open(path))
+        self.context = try await executor.runCancellable { () throws(PlatformError) in
+            try StreamingWriteHandle(forFileAt: path, options: options)
+        }
+        .getThrowingPlatformError(operation: .open(path))
+        .takeUnsafeHandleContext()
         self.executor = executor
         self.path = path
     }
@@ -41,21 +43,18 @@ public struct AsyncStreamingWriteHandle
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor
         let path = self.path
-        var handle = Optional.some(self.handle)
+        var context = Optional.some(self.context)
         return try await executor.run { () throws(PlatformError) in
             try catchLowLevelError(operation: .closeHandle(originalPath: path)) { () throws(LowLevelError) in
-                let handle = handle.take()!
+                let handle = context.take()!
                 try handle.close()
             }
         }
     }
 
 
-    @concurrent
-    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
-        _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> sending R
-    ) async throws(E) -> sending R {
-        return try await operation(handle)
+    public var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get { context.view }
     }
 
 }

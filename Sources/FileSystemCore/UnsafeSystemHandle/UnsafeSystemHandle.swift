@@ -134,61 +134,11 @@ extension UnsafeSystemHandle {
 
 
         public enum AccessMode: Sendable {
-            case readOnly(metadataOnly: Bool = false)
-            case writeOnly(metadataOnly: Bool = false)
-            case readWrite(metadataOnly: Bool = false)
+            case readOnly
+            case writeOnly
+            case readWrite
             case none
         }
-
-
-        public struct NativeAccessModeFlag: OptionSet, Sendable {
-
-            public var rawValue: FlagType
-            public init(rawValue: FlagType) {
-                self.rawValue = rawValue
-            }
-
-            public static var windows: Windows.Type { Windows.self }
-            public static var posix: Posix.Type { Posix.self }
-
-            public enum Posix {
-                #if !canImport(WinSDK)
-                #if !(canImport(Darwin) || os(OpenBSD))
-                public static var path: NativeAccessModeFlag { .init(rawValue: __O_PATH) }
-                #else
-                public static var path: NativeAccessModeFlag { .init(rawValue: 0) }
-                #endif
-                #else
-                public static var path: NativeAccessModeFlag { .init(rawValue: 0) }
-                #endif
-            }
-
-            public enum Windows {
-                #if canImport(WinSDK)
-                public static var readAttributes: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_READ_ATTRIBUTES)) }
-                public static var readControl: NativeAccessModeFlag { .init(rawValue: DWORD(READ_CONTROL)) }
-                public static var genericRead: NativeAccessModeFlag { .init(rawValue: DWORD(GENERIC_READ)) }
-                public static var writeAttributes: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_WRITE_ATTRIBUTES)) }
-                public static var writeDac: NativeAccessModeFlag { .init(rawValue: DWORD(WRITE_DAC)) }
-                public static var writeOwner: NativeAccessModeFlag { .init(rawValue: DWORD(WRITE_OWNER)) }
-                public static var accessSystemSecurity: NativeAccessModeFlag { .init(rawValue: DWORD(ACCESS_SYSTEM_SECURITY)) }
-                public static var genericWrite: NativeAccessModeFlag { .init(rawValue: DWORD(GENERIC_WRITE)) }
-                public static var appendData: NativeAccessModeFlag { .init(rawValue: DWORD(FILE_APPEND_DATA)) }
-                #else
-                public static var readAttributes: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var readControl: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var genericRead: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var writeAttributes: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var writeDac: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var writeOwner: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var accessSystemSecurity: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var genericWrite: NativeAccessModeFlag { .init(rawValue: 0) }
-                public static var appendData: NativeAccessModeFlag { .init(rawValue: 0) }
-                #endif
-            }
-
-        }
-
 
         public struct NativeCreationFlag: RawRepresentable, Sendable {
 
@@ -358,22 +308,22 @@ extension UnsafeSystemHandle {
         public var noFollow: Bool 
         public var closeOnExec: Bool
 
-        public var platformAccessModeFlagsDiff: NativeFlagDiff<NativeAccessModeFlag>
         public var platformCreationFlagsOverride: NativeCreationFlag?
         public var platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag>
 
+        public var windowsExtraAccess: WindowsAccessMask
         public var windowsShareMode: WindowsNativeShareMode
 
         public init(
-            access: AccessMode = .readOnly(),
+            access: AccessMode = .readOnly,
             creation: CreationOptions = .never, 
             truncate: Bool = false, 
             append: Bool = false, 
             noFollow: Bool = false, 
-            closeOnExec: Bool = true, 
-            platformAccessModeFlagsDiff: NativeFlagDiff<NativeAccessModeFlag> = .init(),
+            closeOnExec: Bool = true,
             platformCreationFlagsOverride: NativeCreationFlag? = nil,
             platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag> = .init(),
+            windowsExtraAccess: WindowsAccessMask = [],
             windowsShareMode: WindowsNativeShareMode = [.read, .write, .delete]
         ) {
             self.access = access
@@ -382,7 +332,7 @@ extension UnsafeSystemHandle {
             self.append = append
             self.noFollow = noFollow
             self.closeOnExec = closeOnExec
-            self.platformAccessModeFlagsDiff = platformAccessModeFlagsDiff
+            self.windowsExtraAccess = windowsExtraAccess
             self.platformCreationFlagsOverride = platformCreationFlagsOverride
             self.platformOpenFlagsDiff = platformOpenFlagsDiff
             self.windowsShareMode = windowsShareMode
@@ -392,22 +342,13 @@ extension UnsafeSystemHandle {
         public var accessModeFlags: FlagType {
 
             #if canImport(WinSDK)
-
-            var readMetaFlags: FlagType { .init(bitPattern: FILE_READ_ATTRIBUTES | READ_CONTROL) }
-            var writeMetaFlags: FlagType {
-                // Note: On Windows, READ_CONTROL is still required even when writing metadata such as DACL
-                .init(bitPattern: FILE_WRITE_ATTRIBUTES | WRITE_DAC | WRITE_OWNER | READ_CONTROL)
-            }
             
             var flags = switch access {
-                case .readOnly(metadataOnly: true):    readMetaFlags
-                case .readOnly:                        GENERIC_READ | readMetaFlags
-                case .writeOnly(metadataOnly: true):   writeMetaFlags
-                case .writeOnly where append:          FlagType(bitPattern: FILE_APPEND_DATA) | writeMetaFlags
-                case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE) | writeMetaFlags
-                case .readWrite(metadataOnly: true):   readMetaFlags | writeMetaFlags
-                case .readWrite where append:          GENERIC_READ | FlagType(bitPattern: FILE_APPEND_DATA) | readMetaFlags | writeMetaFlags
-                case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE) | readMetaFlags | writeMetaFlags
+                case .readOnly:                        GENERIC_READ
+                case .writeOnly where append:          FILE_GENERIC_WRITE ^ FlagType(bitPattern: FILE_WRITE_DATA)
+                case .writeOnly:                       FlagType(bitPattern: GENERIC_WRITE)
+                case .readWrite where append:          GENERIC_READ | (FILE_GENERIC_WRITE ^ FlagType(bitPattern: FILE_WRITE_DATA))
+                case .readWrite:                       GENERIC_READ | FlagType(bitPattern: GENERIC_WRITE)
                 case .none:                            0 as FlagType
             }
 
@@ -415,33 +356,20 @@ extension UnsafeSystemHandle {
                 flags |= FlagType(bitPattern: GENERIC_WRITE)
             }
 
-            return platformAccessModeFlagsDiff.apply(to: flags, mask: ~0)
+            return flags | windowsExtraAccess.rawValue
 
             #else
 
-            let flags = switch access {
+            return switch access {
                 #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
-                case .readOnly(metadataOnly: true): O_RDONLY | __O_PATH
-                case .writeOnly(metadataOnly: true): O_WRONLY | __O_PATH
-                case .readWrite(metadataOnly: true): O_RDWR | __O_PATH
-                #endif
-                case .readOnly:                     O_RDONLY
-                case .writeOnly:                    O_WRONLY
-                case .readWrite:                    O_RDWR
-                #if !(canImport(Darwin) || os(OpenBSD))
-                case .none:                         O_RDONLY | __O_PATH
+                case .none:      __O_PATH
                 #else
-                case .none:                         O_RDONLY
+                case .none:      O_RDONLY
                 #endif
-            } as FlagType
-
-            #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
-            let mask = O_ACCMODE | __O_PATH
-            #else
-            let mask = O_ACCMODE
-            #endif
-
-            return platformAccessModeFlagsDiff.apply(to: flags, mask: mask)
+                case .readOnly:  O_RDONLY
+                case .writeOnly: O_WRONLY
+                case .readWrite: O_RDWR
+            }
 
             #endif
 
@@ -520,6 +448,26 @@ extension UnsafeSystemHandle {
             attrs.bInheritHandle = WindowsBool(!closeOnExec)
             attrs.lpSecurityDescriptor = nil
             return attrs
+        }
+
+        package var estimatedMappedWindowsAccess: WindowsAccessMask {
+            var mappedAccess = WindowsAccessMask(rawValue: accessModeFlags)
+            mappedAccess.insert([.readAttributes, .synchronize])
+            if mappedAccess.contains(.genericRead) {
+                mappedAccess.insert(.mappedGenericRead)
+            }
+            if mappedAccess.contains(.genericWrite) {
+                mappedAccess.insert(.mappedGenericWrite)
+            }
+            if mappedAccess.contains(.genericExecute) {
+                mappedAccess.insert(.mappedGenericExecute)
+            }
+            if mappedAccess.contains(.genericAll) {
+                mappedAccess.insert(.mappedGenericRead)
+                mappedAccess.insert(.mappedGenericWrite)
+                mappedAccess.insert(.mappedGenericExecute)
+            }
+            return mappedAccess
         }
         #endif 
 

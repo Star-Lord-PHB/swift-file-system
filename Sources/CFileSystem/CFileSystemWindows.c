@@ -45,25 +45,25 @@ const ACCESS_MASK _FILE_ALL_ACCESS = FILE_ALL_ACCESS;
 
 
 
-HANDLE ReOpenDir(HANDLE hDirectory) {
+HANDLE ReOpenHandle(HANDLE handle, ACCESS_MASK DesiredAccess, ULONG OpenOptions) {
 
-    // An empty name relative to `hDirectory` resolves to the directory itself.
+    // An empty name relative to `handle` resolves to the object itself.
     UNICODE_STRING emptyName;
     RtlInitUnicodeString(&emptyName, L"");
 
     OBJECT_ATTRIBUTES attributes;
-    InitializeObjectAttributes(&attributes, &emptyName, 0, hDirectory, NULL);
+    InitializeObjectAttributes(&attributes, &emptyName, 0, handle, NULL);
 
     IO_STATUS_BLOCK ioStatus;
     HANDLE hReopened = INVALID_HANDLE_VALUE;
 
     NTSTATUS status = NtOpenFile(
         &hReopened,
-        FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+        DesiredAccess,
         &attributes,
         &ioStatus,
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_FOR_BACKUP_INTENT
+        OpenOptions
     );
 
     if (status < 0) {

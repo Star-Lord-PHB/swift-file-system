@@ -159,65 +159,6 @@ extension WindowsSecurityDescriptorControl {
 
 
 
-public struct WindowsAccessMask: OptionSet, Sendable, Equatable, Hashable, CustomStringConvertible {
-
-    @_alwaysEmitIntoClient
-    public let rawValue: ACCESS_MASK
-
-    @inlinable
-    public var description: String {
-        let allWithNameAsArray = [
-            (.readData, "readData"), (.listDirectory, "listDirectory"), (.writeData, "writeData"),
-            (.addFile, "addFile"), (.appendData, "appendData"), (.addSubdirectory, "addSubdirectory"),
-            (.readExtentedAttrs, "readExtendedAttrs"), (.writeExtendedAttrs, "writeExtendedAttrs"),
-            (.execute, "execute"), (.traverse, "traverse"), (.deleteChild, "deleteChild"),
-            (.readAttributes, "readAttributes"), (.writeAttributes, "writeAttributes"),
-            (.delete, "delete"), (.readControl, "readControl"), (.writeDAC, "writeDAC"),
-            (.writeOwner, "writeOwner"), (.synchronize, "synchronize"), (.genericRead, "genericRead"), 
-            (.genericWrite, "genericWrite"), (.genericExecute, "genericExecute"), (.genericAll, "genericAll"),
-        ] as [(WindowsAccessMask, StaticString)]
-        let flagDescriptions = allWithNameAsArray
-            .compactMap { (flag, name) in
-                self.contains(flag) ? name.description : nil
-            }
-            .joined(separator: ", ")
-        return "0x\(String(rawValue, radix: 16)) [\(flagDescriptions)]"
-    }
-
-    @inlinable
-    public init(rawValue: ACCESS_MASK) {
-        self.rawValue = rawValue
-    }
-
-    public static let readData: WindowsAccessMask = .init(rawValue: .init(FILE_READ_DATA))
-    public static let listDirectory: WindowsAccessMask = .init(rawValue: .init(FILE_LIST_DIRECTORY))
-    public static let writeData: WindowsAccessMask = .init(rawValue: .init(FILE_WRITE_DATA))
-    public static let addFile: WindowsAccessMask = .init(rawValue: .init(FILE_ADD_FILE))
-    public static let appendData: WindowsAccessMask = .init(rawValue: .init(FILE_APPEND_DATA))
-    public static let addSubdirectory: WindowsAccessMask = .init(rawValue: .init(FILE_ADD_SUBDIRECTORY))
-    public static let readExtentedAttrs: WindowsAccessMask = .init(rawValue: .init(FILE_READ_EA))
-    public static let writeExtendedAttrs: WindowsAccessMask = .init(rawValue: .init(FILE_WRITE_EA))
-    public static let execute: WindowsAccessMask = .init(rawValue: .init(FILE_EXECUTE))
-    public static let traverse: WindowsAccessMask = .init(rawValue: .init(FILE_TRAVERSE))
-    public static let deleteChild: WindowsAccessMask = .init(rawValue: .init(FILE_DELETE_CHILD))
-    public static let readAttributes: WindowsAccessMask = .init(rawValue: .init(FILE_READ_ATTRIBUTES))
-    public static let writeAttributes: WindowsAccessMask = .init(rawValue: .init(FILE_WRITE_ATTRIBUTES))
-
-    public static let delete: WindowsAccessMask = .init(rawValue: .init(DELETE))
-    public static let readControl: WindowsAccessMask = .init(rawValue: .init(READ_CONTROL))
-    public static let writeDAC: WindowsAccessMask = .init(rawValue: .init(WRITE_DAC))
-    public static let writeOwner: WindowsAccessMask = .init(rawValue: .init(WRITE_OWNER))
-    public static let synchronize: WindowsAccessMask = .init(rawValue: .init(SYNCHRONIZE))
-
-    public static let genericRead: WindowsAccessMask = .init(rawValue: .init(GENERIC_READ))
-    public static let genericWrite: WindowsAccessMask = .init(rawValue: .init(GENERIC_WRITE))
-    public static let genericExecute: WindowsAccessMask = .init(rawValue: .init(GENERIC_EXECUTE))
-    public static let genericAll: WindowsAccessMask = .init(rawValue: .init(GENERIC_ALL))
-
-}
-
-
-
 public struct WindowsACEFlags: OptionSet, Sendable, Equatable, Hashable, CustomStringConvertible {
 
     @_alwaysEmitIntoClient
@@ -349,3 +290,111 @@ public enum WindowsMemoryAllocatorType {
 }
 
 #endif 
+
+
+
+public struct WindowsAccessMask: OptionSet, Sendable, Equatable, Hashable, CustomStringConvertible {
+
+    #if !canImport(WinSDK)
+    public typealias ACCESS_MASK = UInt32
+    #endif
+
+    @_alwaysEmitIntoClient
+    public let rawValue: ACCESS_MASK
+
+    @inlinable
+    public var description: String {
+        let allWithNameAsArray = [
+            (.readData, "readData"), (.listDirectory, "listDirectory"), (.writeData, "writeData"),
+            (.addFile, "addFile"), (.appendData, "appendData"), (.addSubdirectory, "addSubdirectory"),
+            (.readExtentedAttrs, "readExtendedAttrs"), (.writeExtendedAttrs, "writeExtendedAttrs"),
+            (.execute, "execute"), (.traverse, "traverse"), (.deleteChild, "deleteChild"),
+            (.readAttributes, "readAttributes"), (.writeAttributes, "writeAttributes"),
+            (.delete, "delete"), (.readControl, "readControl"), (.writeDAC, "writeDAC"),
+            (.writeOwner, "writeOwner"), (.synchronize, "synchronize"), (.accessSystemSecurity, "accessSystemSecurity"), 
+            (.genericRead, "genericRead"), (.genericWrite, "genericWrite"), (.genericExecute, "genericExecute"), 
+            (.genericAll, "genericAll"), (.mappedGenericRead, "mappedGenericRead"), 
+            (.mappedGenericWrite, "mappedGenericWrite"), (.mappedGenericExecute, "mappedGenericExecute"),
+        ] as [(WindowsAccessMask, StaticString)]
+        let flagDescriptions = allWithNameAsArray
+            .compactMap { (flag, name) in
+                self.contains(flag) ? name.description : nil
+            }
+            .joined(separator: ", ")
+        return "0x\(String(rawValue, radix: 16)) [\(flagDescriptions)]"
+    }
+
+    @inlinable
+    public init(rawValue: ACCESS_MASK) {
+        self.rawValue = rawValue
+    }
+
+    #if canImport(WinSDK)
+
+    public static let readData: WindowsAccessMask = .init(rawValue: .init(FILE_READ_DATA))
+    public static let listDirectory: WindowsAccessMask = .init(rawValue: .init(FILE_LIST_DIRECTORY))
+    public static let writeData: WindowsAccessMask = .init(rawValue: .init(FILE_WRITE_DATA))
+    public static let addFile: WindowsAccessMask = .init(rawValue: .init(FILE_ADD_FILE))
+    public static let appendData: WindowsAccessMask = .init(rawValue: .init(FILE_APPEND_DATA))
+    public static let addSubdirectory: WindowsAccessMask = .init(rawValue: .init(FILE_ADD_SUBDIRECTORY))
+    public static let readExtentedAttrs: WindowsAccessMask = .init(rawValue: .init(FILE_READ_EA))
+    public static let writeExtendedAttrs: WindowsAccessMask = .init(rawValue: .init(FILE_WRITE_EA))
+    public static let execute: WindowsAccessMask = .init(rawValue: .init(FILE_EXECUTE))
+    public static let traverse: WindowsAccessMask = .init(rawValue: .init(FILE_TRAVERSE))
+    public static let deleteChild: WindowsAccessMask = .init(rawValue: .init(FILE_DELETE_CHILD))
+    public static let readAttributes: WindowsAccessMask = .init(rawValue: .init(FILE_READ_ATTRIBUTES))
+    public static let writeAttributes: WindowsAccessMask = .init(rawValue: .init(FILE_WRITE_ATTRIBUTES))
+
+    public static let delete: WindowsAccessMask = .init(rawValue: .init(DELETE))
+    public static let readControl: WindowsAccessMask = .init(rawValue: .init(READ_CONTROL))
+    public static let writeDAC: WindowsAccessMask = .init(rawValue: .init(WRITE_DAC))
+    public static let writeOwner: WindowsAccessMask = .init(rawValue: .init(WRITE_OWNER))
+    public static let synchronize: WindowsAccessMask = .init(rawValue: .init(SYNCHRONIZE))
+
+    public static let accessSystemSecurity: WindowsAccessMask = .init(rawValue: .init(ACCESS_SYSTEM_SECURITY))
+
+    public static let genericRead: WindowsAccessMask = .init(rawValue: .init(GENERIC_READ))
+    public static let genericWrite: WindowsAccessMask = .init(rawValue: .init(GENERIC_WRITE))
+    public static let genericExecute: WindowsAccessMask = .init(rawValue: .init(GENERIC_EXECUTE))
+    public static let genericAll: WindowsAccessMask = .init(rawValue: .init(GENERIC_ALL))
+
+    public static let mappedGenericRead: WindowsAccessMask = .init(rawValue: .init(FILE_GENERIC_READ))
+    public static let mappedGenericWrite: WindowsAccessMask = .init(rawValue: .init(FILE_GENERIC_WRITE))
+    public static let mappedGenericExecute: WindowsAccessMask = .init(rawValue: .init(FILE_GENERIC_EXECUTE))
+
+    #else
+
+    public static var readData: WindowsAccessMask { .init(rawValue: 0) }
+    public static var listDirectory: WindowsAccessMask { .init(rawValue: 0) }
+    public static var writeData: WindowsAccessMask { .init(rawValue: 0) }
+    public static var addFile: WindowsAccessMask { .init(rawValue: 0) }
+    public static var appendData: WindowsAccessMask { .init(rawValue: 0) }
+    public static var addSubdirectory: WindowsAccessMask { .init(rawValue: 0) }
+    public static var readExtentedAttrs: WindowsAccessMask { .init(rawValue: 0) }
+    public static var writeExtendedAttrs: WindowsAccessMask { .init(rawValue: 0) }
+    public static var execute: WindowsAccessMask { .init(rawValue: 0) }
+    public static var traverse: WindowsAccessMask { .init(rawValue: 0) }
+    public static var deleteChild: WindowsAccessMask { .init(rawValue: 0) }
+    public static var readAttributes: WindowsAccessMask { .init(rawValue: 0) }
+    public static var writeAttributes: WindowsAccessMask { .init(rawValue: 0) }
+
+    public static var delete: WindowsAccessMask { .init(rawValue: 0) }
+    public static var readControl: WindowsAccessMask { .init(rawValue: 0) }
+    public static var writeDAC: WindowsAccessMask { .init(rawValue: 0) }
+    public static var writeOwner: WindowsAccessMask { .init(rawValue: 0) }
+    public static var synchronize: WindowsAccessMask { .init(rawValue: 0) }
+
+    public static var accessSystemSecurity: WindowsAccessMask { .init(rawValue: 0) }
+
+    public static var genericRead: WindowsAccessMask { .init(rawValue: 0) }
+    public static var genericWrite: WindowsAccessMask { .init(rawValue: 0) }
+    public static var genericExecute: WindowsAccessMask { .init(rawValue: 0) }
+    public static var genericAll: WindowsAccessMask { .init(rawValue: 0) }
+
+    public static var mappedGenericRead: WindowsAccessMask { .init(rawValue: 0) }
+    public static var mappedGenericWrite: WindowsAccessMask { .init(rawValue: 0) }
+    public static var mappedGenericExecute: WindowsAccessMask { .init(rawValue: 0) }
+
+    #endif
+
+}

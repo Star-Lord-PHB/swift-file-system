@@ -19,22 +19,6 @@ public protocol MutatingSeekableFileHandleProtocol: ~Copyable, ~Escapable, FileH
 
 
 
-extension MutatingSeekableFileHandleProtocol where Self: ~Copyable & ~Escapable {
-
-    func trySeek(from offset: Int64, by amount: Int64, operation: @autoclosure () -> PlatformError.Operation) throws(PlatformError) -> Int64 {
-        let (result, overflow) = offset.addingReportingOverflow(amount)
-        if overflow {
-            throw .init(lowLevelError: .init(kind: .arithmeticOverflow), operation: operation())
-        } else if result < 0 {
-            throw .init(lowLevelError: .init(kind: .invalidInput), operation: operation())
-        }
-        return result
-    }
-    
-}
-
-
-
 public protocol MutatingSequentialReadFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
     @_lifetime(self: copy self)
     @_lifetime(buffer: copy buffer)

@@ -104,7 +104,12 @@ extension InternalFS {
 
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+            openOptions: .init(
+                access: .none, 
+                noFollow: !followSymlink, 
+                platformOpenFlagsDiff: .inserted(.windows.backupSemantics), 
+                windowsExtraAccess: .readAttributes
+            )
         )
 
         return try handle.fileInfo()
@@ -162,7 +167,12 @@ extension InternalFS {
 
         let handle = try UnsafeSystemHandle.open(
             at: path, 
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: true, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+            openOptions: .init(
+                access: .none,
+                noFollow: true, 
+                platformOpenFlagsDiff: .inserted(.windows.backupSemantics), 
+                windowsExtraAccess: .readAttributes
+            )
         )
 
         return try handle.type()
@@ -216,8 +226,8 @@ extension InternalFS {
             openOptions: .init(
                 access: .none,
                 noFollow: !followSymlink,
-                platformAccessModeFlagsDiff: .inserted(.windows.writeAttributes),
-                platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
+                windowsExtraAccess: .writeAttributes
             )
         )
         try handle.setFileTimes(access: access, modification: modification, creation: creation)
@@ -283,8 +293,13 @@ extension InternalFS {
         }
 
         let handle = try UnsafeSystemHandle.open(
-            at: path, 
-            openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: !followSymlink)
+            at: path,
+            openOptions: .init(
+                access: .none,
+                noFollow: !followSymlink,
+                platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
+                windowsExtraAccess: .readAttributes
+            )
         )
         
         let times = try handle.fileTimes()
@@ -323,7 +338,12 @@ extension InternalFS {
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .readOnly(metadataOnly: true), noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+                openOptions: .init(
+                    access: .none, 
+                    noFollow: false, 
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics), 
+                    windowsExtraAccess: .readAttributes
+                )
             )
             let attr = try handle.fileAttributes()
             try handle.close()
@@ -354,8 +374,8 @@ extension InternalFS {
                 openOptions: .init(
                     access: .none,
                     noFollow: false,
-                    platformAccessModeFlagsDiff: .inserted(.windows.writeAttributes),
-                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
+                    windowsExtraAccess: .writeAttributes
                 )
             )
             try handle.setFileAttributes(attributes)
@@ -390,14 +410,14 @@ extension InternalFS {
 
 
     package static func setFileInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(LowLevelError) {
-        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: !followSymlink))
+        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, noFollow: !followSymlink))
         try fd.setFileInodeFlags(flags)
         try fd.close()
     }
 
 
     package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> LinuxInodeFlags {
-        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly(), noFollow: !followSymlink))
+        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, noFollow: !followSymlink))
         let flags = try fd.fileInodeFlags()
         try fd.close()
         return flags

@@ -57,16 +57,14 @@ extension PositionalReadFileHandleProtocol where Self: ~Copyable & ~Escapable & 
             throw .init(lowLevelError: .init(kind: .invalidInput), operation: .readHandle(originalPath: path))
         }
         #endif
-        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { (handle) throws(LowLevelError) in
-                do throws(LowLevelError) {
-                    return try handle.pread(into: &buffer, from: offset)
-                } catch {
-                    #if canImport(WinSDK)
-                    if error.systemCode == .handleEOF { return 0 }
-                    #endif
-                    throw error
-                }
+        return try self.withUnsafeSystemHandle(operation: .readHandle(originalPath: path)) { (handle) throws(LowLevelError) in
+            do throws(LowLevelError) {
+                return try handle.pread(into: &buffer, from: offset)
+            } catch {
+                #if canImport(WinSDK)
+                if error.systemCode == .handleEOF { return 0 }
+                #endif
+                throw error
             }
         }
     }
@@ -111,21 +109,19 @@ extension SequentialReadFileHandleProtocol where Self: ~Copyable & ~Escapable & 
 
     @_lifetime(buffer: copy buffer)
     public func read(into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64 {
-        return try catchLowLevelError(operation: .readHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                do throws(LowLevelError) {
-                    return try handle.read(into: &buffer)
-                } catch {
-                    // A Windows pipe whose peer closed (ERROR_BROKEN_PIPE) or disconnected
-                    // (ERROR_PIPE_NOT_CONNECTED) fails the read where POSIX returns zero
-                    // bytes; the stream semantics align on end-of-file.
-                    #if canImport(WinSDK)
-                    if error.systemCode == .brokenPipe || error.systemCode == .pipeNotConnected {
-                        return 0
-                    }
-                    #endif
-                    throw error
+        return try self.withUnsafeSystemHandle(operation: .readHandle(originalPath: path)) { handle throws(LowLevelError) in
+            do throws(LowLevelError) {
+                return try handle.read(into: &buffer)
+            } catch {
+                // A Windows pipe whose peer closed (ERROR_BROKEN_PIPE) or disconnected
+                // (ERROR_PIPE_NOT_CONNECTED) fails the read where POSIX returns zero
+                // bytes; the stream semantics align on end-of-file.
+                #if canImport(WinSDK)
+                if error.systemCode == .brokenPipe || error.systemCode == .pipeNotConnected {
+                    return 0
                 }
+                #endif
+                throw error
             }
         }
     }

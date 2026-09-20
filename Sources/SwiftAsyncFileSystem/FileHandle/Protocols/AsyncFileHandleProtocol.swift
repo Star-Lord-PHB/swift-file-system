@@ -27,22 +27,49 @@ public protocol ExecutorSupportedAsyncFileHandleProtocol: ~Copyable, ~Escapable 
 
 public protocol SystemHandleSupportedAsyncFileHandleProtocol: ~Copyable, ~Escapable {
 
-    @concurrent
-    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
-        _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> sending R
-    ) async throws(E) -> sending R
-
+    var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get
+    }
 
 }
 
 
 
-extension SystemHandleSupportedAsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & ExecutorSupportedAsyncFileHandleProtocol {
+extension SystemHandleSupportedAsyncFileHandleProtocol where Self: ~Copyable & ~Escapable {
+
+    @concurrent
+    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
+        _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> R
+    ) async throws(E) -> R {
+        try await unsafeHandleContext.withUnsafeSystemHandle(operation)
+    }
+
+}
+
+
+
+public protocol AutoSynthesisAsyncFileHandleProtocol
+: ~Copyable, ~Escapable
+, ExecutorSupportedAsyncFileHandleProtocol, SystemHandleSupportedAsyncFileHandleProtocol {}
+
+
+
+extension AutoSynthesisAsyncFileHandleProtocol where Self: ~Copyable & ~Escapable {
+
+    @concurrent
+    public func withUnsafeHandleContextInExecutor<R: ~Copyable, E: Error>(
+        _ operation: (UnsafeHandleContextView) throws(E) -> R
+    ) async -> AsyncFileSystemExecutor.Result<R, E> {
+        await executor.runCancellable { () throws(E) in
+            try operation(unsafeHandleContext)
+        }
+    }
+
 
     @concurrent
     public func withUnsafeSystemHandleInExecutor<R: ~Copyable, E: Error>(
-        _ task: (borrowing UnsafeSystemHandle) throws(E) -> sending R
-    ) async -> sending AsyncFileSystemExecutor.Result<R, E> {
+        _ task: (borrowing UnsafeSystemHandle) throws(E) -> R
+    ) async -> AsyncFileSystemExecutor.Result<R, E> {
         await self.withUnsafeSystemHandle { handle in
             await executor.runCancellable { () throws(E) in
                 try task(handle)
@@ -50,75 +77,47 @@ extension SystemHandleSupportedAsyncFileHandleProtocol where Self: ~Copyable & ~
         }
     }
 
-
-    @concurrent
-    func withUnsafeSystemHandleInExecutor<R: ~Copyable>(
-        operation: PlatformError.Operation,
-        _ task: (borrowing UnsafeSystemHandle) throws(PlatformError) -> sending R
-    ) async throws(PlatformError) -> sending R {
-        try await self.withUnsafeSystemHandleInExecutor { handle throws(PlatformError) in
-            try task(handle)
-        }
-        .getThrowingPlatformError(operation: operation)
-    }
-
-
-    @concurrent
-    func withUnsafeSystemHandleInExecutor<R: ~Copyable>(
-        operation: PlatformError.Operation,
-        _ task: (borrowing UnsafeSystemHandle) throws(LowLevelError) -> sending R
-    ) async throws(PlatformError) -> sending R {
-        try await self.withUnsafeSystemHandleInExecutor { handle throws(LowLevelError) in
-            try task(handle)
-        }
-        .getThrowingPlatformError(operation: operation)
-    }
-
-
 }
-
-
-
-public typealias AutoSynthesisAsyncFileHandleProtocol
-    = ExecutorSupportedAsyncFileHandleProtocol & SystemHandleSupportedAsyncFileHandleProtocol
 
 
 
 extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynthesisAsyncFileHandleProtocol {
 
     @concurrent
-    func withSyncHandleViewInExecutor<R: ~Copyable>(
-        operation: PlatformError.Operation,
-        _ task: (borrowing SyncHandleView) throws(PlatformError) -> sending R
-    ) async throws(PlatformError) -> sending R {
-        let path = self.path
-        return try await withUnsafeSystemHandleInExecutor(operation: operation) { (sysHandle) throws(PlatformError) in
-            try task(SyncHandleView(systemHandle: sysHandle, path: path))
+    func withSyncHandleAdapterInExecutor<R: ~Copyable>(
+        _ task: (borrowing SyncHandleAdapter) throws(PlatformError) -> R
+    ) async -> AsyncFileSystemExecutor.Result<R, PlatformError> {
+        let adapter = SyncHandleAdapter(unsafeHandleContext: unsafeHandleContext, path: path)
+        return await executor.runCancellable { () throws(PlatformError) in
+            try task(adapter)
         }
     }
 
 
     @concurrent
     public func fileInfo() async throws(PlatformError) -> FileInfo {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.fileInfo()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.fileInfo()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func type() async throws(PlatformError) -> FileKind {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.type()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.type()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func fileTimes() async throws(PlatformError) -> FileTimes {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.fileTimes()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.fileTimes()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
@@ -128,25 +127,28 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
     ) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .setMeta(path)) { (view) throws(PlatformError) in
-            try view.setFileTimes(access: access, modification: modification, creation: creation)
+        try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.setFileTimes(access: access, modification: modification, creation: creation)
         }
+        .getThrowingPlatformError(operation: .setMeta(path))
     }
 
 
     @concurrent
     public func fileAttributes() async throws(PlatformError) -> PlatformFileAttributes {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.fileAttributes()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.fileAttributes()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func setFileAttributes(_ attributes: PlatformFileAttributes) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .setMeta(path)) { (view) throws(PlatformError) in
-            try view.setFileAttributes(attributes)
+        try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.setFileAttributes(attributes)
         }
+        .getThrowingPlatformError(operation: .setMeta(path))
     }
 
 
@@ -154,17 +156,19 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
 
     @concurrent
     public func inodeFlags() async throws(PlatformError) -> LinuxInodeFlags {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.inodeFlags()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.inodeFlags()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func setInodeFlags(_ flags: LinuxInodeFlags) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .setMeta(path)) { (view) throws(PlatformError) in
-            try view.setInodeFlags(flags)
+        try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.setInodeFlags(flags)
         }
+        .getThrowingPlatformError(operation: .setMeta(path))
     }
 
     #endif
@@ -176,9 +180,11 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
     ) async throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.securityInfo(members)
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try SendableBox(adapter.securityInfo(members))
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
+        .take()
     }
 
 
@@ -189,26 +195,29 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
         owner: PlatformIdentity? = nil,
         group: PlatformIdentity? = nil
     ) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .setMeta(path)) { (view) throws(PlatformError) in
-            try view.setSecurityInfo(dacl: dacl, sacl: sacl, owner: owner, group: group)
+        try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.setSecurityInfo(dacl: dacl, sacl: sacl, owner: owner, group: group)
         }
+        .getThrowingPlatformError(operation: .setMeta(path))
     }
 
     #else
 
     @concurrent
     public func posixPermissions() async throws(PlatformError) -> FilePermissions {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.posixPermissions()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.posixPermissions()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func setPosixPermissions(_ permissions: FilePermissions) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .setMeta(path)) { (view) throws(PlatformError) in
-            try view.setPosixPermissions(permissions)
+        try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.setPosixPermissions(permissions)
         }
+        .getThrowingPlatformError(operation: .setMeta(path))
     }
 
     #endif
@@ -216,17 +225,19 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
 
     @concurrent
     public func owner() async throws(PlatformError) -> (owner: PlatformIdentity?, group: PlatformIdentity?) {
-        return try await withSyncHandleViewInExecutor(operation: .fetchMeta(path)) { (view) throws(PlatformError) in
-            try view.owner()
+        return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.owner()
         }
+        .getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
 
     @concurrent
     public func setOwner(owner: PlatformIdentity?, group: PlatformIdentity?) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .setMeta(path)) { (view) throws(PlatformError) in
-            try view.setOwner(owner: owner, group: group)
+        try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.setOwner(owner: owner, group: group)
         }
+        .getThrowingPlatformError(operation: .setMeta(path))
     }
 
 }

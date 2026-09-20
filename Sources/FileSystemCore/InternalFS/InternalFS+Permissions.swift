@@ -102,17 +102,17 @@ extension InternalFS {
         if followSymlink {
             // Request exactly the rights `SetSecurityInfo` checks for the members being set (READ_CONTROL is
             // still required next to WRITE_DAC).
-            var accessFlags = [.windows.readControl] as UnsafeSystemHandle.OpenOptions.NativeAccessModeFlag
-            if members.contains(.dacl) { accessFlags.insert(.windows.writeDac) }
-            if !members.isDisjoint(with: [.owner, .group]) { accessFlags.insert(.windows.writeOwner) }
-            if members.contains(.sacl) { accessFlags.insert(.windows.accessSystemSecurity) }
+            var accessFlags = [.readControl] as WindowsAccessMask
+            if members.contains(.dacl) { accessFlags.insert(.writeDAC) }
+            if !members.isDisjoint(with: [.owner, .group]) { accessFlags.insert(.writeOwner) }
+            if members.contains(.sacl) { accessFlags.insert(.accessSystemSecurity) }
             let handle = try UnsafeSystemHandle.open(
                 at: path,
                 openOptions: .init(
                     access: .none,
                     noFollow: !followSymlink,
-                    platformAccessModeFlagsDiff: .inserted(accessFlags),
-                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
+                    windowsExtraAccess: accessFlags
                 )
             )
             try handle.setSecurityInfo(members, dacl: dacl, sacl: sacl, owner: owner, group: group)
@@ -142,20 +142,20 @@ extension InternalFS {
         members: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
     ) throws(LowLevelError) -> sending WindowsSelfRelativeSecurityDescriptor {
-        
+
         var psd = nil as PSECURITY_DESCRIPTOR?
         
         if followSymlink {
             // Reading a security descriptor needs READ_CONTROL only (plus ACCESS_SYSTEM_SECURITY for the SACL)
-            var accessFlags = [.windows.readControl] as UnsafeSystemHandle.OpenOptions.NativeAccessModeFlag
-            if members.contains(.sacl) { accessFlags.insert(.windows.accessSystemSecurity) }
+            var accessFlags = [.readControl] as WindowsAccessMask
+            if members.contains(.sacl) { accessFlags.insert(.accessSystemSecurity) }
             let handle = try UnsafeSystemHandle.open(
                 at: path,
                 openOptions: .init(
                     access: .none,
                     noFollow: !followSymlink,
-                    platformAccessModeFlagsDiff: .inserted(accessFlags),
-                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics)
+                    platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
+                    windowsExtraAccess: accessFlags
                 )
             )
             let sd = try handle.securityInfo(members)

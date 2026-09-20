@@ -9,6 +9,14 @@ public enum FileOperationOptions {
         case never
         case createIfMissing
         case assertMissing
+
+        package var mappedSystemCreationOption: UnsafeSystemHandle.OpenOptions.CreationOptions {
+            switch self {
+                case .never:            .never
+                case .createIfMissing:  .createIfMissing
+                case .assertMissing:    .assertMissing
+            }
+        }
     }
 
 
@@ -203,6 +211,29 @@ public enum FileOperationOptions {
         public static let read: FileAccessMode = .init(rawValue: 1 << 0)
         public static let write: FileAccessMode = .init(rawValue: 1 << 1)
         public static let execute: FileAccessMode = .init(rawValue: 1 << 2)
+    }
+
+
+    public struct MetadataHandleAccess: OptionSet, Sendable {
+        public let accessMask: WindowsAccessMask
+        public var rawValue: WindowsAccessMask.RawValue {
+            accessMask.rawValue
+        }
+        public init(rawValue: WindowsAccessMask.RawValue) {
+            self.accessMask = .init(rawValue: rawValue)
+        }
+        init(accessMask: WindowsAccessMask) {
+            self.accessMask = accessMask
+        }
+        public enum Windows {
+            public static var readAttributes: MetadataHandleAccess { .init(accessMask: .readAttributes) }
+            public static var readControl: MetadataHandleAccess { .init(accessMask: .readControl) }
+            public static var writeAttributes: MetadataHandleAccess { .init(accessMask: .writeAttributes) }
+            public static var writeDAC: MetadataHandleAccess { .init(accessMask: .writeDAC) }
+            public static var writeOwner: MetadataHandleAccess { .init(accessMask: .writeOwner) }
+            public static var accessSystemSecurity: MetadataHandleAccess { .init(accessMask: .accessSystemSecurity) }
+        }
+        public static var windows: Windows.Type { Windows.self }
     }
 
 

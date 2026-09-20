@@ -7,12 +7,12 @@ public struct ReadFileHandle
 : ~Copyable, @unchecked Sendable
 , PositionalReadFileHandleProtocol, SystemHandleSupportedFileHandleProtocol {
 
-    fileprivate let handle: UnsafeSystemHandle 
+    fileprivate let context: UnsafeHandleContext
     public let path: FilePath
 
 
-    init(unsafeSystemHandle: consuming UnsafeSystemHandle, path: FilePath) {
-        self.handle = unsafeSystemHandle
+    init(unsafeHandleContext: consuming UnsafeHandleContext, path: FilePath) {
+        self.context = unsafeHandleContext
         self.path = path
     }
 
@@ -25,9 +25,9 @@ extension ReadFileHandle {
     public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(PlatformError) {
 
         let openOptions = UnsafeSystemHandle.OpenOptions(
-            access: .readOnly(),
-            noFollow: options.noFollow,
-            closeOnExec: options.closeOnExec
+            access: .readOnly,
+            closeOnExec: options.closeOnExec,
+            platformOpenFlagsDiff: .inserted(options.noFollow ? [.posix.noFollow, .windows.openReparsePoint] : [])
         )
 
         let handle = try catchLowLevelError(operation: .open(path)) { () throws(LowLevelError) in
@@ -49,27 +49,30 @@ extension ReadFileHandle {
             }
         }
 
-        self.init(unsafeSystemHandle: handle, path: path)
+        self.init(
+            unsafeHandleContext: .init(handle: handle, openOptions: openOptions),
+            path: path
+        )
 
     }
 
 
-    package consuming func takeUnsafeSystemHandle() -> UnsafeSystemHandle {
-        self.handle
+    package consuming func takeUnsafeHandleContext() -> UnsafeHandleContext {
+        self.context
     }
 
 
     public consuming func close() throws(PlatformError) {
         do {
-            try handle.close()
+            try context.close()
         } catch {
             throw .init(lowLevelError: error, operation: .closeHandle(originalPath: path))
         }
     }
 
 
-    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
-        try body(handle)
+    public var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get { context.view }
     }
 
 
@@ -97,12 +100,12 @@ extension ReadFileHandle {
 
         @_lifetime(borrow readHandle)
         init(readHandle: borrowing ReadFileHandle) {
-            self.accessor = .init(handle: readHandle.handle, path: readHandle.path)
+            self.accessor = .init(unsafeHandleContext: readHandle.context, path: readHandle.path)
         }
 
 
-        public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(_ body: (borrowing UnsafeSystemHandle) throws(E) -> R) throws(E) -> R {
-            try accessor.withUnsafeSystemHandle(body)
+        public var unsafeHandleContext: UnsafeHandleContextView {
+            @_lifetime(copy self) get { accessor.unsafeHandleContext }
         }
 
 

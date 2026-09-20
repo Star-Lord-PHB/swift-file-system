@@ -21,9 +21,10 @@ extension AsyncPersistentFileHandleProtocol where Self: ~Copyable & ~Escapable &
 
     @concurrent
     public func synchronize() async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .syncHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.synchronize()
+        return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
+            try adapter.synchronize()
         }
+        .getThrowingPlatformError(operation: .syncHandle(originalPath: path))
     }
 
 }
@@ -43,9 +44,10 @@ extension AsyncResizableFileHandleProtocol where Self: ~Copyable & ~Escapable & 
 
     @concurrent
     public func resize(to size: Int64) async throws(PlatformError) {
-        return try await withSyncHandleViewInExecutor(operation: .resizeHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.resize(to: size)
+        return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
+            try adapter.resize(to: size)
         }
+        .getThrowingPlatformError(operation: .resizeHandle(originalPath: path))
     }
 
 }
@@ -79,9 +81,10 @@ extension AsyncPositionalWriteFileHandleProtocol where Self: ~Copyable & ~Escapa
     @concurrent
     @discardableResult
     public func write(_ buffer: RawSpan, toOffset offset: Int64) async throws(PlatformError) -> Int64 {
-        return try await withSyncHandleViewInExecutor(operation: .writeHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.write(buffer, toOffset: offset)
+        return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
+            try adapter.write(buffer, toOffset: offset)
         }
+        .getThrowingPlatformError(operation: .writeHandle(originalPath: path))
     }
 
 }
@@ -115,9 +118,10 @@ extension AsyncSequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapa
     @concurrent
     @discardableResult
     public func write(_ buffer: RawSpan) async throws(PlatformError) -> Int64 {
-        return try await withSyncHandleViewInExecutor(operation: .writeHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.write(buffer)
+        return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
+            try adapter.write(buffer)
         }
+        .getThrowingPlatformError(operation: .writeHandle(originalPath: path))
     }
 
 }

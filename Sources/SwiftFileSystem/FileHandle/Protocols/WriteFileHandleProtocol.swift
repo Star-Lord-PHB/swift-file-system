@@ -18,10 +18,8 @@ public protocol PersistentFileHandleProtocol: ~Copyable, ~Escapable, FileHandleP
 
 extension PersistentFileHandleProtocol where Self: ~Copyable & ~Escapable & SystemHandleSupportedFileHandleProtocol {
     public func synchronize() throws(PlatformError) {
-        return try catchLowLevelError(operation: .syncHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                try handle.fsync()
-            }
+        try withUnsafeSystemHandle(operation: .syncHandle(originalPath: path)) { (handle) throws(LowLevelError) in
+            try handle.fsync()
         }
     }
 }
@@ -37,10 +35,8 @@ public protocol ResizableFileHandleProtocol: ~Copyable, ~Escapable, FileHandlePr
 extension ResizableFileHandleProtocol where Self: ~Copyable & ~Escapable & SystemHandleSupportedFileHandleProtocol {
 
     public func resize(to size: Int64) throws(PlatformError) {
-        return try catchLowLevelError(operation: .resizeHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                try handle.truncate(to: size)
-            }
+        return try withUnsafeSystemHandle(operation: .resizeHandle(originalPath: path)) { (handle) throws(LowLevelError) in
+            try handle.truncate(to: size)
         }
     }
 
@@ -79,10 +75,8 @@ extension PositionalWriteFileHandleProtocol where Self: ~Copyable & ~Escapable &
             throw .init(lowLevelError: .init(kind: .invalidInput), operation: .writeHandle(originalPath: path))
         }
         #endif
-        return try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                try handle.pwrite(contentsOf: buffer, to: offset)
-            }
+        return try self.withUnsafeSystemHandle(operation: .writeHandle(originalPath: path)) { handle throws(LowLevelError) in
+            try handle.pwrite(contentsOf: buffer, to: offset)
         }
     }
 
@@ -114,10 +108,8 @@ extension SequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapable &
 
     @discardableResult
     public func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
-        return try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
-            try self.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                try handle.write(contentsOf: buffer)
-            }
+        return try self.withUnsafeSystemHandle(operation: .writeHandle(originalPath: path)) { handle throws(LowLevelError) in
+            try handle.write(contentsOf: buffer)
         }
     }
 

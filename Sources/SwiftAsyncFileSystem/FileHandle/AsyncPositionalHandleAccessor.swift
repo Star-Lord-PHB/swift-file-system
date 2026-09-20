@@ -6,6 +6,9 @@
 //
 
 import FileSystemCore
+import struct SwiftFileSystem.UnsafeHandleContextView
+import struct SwiftFileSystem.UnsafeHandleContext
+
 
 
 struct AsyncPositionalHandleAccessor
@@ -15,28 +18,23 @@ struct AsyncPositionalHandleAccessor
 , AsyncResizableFileHandleProtocol, AsyncPersistentFileHandleProtocol
 , AutoSynthesisAsyncFileHandleProtocol {
 
-    let handle: UnsafeUnownedSystemHandle
+    let context: UnsafeHandleContextView
     let executor: AsyncFileSystemExecutor
     let path: FilePath
 
     private(set) var currentOffset: Int64 = 0
 
 
-    @_lifetime(borrow handle)
-    init(handle: borrowing UnsafeSystemHandle, path: FilePath, executor: AsyncFileSystemExecutor) {
-        self.handle = handle.unownedHandle()
+    @_lifetime(borrow unsafeHandleContext)
+    init(unsafeHandleContext: borrowing UnsafeHandleContext, path: FilePath, executor: AsyncFileSystemExecutor) {
+        self.context = unsafeHandleContext.view
         self.executor = executor
         self.path = path
     }
 
 
-    @concurrent
-    func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
-        _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> sending R
-    ) async throws(E) -> sending R {
-        try await self.handle.unsafeTemporaryConvertingToOwning { handle async throws(E) in
-            try await operation(handle)
-        }
+    var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(copy self) get { context }
     }
 
 
@@ -47,11 +45,18 @@ struct AsyncPositionalHandleAccessor
         let newOffset: Int64
         switch whence {
         case .current:
-            newOffset = try trySeek(from: self.currentOffset, by: offset, operation: .seekHandle(originalPath: path))
+            newOffset = try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
+                try UnsafeHandleContextView.trySeek(from: self.currentOffset, by: offset)
+            }
         case .beginning:
-            newOffset = try trySeek(from: 0, by: offset, operation: .seekHandle(originalPath: path))
+            newOffset = try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
+                try UnsafeHandleContextView.trySeek(from: 0, by: offset)
+            }
         case .end:
-            newOffset = try await trySeek(from: Int64(fileInfo().size), by: offset, operation: .seekHandle(originalPath: path))
+            let fileSize = try await self.fileInfo().size
+            newOffset = try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
+                try UnsafeHandleContextView.trySeek(from: Int64(fileSize), by: offset)
+            }
         }
         self.currentOffset = newOffset
         return newOffset
@@ -63,9 +68,10 @@ struct AsyncPositionalHandleAccessor
     @_lifetime(buffer: copy buffer)
     mutating func read(into buffer: inout MutableRawSpan) async throws(PlatformError) -> Int64 {
         let currentOffset = self.currentOffset
-        let bytesRead = try await withSyncHandleViewInExecutor(operation: .readHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.read(fromOffset: currentOffset, into: &buffer)
+        let bytesRead = try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.read(fromOffset: currentOffset, into: &buffer)
         }
+        .getThrowingPlatformError(operation: .readHandle(originalPath: path))
         self.currentOffset = currentOffset + bytesRead
         return bytesRead
     }
@@ -76,9 +82,10 @@ struct AsyncPositionalHandleAccessor
     @_lifetime(self: copy self)
     mutating func write(_ bytes: RawSpan) async throws(PlatformError) -> Int64 {
         let currentOffset = self.currentOffset
-        let bytesWritten = try await withSyncHandleViewInExecutor(operation: .writeHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.write(bytes, toOffset: currentOffset)
+        let bytesWritten = try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
+            try adapter.write(bytes, toOffset: currentOffset)
         }
+        .getThrowingPlatformError(operation: .writeHandle(originalPath: path))
         self.currentOffset = currentOffset + bytesWritten
         return bytesWritten
     }

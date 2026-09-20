@@ -53,9 +53,10 @@ extension AsyncPositionalReadFileHandleProtocol where Self: ~Copyable & ~Escapab
     @concurrent
     @_lifetime(buffer: copy buffer)
     public func read(fromOffset offset: Int64, into buffer: inout MutableRawSpan) async throws(PlatformError) -> Int64 {
-        return try await withSyncHandleViewInExecutor(operation: .readHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.read(fromOffset: offset, into: &buffer)
+        return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
+            try adapter.read(fromOffset: offset, into: &buffer)
         }
+        .getThrowingPlatformError(operation: .readHandle(originalPath: path))
     }
 
 }
@@ -103,9 +104,10 @@ extension AsyncSequentialReadFileHandleProtocol where Self: ~Copyable & ~Escapab
     @concurrent
     @_lifetime(buffer: copy buffer)
     public func read(into buffer: inout MutableRawSpan) async throws(PlatformError) -> Int64 {
-        return try await withSyncHandleViewInExecutor(operation: .readHandle(originalPath: path)) { (view) throws(PlatformError) in
-            try view.read(into: &buffer)
+        return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
+            try adapter.read(into: &buffer)
         }
+        .getThrowingPlatformError(operation: .readHandle(originalPath: path))
     }
 
 }

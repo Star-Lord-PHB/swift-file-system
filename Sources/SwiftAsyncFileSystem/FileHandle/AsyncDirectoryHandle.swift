@@ -1,6 +1,8 @@
 import struct SystemPackage.FilePath
 import struct SwiftFileSystem.DirectoryHandle
 private import struct DequeModule.Deque
+import struct SwiftFileSystem.UnsafeHandleContext
+import struct SwiftFileSystem.UnsafeHandleContextView
 
 
 
@@ -8,7 +10,7 @@ public struct AsyncDirectoryHandle
 : ~Copyable, @unchecked Sendable
 , AsyncDirectoryHandleProtocol, AutoSynthesisAsyncFileHandleProtocol {
 
-    let handle: UnsafeSystemHandle
+    let context: UnsafeHandleContext
     public let path: FilePath
     public let executor: AsyncFileSystemExecutor
 
@@ -18,11 +20,11 @@ public struct AsyncDirectoryHandle
         options: FileOperationOptions.OpenForDirectory = .init(), 
         executor: AsyncFileSystemExecutor = .defaultExecutor
     ) async throws(PlatformError) {
-        self.handle = try await executor.runCancellable { () throws(PlatformError) in
+        self.context = try await executor.runCancellable { () throws(PlatformError) in
             try DirectoryHandle(forDirAt: path, options: options)
         }
         .getThrowingPlatformError(operation: .open(path))
-        .takeUnsafeSystemHandle()
+        .takeUnsafeHandleContext()
         self.path = path
         self.executor = executor
     }
@@ -32,21 +34,18 @@ public struct AsyncDirectoryHandle
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor
         let path = self.path
-        var handle = Optional.some(self.handle)
+        var context = Optional.some(self.context)
         return try await executor.run { () throws(PlatformError) in
             try catchLowLevelError(operation: .closeHandle(originalPath: path)) { () throws(LowLevelError) in
-                let handle = handle.take()!
+                let handle = context.take()!
                 try handle.close()
             }
         }
     }
 
 
-    @concurrent
-    public func withUnsafeSystemHandle<R: ~Copyable, E: Error>(
-        _ operation: @concurrent (borrowing UnsafeSystemHandle) async throws(E) -> sending R
-    ) async throws(E) -> sending R {
-        try await operation(handle)
+    public var unsafeHandleContext: UnsafeHandleContextView {
+        @_lifetime(borrow self) get { context.view }
     }
 
 
@@ -68,7 +67,7 @@ public struct AsyncDirectoryHandle
         batchCount: Int = AsyncEntrySequence.defaultBatchCount
     ) -> AsyncEntrySequence {
         return .init(
-            syncSequence: .init(unsafeSystemHandle: handle, path: path, options: options), 
+            syncSequence: .init(unsafeSystemHandle: context.systemHandle, path: path, options: options), 
             batchCount: batchCount, 
             executor: executor
         )
