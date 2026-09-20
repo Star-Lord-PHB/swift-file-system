@@ -31,6 +31,17 @@ package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newd
 #endif
 
 
+#if os(Linux) || os(Android)
+package func copy_file_range(
+    _ fdIn: CInt, _ offIn: UnsafeMutablePointer<off_t>?,
+    _ fdOut: CInt, _ offOut: UnsafeMutablePointer<off_t>?,
+    _ size: Int, _ flags: UInt32
+) -> Int {
+    return _copy_file_range(fdIn, offIn, fdOut, offOut, size, flags)
+}
+#endif
+
+
 #if canImport(Glibc) || canImport(Musl) || canImport(Android)
 package func pthread_setname_current(_ name: UnsafePointer<CChar>) -> CInt {
     return _pthread_setname_current(name)

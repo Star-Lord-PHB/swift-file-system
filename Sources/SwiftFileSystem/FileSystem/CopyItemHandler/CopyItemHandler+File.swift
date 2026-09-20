@@ -473,14 +473,17 @@ extension CopyItemHandler {
         switch context.mechanism {
 
             case .copyFileRange:
-                // in-kernel copy with filesystem acceleration (reflink, server-side copy) where available; the
-                // C shim reports ENOSYS for every "not for this pair of files" outcome (ENOSYS, EXDEV, EINVAL,
-                // EOPNOTSUPP), including any cross-filesystem copy since Linux 5.19
+                // in-kernel copy with filesystem acceleration (reflink, server-side copy) where available. Every
+                // "not for this pair of files" outcome hands over: ENOSYS (no such syscall), EOPNOTSUPP and EINVAL
+                // (the filesystem or the kind of file is not supported) and EXDEV (any cross-filesystem copy since
+                // Linux 5.19)
                 let byteCopied = copy_file_range(
                     context.srcHandle.unsafeRawHandle, &context.srcOffset, context.dstHandle.unsafeRawHandle, &context.dstOffset,
                     8 * 1024 * 1024, 0
                 )
-                if byteCopied < 0 && errno == ENOSYS && context.srcOffset == 0 {
+                let handsOver = byteCopied < 0 && context.srcOffset == 0
+                    && (errno == ENOSYS || errno == EOPNOTSUPP || errno == EXDEV || errno == EINVAL)
+                if handsOver {
                     #if os(Linux) || os(Android)
                     context.mechanism = .sendfile
                     #else
