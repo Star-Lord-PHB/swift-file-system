@@ -183,7 +183,7 @@ extension CopyItemHandler {
     struct CopyDirContext: ~Copyable {
 
         fileprivate var dirStack: RecursiveCopyDirStack
-        fileprivate var enumerator: SkipableDirectoryEntryEnumerator
+        fileprivate var enumerator: DirectoryEntryRecursiveEnumerator
         fileprivate var skipCurrentDir: Bool = false
 
     }

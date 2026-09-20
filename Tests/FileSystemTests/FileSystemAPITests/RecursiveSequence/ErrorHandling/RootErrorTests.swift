@@ -111,7 +111,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests {
         #if canImport(WinSDK)
         // NOTE: FindFirstFile reports ERROR_DIRECTORY for a dangling symlink root, the same native
         // code as for a regular-file root; the two cases cannot be told apart without an extra
-        // path probe. POSIX FTS identifies the dangling root itself and reports notFound, matching
+        // path probe. POSIX opens the root itself with O_DIRECTORY and reports notFound, matching
         // the direct sequence on both platforms.
         #expect(error?.kind == .notADirectory)
         #else

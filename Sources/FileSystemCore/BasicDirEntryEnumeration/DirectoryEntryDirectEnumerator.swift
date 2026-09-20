@@ -73,7 +73,10 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
         #else
         while let entry = try dirStream?.next() {
             lazy var path = Self.extractPath(from: entry)
-            let type = Self.extractType(from: entry)
+            var type = Self.extractType(from: entry)
+            if type == .unknown, let dirfd = dirStream?.fileDescriptor {
+                type = (try? Self.type(ofItemAt: path, relativeTo: dirfd)) ?? .unknown
+            }
             if options.contains(.skipDir) && type == .directory { continue }
             if !options.contains(.includeDotEntries) && path.lastComponent?.kind != .regular { continue }
             return .init(path: path, type: type)
@@ -89,9 +92,11 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
         let nameLength = Int(systemEntry.pointee.FileNameLength) / MemoryLayout<WCHAR>.size
         return systemEntry.pointer(to: \.FileName).unsafeRawPtr
             .withMemoryRebound(to: WCHAR.self, capacity: nameLength) { wcharPtr in
-                var charArray = [WCHAR](UnsafeBufferPointer<WCHAR>(start: wcharPtr, count: nameLength))
-                charArray.append(0) // Null-terminate the string
-                return FilePath(platformString: charArray)
+                withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: nameLength + 1) { buffer in
+                    buffer.baseAddress!.initialize(from: wcharPtr, count: nameLength)
+                    (buffer.baseAddress! + nameLength).initialize(to: 0) // Null-terminate the string
+                    return FilePath(platformString: buffer.baseAddress!)
+                }
             }
         #else
         let nameLen = withUnsafeBytes(of: systemEntry.d_name) { $0.count }
@@ -130,6 +135,23 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
         #endif
 
     }
+
+
+    #if !canImport(WinSDK)
+    private static func type(ofItemAt path: FilePath, relativeTo dirfd: CInt) throws(LowLevelError) -> FileKind {
+
+        var st = stat()
+
+        try execThrowingCFunction {
+            path.withPlatformString { pathPtr in
+                fstatat(dirfd, pathPtr, &st, AT_SYMLINK_NOFOLLOW)
+            }
+        }
+
+        return .init(mode: st.st_mode)
+
+    }
+    #endif
 
 
     private mutating func _clean() throws(LowLevelError) {

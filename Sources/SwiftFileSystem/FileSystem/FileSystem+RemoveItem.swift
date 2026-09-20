@@ -70,20 +70,7 @@ package struct RecursiveRemoveItemHandler: ~Copyable {
                     // do nothing
                 }
                 
-                // `FTS_NOSTAT` lets fts skip stat calls, but the 4.4BSD-derived implementations
-                // (glibc before 2.44, musl-fts, OpenBSD, Bionic) then also stop entering
-                // subdirectories once `st_nlink - 2` of them have been seen in a directory.
-                // Filesystems whose directory link counts do not follow that convention hide
-                // subdirectories that way: Linux CIFS fakes 2 when the server reports none, and
-                // gnulib refuses the same optimization on NFS, AFS and /proc as well. Those
-                // platforms therefore stat each entry. FreeBSD's fts only trusts `st_nlink` on a
-                // whitelist of filesystems and Apple's takes entry types from `getattrlistbulk`
-                // without the heuristic.
-                #if canImport(Darwin) || os(FreeBSD)
-                self.enumerator = DirectoryEntryRecursiveEnumerator(path: rootPath, doStat: false)
-                #else
-                self.enumerator = DirectoryEntryRecursiveEnumerator(path: rootPath, doStat: true)
-                #endif
+                self.enumerator = DirectoryEntryRecursiveEnumerator(path: rootPath)
 
             }
 

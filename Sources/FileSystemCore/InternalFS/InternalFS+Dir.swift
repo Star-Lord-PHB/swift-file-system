@@ -46,6 +46,17 @@ extension InternalFS {
 
     }
 
+
+    fileprivate static func dirfd(of dirStream: OpaquePointer) -> CInt {
+
+        #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
+        let dirStream = UnsafeMutablePointer<DIR>(dirStream)
+        #endif 
+
+        return PlatformCLib.dirfd(dirStream)
+
+    }
+
     package struct PosixDirectoryStream: ~Copyable {
 
         private var dirStream: OpaquePointer
@@ -57,6 +68,10 @@ extension InternalFS {
 
         deinit {
             try? closedir(dirStream)
+        }
+
+        package var fileDescriptor: CInt {
+            dirfd(of: dirStream)
         }
 
         package mutating func next() throws(LowLevelError) -> dirent? {
@@ -72,71 +87,6 @@ extension InternalFS {
     }
 
     #endif
-
-}
-
-
-
-extension InternalFS {
-
-    #if !canImport(WinSDK)
-
-    package struct PosixFTSStream: ~Copyable {
-
-        private var entryStream: UnsafeMutablePointer<FTS>
-        
-        private(set) var closed: Bool = false
-
-
-        package init(path: FilePath, doStat: Bool = true, includeDots: Bool = true) throws(LowLevelError) {
-
-            var ftsFlags = FTS_PHYSICAL | FTS_NOCHDIR | FTS_COMFOLLOW
-            if includeDots {
-                ftsFlags |= FTS_SEEDOT
-            }
-            if doStat == false {
-                ftsFlags |= FTS_NOSTAT
-            }
-
-            let entryStream = path.withPlatformString { cStr in
-                fts_open([UnsafeMutablePointer<CChar>(mutating: cStr), nil], ftsFlags, nil)
-            }
-            guard let entryStream else {
-                try LowLevelError.assertError()
-            }
-
-            self.entryStream = entryStream
-
-        }
-
-        deinit {
-            guard closed == false else { return }
-            fts_close(entryStream)
-        }
-
-        package mutating func next() throws(LowLevelError) -> FTSENT? {
-
-            errno = 0
-
-            guard let entry = fts_read(entryStream) else {
-                try LowLevelError.check()
-                return nil
-            }
-
-            return entry.move()
-
-        }
-
-        package consuming func close() throws(LowLevelError) {
-            try execThrowingCFunction {
-                fts_close(self.entryStream)
-            }
-            closed = true
-        }
-
-    }
-
-    #endif 
 
 }
 

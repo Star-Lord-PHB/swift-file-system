@@ -92,7 +92,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
 
 
     @Test
-    func `Entries of a readable no-search directory report entry errors`() throws {
+    func `Entries of a readable no-search directory are listed with their directory-entry kinds`() throws {
 
         if geteuid() == 0 {
             try Test.cancel("Root is not subject to POSIX permission checks")
@@ -116,10 +116,9 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
         }
         let log = TraversalLog(elements: elements)
 
-        #expect(log.entries.map(\.path) == ["read-only"])
-        try #require(log.entryErrors.count == 1)
-        #expect(log.entryErrors[0].path == "read-only/inner")
-        #expect(log.entryErrors[0].error.kind == .permissionDenied)
+        #expect(log.entries.map(\.path) == ["read-only", "read-only/inner"])
+        #expect(log.entries.map(\.type) == [.directory, .regular])
+        #expect(log.entryErrors.isEmpty)
         #expect(log.cleanLeavingDirectories == ["read-only"])
         #expect(log.leavingDirectoryErrors.isEmpty)
         #expect(log.subTreeErrors.isEmpty)
