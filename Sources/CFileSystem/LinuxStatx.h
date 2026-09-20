@@ -1,13 +1,8 @@
 #ifdef __linux__
 
-#define _GNU_SOURCE
-
-#if defined(__has_include) && __has_include(<linux/stat.h>)
-#include <linux/stat.h>
-#endif
-
-#include <sys/stat.h>
+#include <sys/types.h>
 #include <stdint.h>
+#include <time.h>
 
 
 struct StatCompat {
@@ -29,9 +24,19 @@ struct StatCompat {
 };
 
 
-int systemFStatCompat(int32_t fd, struct StatCompat* outStat);
-int systemStatCompat(const char* path, int flags, struct StatCompat*const outStat);
+// statx(2)-shaped: dirfd, path and flags address the item exactly as the syscall does (AT_EMPTY_PATH with an
+// empty path for a handle, AT_FDCWD with a path otherwise, AT_SYMLINK_NOFOLLOW to stat a link itself); the
+// mask is fixed to the basic stats plus the birth time. Where the statx syscall is unavailable the result comes
+// from fstatat and carries neither a birth time (has_btime == 0) nor attributes.
+int _statx(int dirfd, const char *path, int flags, struct StatCompat *out);
 
+
+// Kernel ABI values, copied here because glibc gates AT_EMPTY_PATH behind _GNU_SOURCE and the STATX_ATTR_*
+// constants live in <linux/stat.h>, which the Swift side does not need otherwise.
+
+#ifndef AT_EMPTY_PATH
+#define AT_EMPTY_PATH 0x1000
+#endif
 
 #ifndef STATX_ATTR_COMPRESSED
 #define STATX_ATTR_COMPRESSED 0x00000004

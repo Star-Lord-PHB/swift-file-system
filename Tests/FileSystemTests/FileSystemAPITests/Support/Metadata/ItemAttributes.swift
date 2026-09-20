@@ -40,7 +40,7 @@ extension FileSystemTestSupport.ItemMetadata {
         var metadata = StatCompat()
         let flags = followSymlink ? CInt(0) : CInt(AT_SYMLINK_NOFOLLOW)
         let result = path.withPlatformString { pathPointer in
-            systemStatCompat(pathPointer, flags, &metadata)
+            _statx(AT_FDCWD, pathPointer, flags, &metadata)
         }
         try #require(result == 0, sourceLocation: sourceLocation)
         return .init(

@@ -25,7 +25,7 @@ extension InternalFS {
         #else
         try execThrowingCFunction {
             path.withPlatformString { pathStr in
-                systemStatCompat(pathStr, 0, &st)
+                _statx(AT_FDCWD, pathStr, 0, &st)
             }
         }
         #endif
@@ -48,7 +48,9 @@ extension InternalFS {
         }
         #else
         try execThrowingCFunction {
-            systemStatCompat(path.string, AT_SYMLINK_NOFOLLOW, &st)
+            path.withPlatformString { pathPtr in
+                _statx(AT_FDCWD, pathPtr, AT_SYMLINK_NOFOLLOW, &st)
+            }
         }
         #endif
         

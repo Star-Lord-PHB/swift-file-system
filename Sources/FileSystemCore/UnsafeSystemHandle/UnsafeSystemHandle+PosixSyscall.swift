@@ -76,7 +76,7 @@ extension UnsafeSystemHandle {
         }
         #else
         try execThrowingCFunction {
-            systemFStatCompat(unsafeRawHandle, &st)
+            _statx(unsafeRawHandle, "", AT_EMPTY_PATH, &st)
         }
         #endif
 
