@@ -31,15 +31,15 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
     #if canImport(Darwin)
 
-    // NOTE: Semantic noFollow derives O_SYMLINK on Darwin: the symlink itself opens instead of
+    // NOTE: `followSymlink: false` derives O_SYMLINK on Darwin: the symlink itself opens instead of
     // failing. Other POSIX platforms derive O_NOFOLLOW and report ELOOP; see the sibling test.
     @Test
-    func `noFollow opens the symlink itself`() throws {
+    func `followSymlink false opens the symlink itself`() throws {
 
         let target = try workspace.makeFile(at: "target", contents: "data")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let handle = try UnsafeSystemHandle.open(at: link, openOptions: .init(noFollow: true))
+        let handle = try UnsafeSystemHandle.open(at: link, openOptions: .init(followSymlink: false))
 
         #expect(try handle.type() == .symlink)
 
@@ -51,13 +51,13 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
     // NOTE: On Darwin the same options open the symlink itself; see the sibling test.
     @Test
-    func `noFollow reports pathResolutionFailed on a symlink`() throws {
+    func `followSymlink false reports pathResolutionFailed on a symlink`() throws {
 
         let target = try workspace.makeFile(at: "target", contents: "data")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let error = #expect(throws: LowLevelError.self) {
-            _ = try UnsafeSystemHandle.open(at: link, openOptions: .init(noFollow: true))
+            _ = try UnsafeSystemHandle.open(at: link, openOptions: .init(followSymlink: false))
         }
 
         #expect(error?.kind == .pathResolutionFailed)
@@ -68,7 +68,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
     #endif
 
 
-    // NOTE: Unlike semantic noFollow, the .posix.noFollow diff constant is O_NOFOLLOW on every
+    // NOTE: Unlike `followSymlink: false`, the .posix.noFollow diff constant is O_NOFOLLOW on every
     // POSIX platform including Darwin, so opening a symlink with it fails uniformly.
     @Test
     func `Inserted noFollow flag rejects a symlink`() throws {
@@ -90,11 +90,11 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
 
     @Test
-    func `noFollow open of a regular file succeeds`() throws {
+    func `followSymlink false opens a regular file`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "data")
 
-        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(noFollow: true))
+        let handle = try UnsafeSystemHandle.open(at: path, openOptions: .init(followSymlink: false))
 
         #expect(try handle.type() == .regular)
 
@@ -151,14 +151,14 @@ extension UnsafeSystemHandleAPITests.PosixTests {
     // NOTE: O_NOFOLLOW alone fails on a symlink; paired with O_PATH it addresses the symlink
     // itself, which is the portable way to hold a metadata handle to a link here.
     @Test
-    func `Metadata-only noFollow opens a symlink and reads its metadata`() throws {
+    func `Metadata-only followSymlink false opens a symlink and reads its metadata`() throws {
 
         let target = try workspace.makeFile(at: "target", contents: "data")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let handle = try UnsafeSystemHandle.open(
             at: link,
-            openOptions: .init(access: .none, noFollow: true)
+            openOptions: .init(access: .none, followSymlink: false)
         )
 
         #expect(try handle.type() == .symlink)

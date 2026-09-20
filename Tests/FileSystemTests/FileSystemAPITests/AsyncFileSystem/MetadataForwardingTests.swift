@@ -34,9 +34,9 @@ extension AsyncFileSystemAPITests.MetadataForwardingTests {
         let missingTarget = workspace.path("missing-target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: missingTarget)
 
-        let linkInfo = try await asyncFileSystem.info(ofItemAt: link, followSymlinks: false)
+        let linkInfo = try await asyncFileSystem.info(ofItemAt: link, followSymlink: false)
 
-        let expectedInfo = try fileSystem.info(ofItemAt: link, followSymlinks: false)
+        let expectedInfo = try fileSystem.info(ofItemAt: link, followSymlink: false)
         #expect(linkInfo == expectedInfo)
 
     }

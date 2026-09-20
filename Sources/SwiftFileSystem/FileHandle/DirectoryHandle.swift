@@ -24,7 +24,7 @@ extension DirectoryHandle {
 
         let systemOpenOptions = UnsafeSystemHandle.OpenOptions(
             access: .readOnly, 
-            noFollow: options.noFollow, 
+            followSymlink: !options.noFollow, 
             closeOnExec: options.closeOnExec, 
             platformOpenFlagsDiff: .inserted([.posix.directory, .windows.backupSemantics])
         )

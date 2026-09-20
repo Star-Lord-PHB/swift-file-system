@@ -39,9 +39,9 @@ public struct AsyncFileSystem: AsyncFileSystemProtocol {
 extension AsyncFileSystem {
 
     @concurrent
-    public func itemExists(at path: FilePath, followSymlinks: Bool = true) async -> Bool {
+    public func itemExists(at path: FilePath, followSymlink: Bool = true) async -> Bool {
         return await executor.run {
-            fileSystem.itemExists(at: path, followSymlinks: followSymlinks)
+            fileSystem.itemExists(at: path, followSymlink: followSymlink)
         }
     }
 

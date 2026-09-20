@@ -57,11 +57,11 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
 
 
     @Test
-    func `noFollow derives the platform no-follow flag`() {
+    func `followSymlink false derives the platform no-follow flag`() {
 
-        let options = Options(noFollow: true, closeOnExec: false)
+        let options = Options(followSymlink: false, closeOnExec: false)
 
-        // NOTE: On Darwin the semantic noFollow derives O_SYMLINK (open the symlink itself), while
+        // NOTE: On Darwin `followSymlink: false` derives O_SYMLINK (open the symlink itself), while
         // the `.posix.noFollow` diff constant stays O_NOFOLLOW (fail on a symlink). The two are
         // different flags with different semantics there; on other POSIX platforms both are
         // O_NOFOLLOW.

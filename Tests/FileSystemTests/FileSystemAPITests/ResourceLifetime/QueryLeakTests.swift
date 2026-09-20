@@ -40,7 +40,7 @@ extension ResourceLifetimeTests.QueryLeakTests {
             _ = try fileSystem.info(ofItemAt: path)
             _ = try fileSystem.info(ofItemAt: directory)
             _ = try fileSystem.info(ofItemAt: link)
-            _ = try fileSystem.info(ofItemAt: link, followSymlinks: false)
+            _ = try fileSystem.info(ofItemAt: link, followSymlink: false)
         }
 
     }

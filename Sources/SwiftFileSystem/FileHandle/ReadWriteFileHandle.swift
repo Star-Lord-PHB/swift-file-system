@@ -96,7 +96,7 @@ extension ReadWriteFileHandle {
             access: .readWrite, 
             creation: creationOption,
             truncate: options.truncate, 
-            noFollow: options.noFollow, 
+            followSymlink: !options.noFollow, 
             closeOnExec: options.closeOnExec
         )
 

@@ -305,7 +305,25 @@ extension UnsafeSystemHandle {
         public var creation: CreationOptions
         public var truncate: Bool
         public var append: Bool 
-        public var noFollow: Bool 
+        /// Whether a symbolic link at the final path component is resolved.
+        ///
+        /// `true` (the default) resolves the link and opens its target. `false` never resolves it: the
+        /// open addresses the link itself where the platform can hand out a handle to it and fails
+        /// otherwise, so it never falls through to the target. This is the `lstat`-style semantic
+        /// rather than POSIX `O_NOFOLLOW`, and the derived flag differs per platform:
+        ///
+        /// | Platform | Derived flag | Opening a symlink yields |
+        /// | -- | -- | -- |
+        /// | Windows | `FILE_FLAG_OPEN_REPARSE_POINT` | a handle to the link itself |
+        /// | Darwin | `O_SYMLINK` | a handle to the link itself, with any access mode |
+        /// | Linux | `O_NOFOLLOW` | a handle to the link itself only with `access == .none` (`O_PATH`); a data-access open fails with `ELOOP` |
+        /// | OpenBSD (no `O_PATH`) | `O_NOFOLLOW` | always fails with `ELOOP` |
+        ///
+        /// A regular file opens the same way with either value. To reject symlinks outright
+        /// (POSIX `O_NOFOLLOW` semantics), insert `.posix.noFollow` through ``platformOpenFlagsDiff``;
+        /// Windows has no native equivalent, so callers open the link itself and check
+        /// ``UnsafeSystemHandle/type()`` on the returned handle.
+        public var followSymlink: Bool
         public var closeOnExec: Bool
 
         public var platformCreationFlagsOverride: NativeCreationFlag?
@@ -319,7 +337,7 @@ extension UnsafeSystemHandle {
             creation: CreationOptions = .never, 
             truncate: Bool = false, 
             append: Bool = false, 
-            noFollow: Bool = false, 
+            followSymlink: Bool = true, 
             closeOnExec: Bool = true,
             platformCreationFlagsOverride: NativeCreationFlag? = nil,
             platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag> = .init(),
@@ -330,7 +348,7 @@ extension UnsafeSystemHandle {
             self.creation = creation
             self.truncate = truncate
             self.append = append
-            self.noFollow = noFollow
+            self.followSymlink = followSymlink
             self.closeOnExec = closeOnExec
             self.windowsExtraAccess = windowsExtraAccess
             self.platformCreationFlagsOverride = platformCreationFlagsOverride
@@ -414,7 +432,7 @@ extension UnsafeSystemHandle {
             #if canImport(WinSDK)
 
             flags |= FlagType(bitPattern: FILE_ATTRIBUTE_NORMAL)
-            if noFollow { flags |= FlagType(bitPattern: FILE_FLAG_OPEN_REPARSE_POINT) }
+            if !followSymlink { flags |= FlagType(bitPattern: FILE_FLAG_OPEN_REPARSE_POINT) }     // opens the reparse point itself
 
             return platformOpenFlagsDiff.apply(to: flags, mask: ~0)
 
@@ -422,10 +440,10 @@ extension UnsafeSystemHandle {
 
             if truncate { flags |= O_TRUNC }
             if append { flags |= O_APPEND }
-            #if canImport(Darwin)       // on Darwin, O_SYMLINK is used to avoid following symlinks
-            if noFollow { flags |= O_SYMLINK }
-            #else                       // on other POSIX systems, O_NOFOLLOW is used, but will fail if not used with O_PATH
-            if noFollow { flags |= O_NOFOLLOW }
+            #if canImport(Darwin)       // Darwin: O_SYMLINK opens the link itself with any access mode
+            if !followSymlink { flags |= O_SYMLINK }
+            #else                       // other POSIX: O_NOFOLLOW opens the link itself only with O_PATH, otherwise fails with ELOOP
+            if !followSymlink { flags |= O_NOFOLLOW }
             #endif 
             if closeOnExec { flags |= O_CLOEXEC }
 

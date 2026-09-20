@@ -115,7 +115,7 @@ extension FileInfoAPITests.QueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let info = try FileInfo(fileAt: link, followSymLink: false)
+        let info = try FileInfo(fileAt: link, followSymlink: false)
 
         #expect(info.type == .symlink)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))
@@ -128,7 +128,7 @@ extension FileInfoAPITests.QueryTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
-        let info = try FileInfo(fileAt: link, followSymLink: false)
+        let info = try FileInfo(fileAt: link, followSymlink: false)
 
         #expect(info.type == .symlink)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))

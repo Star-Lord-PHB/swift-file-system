@@ -143,7 +143,7 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
 
         #expect(Options().openFlags == DWORD(FILE_ATTRIBUTE_NORMAL))
         #expect(
-            Options(noFollow: true).openFlags
+            Options(followSymlink: false).openFlags
                 == DWORD(FILE_ATTRIBUTE_NORMAL) | DWORD(FILE_FLAG_OPEN_REPARSE_POINT)
         )
 
@@ -163,7 +163,7 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
     @Test
     func `Open-flags diff applies inserts and removes without a jurisdiction mask`() {
 
-        var options = Options(noFollow: true)
+        var options = Options(followSymlink: false)
 
         options.platformOpenFlagsDiff.insert(.windows.backupSemantics)
         options.platformOpenFlagsDiff.remove(.windows.openReparsePoint)

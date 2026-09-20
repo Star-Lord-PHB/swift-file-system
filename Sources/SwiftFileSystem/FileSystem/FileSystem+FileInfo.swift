@@ -4,8 +4,8 @@ import FileSystemCore
 
 extension FileSystem {
 
-    public func info(ofItemAt path: FilePath, followSymlinks: Bool = true) throws(PlatformError) -> FileInfo {
-        return try .init(fileAt: path, followSymLink: followSymlinks)
+    public func info(ofItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> FileInfo {
+        return try .init(fileAt: path, followSymlink: followSymlink)
     }
 
 

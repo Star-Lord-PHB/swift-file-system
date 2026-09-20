@@ -66,7 +66,7 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let info = try FileInfo(fileAt: link, followSymLink: false)
+        let info = try FileInfo(fileAt: link, followSymlink: false)
         let expected = try Support.ItemMetadata.captureAttributes(at: link)
 
         #expect(info.attributes == expected.values)

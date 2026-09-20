@@ -108,7 +108,7 @@ extension AppendHandle {
             creation: creationOption,
             truncate: options.truncate, 
             append: true,
-            noFollow: options.noFollow, 
+            followSymlink: !options.noFollow, 
             closeOnExec: options.closeOnExec
         )
 

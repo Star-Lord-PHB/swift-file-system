@@ -572,7 +572,7 @@ extension CopyItemHandler {
             at: path,
             openOptions: .init(
                 access: .none,
-                noFollow: true, 
+                followSymlink: false, 
                 platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
                 windowsExtraAccess: [.readControl, .readAttributes, .writeDAC, .writeAttributes]
             )
@@ -580,7 +580,7 @@ extension CopyItemHandler {
         #else
         return try UnsafeSystemHandle.open(
             at: path,
-            openOptions: .init(access: .readOnly, noFollow: true)
+            openOptions: .init(access: .readOnly, followSymlink: false)
         )
         #endif
     }

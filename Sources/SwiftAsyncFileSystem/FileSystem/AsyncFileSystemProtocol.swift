@@ -24,7 +24,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     // MARK: Basic Operations
 
     @concurrent
-    func itemExists(at path: FilePath, followSymlinks: Bool) async -> Bool
+    func itemExists(at path: FilePath, followSymlink: Bool) async -> Bool
 
     @concurrent
     func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, content: ByteBuffer?) async throws(PlatformError)
@@ -71,7 +71,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     // MARK: File Information Operations
 
     @concurrent
-    func info(ofItemAt path: FilePath, followSymlinks: Bool) async throws(PlatformError) -> FileInfo
+    func info(ofItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> FileInfo
 
     @concurrent
     func setTimes(

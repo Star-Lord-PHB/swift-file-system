@@ -63,7 +63,7 @@ extension UnsafeHandleContext {
         
         let openOptions = UnsafeSystemHandle.OpenOptions(
             access: access,
-            noFollow: options.noFollow,
+            followSymlink: !options.noFollow,
             closeOnExec: options.closeOnExec,
             platformOpenFlagsDiff: .inserted([.posix.nonBlocking, .posix.noCtty])
         )

@@ -69,8 +69,8 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let followedInfo = try FileInfo(fileAt: link, followSymLink: true)
-        let directInfo = try FileInfo(fileAt: link, followSymLink: false)
+        let followedInfo = try FileInfo(fileAt: link, followSymlink: true)
+        let directInfo = try FileInfo(fileAt: link, followSymlink: false)
         let followedExpectedIdentifier = try Support.ItemMetadata.captureIdentifier(at: target)
         let directExpectedIdentifier = try Support.ItemMetadata.captureIdentifier(at: link)
         let followedExpectedAttributes = try Support.ItemMetadata.captureAttributes(at: target)
@@ -97,11 +97,11 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
         try Support.makeWindowsJunction(at: junction, pointingTo: target)
 
         // A name-surrogate reparse point that is not a symlink is deliberately not modeled.
-        let directInfo = try FileInfo(fileAt: junction, followSymLink: false)
+        let directInfo = try FileInfo(fileAt: junction, followSymlink: false)
         #expect(directInfo.type == .unknown)
 
         // Following resolves the junction like a symlink and reports the target.
-        let followedInfo = try FileInfo(fileAt: junction, followSymLink: true)
+        let followedInfo = try FileInfo(fileAt: junction, followSymlink: true)
         #expect(followedInfo.type == .directory)
         let targetIdentifier = try Support.ItemMetadata.captureIdentifier(at: target)
         #expect(followedInfo.fileIdentifier == targetIdentifier)

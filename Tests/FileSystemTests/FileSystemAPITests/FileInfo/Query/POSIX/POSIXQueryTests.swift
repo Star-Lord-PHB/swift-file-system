@@ -61,8 +61,8 @@ extension FileInfoAPITests.QueryTests.POSIXQueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let followedInfo = try FileInfo(fileAt: link, followSymLink: true)
-        let directInfo = try FileInfo(fileAt: link, followSymLink: false)
+        let followedInfo = try FileInfo(fileAt: link, followSymlink: true)
+        let directInfo = try FileInfo(fileAt: link, followSymlink: false)
         let followedExpected = try Support.ItemMetadata.captureIdentifier(at: target)
         let directExpected = try Support.ItemMetadata.captureIdentifier(at: link)
 
@@ -120,7 +120,7 @@ extension FileInfoAPITests.QueryTests.POSIXQueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let info = try FileInfo(fileAt: link, followSymLink: false)
+        let info = try FileInfo(fileAt: link, followSymlink: false)
         let expected = try Support.ItemMetadata.captureAttributes(at: link)
 
         #expect(info.attributes == expected.values)

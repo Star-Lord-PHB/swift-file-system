@@ -50,7 +50,7 @@ extension FileSystemAPITests.ExistenceTests {
         let target = try workspace.makeFile(at: "target.txt")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        #expect(fileSystem.itemExists(at: link, followSymlinks: false))
+        #expect(fileSystem.itemExists(at: link, followSymlink: false))
 
     }
 
@@ -61,7 +61,7 @@ extension FileSystemAPITests.ExistenceTests {
         let missingTarget = workspace.path("missing-target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: missingTarget)
 
-        #expect(fileSystem.itemExists(at: link, followSymlinks: false))
+        #expect(fileSystem.itemExists(at: link, followSymlink: false))
 
     }
 

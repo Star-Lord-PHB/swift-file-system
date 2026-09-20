@@ -95,7 +95,7 @@ extension WriteFileHandle {
             access: .writeOnly, 
             creation: creationOption,
             truncate: options.truncate, 
-            noFollow: options.noFollow, 
+            followSymlink: !options.noFollow, 
             closeOnExec: options.closeOnExec
         )
 

@@ -106,7 +106,7 @@ extension InternalFS {
             at: path, 
             openOptions: .init(
                 access: .none, 
-                noFollow: !followSymlink, 
+                followSymlink: followSymlink, 
                 platformOpenFlagsDiff: .inserted(.windows.backupSemantics), 
                 windowsExtraAccess: .readAttributes
             )
@@ -169,7 +169,7 @@ extension InternalFS {
             at: path, 
             openOptions: .init(
                 access: .none,
-                noFollow: true, 
+                followSymlink: false, 
                 platformOpenFlagsDiff: .inserted(.windows.backupSemantics), 
                 windowsExtraAccess: .readAttributes
             )
@@ -225,7 +225,7 @@ extension InternalFS {
             at: path, 
             openOptions: .init(
                 access: .none,
-                noFollow: !followSymlink,
+                followSymlink: followSymlink,
                 platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
                 windowsExtraAccess: .writeAttributes
             )
@@ -296,7 +296,7 @@ extension InternalFS {
             at: path,
             openOptions: .init(
                 access: .none,
-                noFollow: !followSymlink,
+                followSymlink: followSymlink,
                 platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
                 windowsExtraAccess: .readAttributes
             )
@@ -340,7 +340,7 @@ extension InternalFS {
                 at: path,
                 openOptions: .init(
                     access: .none, 
-                    noFollow: false, 
+                    followSymlink: true, 
                     platformOpenFlagsDiff: .inserted(.windows.backupSemantics), 
                     windowsExtraAccess: .readAttributes
                 )
@@ -373,7 +373,7 @@ extension InternalFS {
                 at: path,
                 openOptions: .init(
                     access: .none,
-                    noFollow: false,
+                    followSymlink: true,
                     platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
                     windowsExtraAccess: .writeAttributes
                 )
@@ -410,14 +410,14 @@ extension InternalFS {
 
 
     package static func setFileInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(LowLevelError) {
-        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, noFollow: !followSymlink))
+        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, followSymlink: followSymlink))
         try fd.setFileInodeFlags(flags)
         try fd.close()
     }
 
 
     package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> LinuxInodeFlags {
-        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, noFollow: !followSymlink))
+        let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, followSymlink: followSymlink))
         let flags = try fd.fileInodeFlags()
         try fd.close()
         return flags

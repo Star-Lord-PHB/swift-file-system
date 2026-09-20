@@ -9,7 +9,7 @@ import WinSDK
 
 // Opening a reparse point with a truncating disposition can replace the symlink itself with an
 // empty file, so open() refuses that combination unless the caller states a native disposition
-// explicitly. The guard reads the effective open flags rather than the semantic noFollow
+// explicitly. The guard reads the effective open flags rather than the semantic followSymlink
 // property, and these tests pin both directions of that distinction.
 extension UnsafeSystemHandleAPITests.WindowsTests {
 
@@ -21,7 +21,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let error = #expect(throws: LowLevelError.self) {
             _ = try UnsafeSystemHandle.open(
                 at: path,
-                openOptions: .init(access: .writeOnly, truncate: true, noFollow: true)
+                openOptions: .init(access: .writeOnly, truncate: true, followSymlink: false)
             )
         }
 
@@ -37,7 +37,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
 
         let path = try workspace.makeFile(at: "file", contents: "contents")
 
-        // The semantic noFollow stays false: the flag arrives through the native diff, and the
+        // The semantic followSymlink stays true: the flag arrives through the native diff, and the
         // guard still sees it in the effective open flags.
         let error = #expect(throws: LowLevelError.self) {
             _ = try UnsafeSystemHandle.open(
@@ -61,14 +61,14 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
 
         let path = try workspace.makeFile(at: "file", contents: "contents")
 
-        // The semantic noFollow is set, but the diff takes the flag back out, so the effective
+        // The semantic followSymlink is false, but the diff takes the flag back out, so the effective
         // open flags no longer carry it.
         let handle = try UnsafeSystemHandle.open(
             at: path,
             openOptions: .init(
                 access: .writeOnly,
                 truncate: true,
-                noFollow: true,
+                followSymlink: false,
                 platformOpenFlagsDiff: .removed(.windows.openReparsePoint)
             )
         )
@@ -88,7 +88,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         var options = UnsafeSystemHandle.OpenOptions(
             access: .writeOnly,
             truncate: true,
-            noFollow: true
+            followSymlink: false
         )
         options.platformCreationFlagsOverride = .windows.truncateExisting
 
@@ -114,7 +114,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
                 access: .writeOnly,
                 creation: .assertMissing,
                 truncate: true,
-                noFollow: true
+                followSymlink: false
             )
         )
 
@@ -137,13 +137,13 @@ extension UnsafeSystemHandleAPITests.WindowsTests {
         let error = #expect(throws: LowLevelError.self) {
             _ = try UnsafeSystemHandle.open(
                 at: link,
-                openOptions: .init(access: .writeOnly, truncate: true, noFollow: true)
+                openOptions: .init(access: .writeOnly, truncate: true, followSymlink: false)
             )
         }
 
         #expect(error?.kind == .unsupported)
 
-        let linkHandle = try UnsafeSystemHandle.open(at: link, openOptions: .init(noFollow: true))
+        let linkHandle = try UnsafeSystemHandle.open(at: link, openOptions: .init(followSymlink: false))
 
         #expect(try linkHandle.type() == .symlink)
         #expect(try Data(contentsOf: URL(filePath: target.string)) == Data("target contents".utf8))

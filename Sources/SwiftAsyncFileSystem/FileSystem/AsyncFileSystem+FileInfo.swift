@@ -11,9 +11,9 @@ import SwiftFileSystem
 extension AsyncFileSystem {
 
     @concurrent
-    public func info(ofItemAt path: FilePath, followSymlinks: Bool = true) async throws(PlatformError) -> FileInfo {
+    public func info(ofItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> FileInfo {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.info(ofItemAt: path, followSymlinks: followSymlinks)
+            try fileSystem.info(ofItemAt: path, followSymlink: followSymlink)
         }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 

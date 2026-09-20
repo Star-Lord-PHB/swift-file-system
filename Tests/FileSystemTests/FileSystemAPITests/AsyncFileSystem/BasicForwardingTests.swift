@@ -47,7 +47,7 @@ extension AsyncFileSystemAPITests.BasicForwardingTests {
         let missingTarget = workspace.path("missing-target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: missingTarget)
 
-        #expect(await asyncFileSystem.itemExists(at: link, followSymlinks: false))
+        #expect(await asyncFileSystem.itemExists(at: link, followSymlink: false))
         #expect(await asyncFileSystem.itemExists(at: link) == false)
 
     }

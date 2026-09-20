@@ -12,22 +12,22 @@ public struct FileSystem: FileSystemProtocol {
 
 extension FileSystem {
 
-    public func itemExists(at path: FilePath, followSymlinks: Bool = true) -> Bool {
+    public func itemExists(at path: FilePath, followSymlink: Bool = true) -> Bool {
 
         #if canImport(WinSDK)
 
-        if followSymlinks {
+        if followSymlink {
             return (try? UnsafeSystemHandle.open(
                 at: path, 
-                openOptions: .init(access: .none, noFollow: false, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
+                openOptions: .init(access: .none, followSymlink: true, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )) != nil
         } else {
-            return (try? InternalFS.getFileAttributes(forItemAt: path, followSymlink: followSymlinks)) != nil
+            return (try? InternalFS.getFileAttributes(forItemAt: path, followSymlink: followSymlink)) != nil
         }
 
         #else
         
-        if followSymlinks {
+        if followSymlink {
             return (try? InternalFS.ustat(path)) != nil
         } else {
             return (try? InternalFS.ulstat(path)) != nil

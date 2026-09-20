@@ -6,7 +6,7 @@ public protocol FileSystemProtocol: Sendable {
 
     // MARK: Basic Operations
 
-    func itemExists(at path: FilePath, followSymlinks: Bool) -> Bool
+    func itemExists(at path: FilePath, followSymlink: Bool) -> Bool
 
     func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, content: ByteBuffer?) throws(PlatformError)
 
@@ -41,7 +41,7 @@ public protocol FileSystemProtocol: Sendable {
 
     // MARK: File Information Operations
 
-    func info(ofItemAt path: FilePath, followSymlinks: Bool) throws(PlatformError) -> FileInfo
+    func info(ofItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> FileInfo
 
     func setTimes(
         forItemAt path: FilePath,

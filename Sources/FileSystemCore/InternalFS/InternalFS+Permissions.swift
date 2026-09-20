@@ -110,7 +110,7 @@ extension InternalFS {
                 at: path,
                 openOptions: .init(
                     access: .none,
-                    noFollow: !followSymlink,
+                    followSymlink: followSymlink,
                     platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
                     windowsExtraAccess: accessFlags
                 )
@@ -153,7 +153,7 @@ extension InternalFS {
                 at: path,
                 openOptions: .init(
                     access: .none,
-                    noFollow: !followSymlink,
+                    followSymlink: followSymlink,
                     platformOpenFlagsDiff: .inserted(.windows.backupSemantics),
                     windowsExtraAccess: accessFlags
                 )
