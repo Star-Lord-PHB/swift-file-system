@@ -165,26 +165,37 @@ extension AsyncRecursiveSequenceAPITests.TraversalTests {
 
 
     @Test
-    func `Forwards the skip-dir option`() async throws {
+    func `Forwards the include-dot-entries option`() async throws {
 
         let path = try createSampleTree()
 
-        let sequence = AsyncDirectoryEntryRecursiveSequence(dirAt: path, options: .skipDir)
+        let sequence = AsyncDirectoryEntryRecursiveSequence(dirAt: path, options: .includeDotEntries)
         let elements = try await sequence.map { $0 }
         let contents = try recursiveContents(from: elements)
 
-        #expect(sequence.options == .skipDir)
+        #expect(sequence.options == .includeDotEntries)
         expectRecursiveDirContents(
             contents,
             entries: [
+                try entry(".", type: .directory),
+                try entry("..", type: .directory),
                 try entry("file", type: .regular),
+                try entry("subdir", type: .directory),
+                try entry("subdir/.", type: .directory),
+                try entry("subdir/..", type: .directory),
                 try entry("subdir/nested", type: .regular),
+                try entry("subdir/nested-dir", type: .directory),
+                try entry("subdir/nested-dir/.", type: .directory),
+                try entry("subdir/nested-dir/..", type: .directory),
                 try entry("subdir/nested-dir/deep", type: .regular),
                 try entry("file-link", type: .symlink),
                 try entry("dir-link", type: .symlink),
                 try entry("dangling-link", type: .symlink)
             ],
-            leavingDirectories: []
+            leavingDirectories: [
+                "subdir",
+                "subdir/nested-dir"
+            ]
         )
 
     }

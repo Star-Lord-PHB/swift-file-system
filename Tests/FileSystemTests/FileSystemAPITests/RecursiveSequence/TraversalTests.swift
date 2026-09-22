@@ -195,43 +195,6 @@ extension RecursiveSequenceAPITests.TraversalTests {
 
 
     @Test
-    func `Skip-dir hides directory markers but still visits descendants`() throws {
-
-        let path = try workspace.makeFixture(
-            at: "directory",
-            [
-                "file": .file(contents: "contents"),
-                "subdir": [
-                    "nested": .file(contents: "nested contents"),
-                    "nested-dir": [
-                        "deep": .file(contents: "deep contents")
-                    ]
-                ],
-                "dir-link": .symlink(target: "subdir")
-            ]
-        )
-
-        let sequence = DirectoryEntryRecursiveSequence(dirAt: path, options: .skipDir)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
-        let contents = try recursiveContents(from: elements)
-
-        expectRecursiveDirContents(
-            contents,
-            entries: [
-                try entry("file", type: .regular),
-                try entry("subdir/nested", type: .regular),
-                try entry("subdir/nested-dir/deep", type: .regular),
-                try entry("dir-link", type: .symlink)
-            ],
-            leavingDirectories: []
-        )
-
-    }
-
-
-    @Test
     func `Include-dot-entries adds dot entries of every visited directory`() throws {
 
         let path = try workspace.makeFixture(

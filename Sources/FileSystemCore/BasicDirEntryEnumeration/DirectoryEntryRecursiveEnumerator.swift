@@ -67,12 +67,12 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     }
 
 
-    package mutating func next(skipCurrentDir: Bool = false) throws(LowLevelError) -> Element? {
+    package mutating func next(skipCurrentDir: Bool = false, skipDescendants: Bool = false) throws(LowLevelError) -> Element? {
 
         guard !ended else { return nil }
     
         do {
-            if let entry = try _next(skipCurrentDir: skipCurrentDir) {
+            if let entry = try _next(skipCurrentDir: skipCurrentDir, skipDescendants: skipDescendants) {
                 return entry
             } else {
                 try endIter()
@@ -86,11 +86,12 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
     }
 
 
-    private mutating func _next(skipCurrentDir: Bool = false) throws(LowLevelError) -> Element? {
+    private mutating func _next(skipCurrentDir: Bool = false, skipDescendants: Bool = false) throws(LowLevelError) -> Element? {
 
         guard !ended else { return nil }
 
         var skipCurrentDir = skipCurrentDir
+        var skipDescendants = skipDescendants
     
         #if canImport(WinSDK)
 
@@ -107,6 +108,9 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 // by the `rootPath`. So ideally, the num of opened dir handles should be 1 larger than the num of file names in `relativePathStack`.
                 // In this case, the top handle in `findHandleStack` is the current dir we are traversing. 
 
+                // We are not entering a new subdir, so this option is not useful
+                skipDescendants = false
+
                 // temporarily pop the handle on stack top for reading the next entry
                 guard var findHandle = findHandleStack.popLast() else { return nil }
 
@@ -116,15 +120,11 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                     // deliberately emits nothing; see the other branch below.)
                     // Skipping the root ends the whole enumeration: it is never emitted as an entry and its
                     // relative path is empty, so it cannot be named by a `leavingDir` element either.
+                    skipCurrentDir = false
                     if relativePathStack.isEmpty { return nil }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
-                    if options.contains(.skipDir) {
-                        skipCurrentDir = false
-                        continue
-                    } else {
-                        return .leavingDir(leavingDirPath, nil)
-                    }
+                    return .leavingDir(leavingDirPath, nil)
                 }
 
                 do {
@@ -136,11 +136,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                         // Return back to the parent directory (findHandle will be closed automatically in deinit)
                         let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                         relativePathStack.removeLastComponent()
-                        if options.contains(.skipDir) {
-                            continue
-                        } else {
-                            return .leavingDir(leavingDirPath, nil)
-                        }
+                        return .leavingDir(leavingDirPath, nil)
                     }
                 } catch {
                     // if any error occurs, we need to stop traversing this dir and return back to the parent dir
@@ -162,12 +158,12 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 // enter a new subdir, whose file name is the top file name in `relativePathStack`, but the corresponding dir handle has not been 
                 // opened yet. In this case, we open a new dir handle for this subdir and push it onto `findHandleStack`.
 
-                if skipCurrentDir {
+                if skipCurrentDir || skipDescendants {
                     // Skipping a dir before its contents have been accessed at all means "do not enter it", so
                     // no `leavingDir` element is emitted for it (unlike the early-leave case in the branch above).
                     if relativePathStack.isEmpty { return nil }
                     relativePathStack.removeLastComponent()
-                    skipCurrentDir = false
+                    skipDescendants = false
                     continue
                 }
 
@@ -209,11 +205,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 relativePathStack.append(name)
             }
 
-            if options.contains(.skipDir) && type == .directory {
-                continue
-            } else {
-                return DirectoryEntry(path: path, type: type).map { .entry($0) }
-            }
+            return DirectoryEntry(path: path, type: type).map { .entry($0) }
 
         }
 
@@ -227,6 +219,9 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
             if entryStreamStack.count == relativePathStack.components.count + 1 {
 
+                // We are not entering a new subdir, so this option is not useful
+                skipDescendants = false
+
                 guard var entryStream = entryStreamStack.popLast() else { return nil }
 
                 if skipCurrentDir {
@@ -235,15 +230,11 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                     // deliberately emits nothing; see the other branch below.)
                     // Skipping the root ends the whole enumeration: it is never emitted as an entry and its
                     // relative path is empty, so it cannot be named by a `leavingDir` element either.
+                    skipCurrentDir = false
                     if relativePathStack.isEmpty { return nil }
                     let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                     relativePathStack.removeLastComponent()
-                    if options.contains(.skipDir) {
-                        skipCurrentDir = false
-                        continue
-                    } else {
-                        return .leavingDir(leavingDirPath, nil)
-                    }
+                    return .leavingDir(leavingDirPath, nil)
                 }
 
                 do {
@@ -255,11 +246,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                         // Return back to the parent directory (stream closing will be done automatically in deinit)
                         let leavingDirPath = FilePath(root: nil, relativePathStack.components)
                         relativePathStack.removeLastComponent()
-                        if options.contains(.skipDir) {
-                            continue
-                        } else {
-                            return .leavingDir(leavingDirPath, nil)
-                        }
+                        return .leavingDir(leavingDirPath, nil)
                     }
                 } catch {
                     // if any error occurs, we need to stop traversing this dir and return back to the parent dir
@@ -279,12 +266,12 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
 
                 // Entering a new subdir
 
-                if skipCurrentDir {
+                if skipCurrentDir || skipDescendants {
                     // Skipping a dir before its contents have been accessed at all means "do not enter it", so
                     // no `leavingDir` element is emitted for it (unlike the early-leave case in the branch above).
                     if relativePathStack.isEmpty { return nil }
                     relativePathStack.removeLastComponent()
-                    skipCurrentDir = false
+                    skipDescendants = false
                     continue
                 }
 
@@ -335,11 +322,7 @@ package struct DirectoryEntryRecursiveEnumerator: ~Copyable {
                 // stream will be opened
                 relativePathStack.append(name)
             }
-            if options.contains(.skipDir) && type == .directory {
-                continue
-            } else {
-                return DirectoryEntry(path: path, type: type).map { .entry($0) }
-            }
+            return DirectoryEntry(path: path, type: type).map { .entry($0) }
 
         }
 

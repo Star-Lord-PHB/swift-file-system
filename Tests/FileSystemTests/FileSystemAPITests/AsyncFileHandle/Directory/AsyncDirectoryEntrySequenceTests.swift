@@ -101,13 +101,16 @@ extension AsyncFileHandleAPITests.DirectoryTests.EntrySequenceTests {
         )
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
 
-        let sequence = handle.entrySequence(options: .skipDir)
+        let sequence = handle.entrySequence(options: .includeDotEntries)
         let entries = try await sequence.map { $0 }
 
         expectEntries(
             entries,
             match: [
+                try entry(".", type: .directory),
+                try entry("..", type: .directory),
                 try entry("file", type: .regular),
+                try entry("subdir", type: .directory),
                 try entry("dir-link", type: .symlink)
             ]
         )

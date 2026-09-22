@@ -48,10 +48,21 @@ extension AsyncDirectoryEntryRecursiveSequence {
 
     public struct AsyncIterator: ~Copyable {
 
+        private enum SkipRequest {
+            case none
+            case skipDescendants
+            case skipCurrentDir
+        }
+
         var syncIterator: DirectoryEntryRecursiveSequence.Iterator
         public let executor: AsyncFileSystemExecutor
 
         private var batch: Deque<DirectoryEntryRecursiveSequenceElement> = .init()
+
+        private var prevEmittedElementIsDir: Bool = false
+        private var prevEmittedElementPathLength: Int = 0
+        private var skipRequest: SkipRequest = .none
+
         private var pendingErr: PlatformError?
         public let batchCount: Int
 
@@ -70,21 +81,92 @@ extension AsyncDirectoryEntryRecursiveSequence {
         }
 
 
+        public mutating func skipDescendants() {
+            if skipRequest == .none && prevEmittedElementIsDir {
+                skipRequest = .skipDescendants
+            }
+        }
+
+
+        public mutating func skipCurrentDir() {
+            skipRequest = .skipCurrentDir
+        }
+
+
         @concurrent
         public mutating func next() async throws(PlatformError) -> DirectoryEntryRecursiveSequenceElement? {
+
+            defer { skipRequest = .none }
 
             if Task.isCancelled {
                 throw .taskCancelled(operation: .readDirectory(rootPath))
             }
 
+            var iteratorPopTargetLength = nil as Int?
+
+            if skipRequest == .skipDescendants && batch.isEmpty {
+
+                syncIterator.skipDescendants()
+
+            } else if skipRequest != .none {
+
+                iteratorPopTargetLength = switch skipRequest {
+                    case .skipDescendants: prevEmittedElementPathLength
+                    case .skipCurrentDir: prevEmittedElementPathLength - 1
+                    case .none: fatalError("Unreachable")
+                }
+
+                while let element = batch.popFirst() {
+                    if element.path.components.count == iteratorPopTargetLength {
+                        switch element {
+                            case .leavingDir, .subTreeError: break
+                            default: assertionFailure("Expected the element closing the skipped region, got \(element)")
+                        }
+                        if skipRequest == .skipCurrentDir {
+                            batch.prepend(.leavingDir(element.path, nil))
+                        }
+                        iteratorPopTargetLength = nil   // target reached, no need to pop the iterator
+                        break
+                    }
+                }
+
+            }
+
+            precondition(
+                (iteratorPopTargetLength != nil && !batch.isEmpty) == false,
+                "The batch must be empty if the iterator needs to pop back to some level"
+            )
+
             if let entry = batch.popFirst() {
+                recordEmittedElement(entry)
                 return entry
             }
 
-            if let pendingErr = pendingErr.take() { throw pendingErr }
-
-            try await executor.runCancellable {
-                for _ in 0 ..< batchCount {
+            try await executor.runCancellable { () throws(PlatformError) in
+                var poppedCount = 0
+                if let iteratorPopTargetLength {
+                    iteratorPopLoop: while true {
+                        poppedCount += 1
+                        syncIterator.skipCurrentDir()
+                        switch syncIterator.next() {
+                            case .none: 
+                                return
+                            case .failure(let err):
+                                // here the batch must be empty, so we can throw the error directly without using pendingErr
+                                throw err
+                            case .success(.entry), .success(.entryError):
+                                preconditionFailure("Expected to skip a directory and and should not emit an entry element")
+                            case .success(let element) where element.path.components.count == iteratorPopTargetLength:
+                                if skipRequest == .skipCurrentDir {
+                                    batch.append(element)
+                                }
+                                break iteratorPopLoop
+                            case .success(.leavingDir), .success(.subTreeError):
+                                continue
+                        }
+                    }
+                }
+                for _ in 0 ..< max(batchCount - poppedCount, 1) {
                     switch syncIterator.next() {
                         case .none: 
                             return
@@ -99,13 +181,27 @@ extension AsyncDirectoryEntryRecursiveSequence {
             .get(mappingCancellation: PlatformError.taskCancelled(operation: .readDirectory(rootPath)))
 
             if let entry = batch.popFirst() {
+                recordEmittedElement(entry)
                 return entry
+            } else if skipRequest == .skipCurrentDir {
+                // Here the root dir is being skipped, previous pending error is ignored due to early exit
+                pendingErr = nil
+                return nil
             } else if let pendingErr = pendingErr.take() {
                 throw pendingErr
             } else {
                 return nil
             }
 
+        }
+
+
+        private mutating func recordEmittedElement(_ element: DirectoryEntryRecursiveSequenceElement) {
+            prevEmittedElementIsDir = switch element {
+                case .entry(let entry): entry.type == .directory && entry.path.lastComponent?.kind == .regular
+                default: false
+            }
+            prevEmittedElementPathLength = element.path.components.count
         }
 
     }

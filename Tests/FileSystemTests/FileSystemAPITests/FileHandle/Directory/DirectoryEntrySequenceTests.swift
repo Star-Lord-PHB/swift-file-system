@@ -91,7 +91,7 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
         )
         let handle = try DirectoryHandle(forDirAt: path)
 
-        let sequence = handle.entrySequence(options: .skipDir)
+        let sequence = handle.entrySequence(options: .includeDotEntries)
         let entries = try sequence.map { result in
             try result.get()
         }
@@ -99,7 +99,10 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
         expectEntries(
             entries,
             match: [
+                try entry(".", type: .directory),
+                try entry("..", type: .directory),
                 try entry("file", type: .regular),
+                try entry("subdir", type: .directory),
                 try entry("dir-link", type: .symlink)
             ]
         )

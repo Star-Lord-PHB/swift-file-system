@@ -60,6 +60,9 @@ extension DirectoryEntryRecursiveSequence {
 
         private var enumerator: DirectoryEntryRecursiveEnumerator
 
+        private var skipDescendantsRequested: Bool = false
+        private var skipCurrentDirRequested: Bool = false
+
         public var rootPath: FilePath { enumerator.rootPath }
         
 
@@ -68,13 +71,34 @@ extension DirectoryEntryRecursiveSequence {
         }
 
 
+        public mutating func skipDescendants() {
+            if !enumerator.currentDirRelativePath.isEmpty {
+                skipDescendantsRequested = true
+            }
+        }
+
+
+        public mutating func skipCurrentDir() {
+            skipCurrentDirRequested = true
+        }
+
+
         public mutating func next() -> Element? {
+
+            defer { 
+                skipDescendantsRequested = false
+                skipCurrentDirRequested = false
+            }
 
             do {
 
                 return try catchLowLevelError(operation: .readDirectory(rootPath)) { () throws(LowLevelError) in
 
-                    return try enumerator.next().map { element in
+                    return try enumerator.next(
+                        skipCurrentDir: skipCurrentDirRequested, 
+                        skipDescendants: skipDescendantsRequested
+                    )
+                    .map { element in
 
                         let element = switch element {
                             case .entry(let entry): 

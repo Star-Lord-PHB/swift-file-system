@@ -184,7 +184,7 @@ extension CopyItemHandler {
 
         fileprivate var dirStack: RecursiveCopyDirStack
         fileprivate var enumerator: DirectoryEntryRecursiveEnumerator
-        fileprivate var skipCurrentDir: Bool = false
+        fileprivate var skipDescendants: Bool = false
 
     }
 
@@ -347,10 +347,10 @@ extension CopyItemHandler {
         }
 
         let entryResult = Result { () throws(LowLevelError) in
-            try context.enumerator.next(skipCurrentDir: context.skipCurrentDir)
+            try context.enumerator.next(skipDescendants: context.skipDescendants)
         }
 
-        context.skipCurrentDir = false
+        context.skipDescendants = false
 
         let entry: DirectoryEntry
 
@@ -398,9 +398,9 @@ extension CopyItemHandler {
                     case .skipped(let srcAccessTime):
                         context.dirStack.push(name: entry.name, attrs: .skipped(srcAccessTime: srcAccessTime))
                     case .skippedNonDir:
-                        context.skipCurrentDir = true
+                        context.skipDescendants = true
                     case .error:
-                        context.skipCurrentDir = true
+                        context.skipDescendants = true
                 }
             default:
                 // sockets, fifos, devices, and (on Windows) reparse points that are not symlinks cannot be

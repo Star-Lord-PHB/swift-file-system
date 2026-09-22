@@ -115,64 +115,6 @@ extension FileSystemAPITests.DirectoryContentsTests {
 
 
     @Test
-    func `Skip-dir excludes dirs but keeps symlinks`() throws {
-
-        let path = try workspace.makeFixture(
-            at: "directory",
-            [
-                "file": .file(contents: "contents"),
-                "subdir": [
-                    "nested": .file(contents: "nested contents")
-                ],
-                "dir-link": .symlink(target: "subdir")
-            ]
-        )
-
-        let contents = try fileSystem.contentsOfDirectory(
-            at: path,
-            options: .skipDir
-        )
-
-        expectContents(
-            contents,
-            matches: [
-                try entry("file", type: .regular),
-                try entry("dir-link", type: .symlink)
-            ]
-        )
-
-    }
-
-
-    @Test
-    func `Skip-dir also excludes included dot entries`() throws {
-
-        let path = try workspace.makeFixture(
-            at: "directory",
-            [
-                "file": .file(contents: "contents"),
-                "subdir": [
-                    "nested": .file(contents: "nested contents")
-                ]
-            ]
-        )
-
-        let contents = try fileSystem.contentsOfDirectory(
-            at: path,
-            options: [.includeDotEntries, .skipDir]
-        )
-
-        expectContents(
-            contents,
-            matches: [
-                try entry("file", type: .regular)
-            ]
-        )
-
-    }
-
-
-    @Test
     func `Directory symlink enumerates its target`() throws {
 
         let target = try workspace.makeFixture(

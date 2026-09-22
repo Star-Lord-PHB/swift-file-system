@@ -68,34 +68,6 @@ extension AsyncFileHandleAPITests.DirectoryTests {
 
 
     @Test
-    func `Entries forward the skip-dir option`() async throws {
-
-        let path = try workspace.makeFixture(
-            at: "directory",
-            [
-                "file": .file(contents: "contents"),
-                "subdir": [:],
-                "dir-link": .symlink(target: "subdir")
-            ]
-        )
-        let handle = try await AsyncDirectoryHandle(forDirAt: path)
-
-        let entries = try await handle.entries(options: .skipDir)
-
-        expectEntries(
-            entries,
-            match: [
-                try entry("file", type: .regular),
-                try entry("dir-link", type: .symlink)
-            ]
-        )
-
-        try await handle.close()
-
-    }
-
-
-    @Test
     func `Entries can be listed repeatedly from the same handle`() async throws {
 
         let path = try workspace.makeFixture(
@@ -109,7 +81,7 @@ extension AsyncFileHandleAPITests.DirectoryTests {
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
 
         let first = try await handle.entries()
-        let second = try await handle.entries(options: .skipDir)
+        let second = try await handle.entries(options: .includeDotEntries)
         let third = try await handle.entries()
 
         expectEntries(
@@ -123,8 +95,11 @@ extension AsyncFileHandleAPITests.DirectoryTests {
         expectEntries(
             second,
             match: [
+                try entry(".", type: .directory),
+                try entry("..", type: .directory),
                 try entry("file-a", type: .regular),
-                try entry("file-b", type: .regular)
+                try entry("file-b", type: .regular),
+                try entry("subdir", type: .directory)
             ]
         )
         expectEntries(third, match: Set(first))
