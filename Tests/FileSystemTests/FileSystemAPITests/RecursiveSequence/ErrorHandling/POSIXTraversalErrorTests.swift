@@ -149,6 +149,45 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
 
     }
 
+
+
+    // Skipping the directory keeps the iterator from trying to open it, so the failure it would have reported
+    // never happens: the outcome is the traversal with the directory's region, here its sub-tree error, removed.
+    @Test
+    func `Skipping descendants of an unreadable directory reports no sub-tree error`() throws {
+
+        if geteuid() == 0 {
+            try Test.cancel("Root is not subject to POSIX permission checks")
+        }
+
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "a-file": .file(contents: "a"),
+                "locked": [
+                    "inner": .file(contents: "inner contents")
+                ],
+                "z-file": .file(contents: "z")
+            ]
+        )
+        let lockedPath = path.appending("locked")
+        try setPermissions(0o000, at: lockedPath)
+        defer { restoreDefaultDirectoryPermissions(at: lockedPath) }
+
+        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
+        let baseline = try RecursiveSequenceAPITests.run(sequence)
+        let expected = try baseline.removingRegion(of: "locked")
+
+        let elements = try RecursiveSequenceAPITests.run(
+            sequence,
+            triggers: [.init(after: .entry("locked", .directory), .skipDescendants)]
+        )
+
+        #expect(baseline.contains(.subTreeError("locked", .permissionDenied)))
+        #expect(elements == expected)
+
+    }
+
 }
 
 #endif

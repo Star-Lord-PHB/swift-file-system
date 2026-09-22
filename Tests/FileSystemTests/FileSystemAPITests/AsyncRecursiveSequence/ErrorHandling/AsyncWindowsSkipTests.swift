@@ -4,16 +4,18 @@ import WinSDK
 import SystemPackage
 import Testing
 import SwiftFileSystem
+import SwiftAsyncFileSystem
 
 
 
-extension RecursiveSequenceAPITests.ErrorHandlingTests {
+extension AsyncRecursiveSequenceAPITests.ErrorHandlingTests {
 
-    @Suite("Windows traversal errors")
-    struct WindowsTraversalErrorTests {
+    @Suite("Windows skip over sub-tree errors")
+    struct WindowsSkipTests {
 
-        typealias Support = RecursiveSequenceAPITests.Support
-        typealias TraversalLog = RecursiveSequenceAPITests.ErrorHandlingTests.TraversalLog
+        typealias Support = AsyncRecursiveSequenceAPITests.Support
+        typealias ElementShape = AsyncRecursiveSequenceAPITests.ElementShape
+        typealias SkipTrigger = AsyncRecursiveSequenceAPITests.SkipTrigger
 
         let workspace: Support.Workspace
 
@@ -28,7 +30,8 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests {
 
 
 
-extension RecursiveSequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTests {
+// NOTE: `SwiftFileSystem` is imported for the synchronous oracle only; see `AsyncSkipSupport.swift`.
+extension AsyncRecursiveSequenceAPITests.ErrorHandlingTests.WindowsSkipTests {
 
     private func denyListing(
         at path: FilePath,
@@ -83,8 +86,10 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTest
     }
 
 
-    @Test
-    func `List-denied subdirectory reports a sub-tree error and siblings are still visited`() throws {
+    @Test(arguments: [1, 2, 3, 4, 128])
+    func `Skipping descendants of a list-denied directory yields the same elements as the synchronous iterator`(
+        batchCount: Int
+    ) async throws {
 
         let path = try workspace.makeFixture(
             at: "directory",
@@ -101,79 +106,60 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTest
         defer { restoreFullAccess(at: lockedPath) }
         try requireListingDenied(at: lockedPath)
 
-        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
-        let log = TraversalLog(elements: elements)
-
-        #expect(log.entries.map(\.path).contains("a-file"))
-        #expect(log.entries.map(\.path).contains("z-file"))
-        #expect(log.entries.map(\.path).contains("locked"))
-        #expect(!log.entries.map(\.path).contains("locked/inner"))
-        try #require(log.subTreeErrors.count == 1)
-        #expect(log.subTreeErrors[0].path == "locked")
-        #expect(log.subTreeErrors[0].error.kind == .permissionDenied)
-        #expect(log.cleanLeavingDirectories.isEmpty)
-        #expect(log.leavingDirectoryErrors.isEmpty)
-        #expect(log.entryErrors.isEmpty)
-
-    }
-
-
-    @Test
-    func `Recursive sequence reports a list-denied root and ends`() throws {
-
-        let path = try workspace.makeDirectory(at: "locked-root")
-        try denyListing(at: path)
-        defer { restoreFullAccess(at: path) }
-        try requireListingDenied(at: path)
-
-        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        var iterator = sequence.makeIterator()
-
-        let first = iterator.next()
-        let error = #expect(throws: PlatformError.self) {
-            try first?.get()
-        }
-        #expect(error?.kind == .permissionDenied)
-        #expect(iterator.next() == nil)
-
-    }
-
-
-
-    // Skipping the directory keeps the iterator from trying to open it, so the failure it would have reported
-    // never happens: the outcome is the traversal with the directory's region, here its sub-tree error, removed.
-    @Test
-    func `Skipping descendants of a list-denied directory reports no sub-tree error`() throws {
-
-        let path = try workspace.makeFixture(
-            at: "directory",
-            [
-                "a-file": .file(contents: "a"),
-                "locked": [
-                    "inner": .file(contents: "inner contents")
-                ],
-                "z-file": .file(contents: "z")
-            ]
-        )
-        let lockedPath = path.appending("locked")
-        try denyListing(at: lockedPath)
-        defer { restoreFullAccess(at: lockedPath) }
-        try requireListingDenied(at: lockedPath)
-
-        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let baseline = try RecursiveSequenceAPITests.run(sequence)
-        let expected = try baseline.removingRegion(of: "locked")
-
-        let elements = try RecursiveSequenceAPITests.run(
-            sequence,
-            triggers: [.init(after: .entry("locked", .directory), .skipDescendants)]
+        let trigger = SkipTrigger(after: .entry("locked", .directory), .skipDescendants)
+        let expected = try AsyncRecursiveSequenceAPITests.runSync(
+            DirectoryEntryRecursiveSequence(dirAt: path),
+            triggers: [trigger]
         )
 
-        #expect(baseline.contains(.subTreeError("locked", .permissionDenied)))
+        let sequence = AsyncDirectoryEntryRecursiveSequence(dirAt: path, batchCount: batchCount)
+        let elements = try await AsyncRecursiveSequenceAPITests.run(sequence, triggers: [trigger])
+
         #expect(elements == expected)
+        #expect(!elements.contains(.subTreeError("locked", .permissionDenied)))
+
+    }
+
+
+    // With the larger batches the sub-tree error of the list-denied directory is already buffered inside the
+    // skipped region, where it is the closing element of that directory rather than one more entry.
+    @Test(arguments: [1, 2, 3, 4, 128])
+    func `Skipping descendants of a directory holding a list-denied one yields the same elements as the synchronous iterator`(
+        batchCount: Int
+    ) async throws {
+
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "dir1": [
+                    "f1": .file(contents: "f1"),
+                    "locked": [
+                        "inner": .file(contents: "inner contents")
+                    ],
+                    "g1": .file(contents: "g1"),
+                    "sub": [
+                        "deep": .file(contents: "deep")
+                    ]
+                ],
+                "z-file": .file(contents: "z")
+            ]
+        )
+        let lockedPath = path.appending("dir1/locked")
+        try denyListing(at: lockedPath)
+        defer { restoreFullAccess(at: lockedPath) }
+        try requireListingDenied(at: lockedPath)
+
+        let trigger = SkipTrigger(after: .entry("dir1", .directory), .skipDescendants)
+        let expected = try AsyncRecursiveSequenceAPITests.runSync(
+            DirectoryEntryRecursiveSequence(dirAt: path),
+            triggers: [trigger]
+        )
+
+        let sequence = AsyncDirectoryEntryRecursiveSequence(dirAt: path, batchCount: batchCount)
+        let elements = try await AsyncRecursiveSequenceAPITests.run(sequence, triggers: [trigger])
+
+        #expect(elements == expected)
+        #expect(!elements.contains { $0.path.starts(with: "dir1") && $0.path != "dir1" })
 
     }
 
