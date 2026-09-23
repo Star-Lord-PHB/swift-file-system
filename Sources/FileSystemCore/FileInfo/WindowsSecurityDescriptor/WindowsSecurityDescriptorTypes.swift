@@ -72,18 +72,18 @@ public struct WindowsSecurityDescriptorControl: Sendable, Equatable, Hashable, E
         return self.removing(flag)
     }
 
-    public static var daclProtected: Self {
-        .init(unsafeRawValue: .init(SE_DACL_PROTECTED))
-    }
-    public static var saclProtected: Self {
-        .init(unsafeRawValue: .init(SE_SACL_PROTECTED))
-    }
-    public static var daclAutoInheritReq: Self {
-        .init(unsafeRawValue: .init(SE_DACL_AUTO_INHERIT_REQ))
-    }
-    public static var saclAutoInheritReq: Self {
-        .init(unsafeRawValue: .init(SE_SACL_AUTO_INHERIT_REQ))
-    }
+    /// `SE_DACL_PROTECTED`
+    public static var daclProtected: Self { [.daclProtected] }
+    /// `SE_SACL_PROTECTED`
+    public static var saclProtected: Self { [.saclProtected] }
+    /// `SE_DACL_AUTO_INHERIT_REQ`
+    public static var daclAutoInheritReq: Self { [.daclAutoInheritReq] }
+    /// `SE_SACL_AUTO_INHERIT_REQ`
+    public static var saclAutoInheritReq: Self { [.saclAutoInheritReq] }
+    /// `SE_DACL_AUTO_INHERITED`
+    public static var daclAutoInherited: Self { [.daclAutoInherited] }
+    /// `SE_SACL_AUTO_INHERITED`
+    public static var saclAutoInherited: Self { [.saclAutoInherited] }
 
     @inlinable
     public var description: String {
@@ -92,7 +92,8 @@ public struct WindowsSecurityDescriptorControl: Sendable, Equatable, Hashable, E
             (.daclPresent, "daclPresent"), (.daclProtected, "daclProtected"), (.groupDefaulted, "groupDefaulted"), 
             (.ownerDefaulted, "ownerDefaulted"), (.rmControlValid, "rmControlValid"), (.saclAutoInheritReq, "saclAutoInheritReq"), 
             (.saclAutoInherited, "saclAutoInherited"), (.saclDefaulted, "saclDefaulted"), (.saclPresent, "saclPresent"), 
-            (.saclProtected, "saclProtected"), (.selfRelative, "selfRelative"),
+            (.saclProtected, "saclProtected"), (.selfRelative, "selfRelative"), (.daclUntrusted, "daclUntrusted"),
+            (.serverSecurity, "serverSecurity"),
         ] as [(ReadOnlyControlFlags, StaticString)]
         let flagDescriptions = allWithNameAsArray
             .compactMap { (flag, name) in
