@@ -150,17 +150,6 @@ extension UnsafeSystemHandle {
         #endif
 
 
-        /// Options for creating a file when opening a handle for writing
-        public enum CreationOptions: Sendable {
-            /// Never create a file. Open existing and fail if not exist.
-            case never
-            /// Create a file if it does not exist, and open it if it exists.
-            case createIfMissing 
-            /// Create a file if it does not exist, and fail if it exists.
-            case assertMissing
-        }
-
-
         /// Access mode for opening a file handle
         /// 
         /// |  | Windows | Darwin & OpenBSD | Linux |
@@ -432,7 +421,7 @@ extension UnsafeSystemHandle {
         /// The access mode for opening the file handle
         public var access: AccessMode
         /// The creation options when opening the file handle
-        public var creation: CreationOptions
+        public var creation: FileOperationOptions.CreateFile
         /// Whether to truncate the file to zero length after opening it
         public var truncate: Bool
         /// Whether to open the file in append mode, where write operations will 
@@ -478,8 +467,8 @@ extension UnsafeSystemHandle {
 
         public init(
             access: AccessMode = .readOnly,
-            creation: CreationOptions = .never, 
-            truncate: Bool = false, 
+            creation: FileOperationOptions.CreateFile = .never,
+            truncate: Bool = false,
             append: Bool = false, 
             followSymlink: Bool = true, 
             closeOnExec: Bool = true,

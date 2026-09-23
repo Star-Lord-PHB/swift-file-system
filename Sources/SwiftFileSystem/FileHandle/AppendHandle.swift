@@ -37,7 +37,7 @@ extension AppendHandle {
         
         let openOptions = UnsafeSystemHandle.OpenOptions(
             access: .writeOnly, 
-            creation: options.createFile.mappedSystemCreationOption,
+            creation: options.createFile,
             truncate: options.truncate, 
             append: true,
             closeOnExec: options.closeOnExec,
@@ -101,7 +101,7 @@ extension AppendHandle {
         creationPermissions: WindowsCreationPermissions
     ) throws(PlatformError) {
 
-        let creationOption = options.createFile.mappedSystemCreationOption
+        let creationOption = options.createFile
         
         var openOptions = UnsafeSystemHandle.OpenOptions(
             access: .writeOnly, 

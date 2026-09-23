@@ -37,7 +37,7 @@ extension WriteFileHandle {
 
         let openOptions = UnsafeSystemHandle.OpenOptions(
             access: .writeOnly,
-            creation: options.createFile.mappedSystemCreationOption,
+            creation: options.createFile,
             truncate: options.truncate,
             closeOnExec: options.closeOnExec,
             platformOpenFlagsDiff: .inserted(options.noFollow ? .posix.noFollow : [])
@@ -89,7 +89,7 @@ extension WriteFileHandle {
         creationPermissions: WindowsCreationPermissions
     ) throws(PlatformError) {
 
-        let creationOption = options.createFile.mappedSystemCreationOption
+        let creationOption = options.createFile
         
         var openOptions = UnsafeSystemHandle.OpenOptions(
             access: .writeOnly, 

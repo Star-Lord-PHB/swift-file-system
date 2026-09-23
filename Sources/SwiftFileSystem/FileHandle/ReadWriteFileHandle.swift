@@ -38,7 +38,7 @@ extension ReadWriteFileHandle {
 
         let openOptions = UnsafeSystemHandle.OpenOptions(
             access: .readWrite,
-            creation: options.createFile.mappedSystemCreationOption,
+            creation: options.createFile,
             truncate: options.truncate,
             closeOnExec: options.closeOnExec,
             platformOpenFlagsDiff: .inserted(options.noFollow ? .posix.noFollow : [])
@@ -90,7 +90,7 @@ extension ReadWriteFileHandle {
         creationPermissions: WindowsCreationPermissions
     ) throws(PlatformError) {
 
-        let creationOption = options.createFile.mappedSystemCreationOption
+        let creationOption = options.createFile
 
         var openOptions = UnsafeSystemHandle.OpenOptions(
             access: .readWrite, 

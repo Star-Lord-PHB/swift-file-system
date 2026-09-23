@@ -14,14 +14,6 @@ public enum FileOperationOptions {
         case createIfMissing
         /// Create a file if it does not exist, and fail if it exists.
         case assertMissing
-
-        package var mappedSystemCreationOption: UnsafeSystemHandle.OpenOptions.CreationOptions {
-            switch self {
-                case .never:            .never
-                case .createIfMissing:  .createIfMissing
-                case .assertMissing:    .assertMissing
-            }
-        }
     }
 
 

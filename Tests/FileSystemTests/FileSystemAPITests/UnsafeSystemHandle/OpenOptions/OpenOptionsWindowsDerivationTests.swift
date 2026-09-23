@@ -114,9 +114,9 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.WindowsDerivationTests {
         (creation: .createIfMissing, truncate: true, expected: DWORD(CREATE_ALWAYS)),
         (creation: .assertMissing, truncate: false, expected: DWORD(CREATE_NEW)),
         (creation: .assertMissing, truncate: true, expected: DWORD(CREATE_NEW)),
-    ] as [(Options.CreationOptions, Bool, DWORD)])
+    ] as [(FileOperationOptions.CreateFile, Bool, DWORD)])
     func `Disposition derives from creation and truncate`(
-        creation: UnsafeSystemHandle.OpenOptions.CreationOptions, truncate: Bool, expected: DWORD
+        creation: FileOperationOptions.CreateFile, truncate: Bool, expected: DWORD
     ) {
 
         #expect(Options(creation: creation, truncate: truncate).creationFlags == expected)

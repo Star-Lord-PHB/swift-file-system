@@ -24,9 +24,9 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
         (.never, 0),
         (.createIfMissing, O_CREAT),
         (.assertMissing, O_CREAT | O_EXCL),
-    ] as [(Options.CreationOptions, CInt)])
+    ] as [(FileOperationOptions.CreateFile, CInt)])
     func `Semantic creation derives the creation flags`(
-        creation: UnsafeSystemHandle.OpenOptions.CreationOptions,
+        creation: FileOperationOptions.CreateFile,
         expected: CInt
     ) {
 
