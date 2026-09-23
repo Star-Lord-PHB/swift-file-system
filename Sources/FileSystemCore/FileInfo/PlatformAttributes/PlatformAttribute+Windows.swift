@@ -10,26 +10,47 @@ extension PlatformFileAttributes {
 
         #if canImport(WinSDK)
 
+        /// `FILE_ATTRIBUTE_READONLY`
         @inlinable public static var isReadOnly: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_READONLY)) }
+        /// `FILE_ATTRIBUTE_HIDDEN`
         @inlinable public static var isHidden: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_HIDDEN)) }
+        /// `FILE_ATTRIBUTE_SYSTEM`
         @inlinable public static var isSystem: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_SYSTEM)) }
+        /// `FILE_ATTRIBUTE_DIRECTORY`
         @inlinable public static var isDirectory: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_DIRECTORY)) }
+        /// `FILE_ATTRIBUTE_ARCHIVE`
         @inlinable public static var isArchive: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_ARCHIVE)) }
+        /// `FILE_ATTRIBUTE_DEVICE`
         @inlinable public static var isDevice: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_DEVICE)) }
+        /// `FILE_ATTRIBUTE_NORMAL`
         @inlinable public static var isNormal: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_NORMAL)) }
+        /// `FILE_ATTRIBUTE_TEMPORARY`
         @inlinable public static var isTemporary: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_TEMPORARY)) }
+        /// `FILE_ATTRIBUTE_SPARSE_FILE`
         @inlinable public static var isSparseFile: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_SPARSE_FILE)) }
+        /// `FILE_ATTRIBUTE_REPARSE_POINT`
         @inlinable public static var isReparsePoint: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_REPARSE_POINT)) }
+        /// `FILE_ATTRIBUTE_COMPRESSED`
         @inlinable public static var isCompressed: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_COMPRESSED)) }
+        /// `FILE_ATTRIBUTE_OFFLINE`
         @inlinable public static var isOffline: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_OFFLINE)) }
+        /// `FILE_ATTRIBUTE_NOT_CONTENT_INDEXED`
         @inlinable public static var isNotContentIndexed: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_NOT_CONTENT_INDEXED)) }
+        /// `FILE_ATTRIBUTE_ENCRYPTED`
         @inlinable public static var isEncrypted: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_ENCRYPTED)) }
+        /// `FILE_ATTRIBUTE_INTEGRITY_STREAM`
         @inlinable public static var isIntegrityStream: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_INTEGRITY_STREAM)) }
+        /// `FILE_ATTRIBUTE_VIRTUAL`
         @inlinable public static var isVirtual: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_VIRTUAL)) }
+        /// `FILE_ATTRIBUTE_NO_SCRUB_DATA`
         @inlinable public static var isNoScrubData: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_NO_SCRUB_DATA)) }
+        /// `FILE_ATTRIBUTE_PINNED`
         @inlinable public static var isPinned: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_PINNED)) }
+        /// `FILE_ATTRIBUTE_UNPINNED`
         @inlinable public static var isUnpinned: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_UNPINNED)) }
+        /// `FILE_ATTRIBUTE_RECALL_ON_OPEN`
         @inlinable public static var recallOnOpen: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_RECALL_ON_OPEN)) }
+        /// `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS`
         @inlinable public static var recallOnDataAccess: PlatformFileAttributes { .init(rawValue: .init(FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS)) }
 
         #else 
@@ -60,6 +81,7 @@ extension PlatformFileAttributes {
 
     }
 
+    /// Namespace for platform specific file attributes on Windows platform
     #if !canImport(WinSDK)
     @available(*, unavailable, message: "Only available on Windows")
     #endif

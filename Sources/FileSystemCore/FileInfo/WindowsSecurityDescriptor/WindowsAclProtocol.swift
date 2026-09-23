@@ -3,6 +3,7 @@
 import PlatformCLib
 
 
+/// Protocol for all types of Windows ACLs for shared APIs.
 public protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
     func withUnsafePACL<R: ~Copyable, E: Error>(_ operation: (PACL) throws(E) -> R) throws(E) -> R
 }
@@ -11,18 +12,21 @@ public protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
 
 extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
+    /// The revision number of the ACL.
     public var revision: BYTE {
         return self.withUnsafePACL { pacl in
             pacl.pointee.AclRevision
         }
     }
 
+    /// The total count of ACEs in this ACL.
     public var aceCount: WORD {
         return self.withUnsafePACL { pacl in
             pacl.pointee.AceCount
         }
     }
 
+    /// Access the ACE at the specified index.
     public subscript(_ index: Int) -> WindowsRawAceView {
         @_lifetime(borrow self)
         get {
@@ -45,6 +49,8 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         }
     }
 
+    /// Iterates over each ACE in the ACL with the given closure.
+    /// - Parameter body: A closure for accessing each ACE.
     public func forEach<E: Error>(_ body: (WindowsRawAceView) throws(E) -> Void) throws(E) {
         for i in 0 ..< Int(self.aceCount) {
             try body(self[i])
@@ -52,6 +58,8 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
+    /// Creates a new array by transforming each ACE with the given closure.
+    /// - Parameter transform: A closure that transforms each ACE into a new value.
     public func map<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T) throws(E) -> [T] {
         var results = [T]()
         for i in 0 ..< Int(self.aceCount) {
@@ -62,6 +70,10 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
+    /// Aggregates the ACEs in the ACL into a single value by applying a closure to each ACE and an accumulating result.
+    /// - Parameters:
+    ///   - initialResult: The initial value to start the aggregation.
+    ///   - nextPartialResult: A closure forms a new accumulated value from the current accumulated value and the next ACE.
     public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T,
         _ nextPartialResult: (consuming T, WindowsRawAceView) throws(E) -> T
@@ -74,6 +86,8 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return result
     }
 
+    /// Creates a new array by transforming each ACE with the given closure, filtering out any nil results.
+    /// - Parameter transform: A closure that transforms each ACE into an optional new value.
     public func compactMap<T, E: Error>(_ transform: (WindowsRawAceView) throws(E) -> T?) throws(E) -> [T] {
         var results = [T]()
         for i in 0 ..< Int(self.aceCount) {
@@ -85,6 +99,10 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return results
     }
 
+    /// Aggregates the ACEs in the ACL into a single value by applying a closure to each ACE and an accumulating result.
+    /// - Parameters:
+    ///   - initialResult: The initial value to start the aggregation.
+    ///   - updateAccumulatingResult: A closure that updates the accumulated value with the next ACE.
     public func reduce<T: ~Copyable, E: Error>(
         into initialResult: consuming T,
         _ updateAccumulatingResult: (inout T, WindowsRawAceView) throws(E) -> Void
@@ -97,6 +115,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
         return result
     }
 
+    /// Returns the first ACE in the ACL, or nil if the ACL is empty.
     public var first: WindowsRawAceView? {
         @_lifetime(borrow self)
         get {
@@ -106,8 +125,11 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
+    /// Finds the first ACE in the ACL that satisfies the given predicate, or nil if no such ACE exists.
+    /// - Parameter predicate: A closure checking whether an ACE satisfies a certain condition.
+    /// - Returns: The first ACE that satisfies the predicate, or nil if no such ACE exists.
     @_lifetime(borrow self)
-    public func first(where predicate: (WindowsRawAceView) throws -> Bool) rethrows -> WindowsRawAceView? {
+    public func first<E: Error>(where predicate: (WindowsRawAceView) throws(E) -> Bool) throws(E) -> WindowsRawAceView? {
         for i in 0 ..< Int(self.aceCount) {
             let aceView = self[i]
             if try predicate(aceView) {
@@ -121,6 +143,7 @@ extension WindowRawAclProtocol where Self: ~Copyable & ~Escapable {
 
 
 
+/// Unowned view of a Windows ACE.
 public struct WindowsRawAceView: ~Escapable {
 
     package let pace: UnsafeUnownedRawPointer
@@ -135,21 +158,25 @@ public struct WindowsRawAceView: ~Escapable {
         self.pace = .init(unownedPointer: unsafeBorrowingAcePtr)
     }
 
+    /// The type of the ACE.
     public var type: WindowsACEType {
         let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
         return .init(rawValue: headerPtr.pointee.AceType)
     }
 
+    /// The flags associated with the ACE.
     public var flags: WindowsACEFlags {
         let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
         return .init(rawValue: headerPtr.pointee.AceFlags)
     }
 
+    /// The size in bytes of the ACE.
     public var size: WORD {
         let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
         return headerPtr.pointee.AceSize
     }
 
+    /// The permission associated with the ACE, including the SID and access mask.
     public var permission: (sid: WindowsSid.View, mask: WindowsAccessMask) {
         @_lifetime(copy self)
         get {

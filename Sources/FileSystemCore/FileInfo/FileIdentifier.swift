@@ -2,9 +2,12 @@ import PlatformCLib
 
 
 
+/// Unique identifier of a file, including the device identifier
 public struct FileIdentifier: Sendable, Equatable, Hashable {
 
+    /// The unique id of the file on the device
     public let fileId: PlatformInteropTypes.FileId
+    /// The unique id of the device
     public let deviceId: PlatformInteropTypes.DeviceId
 
     public init(fileId: PlatformInteropTypes.FileId, deviceId: PlatformInteropTypes.DeviceId) {

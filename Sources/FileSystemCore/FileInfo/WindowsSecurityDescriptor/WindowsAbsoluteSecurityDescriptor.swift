@@ -5,6 +5,7 @@ import struct SystemPackage.FilePermissions
 import struct SystemPackage.CModeT
 
 
+/// Wrapper for Windows SECURITY_DESCRIPTOR that is absolute
 public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     package fileprivate(set) var psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
@@ -31,8 +32,19 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     }
 
+    /// Create a new absolute security descriptor from an existing pointer to a SECURITY_DESCRIPTOR and its components.
+    /// 
+    /// - Parameters:
+    ///   - sdPtr: A pointer to a SECURITY_DESCRIPTOR, whose ownership is transferred to this new instance.
+    ///   - allocator: The allocator used to manage the memory of the SECURITY_DESCRIPTOR.
+    ///   - dacl: The DACL associated with the SECURITY_DESCRIPTOR pointer.
+    ///   - sacl: The SACL associated with the SECURITY_DESCRIPTOR pointer.
+    ///   - owner: The owner SID associated with the SECURITY_DESCRIPTOR pointer.
+    ///   - group: The group SID associated with the SECURITY_DESCRIPTOR pointer.
+    /// 
+    /// - Attention: The components must match the member of the SECURITY_DESCRIPTOR and the descriptor must be absolute.
     public init(
-        unsafeOwningSdPtr: PSECURITY_DESCRIPTOR,
+        unsafeOwningSdPtr sdPtr: PSECURITY_DESCRIPTOR,
         allocator: WindowsMemoryAllocatorType,
         dacl: consuming WindowsRawAclState = .absent,
         sacl: consuming WindowsRawAclState = .absent,
@@ -41,7 +53,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
     ) {
         self.init(
             psd: .init(
-                owningPointer: unsafeOwningSdPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self),
+                owningPointer: sdPtr.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self),
                 allocator: allocator.mappedInternalAllocatorType
             ),
             dacl: dacl,
@@ -51,6 +63,14 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         )
     }
 
+    /// Creates a new absolute security descriptor with the given components.
+    /// 
+    /// - Parameters:
+    ///   - control: The control flags for the security descriptor.
+    ///   - dacl: The DACL associated with the security descriptor.
+    ///   - sacl: The SACL associated with the security descriptor.
+    ///   - owner: The owner SID associated with the security descriptor.
+    ///   - group: The group SID associated with the security descriptor.
     public init(
         control: WindowsSecurityDescriptorControl? = nil,
         dacl: consuming WindowsRawAclState = .absent,
@@ -98,10 +118,12 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         }
     }
 
+    /// Get an unowned view of the security descriptor
     public var view: WindowsSecurityDescriptorView {
         .init(psd: psd.unownedView().immutableCast())
     }
 
+    /// Create a self-relative copy of the absolute security descriptor.
     public func makeSelfRelative() -> WindowsSelfRelativeSecurityDescriptor {
         do {
             return try .init(converting: self)
@@ -164,6 +186,11 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     }
 
+    /// Access the underlying SECURITY_DESCRIPTOR pointer within a closure.
+    /// 
+    /// - Parameter body: A closure for accessing the SECURITY_DESCRIPTOR pointer.
+    /// 
+    /// - Warning: Do not return or store the pointer outside the closure.
     public func withUnsafeSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
         let result = try body(psd.unsafeRawPtr)
         preconditionValid()
@@ -176,6 +203,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
 extension WindowsAbsoluteSecurityDescriptor {
 
+    /// The revision number of the security descriptor.
     public var revision: DWORD {
         var revision = 0 as DWORD
         var control = 0 as SECURITY_DESCRIPTOR_CONTROL
@@ -183,6 +211,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         return revision
     }
 
+    /// The control flags of the security descriptor.
     public var control: WindowsSecurityDescriptorControl {
         get {
             return .make(unsafeExtractingFromPSD: psd.unownedView().immutableCast()).control
@@ -199,6 +228,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         }
     }
 
+    /// The DACL state.
     public var dacl: WindowsRawAclState {
         _read { yield _dacl }
         _modify {
@@ -207,6 +237,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         }
     }
 
+    /// The SACL state.
     public var sacl: WindowsRawAclState {
         _read { yield _sacl }
         _modify {
@@ -215,6 +246,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         }
     }
 
+    /// The owner SID, if present.
     public var owner: WindowsSid? {
         get { _owner }
         set {
@@ -223,6 +255,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         }
     }
 
+    /// The group SID, if present.
     public var group: WindowsSid? {
         get { _group }
         set {
@@ -232,11 +265,13 @@ extension WindowsAbsoluteSecurityDescriptor {
     }
 
 
+    /// Removes the owner SID from the security descriptor.
     public mutating func removeOwner() {
         self.owner = nil
     }
 
 
+    /// Removes the group SID from the security descriptor.
     public mutating func removeGroup() {
         self.group = nil
     }

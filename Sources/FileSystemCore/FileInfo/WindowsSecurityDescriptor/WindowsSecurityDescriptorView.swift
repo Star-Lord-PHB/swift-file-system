@@ -2,6 +2,8 @@
 
 import PlatformCLib
 
+
+/// An unowned view of a Windows Security Descriptor
 public struct WindowsSecurityDescriptorView: ~Escapable {
 
     package let psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR>
@@ -11,6 +13,9 @@ public struct WindowsSecurityDescriptorView: ~Escapable {
         self.psd = psd
     }
 
+    /// Creates an unowned view from a pointer to a native SECURITY_DESCRIPTOR.
+    /// 
+    /// - Warning: The caller must ensure that the pointer is valid throughout the lifetime of the view.
     public init(unsafePSD: PSECURITY_DESCRIPTOR) {
         self.psd = .init(unownedPointer: unsafePSD.assumingMemoryBound(to: SECURITY_DESCRIPTOR.self))
     }
@@ -21,6 +26,7 @@ public struct WindowsSecurityDescriptorView: ~Escapable {
 
 extension WindowsSecurityDescriptorView {
 
+    /// The revision number of the security descriptor
     public var revision: DWORD {
         var revision = 0 as DWORD
         var control = 0 as SECURITY_DESCRIPTOR_CONTROL
@@ -28,12 +34,14 @@ extension WindowsSecurityDescriptorView {
         return revision
     }
 
+    /// The control flags of the security descriptor
     public var control: WindowsSecurityDescriptorControl {
         get {
             return .make(unsafeExtractingFromPSD: psd).control
         }
     }
 
+    /// The DACL
     public var dacl: WindowsRawAcl.View? {
         @_lifetime(copy self)
         get {
@@ -41,6 +49,7 @@ extension WindowsSecurityDescriptorView {
         }
     }
 
+    /// The SACL
     public var sacl: WindowsRawAcl.View? {
         @_lifetime(copy self)
         get {
@@ -49,6 +58,7 @@ extension WindowsSecurityDescriptorView {
     }
 
 
+    /// The owner SID
     public var owner: WindowsSid.View? {
         @_lifetime(copy self)
         get {
@@ -57,6 +67,7 @@ extension WindowsSecurityDescriptorView {
     }
 
 
+    /// The group SID
     public var group: WindowsSid.View? {
         @_lifetime(copy self)
         get {
@@ -68,11 +79,6 @@ extension WindowsSecurityDescriptorView {
 
 
 
-// A read-only view whose storage the lifetime system keeps immutably borrowed for as long
-// as the view lives, so concurrent reads from any thread are safe (the same argument that
-// makes RawSpan Sendable); @unchecked only because the stored pointer wrapper is not
-// Sendable. Mutating the storage through an Unsafe escape hatch while a view is shared
-// remains the caller's responsibility, exactly as it is single-threaded.
 extension WindowsSecurityDescriptorView: @unchecked Sendable {}
 
 #endif

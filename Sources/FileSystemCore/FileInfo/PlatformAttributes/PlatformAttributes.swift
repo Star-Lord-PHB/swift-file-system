@@ -51,29 +51,44 @@ public struct PlatformFileAttributes: PlatformFileAttributesProtocol, OptionSet,
     }
 
 
+    /// Whether the file is read-only, and `nil` if not available on the current platform
+    /// 
+    /// Supported on FreeBSD and Windows
     @inlinable 
     public var isReadOnly: Bool? {
         get { _isReadOnly }
         set { _isReadOnly = newValue }
     }
 
+    /// Whether the file is immutable, and `nil` if not available on the current platform
+    /// 
+    /// Supported on BSD, Darwin and Linux
     @inlinable
     public var isImmutable: Bool? {
         get { _isImmutable }
         set { _isImmutable = newValue }
     }
 
+    /// Whether the file is compressed, and `nil` if not available on the current platform
+    /// 
+    /// Supported on Darwin, Linux and Windows
     @inlinable 
     public var isCompressed: Bool? {
         _isCompressed
     }
 
+    /// Whether the file is append-only, and `nil` if not available on the current platform
+    /// 
+    /// Supported on BSD, Darwin and Linux
     @inlinable 
     public var isAppendOnly: Bool? {
         get { _isAppendOnly }
         set { _isAppendOnly = newValue }
     }
 
+    /// Whether the file is encrypted, and `nil` if not available on the current platform
+    /// 
+    /// Supported on Linux and Windows
     @inlinable 
     public var isEncrypted: Bool? {
         _isEncrypted
@@ -124,6 +139,7 @@ extension PlatformFileAttributes {
     public typealias CurrentPlatform = UnknownPlatform
     #endif
 
+    /// Namespace for platform specific file attributes on the current platform
     @inlinable
     public static var currentPlatform: CurrentPlatform.Type { CurrentPlatform.self }
 

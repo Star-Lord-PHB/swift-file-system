@@ -2,9 +2,12 @@ import PlatformCLib
 import CFileSystem
 
 
+/// A time instant
 public struct FileTimeSpec: Sendable, Equatable, Hashable {
 
+    /// The seconds part of the time instant
     public let seconds: Int
+    /// The nanoseconds part of the time instant
     public let nanoseconds: Int
 
     @inlinable
@@ -14,6 +17,7 @@ public struct FileTimeSpec: Sendable, Equatable, Hashable {
     }
 
     #if canImport(WinSDK)
+    /// Create a `FileTimeSpec` from platform specific file timespec.
     @inlinable
     public init(platformFileTime: FILETIME) {
         let hundredNanoSeconds = (UInt64(platformFileTime.dwHighDateTime) << 32 | UInt64(platformFileTime.dwLowDateTime))
@@ -21,6 +25,7 @@ public struct FileTimeSpec: Sendable, Equatable, Hashable {
         let nanoseconds = (hundredNanoSeconds % 10_000_000) * 100
         self.init(seconds: Int(seconds), nanoseconds: Int(nanoseconds))
     }
+    /// Create a `FileTimeSpec` from platform specific file timespec.
     @inlinable
     public init(platformFileTime: LARGE_INTEGER) {
         let hundredNanoSeconds = UInt64(platformFileTime.QuadPart)
@@ -29,12 +34,14 @@ public struct FileTimeSpec: Sendable, Equatable, Hashable {
         self.init(seconds: Int(seconds), nanoseconds: Int(nanoseconds))
     }
     #else
+    /// Create a `FileTimeSpec` from platform specific file timespec.
     @inlinable
     public init(platformFileTime: timespec) {
         self.init(seconds: platformFileTime.tv_sec, nanoseconds: platformFileTime.tv_nsec)
     }
     #endif
 
+    /// Convert to platform specific file timespec.
     @inlinable
     public var platformFileTime: PlatformInteropTypes.FileTime {
         #if canImport(WinSDK)
@@ -87,16 +94,33 @@ extension FILETIME {
 
 
 
+/// A collection of all the time instants of a file
+/// 
+/// Includes the access time, modification time, change time and creation time. 
+/// 
+/// The creation time may not be available on all platforms, in which case it will be `nil`.
 public struct FileTimes: Sendable, Equatable, Hashable {
+
+    /// The last access time of the file
     public let lastAccess: FileTimeSpec
+    /// The last modification time of the file
     public let lastModification: FileTimeSpec
+    /// The last status change time of the file
     public let lastChange: FileTimeSpec
+    /// The creation time of the file, if available
     public let creation: FileTimeSpec?
-}
 
-
-
-extension FileTimes {
+    public init(
+        lastAccess: FileTimeSpec,
+        lastModification: FileTimeSpec,
+        lastChange: FileTimeSpec,
+        creation: FileTimeSpec?
+    ) {
+        self.lastAccess = lastAccess
+        self.lastModification = lastModification
+        self.lastChange = lastChange
+        self.creation = creation
+    }
 
     public init(
         lastAccess: PlatformInteropTypes.FileTime,

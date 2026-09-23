@@ -3,6 +3,7 @@ import PlatformCLib
 
 
 
+/// Unsafe low-level wrapper of a system file handle / descriptor. 
 public struct UnsafeSystemHandle: ~Copyable {
 
     #if canImport(WinSDK)
@@ -11,9 +12,15 @@ public struct UnsafeSystemHandle: ~Copyable {
     public typealias SystemHandleType = CInt
     #endif
 
-    public let unsafeRawHandle: SystemHandleType
+    package let unsafeRawHandle: SystemHandleType
 
 
+    /// Create an instance by owning the lifetime of an raw handle / descriptor
+    /// 
+    /// - Parameter handle: The raw handle / descriptor to own
+    /// 
+    /// - Warning: The caller should ensure that this instance is the only owner of this handle
+    ///            and the caller itself should not use this handle afterwards.
     public init(owningRawHandle handle: SystemHandleType) {
         self.unsafeRawHandle = handle
     }
@@ -24,6 +31,11 @@ public struct UnsafeSystemHandle: ~Copyable {
     }
 
 
+    /// End the lifetime of this instance and get the raw handle / descriptor it manages.
+    /// 
+    /// - Returns: The raw handle / descriptor managed by this instance.
+    /// 
+    /// - Attention: The caller is responsible for managing the lifetime of the returned handle / descriptor
     public consuming func take() -> SystemHandleType {
         let handle = self.unsafeRawHandle
         discard self
@@ -36,6 +48,7 @@ public struct UnsafeSystemHandle: ~Copyable {
     }
 
 
+    /// Close the handle / descriptor managed by this instance and end its lifetime.
     public consuming func close() throws(LowLevelError) {
         let handle = self.unsafeRawHandle
         discard self
@@ -59,6 +72,11 @@ public struct UnsafeSystemHandle: ~Copyable {
 
 
     #if !canImport(WinSDK)
+    /// Set the non-blocking mode of the file handle
+    /// 
+    /// - Parameter value: Whether to enable non-blocking mode
+    /// 
+    /// It is mapped to toggling `O_NONBLOCK` with `fcntl`.
     public func setNonBlocking(_ value: Bool) throws(LowLevelError) {
 
         var flags = fcntl(unsafeRawHandle, F_GETFL)
@@ -80,6 +98,11 @@ public struct UnsafeSystemHandle: ~Copyable {
     #endif
 
 
+    /// Access the raw handle / descriptor managed by this instance in a closure.
+    /// 
+    /// - Parameter operation: The closure for accessing the raw handle / descriptor
+    /// 
+    /// - Warning: Do not return or store the received raw handle / descriptor outside the closure
     public func withUnsafeRawHandle<T: ~Copyable, E: Error>(_ operation: (SystemHandleType) throws(E) -> T) throws(E) -> T {
         return try operation(unsafeRawHandle)
     }
@@ -117,6 +140,7 @@ package struct UnsafeUnownedSystemHandle: ~Escapable {
 
 extension UnsafeSystemHandle {
 
+    /// Options for opening an ``UnsafeSystemHandle``
     public struct OpenOptions: Sendable {
 
         #if canImport(WinSDK)
@@ -126,20 +150,36 @@ extension UnsafeSystemHandle {
         #endif
 
 
+        /// Options for creating a file when opening a handle for writing
         public enum CreationOptions: Sendable {
+            /// Never create a file. Open existing and fail if not exist.
             case never
+            /// Create a file if it does not exist, and open it if it exists.
             case createIfMissing 
+            /// Create a file if it does not exist, and fail if it exists.
             case assertMissing
         }
 
 
+        /// Access mode for opening a file handle
+        /// 
+        /// |  | Windows | Darwin & OpenBSD | Linux |
+        /// | -- | -- | -- | -- |
+        /// | readOnly | `GENERIC_READ` | `O_RDONLY` | `O_RDONLY` |
+        /// | writeOnly | `GENERIC_WRITE` | `O_WRONLY` | `O_WRONLY` |
+        /// | readWrite | `GENERIC_READ \| GENERIC_WRITE` | `O_RDWR` | `O_RDWR` |
+        /// | none | `0` | `O_RDONLY` | `O_PATH` |
         public enum AccessMode: Sendable {
             case readOnly
+            /// Write-only access
             case writeOnly
+            /// Read-write access
             case readWrite
+            /// Minimum access
             case none
         }
 
+        /// The native flags for creating files on each platform
         public struct NativeCreationFlag: RawRepresentable, Sendable {
 
             public var rawValue: FlagType
@@ -152,11 +192,19 @@ extension UnsafeSystemHandle {
 
             public enum Posix {
                 #if !canImport(WinSDK)
+                /// Create a file if it does not exist, and open it if it exists.
+                /// 
+                /// Mapped to `O_CREAT`.
                 public static var create: NativeCreationFlag { .init(rawValue: O_CREAT) }
+                /// Create a file if it does not exist, and fail if it exists.
+                /// 
+                /// Mapped to `O_EXCL | O_CREAT`.
                 public static var exclusiveCreate: NativeCreationFlag { .init(rawValue: O_EXCL | O_CREAT) }
                 #else
+                /// Create a file if it does not exist, and open it if it exists.
                 @available(*, unavailable, message: "Not available on Windows")
                 public static var create: NativeCreationFlag { fatalError() }
+                /// Create a file if it does not exist, and fail if it exists.
                 @available(*, unavailable, message: "Not available on Windows")
                 public static var exclusiveCreate: NativeCreationFlag { fatalError() }
                 #endif
@@ -164,10 +212,25 @@ extension UnsafeSystemHandle {
 
             public enum Windows {
                 #if canImport(WinSDK)
+                /// Open an existing file. Fails if the file does not exist.
+                /// 
+                /// Mapped to `OPEN_EXISTING`.
                 public static var openExisting: NativeCreationFlag { .init(rawValue: DWORD(OPEN_EXISTING)) }
+                /// Open an existing file and truncate it to zero length. Fails if the file does not exist.
+                /// 
+                /// Mapped to `TRUNCATE_EXISTING`.
                 public static var truncateExisting: NativeCreationFlag { .init(rawValue: DWORD(TRUNCATE_EXISTING)) }
+                /// Open a file if it exists, or create a new file if it does not exist.
+                /// 
+                /// Mapped to `OPEN_ALWAYS`.
                 public static var openAlways: NativeCreationFlag { .init(rawValue: DWORD(OPEN_ALWAYS)) }
+                /// Create a new file, always. If the file exists, it will be overwritten.
+                /// 
+                /// Mapped to `CREATE_ALWAYS`.
                 public static var createAlways: NativeCreationFlag { .init(rawValue: DWORD(CREATE_ALWAYS)) }
+                /// Create a new file, always. If the file exists, the operation will fail.
+                /// 
+                /// Mapped to `CREATE_NEW`.
                 public static var createNew: NativeCreationFlag { .init(rawValue: DWORD(CREATE_NEW)) }
                 #else
                 @available(*, unavailable, message: "Not available on POSIX")
@@ -186,6 +249,7 @@ extension UnsafeSystemHandle {
         }
 
 
+        /// The native flags for opening files on each platform
         public struct NativeOpenFlag: OptionSet, Sendable {
 
             public var rawValue: FlagType
@@ -198,32 +262,72 @@ extension UnsafeSystemHandle {
 
             public enum Posix {
                 #if !canImport(WinSDK)
+                /// Truncate the file to zero length after opening it.
+                /// 
+                /// Mapped to `O_TRUNC`.
                 public static var truncate: NativeOpenFlag { .init(rawValue: O_TRUNC) }
+                /// Write operations will append to the end of the file.
+                /// 
+                /// Mapped to `O_APPEND`.
                 public static var append: NativeOpenFlag { .init(rawValue: O_APPEND) }
+                /// Forbid symbolic links at the final path component.
+                /// 
+                /// Mapped to `O_NOFOLLOW`.
                 public static var noFollow: NativeOpenFlag { .init(rawValue: O_NOFOLLOW) }
+                /// Close the file descriptor on `exec` calls.
+                /// 
+                /// Mapped to `O_CLOEXEC`.
                 public static var closeOnExec: NativeOpenFlag { .init(rawValue: O_CLOEXEC) }
+                /// Open the file in non-blocking mode.
+                /// 
+                /// Mapped to `O_NONBLOCK`.
                 public static var nonBlocking: NativeOpenFlag { .init(rawValue: O_NONBLOCK) }
+                /// Do not assign a controlling terminal to the opened file.
+                /// 
+                /// Mapped to `O_NOCTTY`.
                 public static var noCtty: NativeOpenFlag { .init(rawValue: O_NOCTTY) }
+                /// Expect the opened file to be a directory. If it is not, the open will fail.
+                /// 
+                /// Mapped to `O_DIRECTORY`.
                 public static var directory: NativeOpenFlag { .init(rawValue: O_DIRECTORY) }
                 #else
+                /// Truncate the file to zero length after opening it.
                 public static var truncate: NativeOpenFlag { .init(rawValue: 0) }
+                /// Write operations will append to the end of the file.
                 public static var append: NativeOpenFlag { .init(rawValue: 0) }
+                /// Forbid symbolic links at the final path component.
                 public static var noFollow: NativeOpenFlag { .init(rawValue: 0) }
+                /// Close the file descriptor on `exec` calls.
                 public static var closeOnExec: NativeOpenFlag { .init(rawValue: 0) }
+                /// Open the file in non-blocking mode.
                 public static var nonBlocking: NativeOpenFlag { .init(rawValue: 0) }
+                /// Do not assign a controlling terminal to the opened file.
                 public static var noCtty: NativeOpenFlag { .init(rawValue: 0) }
+                /// Expect the opened file to be a directory. If it is not, the open will fail.
                 public static var directory: NativeOpenFlag { .init(rawValue: 0) }
                 #endif
             }
 
             public enum Windows {
                 #if canImport(WinSDK)
+                /// Open the reparse point itself, rather than the target of the reparse point.
+                /// 
+                /// Mapped to `FILE_FLAG_OPEN_REPARSE_POINT`.
                 public static var openReparsePoint: NativeOpenFlag { .init(rawValue: DWORD(FILE_FLAG_OPEN_REPARSE_POINT)) }
+                /// Enable overlapped I/O on the opened file.
+                /// 
+                /// Mapped to `FILE_FLAG_OVERLAPPED`.
                 public static var overlappedIO: NativeOpenFlag { .init(rawValue: DWORD(FILE_FLAG_OVERLAPPED)) }
+                /// Open the file with backup semantics, allowing access to directories and other special files.
+                /// 
+                /// Mapped to `FILE_FLAG_BACKUP_SEMANTICS`.
                 public static var backupSemantics: NativeOpenFlag { .init(rawValue: DWORD(FILE_FLAG_BACKUP_SEMANTICS)) }
                 #else
+                /// Open the reparse point itself, rather than the target of the reparse point.
                 public static var openReparsePoint: NativeOpenFlag { .init(rawValue: 0) }
+                /// Enable overlapped I/O on the opened file.
                 public static var overlappedIO: NativeOpenFlag { .init(rawValue: 0) }
+                /// Open the file with backup semantics, allowing access to directories and other special files.
                 public static var backupSemantics: NativeOpenFlag { .init(rawValue: 0) }
                 #endif
             }
@@ -231,6 +335,9 @@ extension UnsafeSystemHandle {
         }
 
 
+        /// The native flags for sharing opened files on Windows
+        /// 
+        /// - Note: This is only applicable on Windows.
         public struct WindowsNativeShareMode: OptionSet, Sendable {
 
             public var rawValue: FlagType
@@ -239,21 +346,36 @@ extension UnsafeSystemHandle {
             }
 
             #if canImport(WinSDK)
+            /// Allow other processes to read the opened file.
+            /// 
+            /// Mapped to `FILE_SHARE_READ`.
             public static var read: WindowsNativeShareMode { .init(rawValue: DWORD(FILE_SHARE_READ)) }
+            /// Allow other processes to write to the opened file.
+            /// 
+            /// Mapped to `FILE_SHARE_WRITE`.
             public static var write: WindowsNativeShareMode { .init(rawValue: DWORD(FILE_SHARE_WRITE)) }
+            /// Allow other processes to delete the opened file.
+            /// 
+            /// Mapped to `FILE_SHARE_DELETE`.
             public static var delete: WindowsNativeShareMode { .init(rawValue: DWORD(FILE_SHARE_DELETE)) }
             #else
+            /// Allow other processes to read the opened file.
             public static var read: WindowsNativeShareMode { .init(rawValue: 0) }
+            /// Allow other processes to write to the opened file.
             public static var write: WindowsNativeShareMode { .init(rawValue: 0) }
+            /// Allow other processes to delete the opened file.
             public static var delete: WindowsNativeShareMode { .init(rawValue: 0) }
             #endif
 
         }
 
 
+        /// A type holding additionally inserted or removed native flags
         public struct NativeFlagDiff<NativeFlagType: OptionSet>: Sendable where NativeFlagType.RawValue == FlagType {
 
+            /// The raw flags that are additionally inserted
             public private(set) var inserted: FlagType = 0
+            /// The raw flags that are removed
             public private(set) var removed: FlagType = 0
 
             public init(rawInserted: FlagType = 0, rawRemoved: FlagType = 0) {
@@ -268,10 +390,12 @@ extension UnsafeSystemHandle {
 
             public init() {}
 
+            /// Insert additional native flags
             public static func inserted(_ flags: NativeFlagType) -> NativeFlagDiff {
                 return .init(inserted: flags)
             }
 
+            /// Remove the native flags
             public static func removed(_ flags: NativeFlagType) -> NativeFlagDiff {
                 return .init(removed: flags)
             }
@@ -280,20 +404,24 @@ extension UnsafeSystemHandle {
                 return (flags | (inserted & mask)) & ~(removed & mask)
             }
 
+            /// Insert additional native flags
             public mutating func insert(_ flags: FlagType) {
                 inserted |= flags
                 removed ^= (removed & flags)
             }
 
+            /// Remove the native flags
             public mutating func remove(_ flags: FlagType) {
                 inserted ^= (inserted & flags)
                 removed |= flags
             }
 
+            /// Insert additional native flags
             public mutating func insert(_ flags: NativeFlagType) {
                 self.insert(flags.rawValue)
             }
 
+            /// Remove the native flags
             public mutating func remove(_ flags: NativeFlagType) {
                 self.remove(flags.rawValue)
             }
@@ -301,16 +429,24 @@ extension UnsafeSystemHandle {
         }
 
 
+        /// The access mode for opening the file handle
         public var access: AccessMode
+        /// The creation options when opening the file handle
         public var creation: CreationOptions
+        /// Whether to truncate the file to zero length after opening it
         public var truncate: Bool
+        /// Whether to open the file in append mode, where write operations will 
+        /// always append to the end of the file
         public var append: Bool 
         /// Whether a symbolic link at the final path component is resolved.
         ///
-        /// `true` (the default) resolves the link and opens its target. `false` never resolves it: the
-        /// open addresses the link itself where the platform can hand out a handle to it and fails
-        /// otherwise, so it never falls through to the target. This is the `lstat`-style semantic
-        /// rather than POSIX `O_NOFOLLOW`, and the derived flag differs per platform:
+        /// If `true` (the default), the link is resolved and its target is opened. 
+        /// 
+        /// If `false` the link is never resolved and will never open the target. The open will try to open a
+        /// handle to the link itself if the platform supports that, otherwise it will fail.
+        /// 
+        /// In otherwords, this is the `lstat`-style semantic rather than POSIX `O_NOFOLLOW`, and the derived 
+        /// flag differs per platform:
         ///
         /// | Platform | Derived flag | Opening a symlink yields |
         /// | -- | -- | -- |
@@ -319,17 +455,25 @@ extension UnsafeSystemHandle {
         /// | Linux | `O_NOFOLLOW` | a handle to the link itself only with `access == .none` (`O_PATH`); a data-access open fails with `ELOOP` |
         /// | OpenBSD (no `O_PATH`) | `O_NOFOLLOW` | always fails with `ELOOP` |
         ///
-        /// A regular file opens the same way with either value. To reject symlinks outright
-        /// (POSIX `O_NOFOLLOW` semantics), insert `.posix.noFollow` through ``platformOpenFlagsDiff``;
-        /// Windows has no native equivalent, so callers open the link itself and check
-        /// ``UnsafeSystemHandle/type()`` on the returned handle.
+        /// A regular file opens the same way with either value. 
+        /// 
+        /// > Note: 
+        /// > To reject symlinks completely (POSIX `O_NOFOLLOW` semantics), insert `.posix.noFollow` 
+        /// > through ``platformOpenFlagsDiff``. 
+        /// >
+        /// > Windows has no native equivalent, so callers open the link itself and check the type on the returned handle.
         public var followSymlink: Bool
+        /// Whether to close the file handle when executing a new program
         public var closeOnExec: Bool
 
+        /// The platform-specific native creation flags to override the semantic ones
         public var platformCreationFlagsOverride: NativeCreationFlag?
+        /// The platform-specific native open flags used for altering the semantic ones
         public var platformOpenFlagsDiff: NativeFlagDiff<NativeOpenFlag>
 
+        /// Additional access requested on Windows, which is combined with the access mode option
         public var windowsExtraAccess: WindowsAccessMask
+        /// The Windows native flags for sharing the opened file
         public var windowsShareMode: WindowsNativeShareMode
 
         public init(
@@ -357,6 +501,7 @@ extension UnsafeSystemHandle {
         }
 
 
+        /// The derived native access mode flags for opening file handles on the current platform
         public var accessModeFlags: FlagType {
 
             #if canImport(WinSDK)
@@ -393,6 +538,7 @@ extension UnsafeSystemHandle {
 
         }
 
+        /// The derived native creation flags for opening file handles on the current platform
         public var creationFlags: FlagType {
 
             #if canImport(WinSDK)
@@ -425,6 +571,7 @@ extension UnsafeSystemHandle {
 
         }
 
+        /// The derived native open flags for opening file handles on the current platform
         public var openFlags: FlagType {
 
             var flags = 0 as FlagType
@@ -460,6 +607,7 @@ extension UnsafeSystemHandle {
         }
 
         #if canImport(WinSDK)
+        /// The derived security attributes for opening file handles on Windows
         public var securityAttributes: SECURITY_ATTRIBUTES {
             var attrs = SECURITY_ATTRIBUTES()
             attrs.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)

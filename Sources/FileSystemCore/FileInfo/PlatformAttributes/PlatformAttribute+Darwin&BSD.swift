@@ -10,11 +10,17 @@ extension PlatformFileAttributes {
 
         #if canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
+        /// `UF_NODUMP`
         @inlinable public static var noDump: PlatformFileAttributes { .init(rawValue: .init(UF_NODUMP)) }
+        /// `UF_IMMUTABLE`
         @inlinable public static var isUserImmutable: PlatformFileAttributes { .init(rawValue: .init(UF_IMMUTABLE)) }
+        /// `UF_APPEND`
         @inlinable public static var isUserAppendOnly: PlatformFileAttributes { .init(rawValue: .init(UF_APPEND)) }
+        /// `SF_ARCHIVED`
         @inlinable public static var isArchived: PlatformFileAttributes { .init(rawValue: .init(SF_ARCHIVED)) }
+        /// `SF_IMMUTABLE`
         @inlinable public static var isSystemImmutable: PlatformFileAttributes { .init(rawValue: .init(SF_IMMUTABLE)) }
+        /// `SF_APPEND`
         @inlinable public static var isSystemAppendOnly: PlatformFileAttributes { .init(rawValue: .init(SF_APPEND)) }
 
         #else
@@ -37,22 +43,37 @@ extension PlatformFileAttributes {
 
         #if canImport(Darwin)
 
+        /// `UF_NODUMP`
         @inlinable public static var noDump: PlatformFileAttributes { .init(rawValue: .init(UF_NODUMP)) }
+        /// `UF_IMMUTABLE`
         @inlinable public static var isUserImmutable: PlatformFileAttributes { .init(rawValue: .init(UF_IMMUTABLE)) }
+        /// `UF_APPEND`
         @inlinable public static var isUserAppendOnly: PlatformFileAttributes { .init(rawValue: .init(UF_APPEND)) }
+        /// `SF_ARCHIVED`
         @inlinable public static var isArchived: PlatformFileAttributes { .init(rawValue: .init(SF_ARCHIVED)) }
+        /// `SF_IMMUTABLE`
         @inlinable public static var isSystemImmutable: PlatformFileAttributes { .init(rawValue: .init(SF_IMMUTABLE)) }
+        /// `SF_APPEND`
         @inlinable public static var isSystemAppendOnly: PlatformFileAttributes { .init(rawValue: .init(SF_APPEND)) }
 
+        /// `UF_HIDDEN`
         @inlinable public static var isHidden: PlatformFileAttributes { .init(rawValue: .init(UF_HIDDEN)) }
+        /// `UF_OPAQUE`
         @inlinable public static var isOpaque: PlatformFileAttributes { .init(rawValue: .init(UF_OPAQUE)) }
+        /// `SF_NOUNLINK`
         @inlinable public static var systemNoUnlink: PlatformFileAttributes { .init(rawValue: .init(SF_NOUNLINK)) }
 
+        /// `UF_COMPRESSED`
         @inlinable public static var isCompressed: PlatformFileAttributes { .init(rawValue: .init(UF_COMPRESSED)) }
+        /// `UF_TRACKED`
         @inlinable public static var isTracked: PlatformFileAttributes { .init(rawValue: .init(UF_TRACKED)) }
+        /// `UF_DATAVAULT`
         @inlinable public static var isDataVault: PlatformFileAttributes { .init(rawValue: .init(UF_DATAVAULT)) }
+        /// `SF_RESTRICTED`
         @inlinable public static var isRestricted: PlatformFileAttributes { .init(rawValue: .init(SF_RESTRICTED)) }
+        /// `SF_FIRMLINK`
         @inlinable public static var isFirmLink: PlatformFileAttributes { .init(rawValue: .init(SF_FIRMLINK)) }
+        /// `SF_DATALESS`
         @inlinable public static var isDataLess: PlatformFileAttributes { .init(rawValue: .init(SF_DATALESS)) }
 
         #else 
@@ -86,23 +107,39 @@ extension PlatformFileAttributes {
 
         #if os(FreeBSD)
 
+        /// `UF_NODUMP`
         @inlinable public static var noDump: PlatformFileAttributes { .init(rawValue: .init(UF_NODUMP)) }
+        /// `UF_IMMUTABLE`
         @inlinable public static var isUserImmutable: PlatformFileAttributes { .init(rawValue: .init(UF_IMMUTABLE)) }
+        /// `UF_APPEND`
         @inlinable public static var isUserAppendOnly: PlatformFileAttributes { .init(rawValue: .init(UF_APPEND)) }
+        /// `SF_ARCHIVED`
         @inlinable public static var isArchived: PlatformFileAttributes { .init(rawValue: .init(SF_ARCHIVED)) }
+        /// `SF_IMMUTABLE`
         @inlinable public static var isSystemImmutable: PlatformFileAttributes { .init(rawValue: .init(SF_IMMUTABLE)) }
+        /// `SF_APPEND`
         @inlinable public static var isSystemAppendOnly: PlatformFileAttributes { .init(rawValue: .init(SF_APPEND)) }
 
+        /// `UF_HIDDEN`
         @inlinable public static var isHidden: PlatformFileAttributes { .init(rawValue: .init(UF_HIDDEN)) }
+        /// `UF_OPAQUE`
         @inlinable public static var isOpaque: PlatformFileAttributes { .init(rawValue: .init(UF_OPAQUE)) }
+        /// `SF_NOUNLINK`
         @inlinable public static var systemNoUnlink: PlatformFileAttributes { .init(rawValue: .init(SF_NOUNLINK)) }
 
+        /// `UF_NOUNLINK`
         @inlinable public static var userNoUnlink: PlatformFileAttributes { .init(rawValue: .init(UF_NOUNLINK)) }
+        /// `UF_OFFLINE`
         @inlinable public static var isOffline: PlatformFileAttributes { .init(rawValue: .init(UF_OFFLINE)) }
+        /// `UF_READONLY`
         @inlinable public static var isReadOnly: PlatformFileAttributes { .init(rawValue: .init(UF_READONLY)) }
+        /// `UF_REPARSE`
         @inlinable public static var isReparse: PlatformFileAttributes { .init(rawValue: .init(UF_REPARSE)) }
+        /// `UF_SPARSE`
         @inlinable public static var isSparse: PlatformFileAttributes { .init(rawValue: .init(UF_SPARSE)) }
+        /// `UF_SYSTEM`
         @inlinable public static var isSystem: PlatformFileAttributes { .init(rawValue: .init(UF_SYSTEM)) }
+        /// `SF_SNAPSHOT`
         @inlinable public static var isSnapshot: PlatformFileAttributes { .init(rawValue: .init(SF_SNAPSHOT)) }
 
         #else 
@@ -157,21 +194,25 @@ extension PlatformFileAttributes {
 
     }
 
+    /// Namespace for platform specific file attributes on Darwin and BSD platforms
     #if !(canImport(Darwin) || os(FreeBSD) || os(OpenBSD))
     @available(*, unavailable, message: "Only available on Darwin and BSD platforms")
     #endif
     @inlinable public static var bsd: BSD.Type { BSD.self }
 
+    /// Namespace for platform specific file attributes on Darwin platform
     #if !(canImport(Darwin))
     @available(*, unavailable, message: "Only available on Darwin platforms")
     #endif
     @inlinable public static var darwin: Darwin.Type { Darwin.self }
 
+    /// Namespace for platform specific file attributes on FreeBSD platform
     #if !(os(FreeBSD))
     @available(*, unavailable, message: "Only available on FreeBSD")
     #endif
     @inlinable public static var freebsd: FreeBSD.Type { FreeBSD.self }
 
+    /// Namespace for platform specific file attributes on OpenBSD platform
     #if !(os(OpenBSD))
     @available(*, unavailable, message: "Only available on OpenBSD")
     #endif

@@ -8,19 +8,14 @@
 import PlatformCLib
 
 
-/// A one-shot cancellation flag bridging Swift task cancellation onto executor worker
-/// threads: `withTaskCancellationHandler` sets it from task context, and workers poll it
-/// before starting a queued job. Workers run outside any Swift task, where
-/// `Task.isCancelled` is always false, so cancellation must travel through shared state
-/// like this instead.
-///
-/// Setting is irreversible, and both operations are safe from any thread.
+/// A one-shot thread-safe cancellation flag use for indicating cancellation outside Swift Concurrency
+/// 
+/// Set the flag to `cancelled` by calling `cancel()` method and check the cancellation status by reading 
+/// the `isCancelled` property.
 package final class CancellationToken: @unchecked Sendable {
 
     // Deliberately heap-allocated for a stable address: atomic operations must all target
-    // the one true storage location, while `&property` inout bridging may pass a temporary
-    // copy and counts as an exclusive access for the whole call, so concurrent
-    // cancel/isCancelled calls would overlap and trap under exclusivity enforcement.
+    // the one true storage location
     private let flag: UnsafeMutablePointer<CFSAtomicFlag>
 
     package var unsafeFlagPtr: UnsafeUnownedMutablePointer<CFSAtomicFlag> {

@@ -4,17 +4,24 @@ import CFileSystem
 
 
 
+/// Metadata of a file
 public struct FileInfo: Sendable, Equatable, Hashable {
 
+    /// The size of the file in bytes
     public let size: UInt64
 
+    /// The type of the file
     public let type: FileKind
 
+    /// The access / modification / change / creation times of the file
     public let times: FileTimes
 
+    /// The unique identifier of the file (include the device identifier)
     public let fileIdentifier: FileIdentifier
 
+    /// The attributes (flags) of the file
     public let attributes: PlatformFileAttributes
+    /// The attributes (flags) that are actually supported by this file.
     public let supportedAttributes: PlatformFileAttributes
 
 }

@@ -11,15 +11,25 @@ extension PlatformFileAttributes {
 
         #if os(Linux) || os(Android)
 
+        /// `STATX_ATTR_COMPRESSED`
         @inlinable public static var isCompressed: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_COMPRESSED)) }
+        /// `STATX_ATTR_IMMUTABLE`
         @inlinable public static var isImmutable: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_IMMUTABLE)) }
+        /// `STATX_ATTR_APPEND`
         @inlinable public static var isAppendOnly: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_APPEND)) }
+        /// `STATX_ATTR_NODUMP`
         @inlinable public static var noDump: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_NODUMP)) }
+        /// `STATX_ATTR_ENCRYPTED`
         @inlinable public static var isEncrypted: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_ENCRYPTED)) }
+        /// `STATX_ATTR_AUTOMOUNT`
         @inlinable public static var isAutoMount: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_AUTOMOUNT)) }
+        /// `STATX_ATTR_MOUNT_ROOT`
         @inlinable public static var isMountRoot: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_MOUNT_ROOT)) }
+        /// `STATX_ATTR_VERITY`
         @inlinable public static var isVerityProtected: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_VERITY)) }
+        /// `STATX_ATTR_WRITE_ATOMIC`
         @inlinable public static var isWriteAtomic: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_WRITE_ATOMIC)) }
+        /// `STATX_ATTR_DAX`
         @inlinable public static var isDAX: PlatformFileAttributes { .init(rawValue: .init(STATX_ATTR_DAX)) }
 
         #else 
@@ -39,6 +49,7 @@ extension PlatformFileAttributes {
 
     }
 
+    /// Namespace for platform specific file attributes on Linux platform
     #if !(os(Linux) || os(Android))
     @available(*, unavailable, message: "Only available on Linux platforms")
     #endif

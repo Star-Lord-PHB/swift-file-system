@@ -3,20 +3,19 @@
 import PlatformCLib
 
 
-/// The state of an ACL slot (DACL or SACL) of an absolute security descriptor, owning the
-/// ACL when one is present.
-///
-/// The three cases are deliberately explicit: `.null` (an ACL that is present but empty at
-/// the pointer level, granting everyone full access for a DACL) and `.absent` (no ACL is
-/// specified; at creation time the system falls back to inheritance or the token default)
-/// are equivalent for access checks but behave differently when the descriptor is used to
-/// create an item or written back, so neither is a "default" the API silently assumes.
+/// The state of an Windows ACL slot (DACL or SACL) of an absolute security descriptor, owning the ACL when one is present.
 public enum WindowsRawAclState: ~Copyable {
 
+    /// The ACL is not specified
+    /// 
+    /// When creating a new file, this state means that the file will inherit the ACL from its parent directory.
     case absent
+    /// The ACL is specified but is NULL, granting everyone full access for a DACL
     case null
+    /// The ACL is specified and is present
     case acl(WindowsRawAcl)
 
+    /// The case of the ACL state, without the associated value.
     public var `case`: WindowsACLStateCase {
         return switch self {
             case .absent:  .absent
@@ -25,9 +24,7 @@ public enum WindowsRawAclState: ~Copyable {
         }
     }
 
-    // NOTE: multi-pattern case labels (`case .absent, .null:`) over non-Copyable values are
-    // not implemented by the compiler yet, so the switches below spell every case out.
-
+    /// The unowned view to the ACL value, if present.
     public var value: WindowsRawAcl.View? {
         @_lifetime(borrow self)
         get {
@@ -39,6 +36,7 @@ public enum WindowsRawAclState: ~Copyable {
         }
     }
 
+    /// Whether the ACL state is `.absent`.
     public var isAbsent: Bool {
         switch self {
             case .absent:  return true
@@ -47,6 +45,7 @@ public enum WindowsRawAclState: ~Copyable {
         }
     }
 
+    /// Whether the ACL state is `.null`.
     public var isNull: Bool {
         switch self {
             case .absent:  return false
@@ -55,10 +54,8 @@ public enum WindowsRawAclState: ~Copyable {
         }
     }
 
-    /// Merges the entries into the ACL, creating one when the state is `.absent` or `.null`.
-    ///
-    /// Adding entries to a `.null` state replaces "everyone has full access" with a DACL
-    /// containing only the given entries, matching how `SetEntriesInAclW` treats a NULL ACL.
+    /// Update the ACL by adding new rules described by the given ``WindowsExplicitAccessArray``, and create a new 
+    /// one if not exist.
     public mutating func addEntries(_ entries: WindowsExplicitAccessArray) {
         switch consume self {
             case .acl(var acl):
@@ -71,8 +68,9 @@ public enum WindowsRawAclState: ~Copyable {
         }
     }
 
-    /// Takes the ACL out of an `.acl` state, leaving `newState` behind; the state always
-    /// becomes `newState` even when there was no ACL to take.
+    /// Takes the ACL value out of an `.acl` state, leaving `newState` behind
+    /// 
+    /// The state always becomes `newState` even when there was no ACL to take.
     public mutating func take(leaving newState: consuming WindowsRawAclState) -> WindowsRawAcl? {
         switch consume self {
             case .acl(let acl):
@@ -91,15 +89,21 @@ public enum WindowsRawAclState: ~Copyable {
 
 
 
-/// A borrowed decode of an ACL slot (DACL or SACL) as stored in a security descriptor,
-/// including the wire-level `defaulted` flag that the owning ``WindowsRawAclState`` does
-/// not carry.
+/// An unowned view of a Windows ACL slot (DACL or SACL) as stored in a security descriptor
+/// 
+/// This type is normally used for accessing the ACL contained in a self-relative security descriptor read from a 
+/// file system item, so it includes additional information compared to the ``WindowsRawAclState``, such as whether 
+/// the ACL is defaulted.
 public enum WindowsRawAclStateView: ~Escapable, Sendable {
 
+    /// The ACL is not specified
     case absent
+    /// The ACL is specified but is NULL, granting everyone full access for a DACL
     case null(defaulted: Bool)
+    /// The ACL is specified and is present
     case acl(WindowsRawAcl.View, defaulted: Bool)
 
+    /// The case of the ACL state, without the associated value.
     public var `case`: WindowsACLStateCase {
         return switch self {
             case .absent:  .absent
@@ -108,6 +112,7 @@ public enum WindowsRawAclStateView: ~Escapable, Sendable {
         }
     }
 
+    /// The unowned view to the ACL value, if present.
     public var value: WindowsRawAcl.View? {
         @_lifetime(copy self)
         get {
@@ -118,6 +123,7 @@ public enum WindowsRawAclStateView: ~Escapable, Sendable {
         }
     }
 
+    /// Whether the ACL is defaulted, if present.
     public var defaulted: Bool? {
         switch self {
             case .absent: return nil
@@ -126,6 +132,7 @@ public enum WindowsRawAclStateView: ~Escapable, Sendable {
         }
     }
 
+    /// Whether the ACL state is `.absent`.
     public var isAbsent: Bool {
         switch self {
             case .absent:     return true
@@ -133,6 +140,7 @@ public enum WindowsRawAclStateView: ~Escapable, Sendable {
         }
     }
 
+    /// Whether the ACL state is `.null`.
     public var isNull: Bool {
         switch self {
             case .absent, .acl: return false
@@ -140,8 +148,7 @@ public enum WindowsRawAclStateView: ~Escapable, Sendable {
         }
     }
 
-    /// Copies the borrowed state into an owning ``WindowsRawAclState``, preserving all
-    /// three cases; the `defaulted` flag is dropped.
+    /// Copies the unowned view into a standalone ``WindowsRawAclState`` while dropping the `defaulted` flag.
     public func detach() -> WindowsRawAclState {
         switch self {
             case .absent: return .absent

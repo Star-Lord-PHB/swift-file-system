@@ -5,6 +5,7 @@ import WinSDK
 
 
 
+/// Wrapper of the Windows OVERLAPPED structure for positional and asynchronous I/O operations.
 public struct WindowsOverlapped: ~Copyable {
 
     package var systemOverlapped: UnsafeOwnedMutableAutoPointer<OVERLAPPED>
@@ -22,6 +23,7 @@ public struct WindowsOverlapped: ~Copyable {
         self.systemOverlapped.deallocate()
     }
 
+    /// The offset in the file to perform the I/O operation at.
     public var offset: Int64 {
         get { Int64(bitPattern: UInt64(self.systemOverlapped.pointee.Offset) | (UInt64(self.systemOverlapped.pointee.OffsetHigh) << 32)) }
         set {
@@ -35,10 +37,14 @@ public struct WindowsOverlapped: ~Copyable {
         set { self.systemOverlapped.pointee.hEvent = newValue }
     }
 
+    /// Read-only access the underlying OVERLAPPED structure in a closure.
+    /// - Parameter body: A closure for accessing the underlying OVERLAPPED structure.
     public func withUnsafeSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
         return try body(self.systemOverlapped.unsafeRawPtr)
     }
 
+    /// Mutable access the underlying OVERLAPPED structure in a closure.
+    /// - Parameter body: A closure for accessing the underlying OVERLAPPED structure.
     public mutating func withUnsafeMutableSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafeMutablePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
         return try body(self.systemOverlapped.unsafeRawPtr)
     }
@@ -47,11 +53,18 @@ public struct WindowsOverlapped: ~Copyable {
 
 
 
+/// Wrapper of an Windows OVERLAPPED structure that is currently in use by an ongoing I/O operation. 
 public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
 
     private let systemOverlapped: UnsafeMutablePointer<OVERLAPPED>
     private let associatedRawHandle: UnsafeSystemHandle.SystemHandleType
 
+    /// Create a `WindowsPendingOverlapped` from an `WindowsOverlapped` with ongoing I/O operation 
+    /// on the specified file hanele
+    /// 
+    /// - Parameters:
+    ///   - overlapped: The `WindowsOverlapped` used to start the I/O operation.
+    ///   - associatedHandle: The `UnsafeSystemHandle` that the I/O operation is performed on.
     @_lifetime(&overlapped, borrow associatedHandle)
     public init(overlapped: inout WindowsOverlapped, associatedHandle: borrowing UnsafeSystemHandle) {
         self.systemOverlapped = overlapped.systemOverlapped.unsafeRawPtr
@@ -62,6 +75,8 @@ public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
         precondition(false, "WindowsPendingOverlapped being deinitialized automatically without explicitly being waited")
     }
 
+    /// Waits for the I/O operation to complete.
+    /// - Returns: The number of bytes transferred.
     public consuming func wait() throws(LowLevelError) -> Int64 {
         let systemOverlapped = self.systemOverlapped
         let associatedRawHandle = self.associatedRawHandle
@@ -73,10 +88,15 @@ public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
         return Int64(bytesTransferred)
     }
 
+    /// Read-only access the underlying OVERLAPPED structure in a closure.
+    /// - Parameter body: A closure for accessing the underlying OVERLAPPED structure.
     public func withUnsafeSystemOverlapped<T: ~Copyable, E: Error>(_ body: (UnsafePointer<OVERLAPPED>) throws(E) -> T) throws(E) -> T {
         return try body(self.systemOverlapped)
     }
 
+    /// Mutable access the underlying OVERLAPPED structure in a closure.
+    /// - Parameter body: A closure for accessing the underlying OVERLAPPED structure.
+    /// 
     /// > Warning: 
     /// > Mutating the OVERLAPPED value that is in use by an ongoing I/O operation is extremely dangerous, 
     /// > use this function only if you are absolutely sure of what you are doing.
@@ -91,6 +111,13 @@ public struct WindowsPendingOverlapped: ~Copyable, ~Escapable {
 
 extension UnsafeSystemHandle {
 
+    /// Starts an overlapped I/O operation on the file handle with the specified `WindowsOverlapped` structure.
+    /// 
+    /// - Parameters:
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the I/O operation.
+    ///   - body: A closure that performs the I/O operation using the raw file handle and the the 
+    ///           `OVERLAPPED` structure.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing I/O operation.
     @_lifetime(&overlapped, borrow self)
     public func unsafeStartOverlappedOperation<E: Error>(
         with overlapped: inout WindowsOverlapped,
@@ -101,6 +128,17 @@ extension UnsafeSystemHandle {
     }
 
 
+
+    /// Reads data from the file handle at the offset specified by the `WindowsOverlapped` into the 
+    /// provided buffer.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the read operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing read operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, borrow buffer, borrow self)
     public func read(
         into buffer: UnsafeMutableRawBufferPointer,
@@ -122,6 +160,16 @@ extension UnsafeSystemHandle {
     }
     
     
+    /// Reads data from the file handle at the offset specified by the `WindowsOverlapped` into the 
+    /// provided buffer.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the read operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing read operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, borrow buffer, borrow self)
     public func read(
         into buffer: UnsafeMutableRawBufferPointer.SubSequence,
@@ -135,6 +183,16 @@ extension UnsafeSystemHandle {
     }
     
 
+    /// Reads data from the file handle at the offset specified by the `WindowsOverlapped` into the 
+    /// provided buffer.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the read operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing read operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, &buffer, borrow self)
     public func read(
         into buffer: inout MutableRawSpan,
@@ -158,6 +216,16 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Reads data from the file handle at the offset specified by the `WindowsOverlapped` into the 
+    /// provided buffer.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the read operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing read operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, copy buffer, borrow self)
     public func read(
         into buffer: consuming MutableRawSpan,
@@ -181,6 +249,15 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Write data from the provided buffer to the file handle at the offset specified by the `WindowsOverlapped`.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer containing the data to write to the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the write operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing write operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, borrow buffer, borrow self)
     public func write(contentsOf buffer: UnsafeRawBufferPointer, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
 
@@ -196,6 +273,15 @@ extension UnsafeSystemHandle {
     }
     
     
+    /// Write data from the provided buffer to the file handle at the offset specified by the `WindowsOverlapped`.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer containing the data to write to the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the write operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing write operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, borrow buffer, borrow self)
     public func write(contentsOf buffer: UnsafeRawBufferPointer.SubSequence, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
         let rebasedBuffer = UnsafeRawBufferPointer(rebasing: buffer)
@@ -206,6 +292,15 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Write data from the provided buffer to the file handle at the offset specified by the `WindowsOverlapped`.
+    /// 
+    /// - Parameters:
+    ///   - buffer: The buffer containing the data to write to the file handle.
+    ///   - overlapped: The `WindowsOverlapped` structure to use for the write operation.
+    /// - Returns: A `WindowsPendingOverlapped` associated with the ongoing write operation.
+    /// 
+    /// - Note: If the handle is opened in synchronous mode, this operation will modify the file pointer,
+    ///         otherwise the file pointer will not be modified.
     @_lifetime(&overlapped, copy buffer, borrow self)
     public func write(contentsOf buffer: RawSpan, overlapped: inout WindowsOverlapped) throws(LowLevelError) -> WindowsPendingOverlapped {
 

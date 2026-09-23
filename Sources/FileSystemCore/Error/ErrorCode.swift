@@ -2,18 +2,23 @@ import PlatformCLib
 
 
 
+/// Wrapper of the platform-specific error code.
 public struct SystemErrorCode: Sendable, RawRepresentable, CustomStringConvertible {
 
     #if canImport(WinSDK)
+    /// The error code representing success.
     public static var success: SystemErrorCode { .init(rawValue: DWORD(ERROR_SUCCESS)) }
     #else
+    /// The error code representing success.
     public static var success: SystemErrorCode { .init(rawValue: 0) }
     #endif
 
 
+    /// The native error code value.
     public let rawValue: PlatformInteropTypes.ErrorCode
 
 
+    /// Create from a native error code value.
     public init(rawValue: PlatformInteropTypes.ErrorCode) {
         self.rawValue = rawValue
     }
@@ -39,6 +44,7 @@ extension SystemErrorCode {
     }
 
 
+    /// Create a ``SystemErrorCode`` from the last reported error code of the current thread.
     @inlinable
     public static func fromLastError() -> Self {
         #if canImport(WinSDK)

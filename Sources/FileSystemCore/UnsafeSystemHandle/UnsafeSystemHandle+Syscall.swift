@@ -5,7 +5,7 @@ import PlatformCLib
 
 extension UnsafeSystemHandle {
 
-    /// Opens a system file handle at the specified path using the given open options
+    /// Opens a file handle at the specified path using the given open options
     /// 
     /// - Parameter path: The path to the file to open.
     /// - Parameter openOptions: The options to use when opening the file.
@@ -16,7 +16,7 @@ extension UnsafeSystemHandle {
     /// 
     /// ### Creation Permissions Behavior
     /// 
-    /// On both Windows and Posix platforms, the [`FilePermissions`] from swift-system is used to specify 
+    /// On both Windows and Posix platforms, the posix-style [`FilePermissions`] can be used to specify 
     /// the permissions when creating a new file, but it behaves differently on the two platforms.
     /// 
     /// On Posix, it is mapped directly to the standard file mode bits. If specified as `nil` while creation
@@ -32,9 +32,9 @@ extension UnsafeSystemHandle {
     /// 
     /// | Posix Permission | Mapped Win Permission |
     /// | -- | -- |
-    /// | Read | FILE_READ_ATTRIBUTES | FILE_READ_EA | FILE_READ_DATA | STANDARD_RIGHTS_READ | SYNCHRONIZE |
-    /// | Write | FILE_WRITE_ATTRIBUTES | FILE_WRITE_EA | FILE_WRITE_DATA | STANDARD_RIGHTS_WRITE | SYNCHRONIZE |
-    /// | Execute | FILE_EXECUTE | STANDARD_RIGHTS_EXECUTE | SYNCHRONIZE |
+    /// | Read | FILE_READ_ATTRIBUTES \| FILE_READ_EA \| FILE_READ_DATA \| STANDARD_RIGHTS_READ \| SYNCHRONIZE |
+    /// | Write | FILE_WRITE_ATTRIBUTES \| FILE_WRITE_EA \| FILE_WRITE_DATA \| STANDARD_RIGHTS_WRITE \| SYNCHRONIZE |
+    /// | Execute | FILE_EXECUTE \| STANDARD_RIGHTS_EXECUTE \| SYNCHRONIZE |
     /// 
     /// Such mapping is not exactly the same as the semantics of Posix file mode. For example, 0o044 means that 
     /// anyone can read the file except the owner. However, on Windows, the owner will also have read access.
@@ -120,6 +120,18 @@ extension UnsafeSystemHandle {
 
 
     #if canImport(WinSDK)
+    /// Opens a file handle at the specified path using the given open options
+    /// 
+    /// - Parameter path: The path to the file to open.
+    /// - Parameter openOptions: The options to use when opening the file.
+    /// - Parameter creationPermissions: The permissions to use when creating the file.
+    ///            Ignored if file creation is not requested.
+    /// 
+    /// - Returns: An ``UnsafeSystemHandle`` representing the opened file handle.
+    /// 
+    /// This is an overload of the `open(at:openOptions:creationPermissions:)` method that accepts a 
+    /// ``WindowsSecurityDescriptorView`` for specifying creation permissions, which allows for more 
+    /// fine-grained control over the security attributes of the created file on Windows platforms.
     public static func open(
         at path: FilePath, 
         openOptions: OpenOptions = .init(), 
@@ -159,6 +171,18 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Opens a file handle at the specified path using the given open options
+    /// 
+    /// - Parameter path: The path to the file to open.
+    /// - Parameter openOptions: The options to use when opening the file.
+    /// - Parameter creationPermissions: The permissions to use when creating the file.
+    ///            Ignored if file creation is not requested.
+    /// 
+    /// - Returns: An ``UnsafeSystemHandle`` representing the opened file handle.
+    /// 
+    /// This is an overload of the `open(at:openOptions:creationPermissions:)` method that accepts a 
+    /// ``WindowsAbsoluteSecurityDescriptor`` for specifying creation permissions, which allows for more 
+    /// fine-grained control over the security attributes of the created file on Windows platforms.
     public static func open(
         at path: FilePath, 
         openOptions: OpenOptions = .init(), 
@@ -168,6 +192,18 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Opens a file handle at the specified path using the given open options
+    /// 
+    /// - Parameter path: The path to the file to open.
+    /// - Parameter openOptions: The options to use when opening the file.
+    /// - Parameter creationPermissions: The permissions to use when creating the file.
+    ///            Ignored if file creation is not requested.
+    /// 
+    /// - Returns: An ``UnsafeSystemHandle`` representing the opened file handle.
+    /// 
+    /// This is an overload of the `open(at:openOptions:creationPermissions:)` method that accepts a 
+    /// ``WindowsSelfRelativeSecurityDescriptor`` for specifying creation permissions, which allows for more 
+    /// fine-grained control over the security attributes of the created file on Windows platforms.
     public static func open(
         at path: FilePath, 
         openOptions: OpenOptions = .init(), 
@@ -178,6 +214,15 @@ extension UnsafeSystemHandle {
     #endif 
 
 
+    /// Open a directory handle at the specified path.
+    /// - Parameter path: The path to the directory to open.
+    /// - Returns: An ``UnsafeSystemHandle`` representing the opened directory handle.
+    /// 
+    /// On Posix, this method can only be used to open a directory, and will fail if the item is not a directory.
+    /// 
+    /// On Windows, this method can open a directory or a file.
+    /// 
+    /// Symbolic links are always resolved to the target for this method.
     public static func openDir(at path: FilePath) throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
@@ -207,6 +252,10 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Seeks the file pointer of this handle to the specified offset relative to the specified whence.
+    /// - Parameter offset: The offset to seek the file pointer to.
+    /// - Parameter whence: The reference point for the offset. Defaults to `.beginning
+    /// - Returns: The new offset of the file pointer after seeking.
     @discardableResult
     public func seek(to offset: Int64, from whence: FileOperationOptions.SeekWhence = .beginning) throws(LowLevelError) -> Int64 {
 
@@ -240,11 +289,15 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Return the current offset of the file pointer of this handle.
     public func tell() throws(LowLevelError) -> Int64 {
         return try self.seek(to: 0, from: .current)
     }
 
 
+    /// Reads data from the file handle at the current file pointer position into the provided buffer.
+    /// - Parameter buffer: The buffer to receive the data read from the file handle.
+    /// - Returns: Number of bytes read into the buffer.
     public func read(into buffer: UnsafeMutableRawBufferPointer) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = buffer.count
@@ -273,11 +326,17 @@ extension UnsafeSystemHandle {
     }
     
     
+    /// Reads data from the file handle at the current file pointer position into the provided buffer.
+    /// - Parameter buffer: The buffer to receive the data read from the file handle.
+    /// - Returns: Number of bytes read into the buffer.
     public func read(into buffer: UnsafeMutableRawBufferPointer.SubSequence) throws(LowLevelError) -> Int64 {
         return try self.read(into: .init(rebasing: buffer))
     }
     
     
+    /// Reads data from the file handle at the current file pointer position into the provided buffer.
+    /// - Parameter buffer: The buffer to receive the data read from the file handle.
+    /// - Returns: Number of bytes read into the buffer.
     public func read(into buffer: inout MutableRawSpan) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
             try self.read(into: ptr)
@@ -285,11 +344,21 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Reads data from the file handle at the current file pointer position into the provided buffer.
+    /// - Parameter buffer: The buffer to receive the data read from the file handle.
+    /// - Returns: Number of bytes read into the buffer.
     public func read(into buffer: consuming MutableRawSpan) throws(LowLevelError) -> Int64 {
         return try self.read(into: &buffer)
     }
 
 
+    /// Reads data from the file handle at the specified offset into the provided buffer
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = buffer.count
@@ -322,11 +391,25 @@ extension UnsafeSystemHandle {
     }
     
     
+    /// Reads data from the file handle at the specified offset into the provided buffer
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     public func pread(into buffer: UnsafeMutableRawBufferPointer.SubSequence, from offset: Int64) throws(LowLevelError) -> Int64 {
         return try self.pread(into: .init(rebasing: buffer), from: offset)
     }
     
     
+    /// Reads data from the file handle at the specified offset into the provided buffer
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     public func pread(into buffer: inout MutableRawSpan, from offset: Int64) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
             try self.pread(into: ptr, from: offset)
@@ -334,11 +417,21 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Reads data from the file handle at the specified offset into the provided buffer
+    /// - Parameters:
+    ///   - buffer: The buffer to receive the data read from the file handle.
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     public func pread(into buffer: consuming MutableRawSpan, from offset: Int64) throws(LowLevelError) -> Int64 {
         return try self.pread(into: &buffer, from: offset)
     }
 
 
+    /// Write data from the provided buffer to the file handle at the current file pointer position.
+    /// - Parameter buffer: The buffer containing the data to write to the file handle.
+    /// - Returns: Number of bytes written to the file handle.
     @discardableResult
     public func write(contentsOf buffer: UnsafeRawBufferPointer) throws(LowLevelError) -> Int64 {
 
@@ -366,12 +459,18 @@ extension UnsafeSystemHandle {
     }
     
     
+    /// Write data from the provided buffer to the file handle at the current file pointer position.
+    /// - Parameter buffer: The buffer containing the data to write to the file handle.
+    /// - Returns: Number of bytes written to the file handle.
     @discardableResult
     public func write(contentsOf buffer: UnsafeRawBufferPointer.SubSequence) throws(LowLevelError) -> Int64 {
         return try self.write(contentsOf: .init(rebasing: buffer))
     }
     
     
+    /// Write data from the provided buffer to the file handle at the current file pointer position.
+    /// - Parameter buffer: The buffer containing the data to write to the file handle.
+    /// - Returns: Number of bytes written to the file handle.
     @discardableResult
     public func write(contentsOf buffer: RawSpan) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeBytes { ptr throws(LowLevelError) in
@@ -380,6 +479,13 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Write data from the provided buffer to the file handle at the specified offset.
+    /// - Parameters:
+    ///   - buffer: The buffer containing the data to write to the file handle.
+    ///   - offset: The offset relative to the beginning of the file to write to.
+    /// - Returns: Number of bytes written to the file handle.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     @discardableResult
     public func pwrite(contentsOf buffer: UnsafeRawBufferPointer, to offset: Int64) throws(LowLevelError) -> Int64 {
 
@@ -408,12 +514,26 @@ extension UnsafeSystemHandle {
     }
     
     
+    /// Write data from the provided buffer to the file handle at the specified offset.
+    /// - Parameters:
+    ///   - buffer: The buffer containing the data to write to the file handle.
+    ///   - offset: The offset relative to the beginning of the file to write to.
+    /// - Returns: Number of bytes written to the file handle.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     @discardableResult
     public func pwrite(contentsOf buffer: UnsafeRawBufferPointer.SubSequence, to offset: Int64) throws(LowLevelError) -> Int64 {
         return try self.pwrite(contentsOf: .init(rebasing: buffer), to: offset)
     }
     
     
+    /// Write data from the provided buffer to the file handle at the specified offset.
+    /// - Parameters:
+    ///   - buffer: The buffer containing the data to write to the file handle.
+    ///   - offset: The offset relative to the beginning of the file to write to.
+    /// - Returns: Number of bytes written to the file handle.
+    /// 
+    /// - Note: This method does not change the position of the file pointer
     @discardableResult
     public func pwrite(contentsOf buffer: RawSpan, to offset: Int64) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeBytes { ptr throws(LowLevelError) in
@@ -422,6 +542,7 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Synchronizes the file handle with the underlying storage device
     public func fsync() throws(LowLevelError) {
 
         #if canImport(WinSDK)
@@ -441,6 +562,9 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Truncates the file handle to the specified offset
+    /// - Parameter offset: The offset to truncate the file handle to, 
+    ///                     can be larger than the current size to extend the file.
     public func truncate(to offset: Int64) throws(LowLevelError) {
 
         #if canImport(WinSDK)
@@ -468,6 +592,9 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Truncates the file handle to the current file pointer position
+    /// 
+    /// If the file pointer is beyond EOF, the file will be extended.
     public func truncate() throws(LowLevelError) {
         #if canImport(WinSDK)
         try execThrowingCFunction {
@@ -479,6 +606,10 @@ extension UnsafeSystemHandle {
     }
 
 
+    /// Duplicates the file handle
+    /// 
+    /// - Returns: A new ``UnsafeSystemHandle`` with independent lifetime while sharing the same file 
+    ///            and file pointer.
     public func duplicate() throws(LowLevelError) -> UnsafeSystemHandle {
 
         #if canImport(WinSDK)
@@ -521,15 +652,18 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    // Frozen so that importers can partially consume the pair - moving one end out to close or
-    // keep it independently is the standard pipe workflow.
+    /// A pair of file handles representing the read and write ends of a pipe.
     @frozen
     public struct PipeHandles: ~Copyable {
+        // Frozen so that importers can partially consume the pair - moving one end out to close or
+        // keep it independently is the standard pipe workflow.
         public let readHandle: UnsafeSystemHandle
         public let writeHandle: UnsafeSystemHandle
     }
 
 
+    /// Creates a pipe
+    /// - Returns: A ``PipeHandles`` representing the read and write ends of the created pipe.
     public static func pipe() throws(LowLevelError) -> PipeHandles {
 
         #if canImport(WinSDK)

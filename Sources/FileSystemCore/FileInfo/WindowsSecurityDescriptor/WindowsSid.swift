@@ -4,6 +4,7 @@ import PlatformCLib
 
 
 
+/// A wrapper for a Windows SID.
 public struct WindowsSid: @unchecked Sendable {
 
     private class Storage {
@@ -15,7 +16,8 @@ public struct WindowsSid: @unchecked Sendable {
 
     private let storage: Storage
 
-    package var view: View {
+    /// Get an unowned view of the SID.
+    public var view: View {
         @_lifetime(borrow self)
         get {
             .init(psid: psid)
@@ -34,6 +36,7 @@ public struct WindowsSid: @unchecked Sendable {
         precondition(IsValidSid(storage.psid.unsafeResourcePtr), "Invalid SID pointer")
     }
 
+    /// Converts from a string represented SID.
     public init?(string: String) {
         guard let sidPtr = try? Self.psid(fromString: string) else {
             return nil
@@ -41,14 +44,24 @@ public struct WindowsSid: @unchecked Sendable {
         self.init(psid: sidPtr)
     }
 
-    public init(unsafeOwningPSid: PSID, freeingFunc: @escaping (PSID) -> Void) {
-        self.init(psid: .init(owningResource: unsafeOwningPSid, freeingFunc: freeingFunc))
+    /// Creates a new instance from an existing pointer to a SID.
+    /// 
+    /// - Parameters:
+    ///   - psid: A pointer to a SID, whose ownership is transferred to this new instance.
+    ///   - freeingFunc: A function for freeing the SID.
+    public init(unsafeOwningPSid psid: PSID, freeingFunc: @escaping (PSID) -> Void) {
+        self.init(psid: .init(owningResource: psid, freeingFunc: freeingFunc))
     }
 
+    /// Converts to a string represented SID.
     public var string: String {
         return try! Self.string(fromPSid: storage.psid)
     }
 
+    /// Access the underlying SID pointer in a closure.
+    /// - Parameter body: A closure for accessing the SID pointer.
+    /// 
+    /// - Warning: Do not return or store the pointer outside the closure.
     public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
         let result = try body(storage.psid.unsafeResourcePtr)
         precondition(IsValidSid(storage.psid.unsafeResourcePtr), "SID pointer corrupted")
@@ -56,6 +69,7 @@ public struct WindowsSid: @unchecked Sendable {
     }
 
 
+    /// An unowned view of a Windows SID.
     public struct View: ~Escapable {
 
         let psid: UnsafeUnownedResource
@@ -66,16 +80,22 @@ public struct WindowsSid: @unchecked Sendable {
             precondition(IsValidSid(psid.unsafeResourcePtr), "Invalid SID pointer")
         }
 
+        /// Converts to a string represented SID.
         public var string: String {
             return try! WindowsSid.string(fromPSid: psid)
         }
 
+        /// Access the underlying SID pointer in a closure.
+        /// - Parameter body: A closure for accessing the SID pointer.
+        /// 
+        /// - Warning: Do not return or store the pointer outside the closure.
         public func withUnsafePSid<R: ~Copyable, E: Error>(_ body: (PSID) throws(E) -> R) throws(E) -> R {
             let result = try body(psid.unsafeResourcePtr)
             precondition(IsValidSid(psid.unsafeResourcePtr), "SID pointer corrupted")
             return result
         }
         
+        /// Copies the unowned view into a standalone ``WindowsSid``.
         public func detach() -> WindowsSid {
             let len = GetLengthSid(psid.unsafeResourcePtr)
             let newPsid = UnsafeMutableRawPointer.allocate(byteCount: Int(len), alignment: MemoryLayout<WCHAR>.alignment)
@@ -253,9 +273,6 @@ extension WindowsSid.View {
 
 
 
-// A read-only view over an immutable SID (the owning WindowsSid has no mutators), so
-// concurrent reads are safe; @unchecked only because the stored pointer wrapper is not
-// Sendable.
 extension WindowsSid.View: @unchecked Sendable {}
 
 

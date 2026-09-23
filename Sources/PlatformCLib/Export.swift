@@ -17,8 +17,7 @@
 @_exported import CFileSystem
 
 
-// The Linux shims in CFileSystem exist under `__linux__`, which covers every Linux libc (glibc, musl, Bionic)
-// and nothing else; `os(Linux) || os(Android)` is the Swift-side spelling of that same condition.
+
 #if os(Linux) || os(Android)
 
 package var UTIME_OMIT: Int32 {

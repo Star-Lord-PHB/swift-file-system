@@ -5,6 +5,8 @@
 //  Created by SerikaPHB  on 2026/9/2.
 //
 
+
+/// A Sendable box for sending an disconnected non-sendable value to other regions
 package struct SendableBox<T: ~Copyable>: ~Copyable, @unchecked Sendable {
 
     let value: T

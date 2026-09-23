@@ -1,6 +1,7 @@
 import PlatformCLib
 
 
+/// Platform specific identity.
 public struct PlatformIdentity: Sendable {
     
     #if canImport(WinSDK)
@@ -10,6 +11,7 @@ public struct PlatformIdentity: Sendable {
     #endif
     
     #if canImport(WinSDK)
+    /// The type of the identity
     public enum PlatformKind: Sendable, RawRepresentable, Equatable {
         case user
         case group
@@ -57,13 +59,16 @@ public struct PlatformIdentity: Sendable {
         }
     }
     #else
+    /// The type of the identity
     public enum PlatformKind: Sendable, Equatable {
         case user
         case group
     }
     #endif
 
+    /// The platform specific unique id.
     public let rawId: RawID
+    /// The type of the identity
     public let platformKind: PlatformKind
     
     public init(rawId: RawID, platformKind: PlatformKind) {

@@ -2,6 +2,7 @@ import PlatformCLib
 import SystemPackage
 
 
+/// The type of a file
 public enum FileKind: Sendable, Equatable, Hashable {
     case regular
     case directory
@@ -43,16 +44,16 @@ extension FileKind {
     /// name surrogates; other reparse points (cloud placeholders, app-exec links,
     /// deduplicated files) behave as their underlying kind.
     @inlinable
-    public static func isNameSurrogateReparseTag(_ tag: DWORD) -> Bool {
+    package static func isNameSurrogateReparseTag(_ tag: DWORD) -> Bool {
         tag & 0x2000_0000 != 0
     }
 
 
-    /// Classifies a Windows item from its file attributes and reparse tag.
+    /// Create the file kind from the Windows native file attributes and reparse tag.
     ///
-    /// Symlinks map to ``symlink``; any other name-surrogate reparse point (junctions and
-    /// volume mount points) is not modeled by this library and maps to ``unknown``;
-    /// non-surrogate reparse points fall through to their underlying kind.
+    /// Symlinks are map to ``FileKind/symlink`` while any other name-surrogate reparse point (junctions and 
+    /// volume mount points) is maps to ``FileKind/unknown``. Non-surrogate reparse points fall through to 
+    /// their underlying kind.
     @inlinable
     public init(windowsFileAttributes attributes: DWORD, reparseTag: DWORD) {
         self = if attributes & DWORD(FILE_ATTRIBUTE_REPARSE_POINT) != 0,
@@ -73,6 +74,7 @@ extension FileKind {
 #if !canImport(WinSDK)
 extension FileKind {
 
+    /// Create the file kind from a POSIX mode value.
     @inlinable
     public init(mode: mode_t) {
         self = switch mode & S_IFMT {

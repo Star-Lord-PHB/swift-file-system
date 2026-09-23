@@ -4,45 +4,85 @@ import WinSDK
 
 extension SystemErrorCode {
 
+    /// `ERROR_INVALID_FUNCTION`
     @inlinable public static var invalidFunction: Self { .init(rawValue: .init(ERROR_INVALID_FUNCTION)) }
+    /// `ERROR_FILE_NOT_FOUND`
     @inlinable public static var fileNotFound: Self { .init(rawValue: .init(ERROR_FILE_NOT_FOUND)) }
+    /// `ERROR_PATH_NOT_FOUND`
     @inlinable public static var pathNotFound: Self { .init(rawValue: .init(ERROR_PATH_NOT_FOUND)) }
+    /// `ERROR_ACCESS_DENIED`
     @inlinable public static var accessDenied: Self { .init(rawValue: .init(ERROR_ACCESS_DENIED)) }
+    /// `ERROR_INVALID_DRIVE`
     @inlinable public static var invalidDrive: Self { .init(rawValue: .init(ERROR_INVALID_DRIVE)) }
+    /// `ERROR_BAD_PATHNAME`
     @inlinable public static var badPathName: Self { .init(rawValue: .init(ERROR_BAD_PATHNAME)) }
+    /// `ERROR_FILENAME_EXCED_RANGE`
     @inlinable public static var fileNameTooLong: Self { .init(rawValue: .init(ERROR_FILENAME_EXCED_RANGE)) }
+    /// `ERROR_INVALID_NAME`
     @inlinable public static var invalidFileName: Self { .init(rawValue: .init(ERROR_INVALID_NAME)) }
+    /// `ERROR_DIRECTORY`
     @inlinable public static var invalidDirectoryName: Self { .init(rawValue: .init(ERROR_DIRECTORY)) }
+    /// `ERROR_SHARING_VIOLATION`
     @inlinable public static var sharingViolation: Self { .init(rawValue: .init(ERROR_SHARING_VIOLATION)) }
+    /// `ERROR_LOCK_VIOLATION`
     @inlinable public static var lockViolation: Self { .init(rawValue: .init(ERROR_LOCK_VIOLATION)) }
+    /// `ERROR_CANNOT_MAKE`
     @inlinable public static var cannotCreateFile: Self { .init(rawValue: .init(ERROR_CANNOT_MAKE)) }
+    /// `ERROR_WRITE_PROTECT`
     @inlinable public static var writeProtect: Self { .init(rawValue: .init(ERROR_WRITE_PROTECT)) }
+    /// `ERROR_USER_MAPPED_FILE`
     @inlinable public static var userMappedFile: Self { .init(rawValue: .init(ERROR_USER_MAPPED_FILE)) }
+    /// `ERROR_FILE_EXISTS`
     @inlinable public static var fileExists: Self { .init(rawValue: .init(ERROR_FILE_EXISTS)) }
+    /// `ERROR_ALREADY_EXISTS`
     @inlinable public static var alreadyExists: Self { .init(rawValue: .init(ERROR_ALREADY_EXISTS)) }
+    /// `ERROR_OPEN_FAILED`
     @inlinable public static var openFailed: Self { .init(rawValue: .init(ERROR_OPEN_FAILED)) }
+    /// `ERROR_DISK_FULL`
     @inlinable public static var diskFull: Self { .init(rawValue: .init(ERROR_DISK_FULL)) }
+    /// `ERROR_WRITE_FAULT`
     @inlinable public static var writeFault: Self { .init(rawValue: .init(ERROR_WRITE_FAULT)) }
+    /// `ERROR_READ_FAULT`
     @inlinable public static var readFault: Self { .init(rawValue: .init(ERROR_READ_FAULT)) }
+    /// `ERROR_INVALID_HANDLE`
     @inlinable public static var invalidHandle: Self { .init(rawValue: .init(ERROR_INVALID_HANDLE)) }
+    /// `ERROR_FILE_CORRUPT`
     @inlinable public static var fileCorrupt: Self { .init(rawValue: .init(ERROR_FILE_CORRUPT)) }
+    /// `ERROR_DISK_CORRUPT`
     @inlinable public static var diskCorrupt: Self { .init(rawValue: .init(ERROR_DISK_CORRUPT)) }
+    /// `ERROR_HANDLE_EOF`
     @inlinable public static var handleEOF: Self { .init(rawValue: .init(ERROR_HANDLE_EOF)) }
+    /// `ERROR_BROKEN_PIPE`
     @inlinable public static var brokenPipe: Self { .init(rawValue: .init(ERROR_BROKEN_PIPE)) }
+    /// `ERROR_DIR_NOT_EMPTY`
     @inlinable public static var directoryNotEmpty: Self { .init(rawValue: .init(ERROR_DIR_NOT_EMPTY)) }
+    /// `ERROR_NEGATIVE_SEEK`
     @inlinable public static var negativeSeek: Self { .init(rawValue: .init(ERROR_NEGATIVE_SEEK)) }
+    /// `ERROR_BAD_ARGUMENTS`
     @inlinable public static var badArguments: Self { .init(rawValue: .init(ERROR_BAD_ARGUMENTS)) }
+    /// `ERROR_NOT_SUPPORTED`
     @inlinable public static var notSupported: Self { .init(rawValue: .init(ERROR_NOT_SUPPORTED)) }
+    /// `ERROR_INSUFFICIENT_BUFFER`
     @inlinable public static var insufficientBuffer: Self { .init(rawValue: .init(ERROR_INSUFFICIENT_BUFFER)) }
+    /// `ERROR_ARITHMETIC_OVERFLOW`
     @inlinable public static var arithmeticOverflow: Self { .init(rawValue: .init(ERROR_ARITHMETIC_OVERFLOW)) }
+    /// `ERROR_CANT_RESOLVE_FILENAME`
     @inlinable public static var cannotResolveFilename: Self { .init(rawValue: .init(ERROR_CANT_RESOLVE_FILENAME)) }
+    /// `ERROR_NOT_A_REPARSE_POINT`
     @inlinable public static var notAReparsePoint: Self { .init(rawValue: .init(ERROR_NOT_A_REPARSE_POINT)) }
+    /// `ERROR_INVALID_PARAMETER`
     @inlinable public static var invalidParameter: Self { .init(rawValue: .init(ERROR_INVALID_PARAMETER)) }
+    /// `ERROR_PIPE_BUSY`
     @inlinable public static var pipeBusy: Self { .init(rawValue: .init(ERROR_PIPE_BUSY)) }
+    /// `ERROR_NO_DATA`
     @inlinable public static var noData: Self { .init(rawValue: .init(ERROR_NO_DATA)) }
+    /// `ERROR_PIPE_NOT_CONNECTED`
     @inlinable public static var pipeNotConnected: Self { .init(rawValue: .init(ERROR_PIPE_NOT_CONNECTED)) }
+    /// `ERROR_OPERATION_ABORTED`
     @inlinable public static var operationAborted: Self { .init(rawValue: .init(ERROR_OPERATION_ABORTED)) }
+    /// `ERROR_CANCELLED`
     @inlinable public static var cancelled: Self { .init(rawValue: .init(ERROR_CANCELLED)) }
+    /// `ERROR_REQUEST_ABORTED`
     @inlinable public static var requestAborted: Self { .init(rawValue: .init(ERROR_REQUEST_ABORTED)) }
 
 

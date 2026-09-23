@@ -5,10 +5,12 @@ import struct SystemPackage.FilePermissions
 import struct SystemPackage.CModeT
 
 
+/// Wrapper of a Windows ACL.
 public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
 
     private(set) var pacl: UnsafeOwnedAutoPointer<ACL>
 
+    /// Get an unowned view of the ACL.
     public var view: View {
         @_lifetime(borrow self)
         get {
@@ -21,6 +23,8 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
         precondition(IsValidAcl(self.pacl.unsafelyCastedMutableRawPtr), "Invalid ACL pointer")
     }
 
+    /// Creates a new ACL with entries formed by the rules described in the given ``WindowsExplicitAccessArray``.
+    /// - Parameter entries: The ``WindowsExplicitAccessArray`` describing the rules for the ACL.
     public init(entries: WindowsExplicitAccessArray = []) {
         let pacl = UnsafeMutablePointer<ACL>.allocate(capacity: 1)
         InitializeAcl(pacl, DWORD(MemoryLayout<ACL>.size), DWORD(ACL_REVISION))
@@ -30,10 +34,19 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
         }
     }
 
+    /// Creates a new ACL by taking ownership of an existing ACL pointer.
+    /// - Parameters:
+    ///   - unsafeOwningAclPtr: A pointer to an existing ACL that will be owned by the new ``WindowsRawAcl`` instance.
+    ///   - allocator: The allocator used to allocate the memory of the ACL.
+    /// 
+    /// - Warning: The caller must ensure that this instance is the only owner of the provided ACL pointer and should not 
+    ///            use the pointer afterwards.
     public init(unsafeOwningAclPtr: PACL, allocator: WindowsMemoryAllocatorType) {
         self.init(pacl: .init(owningPointer: unsafeOwningAclPtr, allocator: allocator.mappedInternalAllocatorType))
     }
 
+    /// Updates the ACL by adding new rules described in the given ``WindowsExplicitAccessArray``.
+    /// - Parameter entries: The ``WindowsExplicitAccessArray`` describing the new rules to be added to the ACL.
     public mutating func addEntries(_ entries: WindowsExplicitAccessArray) {
         entries.withUnsafeRawExplicitAccessBuffer { ptr in
             let newPacl = try! Self.addEntries(.init(unownedBuffer: ptr), toAcl: self.pacl.unownedView())
@@ -41,12 +54,16 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
         }
     }
 
+    /// Access the underlying ACL pointer in a closure.
+    /// - Parameter operation: A closure for accessing the underlying ACL pointer.
     public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
         return try operation(pacl.unsafelyCastedMutableRawPtr)
     }
 
+    /// An empty ACL with no entries.
     public static var emptyAcl: WindowsRawAcl { .init() }
 
+    /// Unowned view of a Windows ACL.
     public struct View: ~Escapable, WindowRawAclProtocol {
 
         let pacl: UnsafeUnownedPointer<ACL>
@@ -57,11 +74,13 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
             self.pacl = pacl
         }
 
+        /// Access the underlying ACL pointer in a closure.
+        /// - Parameter operation: A closure for accessing the underlying ACL pointer.
         public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
             return try operation(pacl.unsafelyCastedMutableRawPtr)
         }
 
-        /// Copies the viewed ACL into an owning ``WindowsRawAcl``.
+        /// Copies the view into a standalone ``WindowsRawAcl``.
         public func detach() -> WindowsRawAcl {
             do {
                 return .init(pacl: try WindowsRawAcl.addEntries(nil, toAcl: pacl))
