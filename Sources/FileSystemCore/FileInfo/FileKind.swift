@@ -3,24 +3,34 @@ import SystemPackage
 
 
 /// The type of a file
-public enum FileKind: Sendable, Equatable, Hashable {
-    case regular
-    case directory
-    case symlink
-    case socket
-    case block
-    case character
-    case fifo
-    case unknown
+public struct FileKind: Sendable, Equatable, Hashable {
+
+    fileprivate let `case`: Case
+
+    fileprivate init(_ case: Case) {
+        self.case = `case`
+    }
+
+
+    fileprivate enum Case: Sendable, Equatable, Hashable {
+        case regular
+        case directory
+        case symlink
+        case socket
+        case block
+        case character
+        case fifo
+        case unknown
+    }
+
 }
 
 
 
 extension FileKind: CustomStringConvertible {
 
-    @inlinable
     public var description: String {
-        switch self {
+        switch self.case {
             case .regular:      "regular file"
             case .directory:    "directory"
             case .symlink:      "symbolic link"
@@ -31,6 +41,21 @@ extension FileKind: CustomStringConvertible {
             case .unknown:      "unknown"
         }
     }
+
+}
+
+
+
+extension FileKind {
+
+    public static let regular: Self = .init(.regular)
+    public static let directory: Self = .init(.directory)
+    public static let symlink: Self = .init(.symlink)
+    public static let socket: Self = .init(.socket)
+    public static let block: Self = .init(.block)
+    public static let character: Self = .init(.character)
+    public static let fifo: Self = .init(.fifo)
+    public static let unknown: Self = .init(.unknown)
 
 }
 
