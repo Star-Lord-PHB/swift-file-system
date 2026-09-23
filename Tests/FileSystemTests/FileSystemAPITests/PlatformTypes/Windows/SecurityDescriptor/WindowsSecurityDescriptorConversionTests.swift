@@ -31,7 +31,8 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsSecurityDescriptorCo
     func `makeSelfRelative sets the self-relative bit and keeps the members`() {
 
         let selfRelativeDescriptor = Self.makeSampleDescriptor().makeSelfRelative()
-        let (control, revision) = selfRelativeDescriptor.control
+        let control = selfRelativeDescriptor.control
+        let revision = selfRelativeDescriptor.revision
 
         #expect(control.contains(.selfRelative))
         #expect(control.contains(.daclProtected))

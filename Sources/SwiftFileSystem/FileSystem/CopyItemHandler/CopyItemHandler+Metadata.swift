@@ -44,7 +44,7 @@ extension CopyItemHandler {
         let securityDescriptor: WindowsSelfRelativeSecurityDescriptor?
         var sdControl: WindowsSecurityDescriptorControl? { 
             switch securityDescriptor {
-                case .some(let sd): return sd.control.control
+                case .some(let sd): return sd.control
                 case .none: return nil
             }
         }

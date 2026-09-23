@@ -46,7 +46,7 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
     }
 
     fileprivate func isValid() -> Bool {
-        IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr) && self.control.control.contains(.selfRelative)
+        IsValidSecurityDescriptor(psd.unsafelyCastedMutableRawPtr) && self.control.contains(.selfRelative)
     }
 
     /// Creates a fully parsed representation of the security descriptor.
@@ -88,8 +88,12 @@ extension WindowsSelfRelativeSecurityDescriptor {
     }
 
     /// The control flags and the revision number of the security descriptor.
-    public var control: (control: WindowsSecurityDescriptorControl, revision: DWORD) {
-        return WindowsSecurityDescriptorControl.make(unsafeExtractingFromPSD: psd.unownedView())
+    public var control: WindowsSecurityDescriptorControl {
+        return WindowsSecurityDescriptorControl.make(unsafeExtractingFromPSD: psd.unownedView()).control
+    }
+
+    public var revision: DWORD {
+        return WindowsSecurityDescriptorControl.make(unsafeExtractingFromPSD: psd.unownedView()).revision
     }
 
     /// The owner SID and whether it is defaulted, if present.
