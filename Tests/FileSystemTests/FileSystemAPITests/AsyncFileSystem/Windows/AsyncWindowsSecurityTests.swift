@@ -10,9 +10,9 @@ import SwiftAsyncFileSystem
 extension AsyncFileSystemAPITests {
 
     /// The Windows-only shells plus the security-descriptor value flow that is unique to the
-    /// async surface: the `Sendable` view crossing the `@concurrent` boundary (via the four
-    /// borrowing convenience overloads) and the owned descriptor coming back from
-    /// `getSecurityInfo`.
+    /// async surface: the `Sendable` owned descriptors crossing into the four `@concurrent`
+    /// borrowing convenience overloads (which derive and forward the view) and the owned
+    /// descriptor coming back from `getSecurityInfo`.
     @Suite("Windows security forwarding")
     struct WindowsSecurityForwardingTests {
 

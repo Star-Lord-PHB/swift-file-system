@@ -15,6 +15,7 @@ public struct AsyncDirectoryHandle
     public let executor: AsyncFileSystemExecutor
 
 
+    @concurrent
     public init(
         forDirAt path: FilePath, 
         options: FileOperationOptions.OpenForDirectory = .init(), 

@@ -155,9 +155,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
 #if canImport(WinSDK)
 extension AsyncFileSystemProtocol {
 
-    // These conveniences derive the view in the caller's isolation and forward it to the
-    // @concurrent requirement.
-
+    @concurrent
     public func createFile(
         at path: FilePath,
         replaceExisting: Bool = false,
@@ -167,6 +165,7 @@ extension AsyncFileSystemProtocol {
         try await createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
     }
 
+    @concurrent
     public func createFile(
         at path: FilePath,
         replaceExisting: Bool = false,
@@ -177,6 +176,7 @@ extension AsyncFileSystemProtocol {
     }
 
 
+    @concurrent
     public func createDirectory(
         at path: FilePath,
         withIntermediateDirectories: Bool = false,
@@ -185,6 +185,7 @@ extension AsyncFileSystemProtocol {
         try await createDirectory(at: path, withIntermediateDirectories: withIntermediateDirectories, permissions: permissions.view)
     }
 
+    @concurrent
     public func createDirectory(
         at path: FilePath,
         withIntermediateDirectories: Bool = false,

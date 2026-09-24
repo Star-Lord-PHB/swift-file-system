@@ -17,6 +17,7 @@ public struct AsyncReadFileHandle
     public let path: FilePath
 
 
+    @concurrent
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForReading = .init(),

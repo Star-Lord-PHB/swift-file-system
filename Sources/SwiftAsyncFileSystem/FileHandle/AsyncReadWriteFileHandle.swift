@@ -19,6 +19,7 @@ public struct AsyncReadWriteFileHandle
     public let path: FilePath
 
 
+    @concurrent
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -36,6 +37,7 @@ public struct AsyncReadWriteFileHandle
 
 
     #if canImport(WinSDK)
+    @concurrent
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -52,6 +54,7 @@ public struct AsyncReadWriteFileHandle
     }
 
 
+    @concurrent
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -62,6 +65,7 @@ public struct AsyncReadWriteFileHandle
     }
 
 
+    @concurrent
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),

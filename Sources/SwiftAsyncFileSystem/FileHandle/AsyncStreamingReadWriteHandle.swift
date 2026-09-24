@@ -21,6 +21,7 @@ public struct AsyncStreamingReadWriteHandle
     public let executor: AsyncFileSystemExecutor
 
 
+    @concurrent
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForStreaming = .init(),
