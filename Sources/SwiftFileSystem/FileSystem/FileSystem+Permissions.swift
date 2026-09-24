@@ -21,10 +21,10 @@ extension FileSystem {
         forItemAt path: FilePath,
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
         followSymlink: Bool = true
-    ) throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
+    ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try SendableBox(InternalFS.getSecurityInfo(forItemAt: path, members: members, followSymlink: followSymlink))
-        }.take()
+            try InternalFS.getSecurityInfo(forItemAt: path, members: members, followSymlink: followSymlink)
+        }
     }
     
     

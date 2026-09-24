@@ -75,6 +75,11 @@ public struct WindowsSelfRelativeSecurityDescriptor: ~Copyable {
 
 
 
+// WindowsSelfRelativeSecurityDescriptor is not mutable, and thus thread-safe
+extension WindowsSelfRelativeSecurityDescriptor: @unchecked Sendable {}
+
+
+
 extension WindowsSelfRelativeSecurityDescriptor {
 
     /// The DACL state

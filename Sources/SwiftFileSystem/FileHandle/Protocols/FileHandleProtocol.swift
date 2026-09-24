@@ -143,13 +143,13 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     #if canImport(WinSDK)
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
-    ) throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
+    ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         try withUnsafeSystemHandleForMetadata(
             requiringAccess: .windows.readControl,
             operation: .fetchMeta(path)
         ) { (handle) throws(LowLevelError) in
-            try SendableBox(handle.securityInfo(members))
-        }.take()
+            try handle.securityInfo(members)
+        }
     }
 
 

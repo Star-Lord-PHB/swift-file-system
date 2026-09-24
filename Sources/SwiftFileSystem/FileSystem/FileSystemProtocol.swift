@@ -70,7 +70,7 @@ public protocol FileSystemProtocol: Sendable {
         forItemAt path: FilePath, 
         querying: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
-    ) throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor
+    ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
     
     func setSecurityInfo(
         forItemAt path: FilePath,

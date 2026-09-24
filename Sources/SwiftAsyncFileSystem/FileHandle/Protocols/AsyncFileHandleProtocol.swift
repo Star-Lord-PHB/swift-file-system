@@ -179,12 +179,11 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     @concurrent
     public func securityInfo(
         _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
-    ) async throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
+    ) async throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try SendableBox(adapter.securityInfo(members))
+            try adapter.securityInfo(members)
         }
         .getThrowingPlatformError(operation: .fetchMeta(path))
-        .take()
     }
 
 

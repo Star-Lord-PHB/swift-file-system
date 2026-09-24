@@ -29,7 +29,7 @@ extension AsyncFileSystem {
         forItemAt path: FilePath,
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
         followSymlink: Bool = true
-    ) async throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor {
+    ) async throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.getSecurityInfo(forItemAt: path, querying: members, followSymlink: followSymlink)
         }.getThrowingPlatformError(operation: .fetchMeta(path))

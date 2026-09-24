@@ -11,7 +11,7 @@ extension AsyncFileSystemAPITests {
 
     /// The Windows-only shells plus the security-descriptor value flow that is unique to the
     /// async surface: the `Sendable` view crossing the `@concurrent` boundary (via the four
-    /// borrowing convenience overloads) and the `sending` owned descriptor coming back from
+    /// borrowing convenience overloads) and the owned descriptor coming back from
     /// `getSecurityInfo`.
     @Suite("Windows security forwarding")
     struct WindowsSecurityForwardingTests {

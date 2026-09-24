@@ -105,7 +105,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
         forItemAt path: FilePath,
         querying: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
-    ) async throws(PlatformError) -> sending WindowsSelfRelativeSecurityDescriptor
+    ) async throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
 
     @concurrent
     func setSecurityInfo(
@@ -155,9 +155,8 @@ public protocol AsyncFileSystemProtocol: Sendable {
 #if canImport(WinSDK)
 extension AsyncFileSystemProtocol {
 
-    // These conveniences are deliberately not @concurrent: the owned descriptors are not
-    // Sendable, so they stay borrowed in the caller's isolation and only the Sendable view
-    // crosses to the @concurrent requirement.
+    // These conveniences derive the view in the caller's isolation and forward it to the
+    // @concurrent requirement.
 
     public func createFile(
         at path: FilePath,
