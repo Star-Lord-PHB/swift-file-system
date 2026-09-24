@@ -232,8 +232,10 @@ extension WindowsAbsoluteSecurityDescriptor {
     public var dacl: WindowsRawAclState {
         _read { yield _dacl }
         _modify {
+            // In a defer so the pointer is re-applied even when the caller throws during the
+            // access, which aborts the coroutine and skips any code after the yield.
+            defer { Self.unsafeApplyAclState(_dacl, to: psd.unsafeRawPtr, type: .dacl) }
             yield &_dacl
-            Self.unsafeApplyAclState(_dacl, to: psd.unsafeRawPtr, type: .dacl)
         }
     }
 
@@ -241,8 +243,8 @@ extension WindowsAbsoluteSecurityDescriptor {
     public var sacl: WindowsRawAclState {
         _read { yield _sacl }
         _modify {
+            defer { Self.unsafeApplyAclState(_sacl, to: psd.unsafeRawPtr, type: .sacl) }
             yield &_sacl
-            Self.unsafeApplyAclState(_sacl, to: psd.unsafeRawPtr, type: .sacl)
         }
     }
 
