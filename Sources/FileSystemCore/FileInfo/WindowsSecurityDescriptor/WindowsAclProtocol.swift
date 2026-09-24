@@ -158,51 +158,35 @@ public struct WindowsRawAceView: ~Escapable {
 
     /// The type of the ACE.
     public var type: WindowsACEType {
-        let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
-        return .init(rawValue: headerPtr.pointee.AceType)
+        let header = pace.unsafeRawPtr.load(as: ACE_HEADER.self)
+        return .init(rawValue: header.AceType)
     }
 
     /// The flags associated with the ACE.
     public var flags: WindowsACEFlags {
-        let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
-        return .init(rawValue: headerPtr.pointee.AceFlags)
+        let header = pace.unsafeRawPtr.load(as: ACE_HEADER.self)
+        return .init(rawValue: header.AceFlags)
     }
 
     /// The size in bytes of the ACE.
     public var size: WORD {
-        let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
-        return headerPtr.pointee.AceSize
+        let header = pace.unsafeRawPtr.load(as: ACE_HEADER.self)
+        return header.AceSize
     }
 
     /// The permission associated with the ACE, including the SID and access mask.
     public var permission: (sid: WindowsSid.View, mask: WindowsAccessMask) {
         @_lifetime(copy self)
         get {
-            let mask: WindowsAccessMask
-            let sid: WindowsSid.View
-
-            switch type {
-                case .allow: do {
-                    let allowAcePtr = pace.bindMemory(to: ACCESS_ALLOWED_ACE.self, capacity: 1)
-                    mask = .init(rawValue: allowAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: allowAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
-                }
-                case .deny: do {
-                    let denyAcePtr = pace.bindMemory(to: ACCESS_DENIED_ACE.self, capacity: 1)
-                    mask = .init(rawValue: denyAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: denyAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
-                }
-                case .audit: do {
-                    let auditAcePtr = pace.bindMemory(to: SYSTEM_AUDIT_ACE.self, capacity: 1)
-                    mask = .init(rawValue: auditAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: auditAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
-                }
-                case .alarm: do {
-                    let alarmAcePtr = pace.bindMemory(to: SYSTEM_ALARM_ACE.self, capacity: 1)
-                    mask = .init(rawValue: alarmAcePtr.pointee.Mask)
-                    sid = .init(psid: .init(unownedResource: alarmAcePtr.pointer(to: \.SidStart).unsafelyCastedMutableRawPtr))
-                }
+            let (maskOffset, sidOffset) = switch type {
+                case .allow: (MemoryLayout<ACCESS_ALLOWED_ACE>.offset(of: \.Mask)!, MemoryLayout<ACCESS_ALLOWED_ACE>.offset(of: \.SidStart)!)
+                case .deny:  (MemoryLayout<ACCESS_DENIED_ACE>.offset(of: \.Mask)!, MemoryLayout<ACCESS_DENIED_ACE>.offset(of: \.SidStart)!)
+                case .audit: (MemoryLayout<SYSTEM_AUDIT_ACE>.offset(of: \.Mask)!, MemoryLayout<SYSTEM_AUDIT_ACE>.offset(of: \.SidStart)!)
+                case .alarm: (MemoryLayout<SYSTEM_ALARM_ACE>.offset(of: \.Mask)!, MemoryLayout<SYSTEM_ALARM_ACE>.offset(of: \.SidStart)!)
             }
+
+            let mask = WindowsAccessMask(rawValue: pace.unsafeRawPtr.load(fromByteOffset: maskOffset, as: ACCESS_MASK.self))
+            let sid = WindowsSid.View(psid: .init(unownedResource: pace.unsafelyCastedMutableRawPtr + sidOffset))
 
             return (sid: sid, mask: mask)
         }
