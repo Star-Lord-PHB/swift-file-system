@@ -78,7 +78,7 @@ extension CopyItemHandler {
                                         : DWORD(DACL_SECURITY_INFORMATION)
                                     try execThrowingCFunction {
                                         dstPath.withPlatformString { pathPtr in
-                                            SetFileSecurityW(pathPtr, securityInformation, sd.psd.unsafeRawPtr)
+                                            SetFileSecurityW(pathPtr, securityInformation, sd.psd.unsafelyCastedMutableRawPtr)
                                         }
                                     }
                                 }

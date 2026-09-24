@@ -113,7 +113,7 @@ extension WindowsSelfRelativeSecurityDescriptor {
 extension WindowsSelfRelativeSecurityDescriptor {
 
     package init(converting absoluteDescriptor: borrowing WindowsAbsoluteSecurityDescriptor) throws(LowLevelError) {
-        try self.init(converting: absoluteDescriptor.psd.unownedView().immutableCast())
+        try self.init(converting: absoluteDescriptor.psd)
     }
 
 

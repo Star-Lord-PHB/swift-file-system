@@ -281,7 +281,7 @@ extension CopyItemHandler {
 
                 try execThrowingCFunction {
                     SetKernelObjectSecurity(
-                        handle.unsafeRawHandle, DWORD(DACL_SECURITY_INFORMATION), sd.psd.unsafeRawPtr
+                        handle.unsafeRawHandle, DWORD(DACL_SECURITY_INFORMATION), sd.psd.unsafelyCastedMutableRawPtr
                     )
                 }   
 
@@ -327,7 +327,7 @@ extension CopyItemHandler {
 
                 try execThrowingCFunction {
                     path.withPlatformString { pathPtr in
-                        SetFileSecurityW(pathPtr, DWORD(DACL_SECURITY_INFORMATION), sd.psd.unsafeRawPtr)
+                        SetFileSecurityW(pathPtr, DWORD(DACL_SECURITY_INFORMATION), sd.psd.unsafelyCastedMutableRawPtr)
                     }
                 }
 

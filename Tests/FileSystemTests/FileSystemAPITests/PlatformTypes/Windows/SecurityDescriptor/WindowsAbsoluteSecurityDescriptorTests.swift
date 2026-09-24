@@ -190,6 +190,22 @@ extension PlatformTypesAPITests.WindowsSecurityTests.WindowsAbsoluteSecurityDesc
 
     }
 
+
+    @Test
+    func `withUnsafeMutableSdPtr applies modifications to the descriptor`() {
+
+        var descriptor = WindowsAbsoluteSecurityDescriptor(dacl: .acl(Self.makeSampleDacl()))
+        #expect(descriptor.control.contains(.daclProtected) == false)
+
+        descriptor.withUnsafeMutableSdPtr { descriptorPointer in
+            let protectedBit = SECURITY_DESCRIPTOR_CONTROL(SE_DACL_PROTECTED)
+            #expect(SetSecurityDescriptorControl(descriptorPointer, protectedBit, protectedBit))
+        }
+
+        #expect(descriptor.control.contains(.daclProtected))
+
+    }
+
 }
 
 #endif

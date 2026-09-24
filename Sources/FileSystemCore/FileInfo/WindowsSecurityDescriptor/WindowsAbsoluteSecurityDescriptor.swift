@@ -8,11 +8,16 @@ import struct SystemPackage.CModeT
 /// Wrapper for Windows SECURITY_DESCRIPTOR that is absolute
 public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
-    package fileprivate(set) var psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
+    fileprivate let _psd: UnsafeOwnedMutableAutoPointer<SECURITY_DESCRIPTOR>
     fileprivate(set) var _dacl: WindowsRawAclState
     fileprivate(set) var _sacl: WindowsRawAclState
     fileprivate(set) var _owner: WindowsSid?
     fileprivate(set) var _group: WindowsSid?
+
+    package var psd: UnsafeUnownedPointer<SECURITY_DESCRIPTOR> {
+        @_lifetime(borrow self)
+        get { _psd.unownedView().immutableCast() }
+    }
 
     package init(
         psd: consuming UnsafeOwnedAutoPointer<SECURITY_DESCRIPTOR>,
@@ -22,7 +27,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
         group: WindowsSid?
     ) {
 
-        self.psd = psd.unsafeMutableCast()
+        self._psd = psd.unsafeMutableCast()
         self._dacl = dacl
         self._owner = owner
         self._group = group
@@ -120,7 +125,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     /// Get an unowned view of the security descriptor
     public var view: WindowsSecurityDescriptorView {
-        .init(psd: psd.unownedView().immutableCast())
+        .init(psd: psd)
     }
 
     /// Create a self-relative copy of the absolute security descriptor.
@@ -142,7 +147,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
 
     fileprivate func preconditionValid(file: StaticString = #file, line: UInt = #line) {
 
-        precondition(IsValidSecurityDescriptor(psd.unsafeRawPtr), "Invalid security descriptor", file: file, line: line)
+        precondition(IsValidSecurityDescriptor(_psd.unsafeRawPtr), "Invalid security descriptor", file: file, line: line)
 
         precondition(self.control.contains(.selfRelative) == false, "SECURITY_DESCRIPTOR is self-relative, expected absolute", file: file, line: line)
 
@@ -155,10 +160,10 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
                 precondition(control.contains(.daclPresent) == false, "DACL state mismatch, expected absent", file: file, line: line)
             case .null:
                 precondition(control.contains(.daclPresent), "DACL state mismatch, expected null", file: file, line: line)
-                precondition(psd.pointee.Dacl == nil, "DACL pointer mismatch, expected null", file: file, line: line)
+                precondition(_psd.pointee.Dacl == nil, "DACL pointer mismatch, expected null", file: file, line: line)
             case .acl(let acl):
                 precondition(control.contains(.daclPresent), "DACL state mismatch, expected present", file: file, line: line)
-                precondition(psd.pointee.Dacl == acl.pacl.unsafelyCastedMutableRawPtr, "DACL pointer mismatch", file: file, line: line)
+                precondition(_psd.pointee.Dacl == acl.pacl.unsafelyCastedMutableRawPtr, "DACL pointer mismatch", file: file, line: line)
         }
 
         switch _sacl {
@@ -166,38 +171,57 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
                 precondition(control.contains(.saclPresent) == false, "SACL state mismatch, expected absent", file: file, line: line)
             case .null:
                 precondition(control.contains(.saclPresent), "SACL state mismatch, expected null", file: file, line: line)
-                precondition(psd.pointee.Sacl == nil, "SACL pointer mismatch, expected null", file: file, line: line)
+                precondition(_psd.pointee.Sacl == nil, "SACL pointer mismatch, expected null", file: file, line: line)
             case .acl(let acl):
                 precondition(control.contains(.saclPresent), "SACL state mismatch, expected present", file: file, line: line)
-                precondition(psd.pointee.Sacl == acl.pacl.unsafelyCastedMutableRawPtr, "SACL pointer mismatch", file: file, line: line)
+                precondition(_psd.pointee.Sacl == acl.pacl.unsafelyCastedMutableRawPtr, "SACL pointer mismatch", file: file, line: line)
         }
 
         let sidPtr = switch owner {
             case .some(let sid): sid.psid.unsafeResourcePtr
             case .none: nil as UnsafeMutableRawPointer?
         }
-        precondition(psd.pointee.Owner == sidPtr, "Owner SID pointer mismatch", file: file, line: line)
+        precondition(_psd.pointee.Owner == sidPtr, "Owner SID pointer mismatch", file: file, line: line)
 
         let groupSidPtr = switch group {
             case .some(let sid): sid.psid.unsafeResourcePtr
             case .none: nil as UnsafeMutableRawPointer?
         }
-        precondition(psd.pointee.Group == groupSidPtr, "Group SID pointer mismatch", file: file, line: line)
+        precondition(_psd.pointee.Group == groupSidPtr, "Group SID pointer mismatch", file: file, line: line)
 
     }
 
-    /// Access the underlying SECURITY_DESCRIPTOR pointer within a closure.
-    /// 
+    /// Access the underlying SECURITY_DESCRIPTOR pointer within a closure for reading.
+    ///
     /// - Parameter body: A closure for accessing the SECURITY_DESCRIPTOR pointer.
-    /// 
-    /// - Warning: Do not return or store the pointer outside the closure.
+    ///
+    /// - Warning: Do not return or store the pointer outside the closure. The pointer is mutable only because the
+    ///            Win32 APIs take `PSECURITY_DESCRIPTOR`; do not modify the descriptor or anything it references
+    ///            through it. Use ``withUnsafeMutableSdPtr(_:)`` for modifications.
     public func withUnsafeSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
-        let result = try body(psd.unsafeRawPtr)
-        preconditionValid()
-        return result
+        return try body(_psd.unsafeRawPtr)
+    }
+
+    /// Access the underlying SECURITY_DESCRIPTOR pointer within a closure for modification.
+    ///
+    /// - Parameter body: A closure for accessing and modifying the SECURITY_DESCRIPTOR pointer.
+    ///
+    /// - Warning: Do not return or store the pointer outside the closure. The owner, group, DACL and SACL of the
+    ///            descriptor must keep referring to the members of this instance, which is checked after the closure
+    ///            returns or throws.
+    public mutating func withUnsafeMutableSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
+        defer { preconditionValid() }
+        return try body(_psd.unsafeRawPtr)
     }
 
 }
+
+
+
+// Every mutation of the descriptor and the members it points to goes through mutating members, borrowing members
+// only read them, and the descriptor only points to members owned by this instance, so concurrent borrows are safe;
+// @unchecked only because the stored pointer wrapper is not Sendable.
+extension WindowsAbsoluteSecurityDescriptor: @unchecked Sendable {}
 
 
 
@@ -207,21 +231,21 @@ extension WindowsAbsoluteSecurityDescriptor {
     public var revision: DWORD {
         var revision = 0 as DWORD
         var control = 0 as SECURITY_DESCRIPTOR_CONTROL
-        GetSecurityDescriptorControl(psd.unsafeRawPtr, &control, &revision)
+        GetSecurityDescriptorControl(_psd.unsafeRawPtr, &control, &revision)
         return revision
     }
 
     /// The control flags of the security descriptor.
     public var control: WindowsSecurityDescriptorControl {
         get {
-            return .make(unsafeExtractingFromPSD: psd.unownedView().immutableCast()).control
+            return .make(unsafeExtractingFromPSD: psd).control
         }
         set {
             // See `init(control:...)`: both parameters must stay within the writable
             // control bits, or the call fails as a whole without changing anything.
             let writableBits = WindowsSecurityDescriptorControl.WrittableControlFlags.all.rawValue
             SetSecurityDescriptorControl(
-                psd.unsafeRawPtr,
+                _psd.unsafeRawPtr,
                 writableBits,
                 newValue.rawValue & writableBits
             )
@@ -234,7 +258,7 @@ extension WindowsAbsoluteSecurityDescriptor {
         _modify {
             // In a defer so the pointer is re-applied even when the caller throws during the
             // access, which aborts the coroutine and skips any code after the yield.
-            defer { Self.unsafeApplyAclState(_dacl, to: psd.unsafeRawPtr, type: .dacl) }
+            defer { Self.unsafeApplyAclState(_dacl, to: _psd.unsafeRawPtr, type: .dacl) }
             yield &_dacl
         }
     }
@@ -243,7 +267,7 @@ extension WindowsAbsoluteSecurityDescriptor {
     public var sacl: WindowsRawAclState {
         _read { yield _sacl }
         _modify {
-            defer { Self.unsafeApplyAclState(_sacl, to: psd.unsafeRawPtr, type: .sacl) }
+            defer { Self.unsafeApplyAclState(_sacl, to: _psd.unsafeRawPtr, type: .sacl) }
             yield &_sacl
         }
     }
@@ -252,7 +276,7 @@ extension WindowsAbsoluteSecurityDescriptor {
     public var owner: WindowsSid? {
         get { _owner }
         set {
-            SetSecurityDescriptorOwner(psd.unsafeRawPtr, newValue?.psid.unsafeResourcePtr, false)
+            SetSecurityDescriptorOwner(_psd.unsafeRawPtr, newValue?.psid.unsafeResourcePtr, false)
             _owner = newValue
         }
     }
@@ -261,7 +285,7 @@ extension WindowsAbsoluteSecurityDescriptor {
     public var group: WindowsSid? {
         get { _group }
         set {
-            SetSecurityDescriptorGroup(psd.unsafeRawPtr, newValue?.psid.unsafeResourcePtr, false)
+            SetSecurityDescriptorGroup(_psd.unsafeRawPtr, newValue?.psid.unsafeResourcePtr, false)
             _group = newValue
         }
     }

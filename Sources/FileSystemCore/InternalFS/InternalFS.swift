@@ -224,7 +224,7 @@ package enum InternalFS {
         sa.nLength = DWORD(MemoryLayout<SECURITY_ATTRIBUTES>.size)
         if let permissions {
             let sd = try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: permissions, forDir: true)
-            sa.lpSecurityDescriptor = LPVOID(sd.psd.unsafeRawPtr)
+            sa.lpSecurityDescriptor = LPVOID(sd.psd.unsafelyCastedMutableRawPtr)
 
         }
 

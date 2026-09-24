@@ -73,7 +73,7 @@ extension UnsafeSystemHandle {
         // Set up security descriptor only when file creation may occur. 
         if openOptions.willCreate, let creationPermissions {
             let sd = try WindowsAbsoluteSecurityDescriptor.makeForCurrentUser(fromPosixPermissions: creationPermissions)
-            securityAttributes.lpSecurityDescriptor = .init(sd.psd.unsafeRawPtr)
+            securityAttributes.lpSecurityDescriptor = .init(sd.psd.unsafelyCastedMutableRawPtr)
         }
 
         let handle = path.withPlatformString { cStr in
