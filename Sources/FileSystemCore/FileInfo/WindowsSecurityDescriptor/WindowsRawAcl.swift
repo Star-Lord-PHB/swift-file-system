@@ -39,8 +39,9 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
     ///   - unsafeOwningAclPtr: A pointer to an existing ACL that will be owned by the new ``WindowsRawAcl`` instance.
     ///   - allocator: The allocator used to allocate the memory of the ACL.
     /// 
-    /// - Warning: The caller must ensure that this instance is the only owner of the provided ACL pointer and should not 
-    ///            use the pointer afterwards.
+    /// - Warning: The pointer must point to the start of a standalone ACL allocated by `allocator` (not, for example, a
+    ///            DACL inside a security descriptor), and this instance must become its only owner: no other code may
+    ///            read, modify or free it afterwards.
     public init(unsafeOwningAclPtr: PACL, allocator: WindowsMemoryAllocatorType) {
         self.init(pacl: .init(owningPointer: unsafeOwningAclPtr, allocator: allocator.mappedInternalAllocatorType))
     }
@@ -54,8 +55,11 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
         }
     }
 
-    /// Access the underlying ACL pointer in a closure.
+    /// Access the underlying ACL pointer in a closure for reading.
     /// - Parameter operation: A closure for accessing the underlying ACL pointer.
+    ///
+    /// - Warning: Do not return or store the pointer outside the closure. The pointer is mutable only because the
+    ///            Win32 APIs take `PACL`; do not modify the ACL through it.
     public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
         return try operation(pacl.unsafelyCastedMutableRawPtr)
     }
@@ -74,8 +78,11 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
             self.pacl = pacl
         }
 
-        /// Access the underlying ACL pointer in a closure.
+        /// Access the underlying ACL pointer in a closure for reading.
         /// - Parameter operation: A closure for accessing the underlying ACL pointer.
+        ///
+        /// - Warning: Do not return or store the pointer outside the closure. The pointer is mutable only because the
+        ///            Win32 APIs take `PACL`; do not modify the ACL through it.
         public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
             return try operation(pacl.unsafelyCastedMutableRawPtr)
         }
@@ -227,6 +234,11 @@ extension WindowsRawAcl {
 }
 
 
+
+// Every mutation of the ACL goes through mutating members, borrowing members only read it, and no other
+// owner shares the buffer, so concurrent borrows are safe; @unchecked only because the stored pointer wrapper
+// is not Sendable.
+extension WindowsRawAcl: @unchecked Sendable {}
 
 // A read-only view whose storage the lifetime system keeps immutably borrowed for as long
 // as the view lives (all ACL mutations are `mutating` on the owner), so concurrent reads

@@ -4,7 +4,7 @@ import PlatformCLib
 
 
 /// The state of an Windows ACL slot (DACL or SACL) of an absolute security descriptor, owning the ACL when one is present.
-public enum WindowsRawAclState: ~Copyable {
+public enum WindowsRawAclState: ~Copyable, Sendable {
 
     /// The ACL is not specified
     /// 

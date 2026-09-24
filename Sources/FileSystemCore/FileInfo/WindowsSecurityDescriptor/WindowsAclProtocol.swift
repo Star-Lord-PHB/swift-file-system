@@ -5,6 +5,9 @@ import PlatformCLib
 
 /// Protocol for all types of Windows ACLs for shared APIs.
 public protocol WindowRawAclProtocol: ~Copyable, ~Escapable {
+    /// Access the underlying ACL pointer in a closure for reading.
+    ///
+    /// - Warning: Do not return or store the pointer outside the closure, and do not modify the ACL through it.
     func withUnsafePACL<R: ~Copyable, E: Error>(_ operation: (PACL) throws(E) -> R) throws(E) -> R
 }
 
@@ -153,11 +156,6 @@ public struct WindowsRawAceView: ~Escapable {
         self.pace = pace
     }
 
-    @_lifetime(immortal)
-    package init(unsafeBorrowingAcePtr: LPVOID) {
-        self.pace = .init(unownedPointer: unsafeBorrowingAcePtr)
-    }
-
     /// The type of the ACE.
     public var type: WindowsACEType {
         let headerPtr = pace.bindMemory(to: ACE_HEADER.self, capacity: 1)
@@ -211,5 +209,12 @@ public struct WindowsRawAceView: ~Escapable {
     }
 
 }
+
+
+
+// A read-only view into an ACL that the lifetime system keeps immutably borrowed for as long as
+// the view lives, so concurrent reads are safe; @unchecked only because the stored pointer
+// wrapper is not Sendable.
+extension WindowsRawAceView: @unchecked Sendable {}
 
 #endif
