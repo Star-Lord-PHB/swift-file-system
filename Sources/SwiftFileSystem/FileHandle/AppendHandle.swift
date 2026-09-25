@@ -29,7 +29,7 @@ extension AppendHandle {
     ///   - path: The path of the file to open.
     ///   - options: The options for opening the file handle.
     ///   - creationPermissions: The permissions to use when creating the file, 
-    ///     or `nil` for default permissions, ignored if creation is not required.
+    ///                          or `nil` for default permissions, ignored if creation is not required.
     /// 
     /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
     /// and inheriting from parent directory for Windows.

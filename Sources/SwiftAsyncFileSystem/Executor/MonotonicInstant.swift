@@ -8,26 +8,32 @@
 import PlatformCLib
 
 
-/// A length of time between two ``MonotonicInstant`` values, stored as nanoseconds.
+/// A length of time between two instances, stored as nanoseconds.
 public struct MonotonicDuration: Sendable, Equatable, Hashable, Comparable {
 
+    /// The duration in nanoseconds.
     public let nanoseconds: Int64
 
 
+    /// ``MonotonicDuration`` with 0 value.
     public static var zero: MonotonicDuration { .init(nanoseconds: 0) }
 
+    /// Creates a ``MonotonicDuration`` with the given number of nanoseconds.
     public static func nanoseconds(_ amount: Int64) -> MonotonicDuration {
         return .init(nanoseconds: amount)
     }
 
+    /// Creates a ``MonotonicDuration`` with the given number of microseconds.
     public static func microseconds(_ amount: Int64) -> MonotonicDuration {
         return .init(nanoseconds: amount * 1_000)
     }
 
+    /// Creates a ``MonotonicDuration`` with the given number of milliseconds.
     public static func milliseconds(_ amount: Int64) -> MonotonicDuration {
         return .init(nanoseconds: amount * 1_000_000)
     }
 
+    /// Creates a ``MonotonicDuration`` with the given number of seconds.
     public static func seconds(_ amount: Int64) -> MonotonicDuration {
         return .init(nanoseconds: amount * 1_000_000_000)
     }

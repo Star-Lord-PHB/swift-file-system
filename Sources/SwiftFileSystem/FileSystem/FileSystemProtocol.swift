@@ -74,7 +74,9 @@ public protocol FileSystemProtocol: Sendable {
     /// Removes the item at the specified path.
     /// - Parameter path: The path of the item to remove.
     /// 
-    /// If the item is a non-empty directory, recursively remove all its children.
+    /// If the item is a non-empty directory, recursively remove all its children. If errors occur during 
+    /// the recursive removal, the operation will still continue to the end and only throw the first error
+    /// occurred.
     /// 
     /// - Note: This method never follows symbolic links. Applying it on a symbolic link will remove the link
     ///        itself instead of the target.

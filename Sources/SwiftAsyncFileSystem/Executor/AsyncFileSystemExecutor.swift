@@ -5,14 +5,15 @@
 //  Created by SerikaPHB  on 2026/8/23.
 //
 
-
 private import struct DequeModule.UniqueDeque
 import struct FileSystemCore.PlatformError
 import class FileSystemCore.CancellationToken
 
 
+/// An elastic thread-pool-based executor for executing IO operations asynchronously.
 public final class AsyncFileSystemExecutor: Sendable {
     
+    /// A type representing a task submitted into the executor, guaranteed to be executed at most once.
     public struct CalledOnceExecutorTask: ~Copyable {
         private let task: () -> Void
         public init(_ task: consuming sending @escaping () -> Void) { self.task = task }
@@ -20,6 +21,7 @@ public final class AsyncFileSystemExecutor: Sendable {
     }
     
     
+    /// The state of the executor.
     public enum State: Sendable, Equatable, Hashable {
         case running, stopped
     }
@@ -72,16 +74,31 @@ public final class AsyncFileSystemExecutor: Sendable {
     }
     
     
+    /// The custom label for the executor, used as the prefix of the thread names if applicable.
     public let label: String
+    /// The minimum number of threads kept alive in the executor (number of persistent threads).
     public let minimumThreadCount: Int
+    /// The maxinum number of threads allowed in the executor.
     public let maximumThreadCount: Int
     fileprivate let idleTimeout: MonotonicDuration
     fileprivate let storage: AtomicStorage
     
+    /// The current state of the executor.
     public var state: State { storage.state }
+    /// The idle timeout of the elastic threads in the executor, in nanoseconds.
+    /// 
+    /// If an elastic thread stays idle for longer than this duration, it will be terminated.
     public var idleTimeoutNano: Int64 { idleTimeout.nanoseconds }
 
     
+    /// Creates an executor with the specified label and number of persistent threads.
+    /// - Parameters:
+    ///   - label: The custom label for the executor.
+    ///   - threadCount: The number of persistent threads in the executor.
+    /// 
+    /// - Note: Executor created with this initializer will have all threads persistent and no elastic 
+    ///         threads. It will not create new threads when all the existing threads are busy, and will not
+    ///         terminate any threads when they are idle.
     public convenience init(label: String, threadCount: Int) {
         self.init(
             label: label,
@@ -92,6 +109,13 @@ public final class AsyncFileSystemExecutor: Sendable {
     }
 
 
+    /// Creates an executor with the specified label, minimum and maximum number of threads, and idle timeout.
+    /// - Parameters:
+    ///   - label: The custom label for the executor.
+    ///   - minimumThreadCount: The minimum number of threads kept alive in the executor (number of persistent threads).
+    ///   - maximumThreadCount: The maximum number of threads allowed in the executor.
+    ///   - idleTimeout: The idle timeout of the elastic threads in the executor. If an elastic thread stays 
+    ///                  idle for longer than this duration, it will be terminated.
     public init(label: String, minimumThreadCount: Int = 0, maximumThreadCount: Int, idleTimeout: MonotonicDuration = .seconds(10)) {
 
         precondition(maximumThreadCount > 0, "Maximum thread count must be greater than 0")
@@ -210,6 +234,8 @@ public final class AsyncFileSystemExecutor: Sendable {
     }
     
     
+    /// Submits a new task to the executor, guaranteed to be executed at most once.
+    /// - Parameter task: The task to be executed.
     public func submit(_ task: consuming sending CalledOnceExecutorTask) {
 
         precondition(state == .running, "Cannot submit tasks to an executor that is not running")
@@ -263,6 +289,8 @@ extension AsyncFileSystemExecutor {
     }
 
 
+    /// Executes a closure on the executor and waits for the result asynchronously.
+    /// - Parameter task: The closure to be executed on the executor.
     @concurrent
     public func run<R: ~Copyable, E: Error>(
         _ task: () throws(E) -> R
@@ -298,6 +326,8 @@ extension AsyncFileSystemExecutor {
     }
 
 
+    /// Executes a closure on the executor and waits for the result asynchronously.
+    /// - Parameter task: The closure to be executed on the executor.
     public func runSending<R: ~Copyable, E: Error>(
         _ task: sending () throws(E) -> sending R
     ) async throws(E) -> sending R {
@@ -310,12 +340,23 @@ extension AsyncFileSystemExecutor {
 
 extension AsyncFileSystemExecutor {
 
+    /// A type representing the execution result of a task submitted into the executor.
     public enum Result<V: ~Copyable, E: Error>: ~Copyable {
 
+        /// The task completed successfully with a return value.
         case success(V)
+        /// The task failed with an error.
         case failure(E)
+        /// The task was cancelled before it could be executed.
         case cancelled
 
+        /// Gets the return value of the submitted task, or throws if the task failed or was cancelled.
+        /// 
+        /// * If the task completed successfully, the return value is returned.
+        /// * If the task failed with an error, the error is thrown.
+        /// * If the task was cancelled, a [`CancellationError`] is thrown.
+        /// 
+        /// [`CancellationError`]: https://docs.swift.org/latest/documentation/swift/cancellationerror
         public consuming func get() throws -> V {
             switch consume self {
             case .success(let v): return v
@@ -324,27 +365,44 @@ extension AsyncFileSystemExecutor {
             }
         }
 
-        public consuming func get<C: Error>(mappingCancellation error: @autoclosure () -> C) throws -> V {
+        /// Gets the return value of the submitted task, or throws if the task failed or was cancelled.
+        /// - Parameter cancellationMapping: The error to throw if the task was cancelled.
+        /// 
+        /// * If the task completed successfully, the return value is returned.
+        /// * If the task failed with an error, the error is thrown.
+        /// * If the task was cancelled, a `cancellationMapping()` is thrown.
+        public consuming func get<C: Error>(mappingCancellation cancellationMapping: @autoclosure () -> C) throws -> V {
             switch consume self {
             case .success(let v): return v
             case .failure(let e): throw e
-            case .cancelled: throw error()
+            case .cancelled: throw cancellationMapping()
             }
         }
 
-        public consuming func get(mappingCancellation error: @autoclosure () -> E) throws(E) -> V {
+        /// Gets the return value of the submitted task, or throws if the task failed or was cancelled.
+        /// - Parameter cancellationMapping: The error to throw if the task was cancelled.
+        /// 
+        /// * If the task completed successfully, the return value is returned.
+        /// * If the task failed with an error, the error is thrown.
+        /// * If the task was cancelled, a `cancellationMapping()` is thrown.
+        public consuming func get(mappingCancellation cancellationMapping: @autoclosure () -> E) throws(E) -> V {
             switch consume self {
             case .success(let v): return v
             case .failure(let e): throw e
-            case .cancelled: throw error()
+            case .cancelled: throw cancellationMapping()
             }
         }
 
-        public consuming func get<C: Error>(mappingCancellation error: @autoclosure () -> C) throws(C) -> V where E == Never {
+        /// Gets the return value of the submitted task, or throws if the task was cancelled.
+        /// - Parameter cancellationMapping: The error to throw if the task was cancelled.
+        /// 
+        /// * If the task completed successfully, the return value is returned.
+        /// * If the task was cancelled, a `cancellationMapping()` is thrown.
+        public consuming func get<C: Error>(mappingCancellation cancellationMapping: @autoclosure () -> C) throws(C) -> V where E == Never {
             switch consume self {
             case .success(let v): return v
             case .failure: preconditionFailure("unreachable")
-            case .cancelled: throw error()
+            case .cancelled: throw cancellationMapping()
             }
         }
 
@@ -358,7 +416,8 @@ extension AsyncFileSystemExecutor {
             }
         }
 
-        public consuming func getThrowingPlatformError(
+        
+        package consuming func getThrowingPlatformError(
             operation: @autoclosure () -> PlatformError.Operation
         ) throws(PlatformError) -> V where E == LowLevelError {
             switch consume self {
@@ -368,6 +427,8 @@ extension AsyncFileSystemExecutor {
             }
         }
 
+        /// Creates a new ``Result`` by mapping its error to a new error type.
+        /// - Parameter transform: A closure that transforms the error to a new error type.
         public consuming func mapError<E2: Error>(_ transform: (E) -> E2) -> Result<V, E2> {
             switch consume self {
             case .success(let v): return .success(v)
@@ -388,6 +449,11 @@ extension AsyncFileSystemExecutor.Result: Sendable where V: Sendable {}
 
 extension AsyncFileSystemExecutor {
 
+    /// Executes a cancellable closure on the executor and waits for the result asynchronously.
+    /// - Parameter task: The closure to be executed on the executor.
+    /// 
+    /// Before executing the provided closure, the executor will check if the current Task has been 
+    /// cancelled. If so, the closure will be discarded and the result will be ``Result/cancelled``.
     @concurrent
     package func runCancellable<R: ~Copyable, E: Error>(
         _ task: () throws(E) -> R
@@ -437,20 +503,12 @@ extension AsyncFileSystemExecutor {
     }
 
 
-    /// Like `run(_:)`, but observes Swift task cancellation at two points: before the task
-    /// is submitted, and on the worker thread right before the body starts. In both cases
-    /// `cancellationError` is thrown and the body has not run (and never will); once the
-    /// body has started it always runs to completion and its result is returned as usual,
-    /// even if the task was cancelled in the meantime.
-    ///
-    /// Worker threads run outside any Swift task context (`Task.isCancelled` is always
-    /// false there), so the in-queue check observes cancellation through a token set by
-    /// `withTaskCancellationHandler` instead.
-    ///
-    /// Package-level on purpose: the signature forces the body and the cancellation error
-    /// to share one error type, which fits this library (everything is `PlatformError`)
-    /// but is too specific a constraint to publish.
-    package func runCancellableSending<R: ~Copyable, E: Error>(
+    /// Executes a cancellable closure on the executor and waits for the result asynchronously.
+    /// - Parameter task: The closure to be executed on the executor.
+    /// 
+    /// Before executing the provided closure, the executor will check if the current Task has been 
+    /// cancelled. If so, the closure will be discarded and the result will be ``Result/cancelled``.
+    public func runCancellableSending<R: ~Copyable, E: Error>(
         _ task: sending () throws(E) -> sending R
     ) async -> sending Result<R, E> {
         return await runCancellable(task)
@@ -462,13 +520,15 @@ extension AsyncFileSystemExecutor {
 
 extension AsyncFileSystemExecutor {
 
-    /// Default `maximumThreadCount` for `defaultExecutor`. This is a burst-width cap, not a
-    /// steady state: the pool starts at zero threads and shrinks back when idle. Blocking
-    /// file I/O parallelism is bounded by the storage backend rather than the CPU, so the
-    /// cap is a flat per-platform constant — wide on desktop/server platforms (deep NVMe
-    /// queues, high-latency network file systems), trimmed on app-constrained Apple
-    /// platforms where storage is local flash and the process-wide thread budget is shared
-    /// with the host app.
+    /// Default ``AsyncFileSystemExecutor/maximumThreadCount`` for ``defaultExecutor``.
+    /// 
+    /// The value is platform-dependent:
+    /// 
+    /// | Platform | Value |
+    /// | --- | --- |
+    /// | watchOS | 8 |
+    /// | iOS / tvOS / visionOS | 32 |
+    /// | Other platforms | 64 |
     public static let defaultMaximumThreadCount: Int = {
         #if os(watchOS)
         return 8
@@ -480,9 +540,14 @@ extension AsyncFileSystemExecutor {
     }()
 
 
-    /// Shared process-wide pool, created on first use. Starts with zero threads, grows on
-    /// demand up to `defaultMaximumThreadCount`, and shrinks back after the default idle
-    /// timeout.
+    /// Shared process-wide executor.
+    /// 
+    /// | Config | Value |
+    /// | --- | --- |
+    /// | ``AsyncFileSystemExecutor/label`` | fs-io |
+    /// | ``AsyncFileSystemExecutor/minimumThreadCount`` | 0 |
+    /// | ``AsyncFileSystemExecutor/maximumThreadCount`` | ``AsyncFileSystemExecutor/defaultMaximumThreadCount`` |
+    /// | ``AsyncFileSystemExecutor/idleTimeoutNano`` | 10 milliseconds |
     public static let defaultExecutor: AsyncFileSystemExecutor = .init(
         label: "fs-io",
         maximumThreadCount: defaultMaximumThreadCount

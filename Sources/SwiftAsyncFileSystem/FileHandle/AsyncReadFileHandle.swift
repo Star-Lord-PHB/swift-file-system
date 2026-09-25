@@ -8,6 +8,7 @@
 import SwiftFileSystem
 
 
+/// A file handle for positionally reading a file.
 public struct AsyncReadFileHandle
 : ~Copyable, @unchecked Sendable
 , AsyncPositionalReadFileHandleProtocol, AutoSynthesisAsyncFileHandleProtocol {
@@ -17,6 +18,11 @@ public struct AsyncReadFileHandle
     public let path: FilePath
 
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - executor: The executor for executing the IO operations
     @concurrent
     public init(
         forFileAt path: FilePath,
@@ -33,10 +39,9 @@ public struct AsyncReadFileHandle
     }
 
 
-    /// Closes the handle on the executor. Unlike the other operations, closing never
-    /// observes task cancellation: the handle is consumed either way, so a cancelled close
-    /// could not be retried and would only move the actual closing to the deinit on the
-    /// calling thread.
+    /// Closes the file handle, releases resources and ends the lifetime.
+    /// 
+    /// - Note: This method is not cancellable.
     @concurrent
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor
@@ -61,12 +66,18 @@ public struct AsyncReadFileHandle
 
 extension AsyncReadFileHandle {
 
+    /// Gets a sequential reader for this file handle.
     @_lifetime(borrow self)
     public func sequentialReader() -> SequentialReader {
         .init(readHandle: self)
     }
 
 
+    /// A sequential reader supported by a positional read file handle.
+    /// 
+    /// The sequential read operations provided by this reader are based on a manually maintained file 
+    /// pointer instead of relying on the one provided by the underlying file system. As a result, each 
+    /// instance have independent file pointer.
     public struct SequentialReader
     : ~Escapable
     , AsyncMutatingSequentialReadFileHandleProtocol, AsyncMutatingSeekableFileHandleProtocol

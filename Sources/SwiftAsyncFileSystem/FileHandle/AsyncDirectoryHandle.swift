@@ -6,6 +6,7 @@ import struct SwiftFileSystem.UnsafeHandleContextView
 
 
 
+/// A file handle representing a directory.
 public struct AsyncDirectoryHandle
 : ~Copyable, @unchecked Sendable
 , AsyncDirectoryHandleProtocol, AutoSynthesisAsyncFileHandleProtocol {
@@ -15,6 +16,11 @@ public struct AsyncDirectoryHandle
     public let executor: AsyncFileSystemExecutor
 
 
+    /// Opens a handle for the directory at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the directory to open.
+    ///   - options: The options for opening the directory handle.
+    ///   - executor: The executor for executing the IO operations
     @concurrent
     public init(
         forDirAt path: FilePath, 
@@ -31,6 +37,9 @@ public struct AsyncDirectoryHandle
     }
 
 
+    /// Closes the file handle, releases resources and ends the lifetime.
+    /// 
+    /// - Note: This method is not cancellable.
     @concurrent
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor
@@ -62,6 +71,7 @@ public struct AsyncDirectoryHandle
     }
 
 
+    /// Returns a sequence for enumerating the direct entries of the directory.
     @_lifetime(borrow self)
     public func entrySequence(
         options: FileOperationOptions.DirectoryTraversalOption = [], 
@@ -80,15 +90,24 @@ public struct AsyncDirectoryHandle
 
 extension AsyncDirectoryHandle {
 
+    /// A sequence for enumerating the direct entries of a directory.
     public struct AsyncEntrySequence: ~Copyable, ~Escapable {
 
         public typealias Element = DirectoryEntry
 
+        /// The default number of entries to fetch in a single batch
         public static var defaultBatchCount: Int { 128 }
 
         private let syncSequence: DirectoryHandle.EntrySequence
+        /// The number of entries to fetch in a single batch
         public let batchCount: Int
+        /// The executor for executing the IO operations
         public let executor: AsyncFileSystemExecutor
+
+        /// The path of the directory being enumerated.
+        public var path: FilePath { syncSequence.path }
+        /// The options for enumerating the directory entries.
+        public var options: FileOperationOptions.DirectoryTraversalOption { syncSequence.options }
 
 
         @_lifetime(copy syncSequence)
@@ -117,16 +136,21 @@ extension AsyncDirectoryHandle {
 
 
 
+    /// An iterator for enumerating the direct entries of a directory.
     public struct AsyncEntryIterator: ~Copyable, ~Escapable {
 
         var syncIterator: DirectoryHandle.EntryIterator
+        /// The executor for executing the IO operations
         public let executor: AsyncFileSystemExecutor
 
         private var batch: Deque<AsyncEntrySequence.Element> = .init()
         private var pendingErr: PlatformError?
+        /// The number of entries to fetch in a single batch
         public let batchCount: Int
 
+        /// The path of the directory being enumerated.
         public var rootPath: FilePath { syncIterator.rootPath }
+        /// Whether the enumeration has ended.
         public var ended: Bool { syncIterator.ended && batch.isEmpty && pendingErr == nil }
 
 
@@ -143,6 +167,7 @@ extension AsyncDirectoryHandle {
         }
 
 
+        /// Emit the next entry.
         @concurrent
         public mutating func next() async throws(PlatformError) -> AsyncEntrySequence.Element? {
 

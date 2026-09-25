@@ -8,9 +8,9 @@
 import SwiftFileSystem
 
 
-/// Async counterpart of `StreamingReadHandle`. Like the synchronous type it is not
-/// Sendable: a blocking byte stream has shared cursor state, so a handle belongs to one
-/// task at a time. A pending read occupies an executor worker thread until bytes arrive.
+/// A file handle for sequentially reading a file.
+/// 
+/// This handle supports "files" that are not regular files, such as fifos and character devices.
 public struct AsyncStreamingReadHandle
 : ~Copyable
 , AsyncSequentialReadFileHandleProtocol, AutoSynthesisAsyncFileHandleProtocol {
@@ -20,6 +20,11 @@ public struct AsyncStreamingReadHandle
     public let executor: AsyncFileSystemExecutor
 
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - executor: The executor for executing the IO operations
     @concurrent
     public init(
         forFileAt path: FilePath,
@@ -36,10 +41,9 @@ public struct AsyncStreamingReadHandle
     }
 
 
-    /// Closes the handle on the executor. Unlike the other operations, closing never
-    /// observes task cancellation: the handle is consumed either way, so a cancelled close
-    /// could not be retried and would only move the actual closing to the deinit on the
-    /// calling thread.
+    /// Closes the file handle, releases resources and ends the lifetime.
+    /// 
+    /// - Note: This method is not cancellable.
     @concurrent
     public consuming func close() async throws(PlatformError) {
         let executor = self.executor

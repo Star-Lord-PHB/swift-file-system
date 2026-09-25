@@ -5,17 +5,24 @@ import enum SwiftFileSystem.DirectoryEntryRecursiveSequenceElement
 
 
 
+/// A sequence for recursively traversing a directory and its subdirectories, yielding 
+/// ``DirectoryEntryRecursiveSequenceElement`` values.
 public struct AsyncDirectoryEntryRecursiveSequence: Sendable {
 
     public typealias Element = SwiftFileSystem.DirectoryEntryRecursiveSequenceElement
 
+    /// The default number of entries to fetch in a single batch
     public static var defaultBatchCount: Int { 128 }
 
     let syncSequence: DirectoryEntryRecursiveSequence
+    /// The number of entries to fetch in a single batch
     public let batchCount: Int
+    /// The executor for executing the IO operations
     public let executor: AsyncFileSystemExecutor
 
+    /// The path of the directory to traverse.
     public var path: FilePath { syncSequence.path }
+    /// The options for directory traversal.
     public var options: FileOperationOptions.DirectoryTraversalOption { syncSequence.options }
 
 
@@ -46,6 +53,7 @@ public struct AsyncDirectoryEntryRecursiveSequence: Sendable {
 
 extension AsyncDirectoryEntryRecursiveSequence {
 
+    /// The iterator for recursively traversing a directory and its subdirectories.
     public struct AsyncIterator: ~Copyable {
 
         private enum SkipRequest {
@@ -55,6 +63,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
         }
 
         var syncIterator: DirectoryEntryRecursiveSequence.Iterator
+        /// The executor for executing the IO operations
         public let executor: AsyncFileSystemExecutor
 
         private var batch: Deque<DirectoryEntryRecursiveSequenceElement> = .init()
@@ -64,8 +73,10 @@ extension AsyncDirectoryEntryRecursiveSequence {
         private var skipRequest: SkipRequest = .none
 
         private var pendingErr: PlatformError?
+        /// The number of entries to fetch in a single batch
         public let batchCount: Int
 
+        /// The path of the root directory being traversed.
         public var rootPath: FilePath { syncIterator.rootPath }
 
 
@@ -81,6 +92,11 @@ extension AsyncDirectoryEntryRecursiveSequence {
         }
 
 
+        /// Skips the descendants of a newly meet directory.
+        /// 
+        /// If the current entry that is just emitted is a directory, this method will skip that directory 
+        /// without emitting a ``DirectoryEntryRecursiveSequenceElement/leavingDir`` element. Otherwise, this 
+        /// method has no effect
         public mutating func skipDescendants() {
             if skipRequest == .none && prevEmittedElementIsDir {
                 skipRequest = .skipDescendants
@@ -88,11 +104,14 @@ extension AsyncDirectoryEntryRecursiveSequence {
         }
 
 
+        /// Leaves the current directory early and emits a ``DirectoryEntryRecursiveSequenceElement/leavingDir``
+        /// element.
         public mutating func skipCurrentDir() {
             skipRequest = .skipCurrentDir
         }
 
 
+        /// Emit the next element.
         @concurrent
         public mutating func next() async throws(PlatformError) -> DirectoryEntryRecursiveSequenceElement? {
 
