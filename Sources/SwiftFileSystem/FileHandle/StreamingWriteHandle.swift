@@ -10,6 +10,9 @@ import FileSystemCore
 
 
 
+/// A file handle for sequentially writing a file.
+/// 
+/// This handle supports "files" that are not regular files, such as fifos and character devices.
 public struct StreamingWriteHandle
 : ~Copyable
 , SequentialWriteFileHandleProtocol
@@ -30,6 +33,10 @@ public struct StreamingWriteHandle
 
 extension StreamingWriteHandle {
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForStreaming = .init()
@@ -46,6 +53,7 @@ extension StreamingWriteHandle {
     }
 
 
+    /// Closes the file handle, releases resources and ends the lifetime.
     public consuming func close() throws(PlatformError) {
         do {
             try context.close()

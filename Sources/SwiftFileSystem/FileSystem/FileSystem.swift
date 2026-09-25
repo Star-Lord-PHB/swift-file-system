@@ -2,6 +2,7 @@ import SystemPackage
 import FileSystemCore
 
 
+/// Path-based file system APIs
 public struct FileSystem: FileSystemProtocol {
 
     public init() {}

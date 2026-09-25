@@ -196,7 +196,7 @@ public struct WindowsAbsoluteSecurityDescriptor: ~Copyable {
     /// - Parameter body: A closure for accessing the SECURITY_DESCRIPTOR pointer.
     ///
     /// - Warning: Do not return or store the pointer outside the closure. The pointer is mutable only because the
-    ///            Win32 APIs take `PSECURITY_DESCRIPTOR`; do not modify the descriptor or anything it references
+    ///            Win32 APIs take `PSECURITY_DESCRIPTOR`, do not modify the descriptor or anything it references
     ///            through it. Use ``withUnsafeMutableSdPtr(_:)`` for modifications.
     public func withUnsafeSdPtr<R: ~Copyable, E: Error>(_ body: (PSECURITY_DESCRIPTOR) throws(E) -> R) throws(E) -> R {
         return try body(_psd.unsafeRawPtr)

@@ -3,6 +3,7 @@ import FileSystemCore
 
 
 
+/// A file handle for positionally reading a file.
 public struct ReadFileHandle
 : ~Copyable, @unchecked Sendable
 , PositionalReadFileHandleProtocol, SystemHandleSupportedFileHandleProtocol {
@@ -22,6 +23,10 @@ public struct ReadFileHandle
 
 extension ReadFileHandle {
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
     public init(forFileAt path: FilePath, options: FileOperationOptions.OpenForReading = .init()) throws(PlatformError) {
 
         let openOptions = UnsafeSystemHandle.OpenOptions(
@@ -62,6 +67,7 @@ extension ReadFileHandle {
     }
 
 
+    /// Closes the file handle, releases resources and ends the lifetime.
     public consuming func close() throws(PlatformError) {
         do {
             try context.close()
@@ -76,6 +82,7 @@ extension ReadFileHandle {
     }
 
 
+    /// Gets a sequential reader for this file handle.
     @_lifetime(borrow self)
     public func sequentialReader() -> SequentialReader {
         .init(readHandle: self)
@@ -87,6 +94,11 @@ extension ReadFileHandle {
 
 extension ReadFileHandle {
 
+    /// A sequential reader supported by a positional read file handle.
+    /// 
+    /// The sequential read operations provided by this reader are based on a manually maintained file 
+    /// pointer instead of relying on the one provided by the underlying file system. As a result, each 
+    /// instance have independent file pointer.
     public struct SequentialReader
     : ~Escapable
     , MutatingSequentialReadFileHandleProtocol, MutatingSeekableFileHandleProtocol

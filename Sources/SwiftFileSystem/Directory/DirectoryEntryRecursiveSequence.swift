@@ -3,12 +3,18 @@ import FileSystemCore
 
 
 
+/// Element type of a recursive directory sequence.
 public enum DirectoryEntryRecursiveSequenceElement: Sendable {
+    /// A normal directory entry.
     case entry(DirectoryEntry)
+    /// Leaving a directory, with an optional associated error if leaving a dir early due to an error or leaving itself caused an error
     case leavingDir(FilePath, PlatformError?)
+    /// An error occurred when reading a directory entry.
     case entryError(FilePath, PlatformError)
+    /// An error occurred when getting into a subdirectory (nothing inside this directory will be traversed)
     case subTreeError(FilePath, PlatformError)
 
+    /// The path of the current entry.
     public var path: FilePath {
         switch self {
             case .entry(let entry):          entry.path
@@ -18,8 +24,12 @@ public enum DirectoryEntryRecursiveSequenceElement: Sendable {
         }
     }
 
+    /// The name of the current entry.
+    /// 
+    /// Same as `path.lastComponent!`
     public var name: FilePath.Component { path.lastComponent! }
 
+    /// The error associated with the current entry, if any.
     public var error: PlatformError? {
         switch self {
             case .entry:                     return nil
@@ -32,11 +42,14 @@ public enum DirectoryEntryRecursiveSequenceElement: Sendable {
 
 
 
+/// A sequence for recursively traversing a directory and its subdirectories, yielding ``DirectoryEntryRecursiveSequenceElement`` values.
 public struct DirectoryEntryRecursiveSequence: Sendable {
 
     public typealias Element = Result<DirectoryEntryRecursiveSequenceElement, PlatformError>
 
+    /// The path of the directory to traverse.
     public let path: FilePath
+    /// The options for directory traversal.
     public let options: FileOperationOptions.DirectoryTraversalOption
 
 
@@ -56,6 +69,7 @@ public struct DirectoryEntryRecursiveSequence: Sendable {
 
 extension DirectoryEntryRecursiveSequence {
 
+    /// The iterator for recursively traversing a directory and its subdirectories.
     public struct Iterator: ~Copyable {
 
         private var enumerator: DirectoryEntryRecursiveEnumerator
@@ -63,6 +77,7 @@ extension DirectoryEntryRecursiveSequence {
         private var skipDescendantsRequested: Bool = false
         private var skipCurrentDirRequested: Bool = false
 
+        /// The path of the root directory being traversed.
         public var rootPath: FilePath { enumerator.rootPath }
         
 
@@ -71,6 +86,11 @@ extension DirectoryEntryRecursiveSequence {
         }
 
 
+        /// Skips the descendants of a newly meet directory.
+        /// 
+        /// If the current entry that is just emitted is a directory, this method will skip that directory 
+        /// without emitting a ``DirectoryEntryRecursiveSequenceElement/leavingDir`` element. Otherwise, this 
+        /// method has no effect
         public mutating func skipDescendants() {
             if !enumerator.currentDirRelativePath.isEmpty {
                 skipDescendantsRequested = true
@@ -78,11 +98,14 @@ extension DirectoryEntryRecursiveSequence {
         }
 
 
+        /// Leaves the current directory early and emits a ``DirectoryEntryRecursiveSequenceElement/leavingDir``
+        /// element.
         public mutating func skipCurrentDir() {
             skipCurrentDirRequested = true
         }
 
 
+        /// Emit the next element.
         public mutating func next() -> Element? {
 
             defer { 

@@ -10,7 +10,9 @@ import FileSystemCore
 
 
 
+/// A protocol for file handles that support synchronizing with the underlying device.
 public protocol PersistentFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
+    /// Synchronizes the file handle with the underlying device.
     func synchronize() throws(PlatformError)
 }
 
@@ -26,7 +28,9 @@ extension PersistentFileHandleProtocol where Self: ~Copyable & ~Escapable & Syst
 
 
 
+/// A protocol for file handles that support resizing.
 public protocol ResizableFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
+    /// Resizes the file to the specified size.
     func resize(to size: Int64) throws(PlatformError)
 }
 
@@ -44,8 +48,14 @@ extension ResizableFileHandleProtocol where Self: ~Copyable & ~Escapable & Syste
 
 
 
+/// A protocol for file handles that support positional writing operations.
 public protocol PositionalWriteFileHandleProtocol: ~Copyable, ~Escapable, ResizableFileHandleProtocol {
 
+    /// Writes the provided bytes into the file handle at the specified offset.
+    /// - Parameters:
+    ///   - buffer: The bytes to write into the file handle.
+    ///   - offset: The offset relative to the beginning of the file to write to.
+    /// - Returns: The number of bytes actually written into the file handle.
     @discardableResult
     func write(_ buffer: RawSpan, toOffset offset: Int64) throws(PlatformError) -> Int64
 
@@ -55,9 +65,14 @@ public protocol PositionalWriteFileHandleProtocol: ~Copyable, ~Escapable, Resiza
 
 extension PositionalWriteFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
+    /// Writes the provided bytes into the file handle at the specified offset.
+    /// - Parameters:
+    ///   - buffer: The bytes to write into the file handle.
+    ///   - offset: The offset relative to the beginning of the file to write to.
+    /// - Returns: The number of bytes actually written into the file handle.
     @discardableResult
-    public func write(_ data: ByteBuffer, toOffset offset: Int64) throws(PlatformError) -> Int64 {
-        return try write(data.bytes, toOffset: offset)
+    public func write(_ buffer: ByteBuffer, toOffset offset: Int64) throws(PlatformError) -> Int64 {
+        return try write(buffer.bytes, toOffset: offset)
     }
 
 }
@@ -84,10 +99,14 @@ extension PositionalWriteFileHandleProtocol where Self: ~Copyable & ~Escapable &
 
 
 
+/// A protocol for file handles that support sequential writing.
 public protocol SequentialWriteFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
+    /// Writes the provided bytes into the file handle at the current position of the file pointer.
+    /// - Parameter bytes: The bytes to write into the file handle.
+    /// - Returns: The number of bytes actually written into the file handle.
     @discardableResult
-    func write(_ buffer: RawSpan) throws(PlatformError) -> Int64
+    func write(_ bytes: RawSpan) throws(PlatformError) -> Int64
 
 }
 
@@ -95,9 +114,12 @@ public protocol SequentialWriteFileHandleProtocol: ~Copyable, ~Escapable, FileHa
 
 extension SequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
+    /// Writes the provided bytes into the file handle at the current position of the file pointer.
+    /// - Parameter bytes: The bytes to write into the file handle.
+    /// - Returns: The number of bytes actually written into the file handle.
     @discardableResult
-    public func write(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
-        return try write(data.bytes)
+    public func write(_ bytes: ByteBuffer) throws(PlatformError) -> Int64 {
+        return try write(bytes.bytes)
     }
 
 }
@@ -107,9 +129,9 @@ extension SequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapable {
 extension SequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapable & SystemHandleSupportedFileHandleProtocol {
 
     @discardableResult
-    public func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
+    public func write(_ bytes: RawSpan) throws(PlatformError) -> Int64 {
         return try self.withUnsafeSystemHandle(operation: .writeHandle(originalPath: path)) { handle throws(LowLevelError) in
-            try handle.write(contentsOf: buffer)
+            try handle.write(contentsOf: bytes)
         }
     }
 
@@ -117,10 +139,15 @@ extension SequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapable &
 
 
 
+
+/// A protocol for file handles that support atomically appending data to the end of the file.
 public protocol AppendableFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
+    /// Appends the provided bytes to the end of the file handle atomically.
+    /// - Parameter bytes: The bytes to append to the end of the file handle.
+    /// - Returns: The number of bytes actually appended to the file handle.
     @discardableResult
-    func append(_ buffer: RawSpan) throws(PlatformError) -> Int64
+    func append(_ bytes: RawSpan) throws(PlatformError) -> Int64
 
 }
 
@@ -128,9 +155,12 @@ public protocol AppendableFileHandleProtocol: ~Copyable, ~Escapable, FileHandleP
 
 extension AppendableFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
+    /// Appends the provided bytes to the end of the file handle atomically.
+    /// - Parameter bytes: The bytes to append to the end of the file handle.
+    /// - Returns: The number of bytes actually appended to the file handle.
     @discardableResult
-    public func append(_ data: ByteBuffer) throws(PlatformError) -> Int64 {
-        return try append(data.bytes)
+    public func append(_ bytes: ByteBuffer) throws(PlatformError) -> Int64 {
+        return try append(bytes.bytes)
     }
 
 }

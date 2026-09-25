@@ -3,6 +3,7 @@ import FileSystemCore
 
 
 
+/// A file handle for appending data to the end of a file atomically.
 public struct AppendHandle
 : ~Copyable, @unchecked Sendable
 , AppendableFileHandleProtocol, PersistentFileHandleProtocol
@@ -23,6 +24,21 @@ public struct AppendHandle
 
 extension AppendHandle {
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The permissions to use when creating the file, 
+    ///     or `nil` for default permissions, ignored if creation is not required.
+    /// 
+    /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
+    /// and inheriting from parent directory for Windows.
+    /// 
+    /// - Attention: Windows does not support Posix style permissions directly, so this API will try to map
+    ///              the Posix permissions to Windows DACL with best effort. If more fine-grained control is 
+    ///              required, use the overloads that accept Windows security descriptors.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -60,6 +76,14 @@ extension AppendHandle {
 
 
     #if canImport(WinSDK)
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
+    ///                          file, ignored if creation is not required.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -69,6 +93,14 @@ extension AppendHandle {
     }
 
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
+    ///                          file, ignored if creation is not required.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -82,6 +114,14 @@ extension AppendHandle {
     }
 
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
+    ///                          file, ignored if creation is not required.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -164,6 +204,7 @@ extension AppendHandle {
     }
 
 
+    /// Closes the file handle, releases resources and ends the lifetime.
     public consuming func close() throws(PlatformError) {
         do {
             try context.close()
@@ -184,9 +225,9 @@ extension AppendHandle {
 extension AppendHandle {
 
     @discardableResult
-    public func append(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
+    public func append(_ bytes: RawSpan) throws(PlatformError) -> Int64 {
 
-        try buffer.withUnsafeBytes { buffer throws(PlatformError) in
+        try bytes.withUnsafeBytes { buffer throws(PlatformError) in
             try catchLowLevelError(operation: .writeHandle(originalPath: path)) { () throws(LowLevelError) in
                 #if canImport(WinSDK)
                 try context.systemHandle.pwrite(contentsOf: buffer, to: -1)

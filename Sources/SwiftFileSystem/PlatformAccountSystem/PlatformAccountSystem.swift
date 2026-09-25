@@ -1,9 +1,9 @@
 import FileSystemCore
 
 
-/// Queries the platform's user/group account database (POSIX passwd/group, Windows LSA).
+/// APIs for querying the platform's user/group account database.
 ///
-/// Note that lookups may reach out to directory services (e.g. a Windows domain
+/// - Note: Lookups may reach out to directory services (e.g. a Windows domain
 /// controller for domain SIDs) and can therefore block on the network.
 public struct PlatformAccountSystem: PlatformAccountSystemProtocol {
 

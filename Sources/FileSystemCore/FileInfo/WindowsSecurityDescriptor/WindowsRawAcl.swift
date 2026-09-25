@@ -59,7 +59,7 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
     /// - Parameter operation: A closure for accessing the underlying ACL pointer.
     ///
     /// - Warning: Do not return or store the pointer outside the closure. The pointer is mutable only because the
-    ///            Win32 APIs take `PACL`; do not modify the ACL through it.
+    ///            Win32 APIs take `PACL`, do not modify the ACL through it.
     public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
         return try operation(pacl.unsafelyCastedMutableRawPtr)
     }
@@ -82,7 +82,7 @@ public struct WindowsRawAcl: ~Copyable, WindowRawAclProtocol {
         /// - Parameter operation: A closure for accessing the underlying ACL pointer.
         ///
         /// - Warning: Do not return or store the pointer outside the closure. The pointer is mutable only because the
-        ///            Win32 APIs take `PACL`; do not modify the ACL through it.
+        ///            Win32 APIs take `PACL`, do not modify the ACL through it.
         public func withUnsafePACL<R, E>(_ operation: (PACL) throws(E) -> R) throws(E) -> R where E : Error, R : ~Copyable {
             return try operation(pacl.unsafelyCastedMutableRawPtr)
         }

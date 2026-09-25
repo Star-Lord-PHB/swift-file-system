@@ -10,6 +10,7 @@ import FileSystemCore
 
 
 
+/// A protocol for file handles for directories.
 public protocol DirectoryHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
     // MARK: TODO: Add entrySequence into protocol when non-copyable associated types in protocols are supported
@@ -18,6 +19,9 @@ public protocol DirectoryHandleProtocol: ~Copyable, ~Escapable, FileHandleProtoc
     // @_lifetime(borrow self)
     // func entrySequence(options: FileOperationOptions.DirectoryTraversalOption) -> DirectoryEntryDirectSequenceType
 
+    /// Gets all the direct entries in the directory.
+    /// 
+    /// - Parameter options: The options for directory traversal.
     func entries(options: FileOperationOptions.DirectoryTraversalOption) throws(PlatformError) -> [DirectoryEntry]
 
 }

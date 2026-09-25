@@ -3,6 +3,7 @@ import FileSystemCore
 
 
 
+/// A file handle for positionally reading and writing a file.
 public struct ReadWriteFileHandle
 : ~Copyable, @unchecked Sendable
 , PositionalReadFileHandleProtocol
@@ -24,6 +25,21 @@ public struct ReadWriteFileHandle
 
 extension ReadWriteFileHandle {
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The permissions to use when creating the file,
+    ///                          or `nil` for default permissions, ignored if creation is not required.
+    /// 
+    /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
+    /// and inheriting from parent directory for Windows.
+    /// 
+    /// - Attention: Windows does not support Posix style permissions directly, so this API will try to map
+    ///              the Posix permissions to Windows DACL with best effort. If more fine-grained control is 
+    ///              required, use the overloads that accept Windows security descriptors.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -60,6 +76,14 @@ extension ReadWriteFileHandle {
 
 
     #if canImport(WinSDK)
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
+    ///                          file, ignored if creation is not required.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath, 
         options: FileOperationOptions.OpenForWriting = .editFile(), 
@@ -68,6 +92,14 @@ extension ReadWriteFileHandle {
         try self.init(path: path, options: options, creationPermissions: .securityDescriptor(creationPermissions))
     }
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
+    ///                          file, ignored if creation is not required.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath, 
         options: FileOperationOptions.OpenForWriting = .editFile(), 
@@ -76,6 +108,14 @@ extension ReadWriteFileHandle {
         try self.init(forFileAt: path, options: options, creationPermissions: creationPermissions.view)
     }
 
+    /// Opens a file handle for the file at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the file to open.
+    ///   - options: The options for opening the file handle.
+    ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
+    ///                          file, ignored if creation is not required.
+    /// 
+    /// - Seealso: ``FileOperationOptions.OpenForWriting``
     public init(
         forFileAt path: FilePath, 
         options: FileOperationOptions.OpenForWriting = .editFile(), 
@@ -151,6 +191,7 @@ extension ReadWriteFileHandle {
     }
 
 
+    /// Closes the file handle, releases resources and ends the lifetime.
     public consuming func close() throws(PlatformError) {
         do {
             try context.close()
@@ -165,6 +206,7 @@ extension ReadWriteFileHandle {
     }
 
 
+    /// Gets a sequential accessor for this file handle.
     @_lifetime(borrow self)
     public func sequentialAccessor() -> SequentialAccessor {
         .init(readWriteHandle: self)
@@ -177,6 +219,11 @@ extension ReadWriteFileHandle {
 
 extension ReadWriteFileHandle {
 
+    /// A sequential accessor for both reading and writing supported by a positional read-write file handle.
+    /// 
+    /// The sequential read/write operations provided by this accessor are based on a manually maintained 
+    /// file pointer instead of relying on the one provided by the underlying file system. As a result, each 
+    /// instance have independent file pointer.
     public struct SequentialAccessor
     : ~Escapable
     , MutatingSequentialReadFileHandleProtocol
@@ -217,8 +264,8 @@ extension ReadWriteFileHandle {
 
         @discardableResult
         @_lifetime(self: copy self)
-        public mutating func write(_ buffer: RawSpan) throws(PlatformError) -> Int64 {
-            try accessor.write(buffer)
+        public mutating func write(_ bytes: RawSpan) throws(PlatformError) -> Int64 {
+            try accessor.write(bytes)
         }
 
     }

@@ -3,6 +3,7 @@ import FileSystemCore
 
 
 
+/// A file handle representing a directory.
 public struct DirectoryHandle: ~Copyable, @unchecked Sendable, DirectoryHandleProtocol, SystemHandleSupportedFileHandleProtocol {
 
     fileprivate let context: UnsafeHandleContext
@@ -20,6 +21,10 @@ public struct DirectoryHandle: ~Copyable, @unchecked Sendable, DirectoryHandlePr
 
 extension DirectoryHandle {
 
+    /// Opens a handle for the directory at the specified path.
+    /// - Parameters:
+    ///   - path: The path of the directory to open.
+    ///   - options: The options for opening the directory handle.
     public init(forDirAt path: FilePath, options: FileOperationOptions.OpenForDirectory = .init()) throws(PlatformError) { 
 
         let systemOpenOptions = UnsafeSystemHandle.OpenOptions(
@@ -57,6 +62,7 @@ extension DirectoryHandle {
     }
 
 
+    /// Returns a sequence for enumerating the direct entries of the directory.
     @_lifetime(borrow self)
     public func entrySequence(options: FileOperationOptions.DirectoryTraversalOption = []) -> EntrySequence {
         return .init(unsafeSystemHandle: context.systemHandle, path: path, options: options)
@@ -68,6 +74,7 @@ extension DirectoryHandle {
     }
 
 
+    /// Closes the file handle, releases resources and ends the lifetime.
     public consuming func close() throws(PlatformError) {
         do {
             try context.close()
@@ -87,12 +94,15 @@ extension DirectoryHandle {
 
 extension DirectoryHandle {
 
+    /// A sequence for enumerating the direct entries of a directory.
     public struct EntrySequence: ~Escapable, ~Copyable {
 
         public typealias Element = Result<DirectoryEntry, PlatformError>
 
         private let handle: UnsafeUnownedSystemHandle
+        /// The path of the directory being enumerated.
         public let path: FilePath
+        /// The options for enumerating the directory entries.
         public let options: FileOperationOptions.DirectoryTraversalOption
 
 
@@ -119,6 +129,7 @@ extension DirectoryHandle {
     }
 
 
+    /// An iterator for enumerating the direct entries of a directory.
     public struct EntryIterator: ~Escapable, ~Copyable {
 
         private enum State: ~Copyable, ~Escapable {
@@ -162,6 +173,7 @@ extension DirectoryHandle {
         private var state: State
 
 
+        /// The path of the directory being enumerated.
         public var rootPath: FilePath {
             switch state {
                 case .ready(_, let path, _): path
@@ -170,6 +182,7 @@ extension DirectoryHandle {
             }
         }
 
+        /// Whether the enumeration has ended.
         public var ended: Bool {
             switch state {
                 case .ready:         false
@@ -190,6 +203,7 @@ extension DirectoryHandle {
         }
 
 
+        /// Emit the next entry.
         public mutating func next() -> EntrySequence.Element? {
             do {
                 return try state.next().map { .success($0) }

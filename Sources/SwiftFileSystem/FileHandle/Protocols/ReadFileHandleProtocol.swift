@@ -10,8 +10,15 @@ import FileSystemCore
 
 
 
+/// A protocol for file handles that support positioanal reading operations.
 public protocol PositionalReadFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
+    /// Reads data from the file handle at the specified offset into the provided buffer.
+    /// - Parameters:
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    ///   - buffer: The buffer to receive the read data, 
+    ///             whose size is the max number of bytes to read.
+    /// - Returns: The number of bytes read into the buffer.
     @_lifetime(buffer: copy buffer)
     func read(fromOffset offset: Int64, into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64
 
@@ -21,11 +28,23 @@ public protocol PositionalReadFileHandleProtocol: ~Copyable, ~Escapable, FileHan
 
 extension PositionalReadFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
+    /// Reads data from the file handle at the specified offset into the provided buffer.
+    /// - Parameters: 
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    ///   - buffer: The buffer to receive the read data, 
+    ///                     whose size is the max number of bytes to read.
+    /// - Returns: The number of bytes read into the buffer.
     public func read(fromOffset offset: Int64, into buffer: consuming MutableRawSpan) throws(PlatformError) -> Int64 {
         return try read(fromOffset: offset, into: &buffer)
     }
 
 
+    /// Reads data from the file handle at the specified offset into the provided buffer.
+    /// - Parameter 
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    ///   - buffer: The buffer to receive the read data.
+    ///   - bufferRange: The range of the buffer to be filled with the read data.
+    /// - Returns: The number of bytes read into the buffer.
     public func read(
         fromOffset offset: Int64,
         into buffer: inout ByteBuffer,
@@ -35,6 +54,12 @@ extension PositionalReadFileHandleProtocol where Self: ~Copyable & ~Escapable {
     }
 
 
+    /// Reads upto specified number of bytes from the file handle at the specified offset.
+    /// and returns them as a ``ByteBuffer``.
+    /// - Parameters:
+    ///   - offset: The offset relative to the beginning of the file to read from.
+    ///   - length: The maximum number of bytes to read.
+    /// - Returns: A ``ByteBuffer`` containing the read data, whose size is the actual number of bytes read.
     public func read(fromOffset offset: Int64, length: Int64) throws(PlatformError) -> ByteBuffer {
         var buffer = ByteBuffer(count: Int(length))
         let bytesRead = try read(fromOffset: offset, into: &buffer, at: ..<Int(length))
@@ -73,8 +98,13 @@ extension PositionalReadFileHandleProtocol where Self: ~Copyable & ~Escapable & 
 
 
 
+/// A protocol for file handles that support sequential reading.
 public protocol SequentialReadFileHandleProtocol: ~Copyable, ~Escapable, FileHandleProtocol {
 
+    /// Reads data from the file handle at the current position of the file pointer into the provided buffer.
+    /// - Parameter buffer: The buffer to receive the read data, 
+    ///                     whose size is the max number of bytes to read.
+    /// - Returns: The number of bytes read into the buffer.
     @_lifetime(buffer: copy buffer)
     func read(into buffer: inout MutableRawSpan) throws(PlatformError) -> Int64
 
@@ -84,16 +114,29 @@ public protocol SequentialReadFileHandleProtocol: ~Copyable, ~Escapable, FileHan
 
 extension SequentialReadFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
+    /// Reads data from the file handle at the current position of the file pointer into the provided buffer.
+    /// - Parameter buffer: The buffer to receive the read data, 
+    ///                     whose size is the max number of bytes to read.
+    /// - Returns: The number of bytes read into the buffer.
     public func read(into buffer: consuming MutableRawSpan) throws(PlatformError) -> Int64 {
         return try read(into: &buffer)
     }
 
 
+    /// Reads data from the file handle at the current position of the file pointer into the provided buffer.
+    /// - Parameter 
+    ///   - buffer: The buffer to receive the read data.
+    ///   - bufferRange: The range of the buffer to be filled with the read data.
+    /// - Returns: The number of bytes read into the buffer.
     public func read(into buffer: inout ByteBuffer, at bufferRange: some RangeExpression<Int> = 0...) throws(PlatformError) -> Int64 {
         return try read(into: buffer.mutableBytes._consumingExtracting(bufferRange))
     }
 
 
+    /// Reads upto specified number of bytes from the file handle at the current position of the file pointer
+    /// and returns them as a ``ByteBuffer``.
+    /// - Parameter length: The maximum number of bytes to read.
+    /// - Returns: A ``ByteBuffer`` containing the read data, whose size is the actual number of bytes read.
     public func read(length: Int64) throws(PlatformError) -> ByteBuffer {
         var buffer = ByteBuffer(count: Int(length))
         let bytesRead = try read(into: &buffer, at: ..<Int(length))

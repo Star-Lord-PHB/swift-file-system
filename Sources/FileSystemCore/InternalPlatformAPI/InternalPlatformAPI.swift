@@ -354,7 +354,7 @@ package enum InternalPlatformAPI {
 
 
     // NOTE: No generic-rights mapping happens here on purpose. Authz evaluates ACE masks
-    // bit-literally and never returns GENERIC_* bits for MAXIMUM_ALLOWED (probe-verified).
+    // bit-literally and never returns GENERIC_* bits for MAXIMUM_ALLOWED.
     // Windows maps generic bits when inheritable ACEs are instantiated onto children, not
     // at access-check time.
     private static func effectiveAccessMask(
