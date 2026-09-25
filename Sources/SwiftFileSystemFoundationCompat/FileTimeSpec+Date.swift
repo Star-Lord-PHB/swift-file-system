@@ -12,6 +12,9 @@ extension Date {
 
 extension FileTimeSpec {
     
+    /// Creates a ``FileTimeSpec`` from a [`Date`].
+    /// 
+    /// [`Date`]: https://developer.apple.com/documentation/foundation/date
     public init(from date: Date) {
         #if canImport(WinSDK)
         let timeInterval = date.timeIntervalSinceReferenceDate + Date.timeIntervalBetween1601AndReferenceDate
@@ -24,6 +27,9 @@ extension FileTimeSpec {
     }
     
     
+    /// Converts the ``FileTimeSpec`` into a [`Date`].
+    /// 
+    /// [`Date`]: https://developer.apple.com/documentation/foundation/date
     @inlinable
     public var date: Date {
         #if canImport(WinSDK)

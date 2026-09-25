@@ -184,7 +184,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
         if members.contains(.sacl) {
             access.insert(.windows.accessSystemSecurity)
         }
-        try withUnsafeSystemHandleForMetadata(
+        return try withUnsafeSystemHandleForMetadata(
             requiringAccess: access,
             operation: .fetchMeta(path)
         ) { (handle) throws(LowLevelError) in

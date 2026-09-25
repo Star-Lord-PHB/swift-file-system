@@ -19,6 +19,9 @@ extension ByteBuffer: DataProtocol {
     @inlinable
     public var regions: CollectionOfOne<Self> { .init(self) }
     
+    /// Converts the ``ByteBuffer`` into a [`Data`] instance.
+    /// 
+    /// [`Data`]: https://developer.apple.com/documentation/foundation/data
     @inlinable
     public var data: Data { .init(self) }
     

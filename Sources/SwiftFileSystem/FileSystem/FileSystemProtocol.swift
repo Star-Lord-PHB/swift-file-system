@@ -147,8 +147,8 @@ public protocol FileSystemProtocol: Sendable {
     /// 
     /// Note that the `.ignoreAll` strategy still throws if the copy operation is cancelled.
     /// 
-    /// - Seealso: ``FileOperationOptions.CopyItemOptions``
-    /// - Seealso: ``FileOperationOptions.RecursiveCopyErrorStrategyProtocol``
+    /// - Seealso: ``FileOperationOptions/CopyItemOptions``
+    /// - Seealso: ``FileOperationOptions/RecursiveCopyErrorStrategyProtocol``
     func copyItem<ErrorStrategy: FileOperationOptions.RecursiveCopyErrorStrategyProtocol>(
         at srcPath: FilePath,
         to dstPath: FilePath,
