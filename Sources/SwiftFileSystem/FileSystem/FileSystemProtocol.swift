@@ -343,19 +343,6 @@ public protocol FileSystemProtocol: Sendable {
     func setOwner(forItemAt path: FilePath, owner: PlatformIdentity?, group: PlatformIdentity?, followSymlink: Bool) throws(PlatformError)
 
 
-    // MARK: File Handles
-
-    func withFileHandle<R: ~Copyable>(forReadingAt path: FilePath, options: FileOperationOptions.OpenForReading, body: (borrowing ReadFileHandle) throws -> R) throws -> R
-
-    func withFileHandle<R: ~Copyable>(forWritingAt path: FilePath, options: FileOperationOptions.OpenForWriting, body: (borrowing WriteFileHandle) throws -> R) throws -> R
-
-    func withFileHandle<R: ~Copyable>(forAppendingAt path: FilePath, options: FileOperationOptions.OpenForWriting, body: (borrowing AppendHandle) throws -> R) throws -> R
-
-    func withFileHandle<R: ~Copyable>(forUpdatingAt path: FilePath, options: FileOperationOptions.OpenForWriting, body: (borrowing ReadWriteFileHandle) throws -> R) throws -> R
-
-    func withDirHandle<R: ~Copyable>(at path: FilePath, options: FileOperationOptions.OpenForDirectory, body: (borrowing DirectoryHandle) throws -> R) throws -> R
-
-
     // MARK: Common Paths and Directories
     
     /// Gets the path to the current working directory of the process.
