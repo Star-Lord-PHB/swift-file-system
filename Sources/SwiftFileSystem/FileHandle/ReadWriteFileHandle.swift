@@ -39,7 +39,7 @@ extension ReadWriteFileHandle {
     ///              the Posix permissions to Windows DACL with best effort. If more fine-grained control is 
     ///              required, use the overloads that accept Windows security descriptors.
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     public init(
         forFileAt path: FilePath,
         options: FileOperationOptions.OpenForWriting = .editFile(),
@@ -83,7 +83,7 @@ extension ReadWriteFileHandle {
     ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
     ///                          file, ignored if creation is not required.
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     public init(
         forFileAt path: FilePath, 
         options: FileOperationOptions.OpenForWriting = .editFile(), 
@@ -99,7 +99,7 @@ extension ReadWriteFileHandle {
     ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
     ///                          file, ignored if creation is not required.
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     public init(
         forFileAt path: FilePath, 
         options: FileOperationOptions.OpenForWriting = .editFile(), 
@@ -115,7 +115,7 @@ extension ReadWriteFileHandle {
     ///   - creationPermissions: The security descriptor specifying the permissions to use when creating the 
     ///                          file, ignored if creation is not required.
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     public init(
         forFileAt path: FilePath, 
         options: FileOperationOptions.OpenForWriting = .editFile(), 

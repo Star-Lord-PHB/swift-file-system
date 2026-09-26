@@ -8,7 +8,7 @@ extension CopyItemHandler {
 
     struct CachedCopySrcItemAttrs: ~Copyable {
 
-        // this type is used instead of ``InternalFS.InternalFileTimes`` since we don't need ctime
+        // this type is used instead of `InternalFS.InternalFileTimes` since we don't need ctime
         struct CachedFileTimes {
             let accessTime: FileTimeSpec
             let modificationTime: FileTimeSpec

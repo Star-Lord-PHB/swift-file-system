@@ -281,7 +281,7 @@ extension CopyItemHandler {
     struct RecursiveCopyErrorCollector {
 
         /// The report is only materialized once there is something to put in it, since
-        /// ``RecursiveCopyResult.NonEmptyItemErrorList`` cannot represent an empty error list.
+        /// ``RecursiveCopyResult/NonEmptyItemErrorList`` cannot represent an empty error list.
         enum LazyErrors {
             case none
             case some(RecursiveCopyResult.NonEmptyItemErrorList)

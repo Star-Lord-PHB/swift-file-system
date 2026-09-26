@@ -83,8 +83,8 @@ extension AsyncPositionalWriteFileHandleProtocol where Self: ~Copyable & ~Escapa
     /// - Returns: The number of bytes actually written into the file handle.
     @concurrent
     @discardableResult
-    public func write(_ data: ByteBuffer, toOffset offset: Int64) async throws(PlatformError) -> Int64 {
-        return try await write(data.bytes, toOffset: offset)
+    public func write(_ buffer: ByteBuffer, toOffset offset: Int64) async throws(PlatformError) -> Int64 {
+        return try await write(buffer.bytes, toOffset: offset)
     }
 
 }
@@ -114,7 +114,7 @@ public protocol AsyncSequentialWriteFileHandleProtocol: ~Copyable, ~Escapable, A
     /// - Returns: The number of bytes actually written into the file handle.
     @concurrent
     @discardableResult
-    func write(_ buffer: RawSpan) async throws(PlatformError) -> Int64
+    func write(_ bytes: RawSpan) async throws(PlatformError) -> Int64
 
 }
 
@@ -127,8 +127,8 @@ extension AsyncSequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapa
     /// - Returns: The number of bytes actually written into the file handle.
     @concurrent
     @discardableResult
-    public func write(_ data: ByteBuffer) async throws(PlatformError) -> Int64 {
-        return try await write(data.bytes)
+    public func write(_ bytes: ByteBuffer) async throws(PlatformError) -> Int64 {
+        return try await write(bytes.bytes)
     }
 
 }
@@ -139,9 +139,9 @@ extension AsyncSequentialWriteFileHandleProtocol where Self: ~Copyable & ~Escapa
 
     @concurrent
     @discardableResult
-    public func write(_ buffer: RawSpan) async throws(PlatformError) -> Int64 {
+    public func write(_ bytes: RawSpan) async throws(PlatformError) -> Int64 {
         return try await withSyncHandleAdapterInExecutor { adapter throws(PlatformError) in
-            try adapter.write(buffer)
+            try adapter.write(bytes)
         }
         .getThrowingPlatformError(operation: .writeHandle(originalPath: path))
     }
@@ -158,7 +158,7 @@ public protocol AsyncAppendableFileHandleProtocol: ~Copyable, ~Escapable, AsyncF
     /// - Returns: The number of bytes actually appended to the file handle.
     @concurrent
     @discardableResult
-    func append(_ buffer: RawSpan) async throws(PlatformError) -> Int64
+    func append(_ bytes: RawSpan) async throws(PlatformError) -> Int64
 
 }
 
@@ -171,8 +171,8 @@ extension AsyncAppendableFileHandleProtocol where Self: ~Copyable & ~Escapable {
     /// - Returns: The number of bytes actually appended to the file handle.
     @concurrent
     @discardableResult
-    public func append(_ data: ByteBuffer) async throws(PlatformError) -> Int64 {
-        return try await append(data.bytes)
+    public func append(_ bytes: ByteBuffer) async throws(PlatformError) -> Int64 {
+        return try await append(bytes.bytes)
     }
 
 }

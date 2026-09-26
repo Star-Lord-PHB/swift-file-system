@@ -400,3 +400,124 @@ public enum FileOperationOptions {
     #endif 
 
 }
+
+
+
+extension FileOperationOptions {
+
+    public protocol RecursiveCopyErrorStrategyProtocol {
+        associatedtype Returned
+        associatedtype ThrowedError: Error
+        func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool)
+        func reportResult(_ result: RecursiveCopyResult) throws(ThrowedError) -> Returned
+    }
+
+
+    public struct RecursiveCopyAbortOnErrorStrategy: Sendable, RecursiveCopyErrorStrategyProtocol {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
+            return (collectError: true, abort: true)
+        }
+        public func reportResult(_ result: RecursiveCopyResult) throws(PlatformError) -> Void {
+            if result.operationCancelled {
+                assert(result.itemErrors == nil, "Abort on error strategy should not have an error report when cancelled")
+                throw .taskCancelled(operation: .recursiveCopy(srcRootPath: result.srcRootPath, dstRootPath: result.dstRootPath))
+            }
+            guard let errorReport = result.makeItemErrorReport() else { return } 
+            assert(errorReport.errors.count == 1, "Abort on error strategy should only have one error in the report")
+            let error = errorReport.errors.first
+            throw .init(
+                systemCode: error.systemCode, 
+                kind: error.kind,
+                operation: .copy(
+                    srcPath: errorReport.srcRootPath.appending(error.itemRelativePath.components), 
+                    dstPath: errorReport.dstRootPath.appending(error.itemRelativePath.components)
+                )
+            )!
+        }
+    }
+
+
+    public struct RecursiveCopyCollectAndThrowStrategy: Sendable, RecursiveCopyErrorStrategyProtocol {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
+            return (collectError: true, abort: false)
+        }
+        public func reportResult(_ result: RecursiveCopyResult) throws(PlatformError) -> Void {
+            try result.throwOnErrorOrCancelled()
+        }
+    }
+
+
+    public struct RecursiveCopyCollectAndReturnStrategy: Sendable, RecursiveCopyErrorStrategyProtocol {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
+            return (collectError: true, abort: false)
+        }
+        public func reportResult(_ result: RecursiveCopyResult) throws(Never) -> RecursiveCopyResult {
+            return result
+        }
+    }
+
+
+    public struct RecursiveCopyIgnoreAllStrategy: Sendable, RecursiveCopyErrorStrategyProtocol {
+        public func handleError(_ error: RecursiveCopyResult.SingleItemError) -> (collectError: Bool, abort: Bool) {
+            return (collectError: false, abort: false)
+        }
+        public func reportResult(_ result: RecursiveCopyResult) throws(PlatformError) -> Void {
+            assert(result.itemErrors == nil, "Ignore all strategy should not have an error report")
+            try result.throwOnErrorOrCancelled()
+        }
+    }
+
+}
+
+
+
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyAbortOnErrorStrategy {
+    /// Strategy that aborts the whole copy process on the first error and throw that error as a 
+    /// ``PlatformError``.
+    /// 
+    /// | Is Cancelled | Has Errors | PlatformError.kind | PlatformError.underlyingError |
+    /// | --- | --- | --- | --- |
+    /// | true | false | ``PlatformErrorKind/cancelled`` | [`CancellationError`] |
+    /// | false | true | ``PlatformErrorKind/unknown`` | ``LowLevelError`` (the error that causes the abort) |
+    /// 
+    /// [`CancellationError`]: https://developer.apple.com/documentation/swift/cancellationerror
+    public static var abortOnError: FileOperationOptions.RecursiveCopyAbortOnErrorStrategy { .init() }
+}
+
+
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyCollectAndThrowStrategy {
+    /// Strategy that continues the copy process on errors, collects all of them and throws them as a single 
+    /// ``PlatformError``.
+    /// 
+    /// | Is Cancelled | Has Errors | PlatformError.kind | PlatformError.underlyingError |
+    /// | --- | --- | --- | --- |
+    /// | true | false | ``PlatformErrorKind/cancelled`` | [`CancellationError`] |
+    /// | true | true | ``PlatformErrorKind/cancelled`` | ``RecursiveCopyResult/ItemErrorReport`` (with all collected errors) |
+    /// | false | true | ``PlatformErrorKind/unknown`` | ``RecursiveCopyResult/ItemErrorReport`` (with all collected errors) |
+    /// 
+    /// - Note: If the operation is cancelled, the copy process will not continue.
+    /// 
+    /// [`CancellationError`]: https://developer.apple.com/documentation/swift/cancellationerror
+    public static var collectAndThrow: FileOperationOptions.RecursiveCopyCollectAndThrowStrategy { .init() }
+}
+
+
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyCollectAndReturnStrategy {
+    /// Strategy that continues the copy process on errors, collects all of them and returns them as a 
+    /// ``RecursiveCopyResult``.
+    /// 
+    /// - Note: If the operation is cancelled, the copy process will not continue.
+    public static var collectAndReturn: FileOperationOptions.RecursiveCopyCollectAndReturnStrategy { .init() }
+}
+
+
+extension FileOperationOptions.RecursiveCopyErrorStrategyProtocol where Self == FileOperationOptions.RecursiveCopyIgnoreAllStrategy {
+    /// Strategy that ignores all errors and continues the copy process.
+    /// 
+    /// - Note: If the operation is cancelled, the copy process will not continue and throw a ``PlatformError`` 
+    ///   with kind ``PlatformErrorKind/cancelled`` and underlying error [`CancellationError`]. This is the
+    ///   only case where this strategy will throw an error.
+    /// 
+    /// [`CancellationError`]: https://developer.apple.com/documentation/swift/cancellationerror
+    public static var ignoreAll: FileOperationOptions.RecursiveCopyIgnoreAllStrategy { .init() }
+}

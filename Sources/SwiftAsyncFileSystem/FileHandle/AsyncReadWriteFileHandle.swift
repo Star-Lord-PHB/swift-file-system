@@ -35,7 +35,7 @@ public struct AsyncReadWriteFileHandle
     ///              the Posix permissions to Windows DACL with best effort. If more fine-grained control is 
     ///              required, use the overloads that accept Windows security descriptors.
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     @concurrent
     public init(
         forFileAt path: FilePath,
@@ -62,7 +62,7 @@ public struct AsyncReadWriteFileHandle
     ///                          file, ignored if creation is not required.
     ///   - executor: The executor for executing the IO operations
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     @concurrent
     public init(
         forFileAt path: FilePath,
@@ -88,7 +88,7 @@ public struct AsyncReadWriteFileHandle
     ///                          file, ignored if creation is not required.
     ///   - executor: The executor for executing the IO operations
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     @concurrent
     public init(
         forFileAt path: FilePath,
@@ -108,7 +108,7 @@ public struct AsyncReadWriteFileHandle
     ///                          file, ignored if creation is not required.
     ///   - executor: The executor for executing the IO operations
     /// 
-    /// - Seealso: ``FileOperationOptions.OpenForWriting``
+    /// - Seealso: ``FileOperationOptions/OpenForWriting``
     @concurrent
     public init(
         forFileAt path: FilePath,

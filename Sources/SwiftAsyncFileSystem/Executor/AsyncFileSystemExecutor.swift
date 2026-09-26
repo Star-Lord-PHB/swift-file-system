@@ -455,7 +455,7 @@ extension AsyncFileSystemExecutor {
     /// Before executing the provided closure, the executor will check if the current Task has been 
     /// cancelled. If so, the closure will be discarded and the result will be ``Result/cancelled``.
     @concurrent
-    package func runCancellable<R: ~Copyable, E: Error>(
+    public func runCancellable<R: ~Copyable, E: Error>(
         _ task: () throws(E) -> R
     ) async -> Result<R, E> {
 

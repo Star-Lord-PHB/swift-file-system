@@ -40,7 +40,7 @@ extension SystemHandleSupportedAsyncFileHandleProtocol where Self: ~Copyable & ~
 
     /// Access the underlying ``UnsafeSystemHandle`` in a closure.
     /// 
-    /// - Parameter body: A closure for accessing the underlying ``UnsafeSystemHandle``.
+    /// - Parameter operation: A closure for accessing the underlying ``UnsafeSystemHandle``.
     /// 
     /// - Warning: Do not return or store the ``UnsafeSystemHandle`` outside of the closure.
     @concurrent
@@ -65,7 +65,7 @@ public protocol AutoSynthesisAsyncFileHandleProtocol
 extension AutoSynthesisAsyncFileHandleProtocol where Self: ~Copyable & ~Escapable {
 
     /// Access the unowned view to the underlying ``UnsafeSystemHandle`` and associated opening context in
-    /// a closure executed on the handle's ``executor``.
+    /// a closure executed on the handle's ``ExecutorSupportedAsyncFileHandleProtocol/executor``.
     /// 
     /// - Parameter operation: A closure executed on the executor for accessing the unowned view to the 
     ///                        underlying ``UnsafeSystemHandle`` with associated opening context.
@@ -79,18 +79,19 @@ extension AutoSynthesisAsyncFileHandleProtocol where Self: ~Copyable & ~Escapabl
     }
 
 
-    /// Access the underlying ``UnsafeSystemHandle`` in a closure executed on the handle's ``executor``.
+    /// Access the underlying ``UnsafeSystemHandle`` in a closure executed on the handle's 
+    /// ``ExecutorSupportedAsyncFileHandleProtocol/executor``.
     /// - Parameter operation: A closure executed on the executor for accessing the underlying 
     ///                        ``UnsafeSystemHandle``.
     /// 
     /// - Warning: Do not return or store the ``UnsafeSystemHandle`` outside of the closure.
     @concurrent
     public func withUnsafeSystemHandleInExecutor<R: ~Copyable, E: Error>(
-        _ task: (borrowing UnsafeSystemHandle) throws(E) -> R
+        _ operation: (borrowing UnsafeSystemHandle) throws(E) -> R
     ) async -> AsyncFileSystemExecutor.Result<R, E> {
         await self.withUnsafeSystemHandle { handle in
             await executor.runCancellable { () throws(E) in
-                try task(handle)
+                try operation(handle)
             }
         }
     }

@@ -94,7 +94,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
         /// Skips the descendants of a newly meet directory.
         /// 
         /// If the current entry that is just emitted is a directory, this method will skip that directory 
-        /// without emitting a ``DirectoryEntryRecursiveSequenceElement/leavingDir`` element. Otherwise, this 
+        /// without emitting a ``DirectoryEntryRecursiveSequenceElement/leavingDir(_:_:)`` element. Otherwise, this 
         /// method has no effect
         public mutating func skipDescendants() {
             if skipRequest == .none && prevEmittedElementIsDir {
@@ -103,7 +103,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
         }
 
 
-        /// Leaves the current directory early and emits a ``DirectoryEntryRecursiveSequenceElement/leavingDir``
+        /// Leaves the current directory early and emits a ``DirectoryEntryRecursiveSequenceElement/leavingDir(_:_:)``
         /// element.
         public mutating func skipCurrentDir() {
             skipRequest = .skipCurrentDir

@@ -1,3 +1,1 @@
 @_exported public import FileSystemCore
-@_exported public import enum SwiftFileSystem.DirectoryEntryRecursiveSequenceElement
-@_exported public import struct SwiftFileSystem.UnsafeHandleContextView
