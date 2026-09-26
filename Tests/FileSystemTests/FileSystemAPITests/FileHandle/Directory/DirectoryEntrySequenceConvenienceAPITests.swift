@@ -67,7 +67,7 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITes
         let sequence = handle.entrySequence()
 
         let names = try sequence.map { result in
-            try result.get().name
+            try result.get().name.string
         }
 
         #expect(names.count == sampleDirectoryEntryPaths.count)

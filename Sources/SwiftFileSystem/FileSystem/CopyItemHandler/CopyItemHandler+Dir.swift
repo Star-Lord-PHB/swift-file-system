@@ -146,14 +146,16 @@ extension CopyItemHandler {
         var isEmpty: Bool { dirAttrsStack.isEmpty }
         var isNotEmpty: Bool { !isEmpty }
 
-        fileprivate mutating func push(name: String, attrs: consuming DirCachedAttrs?) {
+        fileprivate mutating func push(name: FilePath.Component?, attrs: consuming DirCachedAttrs?) {
             if self.isEmpty {
-                assert(name.isEmpty, "Internal error: Unexpected non-empty name when pushing to an empty dirAttrsStack")
+                assert(name == nil, "Internal error: Unexpected non-empty name when pushing to an empty dirAttrsStack")
             } else {
-                assert(!name.isEmpty, "Internal error: Unexpected empty name when pushing to a non-empty dirAttrsStack")
+                assert(name != nil, "Internal error: Unexpected empty name when pushing to a non-empty dirAttrsStack")
             }
             dirAttrsStack.append(attrs)
-            currDirRelativePath.append(name)
+            if let name {
+                currDirRelativePath.append(name)
+            }
         }
 
         fileprivate mutating func popAndPerform<R: ~Copyable, E: Error>(

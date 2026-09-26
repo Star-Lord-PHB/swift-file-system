@@ -66,7 +66,7 @@ extension AsyncFileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceA
         let sequence = handle.entrySequence()
 
         let names = try await sequence.map { entry in
-            entry.name
+            entry.name.string
         }
 
         #expect(names.count == sampleDirectoryEntryPaths.count)

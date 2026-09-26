@@ -51,10 +51,10 @@ extension AsyncFileHandleAPITests.DirectoryTests.EntrySequenceTests {
     }
 
 
-    private func makeFiles(_ names: [String]) throws -> FilePath {
+    private func makeFiles(_ names: [FilePath.Component]) throws -> FilePath {
         var tree = [FilePath.Component: Support.Fixture]()
         for name in names {
-            tree[try #require(FilePath.Component(name))] = .file(contents: name)
+            tree[name] = .file(contents: name.string)
         }
         return try workspace.makeFixture(at: "directory", .directory(tree))
     }
@@ -123,7 +123,7 @@ extension AsyncFileHandleAPITests.DirectoryTests.EntrySequenceTests {
     @Test(arguments: [1, 2, 5, 128])
     func `Yields the same entries for any batch count`(batchCount: Int) async throws {
 
-        let names = ["file-a", "file-b", "file-c", "file-d", "file-e"]
+        let names = ["file-a", "file-b", "file-c", "file-d", "file-e"] as [FilePath.Component]
         let path = try makeFiles(names)
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
 
@@ -168,7 +168,7 @@ extension AsyncFileHandleAPITests.DirectoryTests.EntrySequenceTests {
     @Test
     func `Iterators of one sequence advance independently`() async throws {
 
-        let names = ["file-a", "file-b", "file-c"]
+        let names = ["file-a", "file-b", "file-c"] as [FilePath.Component]
         let path = try makeFiles(names)
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
         let sequence = handle.entrySequence()
@@ -201,7 +201,7 @@ extension AsyncFileHandleAPITests.DirectoryTests.EntrySequenceTests {
     @Test
     func `Can be iterated more than once`() async throws {
 
-        let names = ["file-a", "file-b", "subdir"]
+        let names = ["file-a", "file-b", "subdir"] as [FilePath.Component]
         let path = try workspace.makeFixture(
             at: "directory",
             [

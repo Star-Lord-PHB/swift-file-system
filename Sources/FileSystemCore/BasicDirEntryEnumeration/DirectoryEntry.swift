@@ -12,9 +12,9 @@ public struct DirectoryEntry: Sendable, Equatable, Hashable {
     public var type: FileKind
 
     /// The filename of the entry.
-    public var name: String {
+    public var name: FilePath.Component {
         assert(path.lastComponent != nil, "Path of a directory entry must not be empty")
-        return path.lastComponent!.string
+        return path.lastComponent!
     }
 
     /// Creates a directory entry with the given path and type.

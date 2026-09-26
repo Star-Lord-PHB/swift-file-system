@@ -171,7 +171,7 @@ extension AsyncFileHandleAPITests.ConcurrencyTests {
             ]
         )
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
-        let expectedNames: Set<String> = ["file-a", "file-b", "file-c", "subdir"]
+        let expectedNames: Set<FilePath.Component> = ["file-a", "file-b", "file-c", "subdir"]
 
         let listings = try await withThrowingTaskGroup(of: [DirectoryEntry].self) { group in
             for _ in 0 ..< taskCount {
