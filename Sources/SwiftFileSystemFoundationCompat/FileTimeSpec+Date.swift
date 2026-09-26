@@ -1,6 +1,6 @@
 import struct Foundation.Date
 import struct Foundation.TimeInterval
-import struct SwiftFileSystem.FileTimeSpec
+import struct FileSystemCore.FileTimeSpec
 
 
 

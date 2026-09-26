@@ -1,5 +1,4 @@
-import struct SystemPackage.FilePath
-import struct SystemPackage.FilePermissions
+import SystemPackage
 import PlatformCLib
 
 

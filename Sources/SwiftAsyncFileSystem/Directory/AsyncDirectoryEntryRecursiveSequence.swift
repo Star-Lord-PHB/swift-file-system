@@ -1,7 +1,6 @@
-import struct SystemPackage.FilePath
-import struct SwiftFileSystem.DirectoryEntryRecursiveSequence
+import SystemPackage
 private import struct DequeModule.Deque
-import enum SwiftFileSystem.DirectoryEntryRecursiveSequenceElement
+import SwiftFileSystem
 
 
 

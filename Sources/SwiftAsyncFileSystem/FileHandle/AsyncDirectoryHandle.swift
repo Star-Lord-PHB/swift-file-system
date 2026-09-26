@@ -1,8 +1,6 @@
-import struct SystemPackage.FilePath
-import struct SwiftFileSystem.DirectoryHandle
+import SystemPackage
 private import struct DequeModule.Deque
-import struct SwiftFileSystem.UnsafeHandleContext
-import struct SwiftFileSystem.UnsafeHandleContextView
+import SwiftFileSystem
 
 
 

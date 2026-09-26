@@ -1,9 +1,5 @@
 import protocol Foundation.ContiguousBytes
-import protocol SwiftFileSystem.PositionalWriteFileHandleProtocol
-import protocol SwiftFileSystem.SequentialWriteFileHandleProtocol
-import protocol SwiftFileSystem.MutatingSequentialWriteFileHandleProtocol
-import protocol SwiftFileSystem.AppendableFileHandleProtocol
-import struct SwiftFileSystem.PlatformError
+import SwiftFileSystem
 
 
 

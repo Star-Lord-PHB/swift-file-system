@@ -1,4 +1,4 @@
-import struct SwiftFileSystem.UnsafeHandleContextView
+import SwiftFileSystem
 import struct FileSystemCore.UnsafeUnownedSystemHandle
 
 

@@ -5,7 +5,7 @@
 //  Created by SerikaPHB  on 2026/6/25.
 //
 
-import struct SwiftFileSystem.ByteBuffer
+import struct FileSystemCore.ByteBuffer
 import Foundation
 
 

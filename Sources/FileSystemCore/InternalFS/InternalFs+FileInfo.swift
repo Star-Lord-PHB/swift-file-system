@@ -1,6 +1,6 @@
 import PlatformCLib
 import CFileSystem
-import struct SystemPackage.FilePath
+import SystemPackage
 
 
 

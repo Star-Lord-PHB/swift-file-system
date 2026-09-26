@@ -1,8 +1,8 @@
-import struct SystemPackage.FilePath
+import SystemPackage
 import enum FileSystemCore.InternalFS
 import struct FileSystemCore.PlatformError
 import class FileSystemCore.CancellationToken
-import struct SwiftFileSystem.RecursiveRemoveItemHandler
+import SwiftFileSystem
 
 
 

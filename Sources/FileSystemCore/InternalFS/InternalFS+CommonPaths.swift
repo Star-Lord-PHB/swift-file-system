@@ -1,5 +1,5 @@
 import PlatformCLib
-import struct SystemPackage.FilePath
+import SystemPackage
 
 #if canImport(MachO.dyld)
 import MachO.dyld

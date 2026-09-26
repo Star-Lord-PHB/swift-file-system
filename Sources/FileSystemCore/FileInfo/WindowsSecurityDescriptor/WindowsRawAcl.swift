@@ -1,8 +1,7 @@
 #if canImport(WinSDK)
 
 import PlatformCLib
-import struct SystemPackage.FilePermissions
-import struct SystemPackage.CModeT
+import SystemPackage
 
 
 /// Wrapper of a Windows ACL.

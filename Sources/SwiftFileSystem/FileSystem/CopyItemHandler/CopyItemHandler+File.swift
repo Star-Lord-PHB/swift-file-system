@@ -1,5 +1,5 @@
 import FileSystemCore
-import struct SystemPackage.FilePath
+import SystemPackage
 import PlatformCLib
 
 

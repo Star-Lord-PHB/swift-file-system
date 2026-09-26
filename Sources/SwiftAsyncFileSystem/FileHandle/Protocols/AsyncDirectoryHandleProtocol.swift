@@ -1,5 +1,4 @@
-import struct SwiftFileSystem.DirectoryEntry
-import enum SwiftFileSystem.FileOperationOptions
+import SwiftFileSystem
 
 
 

@@ -1,7 +1,7 @@
 #if os(Linux) || os(Android)
 
 import PlatformCLib
-import struct SystemPackage.FilePath
+import SystemPackage
 
 
 /// The wrapper of inode flags of a file on Linux

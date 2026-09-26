@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import struct SwiftFileSystem.ByteBuffer
+import struct FileSystemCore.ByteBuffer
 
 
 
