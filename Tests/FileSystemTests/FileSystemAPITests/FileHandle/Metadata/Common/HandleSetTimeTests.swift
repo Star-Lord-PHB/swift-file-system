@@ -69,7 +69,7 @@ extension FileHandleAPITests.MetadataTests.SetTimeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -96,7 +96,7 @@ extension FileHandleAPITests.MetadataTests.SetTimeTests {
         let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
 
         let modificationHandle = try ReadFileHandle(forFileAt: path)
-        try modificationHandle.setFileTimes(modification: sampleModificationTime)
+        try modificationHandle.setTimes(modification: sampleModificationTime)
         try modificationHandle.close()
 
         let timesAfterModificationSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -107,7 +107,7 @@ extension FileHandleAPITests.MetadataTests.SetTimeTests {
         )
 
         let accessHandle = try ReadFileHandle(forFileAt: path)
-        try accessHandle.setFileTimes(access: sampleAccessTime)
+        try accessHandle.setTimes(access: sampleAccessTime)
         try accessHandle.close()
 
         let timesAfterAccessSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -130,7 +130,7 @@ extension FileHandleAPITests.MetadataTests.SetTimeTests {
         let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
 
         let handle = try ReadFileHandle(forFileAt: path)
-        try handle.setFileTimes()
+        try handle.setTimes()
         try handle.close()
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)

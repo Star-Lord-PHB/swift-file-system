@@ -71,8 +71,8 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            accessTime: sampleAccessTime,
-            modificationTime: sampleModificationTime
+            access: sampleAccessTime,
+            modification: sampleModificationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -95,8 +95,8 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            accessTime: sampleAccessTime,
-            modificationTime: sampleModificationTime
+            access: sampleAccessTime,
+            modification: sampleModificationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -118,7 +118,7 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
         let path = try workspace.makeFile(at: "file")
         let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
 
-        try fileSystem.setTimes(forItemAt: path, modificationTime: sampleModificationTime)
+        try fileSystem.setTimes(forItemAt: path, modification: sampleModificationTime)
 
         let timesAfterModificationSet = try Support.ItemMetadata.Times.capture(at: path)
         expectAccessTime(timesAfterModificationSet.access, equals: timesBeforeSet.access)
@@ -127,7 +127,7 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
             equals: .init(fileTimeSpec: sampleModificationTime)
         )
 
-        try fileSystem.setTimes(forItemAt: path, accessTime: sampleAccessTime)
+        try fileSystem.setTimes(forItemAt: path, access: sampleAccessTime)
 
         let timesAfterAccessSet = try Support.ItemMetadata.Times.capture(at: path)
         expectAccessTime(
@@ -161,8 +161,8 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            accessTime: sampleAccessTime,
-            modificationTime: sampleModificationTime
+            access: sampleAccessTime,
+            modification: sampleModificationTime
         )
 
         let targetTimesAfterSet = try Support.ItemMetadata.Times.capture(at: target)
@@ -187,8 +187,8 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            accessTime: sampleAccessTime,
-            modificationTime: sampleModificationTime,
+            access: sampleAccessTime,
+            modification: sampleModificationTime,
             followSymlink: false
         )
 
@@ -214,8 +214,8 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            accessTime: sampleAccessTime,
-            modificationTime: sampleModificationTime,
+            access: sampleAccessTime,
+            modification: sampleModificationTime,
             followSymlink: false
         )
 
@@ -238,7 +238,7 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.setTimes(forItemAt: link, modificationTime: sampleModificationTime)
+            try fileSystem.setTimes(forItemAt: link, modification: sampleModificationTime)
         }
 
         #expect(error?.kind == .notFound)
@@ -254,7 +254,7 @@ extension FileSystemAPITests.MetadataTests.SetTimeTests {
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setTimes(
                 forItemAt: path,
-                modificationTime: sampleModificationTime
+                modification: sampleModificationTime
             )
         }
 

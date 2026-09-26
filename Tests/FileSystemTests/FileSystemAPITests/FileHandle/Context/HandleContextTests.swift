@@ -54,7 +54,7 @@ extension FileHandleAPITests.HandleContextTests {
         let context = handle.unsafeHandleContext
         let rawHandle = context.systemHandle.unsafeRawHandle
 
-        #expect(try context.systemHandle.fileInfo().size == 8)
+        #expect(try context.systemHandle.info().size == 8)
 
         let error = #expect(throws: LowLevelError.self) {
             _ = try context.systemHandle.seek(to: -1)
@@ -62,7 +62,7 @@ extension FileHandleAPITests.HandleContextTests {
         #expect(error?.kind == .invalidInput)
 
         #expect(isOpen(rawHandle))
-        #expect(try handle.fileInfo().size == 8)
+        #expect(try handle.info().size == 8)
 
     }
 

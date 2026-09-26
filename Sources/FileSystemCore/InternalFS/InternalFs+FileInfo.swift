@@ -60,7 +60,7 @@ extension InternalFS {
     #endif
     
 
-    package static func getFileInfo(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> FileInfo {
+    package static func getInfo(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> FileInfo {
 
         #if canImport(WinSDK)
 
@@ -114,7 +114,7 @@ extension InternalFS {
             )
         )
 
-        return try handle.fileInfo()
+        return try handle.info()
 
         #else 
 
@@ -210,7 +210,7 @@ extension InternalFS {
     #endif
     
 
-    package static func setFileTimes(
+    package static func setTimes(
         forItemAt path: FilePath, 
         access: FileTimeSpec?, 
         modification: FileTimeSpec?,
@@ -232,7 +232,7 @@ extension InternalFS {
                 windowsExtraAccess: .writeAttributes
             )
         )
-        try handle.setFileTimes(access: access, modification: modification, creation: creation)
+        try handle.setTimes(access: access, modification: modification, creation: creation)
         try handle.close()
 
         #elseif canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
@@ -268,20 +268,20 @@ extension InternalFS {
     }
 
 
-    package static func getFileTimes(
+    package static func getTimes(
         fromItemAt path: FilePath,
         followSymlink: Bool
     ) throws(LowLevelError) -> FileTimes {
 
         #if canImport(WinSDK)
 
-        if followSymlink == false, let getFileInformationByNamePtr = getGetFileInformationByNameFuncPtr() {
+        if followSymlink == false, let getInformationByNamePtr = getGetFileInformationByNameFuncPtr() {
 
             var fileInfo = FILE_STAT_INFORMATION()
 
             try execThrowingCFunction {
                 path.withPlatformString { pathPtr in 
-                    getFileInformationByNamePtr(pathPtr, FileStatByNameInfo, &fileInfo, DWORD(MemoryLayout<FILE_STAT_INFORMATION>.size)).boolValue
+                    getInformationByNamePtr(pathPtr, FileStatByNameInfo, &fileInfo, DWORD(MemoryLayout<FILE_STAT_INFORMATION>.size)).boolValue
                 }
             }
 
@@ -304,7 +304,7 @@ extension InternalFS {
             )
         )
         
-        let times = try handle.fileTimes()
+        let times = try handle.times()
 
         try handle.close()
 
@@ -335,7 +335,7 @@ extension InternalFS {
 // MARK: - Attributes & Flags
 extension InternalFS {
 
-    package static func getFileAttributes(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> PlatformFileAttributes {
+    package static func getAttributes(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> PlatformFileAttributes {
         #if canImport(WinSDK)
         if followSymlink {
             let handle = try UnsafeSystemHandle.open(
@@ -347,7 +347,7 @@ extension InternalFS {
                     windowsExtraAccess: .readAttributes
                 )
             )
-            let attr = try handle.fileAttributes()
+            let attr = try handle.attributes()
             try handle.close()
             return attr
         }
@@ -365,7 +365,7 @@ extension InternalFS {
 
     #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
-    package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {
+    package static func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {
 
         #if canImport(WinSDK)
         
@@ -380,7 +380,7 @@ extension InternalFS {
                     windowsExtraAccess: .writeAttributes
                 )
             )
-            try handle.setFileAttributes(attributes)
+            try handle.setAttributes(attributes)
             try handle.close()
             return
         }
@@ -406,27 +406,27 @@ extension InternalFS {
     #elseif os(Linux) || os(Android)
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
-    package static func setFileAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {
+    package static func setAttributes(forItemAt path: FilePath, attributes: PlatformFileAttributes, followSymlink: Bool) throws(LowLevelError) {
         throw .init(kind: .unsupported)
     }
 
 
-    package static func setFileInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(LowLevelError) {
+    package static func setInodeFlags(forItemAt path: FilePath, flags: LinuxInodeFlags, followSymlink: Bool) throws(LowLevelError) {
         let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, followSymlink: followSymlink))
-        try fd.setFileInodeFlags(flags)
+        try fd.setInodeFlags(flags)
         try fd.close()
     }
 
 
-    package static func readFileInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> LinuxInodeFlags {
+    package static func readInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(LowLevelError) -> LinuxInodeFlags {
         let fd = try UnsafeSystemHandle.open(at: path, openOptions: .init(access: .readOnly, followSymlink: followSymlink))
-        let flags = try fd.fileInodeFlags()
+        let flags = try fd.inodeFlags()
         try fd.close()
         return flags
     }
 
 
-    package static func fileAttributesToInodeFlags(_ attributes: PlatformFileAttributes) -> LinuxInodeFlags {
+    package static func attributesToInodeFlags(_ attributes: PlatformFileAttributes) -> LinuxInodeFlags {
         var inodeFlags = [] as LinuxInodeFlags
         if attributes.contains(.linux.isCompressed) { inodeFlags.insert(.compress) }
         if attributes.contains(.linux.isImmutable) { inodeFlags.insert(.immutable) }

@@ -251,9 +251,9 @@ public protocol AsyncFileSystemProtocol: Sendable {
     @concurrent
     func setTimes(
         forItemAt path: FilePath,
-        accessTime: FileTimeSpec?,
-        modificationTime: FileTimeSpec?,
-        creationTime: FileTimeSpec?,
+        access: FileTimeSpec?,
+        modification: FileTimeSpec?,
+        creation: FileTimeSpec?,
         followSymlink: Bool
     ) async throws(PlatformError)
 

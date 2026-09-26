@@ -21,17 +21,17 @@ extension AsyncFileSystem {
     @concurrent
     public func setTimes(
         forItemAt path: FilePath,
-        accessTime: FileTimeSpec? = nil,
-        modificationTime: FileTimeSpec? = nil,
-        creationTime: FileTimeSpec? = nil,
+        access: FileTimeSpec? = nil,
+        modification: FileTimeSpec? = nil,
+        creation: FileTimeSpec? = nil,
         followSymlink: Bool = true
     ) async throws(PlatformError) {
         return try await executor.runCancellable { () throws(PlatformError) in
             try fileSystem.setTimes(
                 forItemAt: path,
-                accessTime: accessTime,
-                modificationTime: modificationTime,
-                creationTime: creationTime,
+                access: access,
+                modification: modification,
+                creation: creation,
                 followSymlink: followSymlink
             )
         }.getThrowingPlatformError(operation: .setMeta(path))

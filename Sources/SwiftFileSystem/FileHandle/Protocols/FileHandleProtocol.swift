@@ -66,12 +66,12 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
 
 
     /// Gets the metadata of the item referred by this handle.
-    public func fileInfo() throws(PlatformError) -> FileInfo {
+    public func info() throws(PlatformError) -> FileInfo {
         try withUnsafeSystemHandleForMetadata(
             requiringAccess: .windows.readAttributes,
             operation: .fetchMeta(path)
         ) { (handle) throws(LowLevelError) in
-            try handle.fileInfo()
+            try handle.info()
         }
     }
 
@@ -93,12 +93,12 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     /// - Last modification time
     /// - Status change time
     /// - Creation time (if supported by the platform)
-    public func fileTimes() throws(PlatformError) -> FileTimes {
+    public func times() throws(PlatformError) -> FileTimes {
         try withUnsafeSystemHandleForMetadata(
             requiringAccess: .windows.readAttributes,
             operation: .fetchMeta(path)
         ) { (handle) throws(LowLevelError) in
-            try handle.fileTimes()
+            try handle.times()
         }
     }
 
@@ -113,7 +113,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     /// > The behavior of this method varies across platforms:
     /// > * On Linux, setting the creation time is not supported and will be ignored.
     /// > * On Darwin and BSD, the new creation time cannot be later than the modification time.
-    public func setFileTimes(
+    public func setTimes(
         access: FileTimeSpec? = nil, 
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
@@ -122,33 +122,33 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
             requiringAccess: .windows.writeAttributes,
             operation: .setMeta(path)
         ) { (handle) throws(LowLevelError) in
-            try handle.setFileTimes(access: access, modification: modification, creation: creation)
+            try handle.setTimes(access: access, modification: modification, creation: creation)
         }
     }
 
 
     /// Gets the file attributes (flags) of the item referred by this handle.
-    public func fileAttributes() throws(PlatformError) -> PlatformFileAttributes {
+    public func attributes() throws(PlatformError) -> PlatformFileAttributes {
         try withUnsafeSystemHandleForMetadata(
             requiringAccess: .windows.readAttributes,
             operation: .fetchMeta(path)
         ) { (handle) throws(LowLevelError) in
-            try handle.fileAttributes()
+            try handle.attributes()
         }
     }
 
 
     /// Updates the file attributes (flags) of the item referred by this handle.
     /// - Parameter attributes: The new file attributes to set.
-    public func setFileAttributes(_ attributes: PlatformFileAttributes) throws(PlatformError) {
+    public func setAttributes(_ attributes: PlatformFileAttributes) throws(PlatformError) {
         #if os(Linux) || os(Android)
-        try self.setInodeFlags(InternalFS.fileAttributesToInodeFlags(attributes))
+        try self.setInodeFlags(InternalFS.attributesToInodeFlags(attributes))
         #else
         try withUnsafeSystemHandleForMetadata(
             requiringAccess: .windows.writeAttributes,
             operation: .setMeta(path)
         ) { (handle) throws(LowLevelError) in
-            try handle.setFileAttributes(attributes)
+            try handle.setAttributes(attributes)
         }
         #endif
     }
@@ -158,7 +158,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     /// Gets the inode flags of the item referred by this handle.
     public func inodeFlags() throws(PlatformError) -> LinuxInodeFlags {
         try withUnsafeSystemHandle(operation: .fetchMeta(path)) { (handle) throws(LowLevelError) in
-            try handle.fileInodeFlags()
+            try handle.inodeFlags()
         }
     }
 
@@ -167,7 +167,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     /// - Parameter flags: The new inode flags to set.
     public func setInodeFlags(_ flags: LinuxInodeFlags) throws(PlatformError) {
         try withUnsafeSystemHandle(operation: .setMeta(path)) { (handle) throws(LowLevelError) in
-            try handle.setFileInodeFlags(flags)
+            try handle.setInodeFlags(flags)
         }
     }
     #endif

@@ -89,7 +89,7 @@ extension CopyItemHandler {
         #if canImport(WinSDK)
 
         let info = try errorCollector.execute(operation: .getSrcMetadata) {
-            try handle.fileInfo()
+            try handle.info()
         }
         guard let info else { return nil }
         let sd = try errorCollector.execute(operation: .copyPermissions) {
@@ -108,7 +108,7 @@ extension CopyItemHandler {
         #if os(Linux) || os(Android)
 
         do {
-            let flags = try handle.fileInodeFlags()
+            let flags = try handle.inodeFlags()
             return .init(stat: stat, attributes: flags)
         } catch let error where error.kind == .unsupported {
             return .init(stat: stat, attributes: nil)
@@ -135,7 +135,7 @@ extension CopyItemHandler {
         #if canImport(WinSDK)
 
         let info = try errorCollector.execute(operation: .getSrcMetadata) {
-            try InternalFS.getFileInfo(forItemAt: path, followSymlink: false)
+            try InternalFS.getInfo(forItemAt: path, followSymlink: false)
         }
         guard let info else { return nil }
         let sd = try errorCollector.execute(operation: .copyPermissions) {
@@ -159,7 +159,7 @@ extension CopyItemHandler {
             // are reported as unsupported before their flags could matter.
             let kind = FileKind(mode: stat.st_mode)
             let flags = if kind == .regular || kind == .directory {
-                try InternalFS.readFileInodeFlags(forItemAt: path, followSymlink: false)
+                try InternalFS.readInodeFlags(forItemAt: path, followSymlink: false)
             } else {
                 nil as LinuxInodeFlags?
             }
@@ -375,7 +375,7 @@ extension CopyItemHandler {
         forHandle handle: borrowing UnsafeSystemHandle, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: cachedAttrs.accessTime, 
             modification: cachedAttrs.modificationTime, 
             creation: cachedAttrs.creationTime
@@ -387,7 +387,7 @@ extension CopyItemHandler {
         forItemAt path: FilePath, 
         cachedAttrs: borrowing CachedCopySrcItemAttrs
     ) throws(LowLevelError) {
-        try InternalFS.setFileTimes(
+        try InternalFS.setTimes(
             forItemAt: path, 
             access: cachedAttrs.accessTime, 
             modification: cachedAttrs.modificationTime, 
@@ -529,14 +529,14 @@ extension CopyItemHandler {
         #if os(Linux) || os(Android)
         do throws(LowLevelError) {
             if let flags = cachedAttrs.attributes {
-                try handle.setFileInodeFlags(flags)
+                try handle.setInodeFlags(flags)
             }
         } catch let error where error.kind == .unsupported {
             // ignore unsupported error on setting inode flags
         }
         #else
         do throws(LowLevelError) {
-            try handle.setFileAttributes(cachedAttrs.attributes)
+            try handle.setAttributes(cachedAttrs.attributes)
         } catch let error where error.kind == .unsupported {
             // ignore unsupported error on setting file attributes
         }
@@ -551,14 +551,14 @@ extension CopyItemHandler {
         #if os(Linux) || os(Android)
         do throws(LowLevelError) {
             if let flags = cachedAttrs.attributes {
-                try InternalFS.setFileInodeFlags(forItemAt: path, flags: flags, followSymlink: false)
+                try InternalFS.setInodeFlags(forItemAt: path, flags: flags, followSymlink: false)
             }
         } catch let error where error.kind == .unsupported {
             // ignore unsupported error on setting inode flags
         }
         #else
         do throws(LowLevelError) {
-            try InternalFS.setFileAttributes(forItemAt: path, attributes: cachedAttrs.attributes, followSymlink: false)
+            try InternalFS.setAttributes(forItemAt: path, attributes: cachedAttrs.attributes, followSymlink: false)
         } catch let error where error.kind == .unsupported {
             // ignore unsupported error on setting file attributes
         }

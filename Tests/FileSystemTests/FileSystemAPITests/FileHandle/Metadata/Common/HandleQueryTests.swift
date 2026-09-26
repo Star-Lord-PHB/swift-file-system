@@ -31,7 +31,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)
 
-        let actual = try handle.fileInfo()
+        let actual = try handle.info()
         let expected = try FileInfo(fileAt: path)
 
         #expect(actual == expected)
@@ -61,7 +61,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
         let handle = try ReadFileHandle(forFileAt: path)
         let expected = try Support.ItemMetadata.Times.capture(at: path)
 
-        let actual = try handle.fileTimes()
+        let actual = try handle.times()
 
         Support.expectTimestampEquals(
             .init(fileTimeSpec: actual.lastAccess),

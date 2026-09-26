@@ -115,9 +115,9 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
 
     /// Gets the metadata of the item referred by this handle.
     @concurrent
-    public func fileInfo() async throws(PlatformError) -> FileInfo {
+    public func info() async throws(PlatformError) -> FileInfo {
         return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try adapter.fileInfo()
+            try adapter.info()
         }
         .getThrowingPlatformError(operation: .fetchMeta(path))
     }
@@ -140,9 +140,9 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     /// - Status change time
     /// - Creation time (if supported by the platform)
     @concurrent
-    public func fileTimes() async throws(PlatformError) -> FileTimes {
+    public func times() async throws(PlatformError) -> FileTimes {
         return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try adapter.fileTimes()
+            try adapter.times()
         }
         .getThrowingPlatformError(operation: .fetchMeta(path))
     }
@@ -159,13 +159,13 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     /// > * On Linux, setting the creation time is not supported and will be ignored.
     /// > * On Darwin and BSD, the new creation time cannot be later than the modification time.
     @concurrent
-    public func setFileTimes(
+    public func setTimes(
         access: FileTimeSpec? = nil,
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
     ) async throws(PlatformError) {
         try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try adapter.setFileTimes(access: access, modification: modification, creation: creation)
+            try adapter.setTimes(access: access, modification: modification, creation: creation)
         }
         .getThrowingPlatformError(operation: .setMeta(path))
     }
@@ -173,9 +173,9 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
 
     /// Gets the file attributes (flags) of the item referred by this handle.
     @concurrent
-    public func fileAttributes() async throws(PlatformError) -> PlatformFileAttributes {
+    public func attributes() async throws(PlatformError) -> PlatformFileAttributes {
         return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try adapter.fileAttributes()
+            try adapter.attributes()
         }
         .getThrowingPlatformError(operation: .fetchMeta(path))
     }
@@ -184,9 +184,9 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     /// Updates the file attributes (flags) of the item referred by this handle.
     /// - Parameter attributes: The new file attributes to set.
     @concurrent
-    public func setFileAttributes(_ attributes: PlatformFileAttributes) async throws(PlatformError) {
+    public func setAttributes(_ attributes: PlatformFileAttributes) async throws(PlatformError) {
         try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try adapter.setFileAttributes(attributes)
+            try adapter.setAttributes(attributes)
         }
         .getThrowingPlatformError(operation: .setMeta(path))
     }

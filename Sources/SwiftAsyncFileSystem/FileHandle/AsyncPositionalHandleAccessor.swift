@@ -52,7 +52,7 @@ struct AsyncPositionalHandleAccessor
                 try UnsafeHandleContextView.trySeek(from: 0, by: offset)
             }
         case .end:
-            let fileSize = try await self.fileInfo().size
+            let fileSize = try await self.info().size
             newOffset = try catchLowLevelError(operation: .seekHandle(originalPath: path)) { () throws(LowLevelError) in
                 try UnsafeHandleContextView.trySeek(from: Int64(fileSize), by: offset)
             }

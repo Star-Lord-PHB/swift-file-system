@@ -14,7 +14,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
         let handles = try UnsafeSystemHandle.pipe()
 
         let error = #expect(throws: LowLevelError.self) {
-            _ = try handles.readHandle.fileInodeFlags()
+            _ = try handles.readHandle.inodeFlags()
         }
 
         #expect(error?.kind == .unsupported)
@@ -31,7 +31,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
         let handles = try UnsafeSystemHandle.pipe()
 
         let error = #expect(throws: LowLevelError.self) {
-            try handles.writeHandle.setFileInodeFlags([.noDump])
+            try handles.writeHandle.setInodeFlags([.noDump])
         }
 
         #expect(error?.kind == .unsupported)
@@ -53,9 +53,9 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
         let error = #expect(throws: LowLevelError.self) {
             if setFlags {
-                try handle.setFileInodeFlags([.noDump])
+                try handle.setInodeFlags([.noDump])
             } else {
-                _ = try handle.fileInodeFlags()
+                _ = try handle.inodeFlags()
             }
         }
 

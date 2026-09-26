@@ -47,7 +47,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            creationTime: sampleCreationTime
+            creation: sampleCreationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -66,7 +66,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            creationTime: sampleCreationTime
+            creation: sampleCreationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -86,7 +86,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            creationTime: sampleCreationTime
+            creation: sampleCreationTime
         )
 
         let targetTimesAfterSet = try Support.ItemMetadata.Times.capture(at: target)
@@ -106,7 +106,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            creationTime: sampleCreationTime,
+            creation: sampleCreationTime,
             followSymlink: false
         )
 
@@ -128,7 +128,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            creationTime: sampleCreationTime,
+            creation: sampleCreationTime,
             followSymlink: false
         )
 
@@ -149,7 +149,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setTimes(
                 forItemAt: link,
-                creationTime: sampleCreationTime
+                creation: sampleCreationTime
             )
         }
 
@@ -166,7 +166,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSetCreationTimeTests {
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.setTimes(
                 forItemAt: path,
-                creationTime: sampleCreationTime
+                creation: sampleCreationTime
             )
         }
 

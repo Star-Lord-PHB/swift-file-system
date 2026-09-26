@@ -111,8 +111,8 @@ extension ResourceLifetimeTests.QueryLeakTests {
         try LeakChecker.expectNoLeak {
             try fileSystem.setTimes(
                 forItemAt: path,
-                accessTime: .init(seconds: 1_706_745_678, nanoseconds: 123_456_700),
-                modificationTime: .init(seconds: 1_696_543_210, nanoseconds: 234_567_800)
+                access: .init(seconds: 1_706_745_678, nanoseconds: 123_456_700),
+                modification: .init(seconds: 1_696_543_210, nanoseconds: 234_567_800)
             )
         }
 

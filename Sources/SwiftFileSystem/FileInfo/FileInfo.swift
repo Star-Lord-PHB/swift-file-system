@@ -11,7 +11,7 @@ extension FileInfo {
     ///                    If false, the metadata of the symbolic link itself will be retrieved.
     public init(fileAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) {
         self = try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
-            try InternalFS.getFileInfo(forItemAt: path, followSymlink: followSymlink)
+            try InternalFS.getInfo(forItemAt: path, followSymlink: followSymlink)
         }
     }
 

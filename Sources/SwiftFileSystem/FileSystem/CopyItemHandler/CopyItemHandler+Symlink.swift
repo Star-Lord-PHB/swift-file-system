@@ -95,7 +95,7 @@ extension CopyItemHandler {
         }
 
         if options.preserveSrcAccessTime {
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
+            try? InternalFS.setTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
         }
 
         var srcMetadataHandle = nil as UnsafeSystemHandle?
@@ -254,14 +254,14 @@ extension CopyItemHandler {
         }
 
         if options.preserveSrcAccessTime {
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
+            try? InternalFS.setTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
         }
 
         func cleanTmpLink(handle: borrowing UnsafeSystemHandle?) {
             if handle == nil {
-                try? InternalFS.setFileAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
+                try? InternalFS.setAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
             } else {
-                try? handle?.setFileAttributes(.windows.isNormal)
+                try? handle?.setAttributes(.windows.isNormal)
             }
             try? InternalFS.remove(itemAt: tmpDstPath)
         }
@@ -323,9 +323,9 @@ extension CopyItemHandler {
 
         func cleanTmpFile(tmpFileHandle: borrowing UnsafeSystemHandle?, tmpDstPath: FilePath) {
             if tmpFileHandle == nil {
-                try? InternalFS.setFileAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
+                try? InternalFS.setAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
             } else {
-                try? tmpFileHandle?.setFileAttributes(.windows.isNormal)
+                try? tmpFileHandle?.setAttributes(.windows.isNormal)
             }
             try? InternalFS.unlink(fileAt: tmpDstPath)      // error of this operation is ignored
         }
@@ -368,7 +368,7 @@ extension CopyItemHandler {
         }
 
         if options.preserveSrcAccessTime {
-            try? InternalFS.setFileTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
+            try? InternalFS.setTimes(forItemAt: srcPath, access: srcAttrs.accessTime, modification: nil, followSymlink: false)
         }
 
         var dstHandle: UnsafeSystemHandle? = nil

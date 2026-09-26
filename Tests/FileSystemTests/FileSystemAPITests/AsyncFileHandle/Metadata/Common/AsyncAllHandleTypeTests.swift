@@ -72,7 +72,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -85,7 +85,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -98,7 +98,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -111,7 +111,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncAppendHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -124,7 +124,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncStreamingReadHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -137,7 +137,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncStreamingWriteHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -150,7 +150,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncStreamingReadWriteHandle(forFileAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -163,7 +163,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
 
-        #expect(try await handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await handle.info() == FileInfo(fileAt: path))
 
         try await handle.close()
 
@@ -177,7 +177,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
         let reader = handle.sequentialReader()
 
-        #expect(try await reader.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await reader.info() == FileInfo(fileAt: path))
 
     }
 
@@ -189,7 +189,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
         let writer = handle.sequentialWriter()
 
-        #expect(try await writer.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await writer.info() == FileInfo(fileAt: path))
 
     }
 
@@ -201,7 +201,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
         let accessor = handle.sequentialAccessor()
 
-        #expect(try await accessor.fileInfo() == FileInfo(fileAt: path))
+        #expect(try await accessor.info() == FileInfo(fileAt: path))
 
     }
 
@@ -212,7 +212,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -227,7 +227,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -242,7 +242,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -257,7 +257,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncAppendHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -272,7 +272,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncStreamingWriteHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -287,7 +287,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncStreamingReadHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -302,7 +302,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncStreamingReadWriteHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -317,7 +317,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -333,7 +333,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
         let reader = handle.sequentialReader()
 
-        try await reader.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await reader.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try expectSampleTimes(at: path)
 
@@ -347,7 +347,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
         let writer = handle.sequentialWriter()
 
-        try await writer.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await writer.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try expectSampleTimes(at: path)
 
@@ -361,7 +361,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
         let accessor = handle.sequentialAccessor()
 
-        try await accessor.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await accessor.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try expectSampleTimes(at: path)
 

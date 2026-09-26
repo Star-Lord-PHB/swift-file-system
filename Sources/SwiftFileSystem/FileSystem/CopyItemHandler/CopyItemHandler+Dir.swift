@@ -283,7 +283,7 @@ extension CopyItemHandler {
             while context.dirStack.isNotEmpty {
                 context.dirStack.removeTopAndPerform { dirRelativePath, attrs in
                     guard let srcAccessTime = attrs?.srcAccessTime else { return }
-                    try? InternalFS.setFileTimes(
+                    try? InternalFS.setTimes(
                         forItemAt: srcAbsolutePath(of: dirRelativePath),
                         access: srcAccessTime,
                         modification: nil,
@@ -302,7 +302,7 @@ extension CopyItemHandler {
         func commitDirCopy(dirRelativePath: FilePath, attrs: consuming RecursiveCopyDirStack.DirCachedAttrs?) throws(RecursiveCopyAbortError) {
             guard let attrs else { return }
             if options.preserveSrcAccessTime {
-                try? InternalFS.setFileTimes(
+                try? InternalFS.setTimes(
                     forItemAt: srcAbsolutePath(of: dirRelativePath),
                     access: attrs.srcAccessTime,
                     modification: nil,

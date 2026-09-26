@@ -228,7 +228,7 @@ extension InternalFS {
     /// symlink or a junction. Non-surrogate reparse points (e.g. cloud placeholder
     /// directories) classify as real directories and are excluded.
     private static func windowsIsDirectoryLinkEntry(at path: FilePath) -> Bool {
-        guard let attributes = try? getFileAttributes(forItemAt: path, followSymlink: false) else {
+        guard let attributes = try? getAttributes(forItemAt: path, followSymlink: false) else {
             return false
         }
         guard

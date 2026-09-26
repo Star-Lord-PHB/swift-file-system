@@ -231,9 +231,9 @@ public protocol FileSystemProtocol: Sendable {
     /// > * On Darwin and BSD, the new creation time cannot be later than the modification time.
     func setTimes(
         forItemAt path: FilePath,
-        accessTime: FileTimeSpec?,
-        modificationTime: FileTimeSpec?,
-        creationTime: FileTimeSpec?,
+        access: FileTimeSpec?,
+        modification: FileTimeSpec?,
+        creation: FileTimeSpec?,
         followSymlink: Bool
     ) throws(PlatformError)
 

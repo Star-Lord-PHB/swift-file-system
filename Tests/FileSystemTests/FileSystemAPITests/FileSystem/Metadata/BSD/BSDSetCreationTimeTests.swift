@@ -83,8 +83,8 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            modificationTime: requestedModificationTime,
-            creationTime: requestedCreationTime
+            modification: requestedModificationTime,
+            creation: requestedCreationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -119,8 +119,8 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            modificationTime: requestedModificationTime,
-            creationTime: requestedCreationTime
+            modification: requestedModificationTime,
+            creation: requestedCreationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -157,8 +157,8 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: link,
-            modificationTime: requestedModificationTime,
-            creationTime: requestedCreationTime,
+            modification: requestedModificationTime,
+            creation: requestedCreationTime,
             followSymlink: false
         )
 
@@ -192,7 +192,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            modificationTime: requestedModificationTime
+            modification: requestedModificationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -223,7 +223,7 @@ extension FileSystemAPITests.MetadataTests.BSDSetCreationTimeTests {
 
         try fileSystem.setTimes(
             forItemAt: path,
-            creationTime: requestedCreationTime
+            creation: requestedCreationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)

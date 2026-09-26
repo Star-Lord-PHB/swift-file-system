@@ -240,7 +240,7 @@ extension CopyItemHandler {
         }
 
         if options.preserveSrcAccessTime {
-            try? context.srcHandle.setFileTimes(access: context.srcAttrs.accessTime, modification: nil)
+            try? context.srcHandle.setTimes(access: context.srcAttrs.accessTime, modification: nil)
         }
 
         do {
@@ -337,9 +337,9 @@ extension CopyItemHandler {
 
         func cleanTmpFile(tmpFileHandle: borrowing UnsafeSystemHandle?, tmpDstPath: FilePath) {
             if tmpFileHandle == nil {
-                try? InternalFS.setFileAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
+                try? InternalFS.setAttributes(forItemAt: tmpDstPath, attributes: .windows.isNormal, followSymlink: false)
             } else {
-                try? tmpFileHandle?.setFileAttributes(.windows.isNormal)
+                try? tmpFileHandle?.setAttributes(.windows.isNormal)
             }
             try? InternalFS.unlink(fileAt: tmpDstPath)      // error of this operation is ignored
         }
@@ -393,7 +393,7 @@ extension CopyItemHandler {
         }
 
         if options.preserveSrcAccessTime {
-            try? InternalFS.setFileTimes(forItemAt: context.srcAbsPath, access: context.srcAttrs.accessTime, modification: nil, followSymlink: false)
+            try? InternalFS.setTimes(forItemAt: context.srcAbsPath, access: context.srcAttrs.accessTime, modification: nil, followSymlink: false)
         }
 
         var dstHandle = context.dstHandle.take()

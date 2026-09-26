@@ -74,7 +74,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.ReOpenHandleTests {
 
         #expect(reopenedRawHandle != sourceRawHandle)
         #expect(try reopened.type() == .directory)
-        #expect(try reopened.fileInfo().fileIdentifier == handle.fileInfo().fileIdentifier)
+        #expect(try reopened.info().fileIdentifier == handle.info().fileIdentifier)
 
         try reopened.close()
         try handle.close()
@@ -88,14 +88,14 @@ extension UnsafeSystemHandleAPITests.WindowsTests.ReOpenHandleTests {
         let path = try workspace.makeDirectory(at: "dir")
         let movedPath = workspace.path("moved")
         let handle = try UnsafeSystemHandle.openDir(at: path)
-        let identifier = try handle.fileInfo().fileIdentifier
+        let identifier = try handle.info().fileIdentifier
 
         try FileManager.default.moveItem(atPath: path.string, toPath: movedPath.string)
         try #require(!FileManager.default.fileExists(atPath: path.string))
 
         let reopened = try handle.reOpenForDir()
 
-        #expect(try reopened.fileInfo().fileIdentifier == identifier)
+        #expect(try reopened.info().fileIdentifier == identifier)
 
         try reopened.close()
         try handle.close()
@@ -162,15 +162,15 @@ extension UnsafeSystemHandleAPITests.WindowsTests.ReOpenHandleTests {
         let modificationTime = sampleModificationTime
 
         let sourceError = #expect(throws: LowLevelError.self) {
-            try source.setFileTimes(modification: modificationTime)
+            try source.setTimes(modification: modificationTime)
         }
         #expect(sourceError?.kind == .permissionDenied)
 
         let reopened = try source.reOpen(withAccess: [.readAttributes, .writeAttributes])
 
-        try reopened.setFileTimes(modification: modificationTime)
+        try reopened.setTimes(modification: modificationTime)
 
-        #expect(try reopened.fileInfo().fileIdentifier == source.fileInfo().fileIdentifier)
+        #expect(try reopened.info().fileIdentifier == source.info().fileIdentifier)
         Support.expectTimestampEquals(
             try Support.ItemMetadata.Times.capture(at: path).modification,
             .init(fileTimeSpec: modificationTime),
@@ -219,7 +219,7 @@ extension UnsafeSystemHandleAPITests.WindowsTests.ReOpenHandleTests {
             _ = try source.reOpen(withAccess: [.writeAttributes])
         }
         #expect(error?.kind == .permissionDenied)
-        #expect(try source.fileInfo().size == 8)
+        #expect(try source.info().size == 8)
 
         try source.close()
 

@@ -82,7 +82,7 @@ extension FileHandleAPITests.MetadataTests.WindowsAttributeTests {
         try setNativeAttributes(sampleAttributes, at: path)
         let handle = try ReadFileHandle(forFileAt: path)
 
-        let actual = try handle.fileAttributes()
+        let actual = try handle.attributes()
         let expected = try Support.ItemMetadata.captureAttributes(at: path).values
 
         #expect(actual == expected)
@@ -104,7 +104,7 @@ extension FileHandleAPITests.MetadataTests.WindowsAttributeTests {
         )
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileAttributes(requestedAttributes)
+        try handle.setAttributes(requestedAttributes)
 
         try handle.close()
 
@@ -128,7 +128,7 @@ extension FileHandleAPITests.MetadataTests.WindowsAttributeTests {
         try #require(requestedAttributes.remove(.windows.isHidden) != nil)
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileAttributes(requestedAttributes)
+        try handle.setAttributes(requestedAttributes)
 
         try handle.close()
 
@@ -147,7 +147,7 @@ extension FileHandleAPITests.MetadataTests.WindowsAttributeTests {
         try #require(preparedAttributes == sampleAttributes)
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileAttributes([])
+        try handle.setAttributes([])
 
         try handle.close()
 
@@ -169,11 +169,11 @@ extension FileHandleAPITests.MetadataTests.WindowsAttributeTests {
         try installProtectedDacl(granting: .init(rawValue: FILE_GENERIC_READ), at: path)
 
         let error = #expect(throws: PlatformError.self) {
-            try handle.setFileAttributes(requestedAttributes)
+            try handle.setAttributes(requestedAttributes)
         }
 
         #expect(error?.kind == .permissionDenied)
-        #expect(try handle.fileInfo().size == 8)
+        #expect(try handle.info().size == 8)
         #expect(try Support.ItemMetadata.captureAttributes(at: path).values == attributesBeforeSet)
 
         try handle.close()

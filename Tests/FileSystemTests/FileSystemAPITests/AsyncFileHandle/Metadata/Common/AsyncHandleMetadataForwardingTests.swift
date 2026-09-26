@@ -50,7 +50,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        let actual = try await handle.fileInfo()
+        let actual = try await handle.info()
         let expected = try FileInfo(fileAt: path)
 
         #expect(actual == expected)
@@ -80,7 +80,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
         let expected = try Support.ItemMetadata.Times.capture(at: path)
 
-        let actual = try await handle.fileTimes()
+        let actual = try await handle.times()
 
         Support.expectTimestampEquals(
             .init(fileTimeSpec: actual.lastAccess),
@@ -109,12 +109,12 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `setFileTimes forwards distinct access and modification times`() async throws {
+    func `setTimes forwards distinct access and modification times`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        try await handle.setFileTimes(access: sampleAccessTime, modification: sampleModificationTime)
+        try await handle.setTimes(access: sampleAccessTime, modification: sampleModificationTime)
 
         try await handle.close()
 
@@ -139,7 +139,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        let actual = try await handle.fileAttributes()
+        let actual = try await handle.attributes()
         let expected = try Support.ItemMetadata.captureAttributes(at: path).values
 
         #expect(actual == expected)
@@ -150,7 +150,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `setFileAttributes forwards attributes`() async throws {
+    func `setAttributes forwards attributes`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         #if canImport(WinSDK)
@@ -166,7 +166,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         #endif
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        try await handle.setFileAttributes(requestedAttributes)
+        try await handle.setAttributes(requestedAttributes)
 
         try await handle.close()
 
@@ -209,7 +209,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
-            try await handle.fileInfo()
+            try await handle.info()
         }
 
     }
@@ -235,21 +235,21 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
-            try await handle.fileTimes()
+            try await handle.times()
         }
 
     }
 
 
     @Test
-    func `Pre-cancelled setFileTimes reports cancellation`() async throws {
+    func `Pre-cancelled setTimes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
         let accessTime = sampleAccessTime
 
         await Support.expectPreCancelled {
-            try await handle.setFileTimes(access: accessTime)
+            try await handle.setTimes(access: accessTime)
         }
 
     }
@@ -262,20 +262,20 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
-            try await handle.fileAttributes()
+            try await handle.attributes()
         }
 
     }
 
 
     @Test
-    func `Pre-cancelled setFileAttributes reports cancellation`() async throws {
+    func `Pre-cancelled setAttributes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         await Support.expectPreCancelled {
-            try await handle.setFileAttributes([])
+            try await handle.setAttributes([])
         }
 
     }

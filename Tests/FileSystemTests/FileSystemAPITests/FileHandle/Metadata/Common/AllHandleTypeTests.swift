@@ -71,7 +71,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -84,7 +84,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try WriteFileHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -97,7 +97,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadWriteFileHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -110,7 +110,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try AppendHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -123,7 +123,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try DirectoryHandle(forDirAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
         #expect(try handle.type() == .directory)
 
         try handle.close()
@@ -137,7 +137,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingReadHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -150,7 +150,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingWriteHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -163,7 +163,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingReadWriteHandle(forFileAt: path)
 
-        #expect(try handle.fileInfo() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(fileAt: path))
 
         try handle.close()
 
@@ -177,7 +177,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try ReadFileHandle(forFileAt: path)
         let reader = handle.sequentialReader()
 
-        #expect(try reader.fileInfo() == FileInfo(fileAt: path))
+        #expect(try reader.info() == FileInfo(fileAt: path))
 
     }
 
@@ -189,7 +189,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try WriteFileHandle(forFileAt: path)
         let writer = handle.sequentialWriter()
 
-        #expect(try writer.fileInfo() == FileInfo(fileAt: path))
+        #expect(try writer.info() == FileInfo(fileAt: path))
 
     }
 
@@ -201,7 +201,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try ReadWriteFileHandle(forFileAt: path)
         let accessor = handle.sequentialAccessor()
 
-        #expect(try accessor.fileInfo() == FileInfo(fileAt: path))
+        #expect(try accessor.info() == FileInfo(fileAt: path))
 
     }
 
@@ -212,7 +212,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -230,7 +230,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try WriteFileHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -248,7 +248,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try ReadWriteFileHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -266,7 +266,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try AppendHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -284,7 +284,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try DirectoryHandle(forDirAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -302,7 +302,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try StreamingReadHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -320,7 +320,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try StreamingWriteHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -338,7 +338,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try StreamingReadWriteHandle(forFileAt: path)
 
-        try handle.setFileTimes(
+        try handle.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -357,7 +357,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try ReadFileHandle(forFileAt: path)
         let reader = handle.sequentialReader()
 
-        try reader.setFileTimes(
+        try reader.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -374,7 +374,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try WriteFileHandle(forFileAt: path)
         let writer = handle.sequentialWriter()
 
-        try writer.setFileTimes(
+        try writer.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )
@@ -391,7 +391,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try ReadWriteFileHandle(forFileAt: path)
         let accessor = handle.sequentialAccessor()
 
-        try accessor.setFileTimes(
+        try accessor.setTimes(
             access: sampleAccessTime,
             modification: sampleModificationTime
         )

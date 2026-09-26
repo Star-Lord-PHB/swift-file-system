@@ -35,7 +35,7 @@ extension FileHandleAPITests.MetadataTests.LinuxAttributeTests {
         try Support.setNativeInodeFlags(preparedFlags, at: path)
         let handle = try ReadFileHandle(forFileAt: path)
 
-        let actual = try handle.fileAttributes()
+        let actual = try handle.attributes()
         let expected = try Support.ItemMetadata.captureAttributes(at: path).values
 
         #expect(actual == expected)
@@ -52,7 +52,7 @@ extension FileHandleAPITests.MetadataTests.LinuxAttributeTests {
         let path = try workspace.makeFile(at: "file")
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileAttributes([.linux.noDump])
+        try handle.setAttributes([.linux.noDump])
 
         try handle.close()
 
@@ -71,7 +71,7 @@ extension FileHandleAPITests.MetadataTests.LinuxAttributeTests {
         try #require(requestedAttributes.remove(.linux.noDump) != nil)
         let handle = try ReadFileHandle(forFileAt: path)
 
-        try handle.setFileAttributes(requestedAttributes)
+        try handle.setAttributes(requestedAttributes)
 
         try handle.close()
 

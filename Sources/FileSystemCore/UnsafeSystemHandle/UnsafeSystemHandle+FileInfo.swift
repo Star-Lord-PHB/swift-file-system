@@ -5,7 +5,7 @@ import PlatformCLib
 
 extension UnsafeSystemHandle {
 
-    package func fileInfo() throws(LowLevelError) -> FileInfo {
+    package func info() throws(LowLevelError) -> FileInfo {
 
         #if canImport(WinSDK)
 
@@ -118,7 +118,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    package func setFileTimes(
+    package func setTimes(
         access: FileTimeSpec? = nil, 
         modification: FileTimeSpec? = nil,
         creation: FileTimeSpec? = nil
@@ -172,7 +172,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func fileTimes() throws(LowLevelError) -> FileTimes {
+    package func times() throws(LowLevelError) -> FileTimes {
 
         #if canImport(WinSDK)
 
@@ -211,7 +211,7 @@ extension UnsafeSystemHandle {
 
 extension UnsafeSystemHandle {
 
-    package func fileAttributes() throws(LowLevelError) -> PlatformFileAttributes {
+    package func attributes() throws(LowLevelError) -> PlatformFileAttributes {
         #if canImport(WinSDK)
         var fileBasicInfo = FILE_BASIC_INFO()
         try execThrowingCFunction {
@@ -228,7 +228,7 @@ extension UnsafeSystemHandle {
 
     #if canImport(WinSDK) || canImport(Darwin) || os(FreeBSD) || os(OpenBSD)
 
-    package func setFileAttributes(_ attributes: PlatformFileAttributes) throws(LowLevelError) {
+    package func setAttributes(_ attributes: PlatformFileAttributes) throws(LowLevelError) {
 
         #if canImport(WinSDK)
 
@@ -259,12 +259,12 @@ extension UnsafeSystemHandle {
     #else 
 
     @available(*, unavailable, message: "Setting the statx attributes is not supported on Linux / Android, please use inode flags instead")
-    package func setFileAttributes(_ attributes: PlatformFileAttributes) throws(LowLevelError) {
+    package func setAttributes(_ attributes: PlatformFileAttributes) throws(LowLevelError) {
         throw .init(kind: .unsupported)
     }
 
 
-    package func fileInodeFlags() throws(LowLevelError) -> LinuxInodeFlags {
+    package func inodeFlags() throws(LowLevelError) -> LinuxInodeFlags {
         var flags: PlatformInteropTypes.PosixInodeFlags = 0
         try execThrowingCFunction {
             ioctl(unsafeRawHandle, _FS_IOC_GETFLAGS, &flags)
@@ -278,7 +278,7 @@ extension UnsafeSystemHandle {
     }
 
 
-    package func setFileInodeFlags(_ flags: LinuxInodeFlags) throws(LowLevelError) {
+    package func setInodeFlags(_ flags: LinuxInodeFlags) throws(LowLevelError) {
         var flags = flags.rawValue
         try execThrowingCFunction {
             return ioctl(unsafeRawHandle, _FS_IOC_SETFLAGS, &flags)

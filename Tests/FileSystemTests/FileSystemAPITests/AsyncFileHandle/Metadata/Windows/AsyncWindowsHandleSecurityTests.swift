@@ -26,7 +26,7 @@ extension AsyncFileHandleAPITests.MetadataTests {
 
 
 
-// NOTE: The Windows security shells and the creation-time parameter of `setFileTimes` are
+// NOTE: The Windows security shells and the creation-time parameter of `setTimes` are
 // conditional source. Handles are opened before a restrictive protected DACL is installed: the
 // open holds no security-write rights, each setter reopens the handle for the call with
 // READ_CONTROL and WRITE_DAC, and the owner holds those implicitly whatever the DACL says, so
@@ -109,7 +109,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
 
 
     @Test
-    func `setFileTimes forwards the creation time`() async throws {
+    func `setTimes forwards the creation time`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let timesBeforeSet = try Support.ItemMetadata.Times.capture(at: path)
@@ -119,7 +119,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
             .fileTimeSpec
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        try await handle.setFileTimes(creation: requestedCreationTime)
+        try await handle.setTimes(creation: requestedCreationTime)
 
         try await handle.close()
 

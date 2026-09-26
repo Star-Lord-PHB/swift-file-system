@@ -46,7 +46,7 @@ struct PositionalHandleAccessor
                 try UnsafeHandleContextView.trySeek(from: 0, by: offset)
             case .end:
                 try context.withUnsafeSystemHandle { handle throws(LowLevelError) in
-                    try UnsafeHandleContextView.trySeek(from: .init(handle.fileInfo().size), by: offset)
+                    try UnsafeHandleContextView.trySeek(from: .init(handle.info().size), by: offset)
                 }
             }
         }

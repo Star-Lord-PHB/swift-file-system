@@ -65,8 +65,8 @@ extension AsyncFileSystemAPITests.MetadataForwardingTests {
 
         try await asyncFileSystem.setTimes(
             forItemAt: path,
-            accessTime: accessTime,
-            modificationTime: modificationTime
+            access: accessTime,
+            modification: modificationTime
         )
 
         let timesAfterSet = try Support.ItemMetadata.Times.capture(at: path)

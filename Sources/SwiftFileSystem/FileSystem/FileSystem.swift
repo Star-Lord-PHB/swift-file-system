@@ -23,7 +23,7 @@ extension FileSystem {
                 openOptions: .init(access: .none, followSymlink: true, platformOpenFlagsDiff: .inserted(.windows.backupSemantics))
             )) != nil
         } else {
-            return (try? InternalFS.getFileAttributes(forItemAt: path, followSymlink: followSymlink)) != nil
+            return (try? InternalFS.getAttributes(forItemAt: path, followSymlink: followSymlink)) != nil
         }
 
         #else
@@ -239,7 +239,7 @@ extension FileSystem {
     func isNonSymlinkDirectory(at path: FilePath) throws(LowLevelError) -> Bool? {
         #if canImport(WinSDK)
         do throws(LowLevelError) {
-            let attributes = try InternalFS.getFileAttributes(forItemAt: path, followSymlink: false)
+            let attributes = try InternalFS.getAttributes(forItemAt: path, followSymlink: false)
             return attributes.contains(.windows.isDirectory) && !attributes.contains(.windows.isReparsePoint)
         } catch let error where error.kind == .notFound {
             return nil
