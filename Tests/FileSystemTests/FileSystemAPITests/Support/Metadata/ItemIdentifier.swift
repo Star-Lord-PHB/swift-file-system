@@ -3,7 +3,7 @@ import Testing
 import SwiftFileSystem
 
 #if canImport(WinSDK)
-import WinSDK
+import PlatformCLib
 #endif
 
 

@@ -1,7 +1,7 @@
 #if canImport(WinSDK)
 
 import Foundation
-import WinSDK
+import PlatformCLib
 import Testing
 import SwiftFileSystem
 

@@ -4,7 +4,7 @@ import SystemPackage
 import Testing
 
 #if canImport(WinSDK)
-import WinSDK
+import PlatformCLib
 #endif
 
 /// Fixture-side file-time manipulation, independent of the library under test.

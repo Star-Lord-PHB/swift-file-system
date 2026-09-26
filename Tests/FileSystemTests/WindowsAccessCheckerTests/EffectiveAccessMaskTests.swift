@@ -1,6 +1,6 @@
 #if canImport(WinSDK)
 
-import CFileSystem
+import PlatformCLib
 import Testing
 import SwiftFileSystem
 

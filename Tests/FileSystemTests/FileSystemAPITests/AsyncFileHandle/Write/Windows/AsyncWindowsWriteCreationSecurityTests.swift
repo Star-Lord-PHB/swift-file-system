@@ -1,6 +1,6 @@
 #if canImport(WinSDK)
 
-import WinSDK
+import PlatformCLib
 import Testing
 import SwiftAsyncFileSystem
 

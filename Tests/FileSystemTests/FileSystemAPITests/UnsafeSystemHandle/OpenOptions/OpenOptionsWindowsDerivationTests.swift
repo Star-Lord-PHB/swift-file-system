@@ -2,7 +2,7 @@
 
 import Testing
 import SwiftFileSystem
-import WinSDK
+import PlatformCLib
 
 
 private typealias Options = UnsafeSystemHandle.OpenOptions

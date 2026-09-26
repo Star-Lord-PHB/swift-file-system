@@ -5,6 +5,8 @@
 //  Created by SerikaPHB  on 2026/6/25.
 //
 
+import PlatformCLib
+
 
 extension ByteBuffer {
     
