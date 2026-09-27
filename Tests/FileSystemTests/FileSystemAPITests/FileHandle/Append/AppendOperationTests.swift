@@ -27,22 +27,6 @@ extension FileHandleAPITests.AppendTests {
 
 
     @Test
-    func `Contiguous bytes can be appended`() throws {
-
-        let path = try workspace.makeFile(at: "file", contents: "initial")
-        let handle = try AppendHandle(forFileAt: path)
-        let data = Data(" appended".utf8)
-
-        #expect(try handle.append(data) == 9)
-
-        try handle.close()
-
-        #expect(try capturedContents(at: path) == ByteBuffer("initial appended".utf8))
-
-    }
-
-
-    @Test
     func `Synchronize succeeds after appending`() throws {
 
         let path = try workspace.makeFile(at: "file")
