@@ -113,30 +113,3 @@ let package = Package(
         ),
     ]
 )
-
-
-#if canImport(Darwin)
-if #available(macOS 13, iOS 16, watchOS 9, tvOS 16, *) {
-    // MARK: TODO: Consider adding a Environment variable to control whether to include the benchmark target.
-    package.dependencies.append(.package(url: "https://github.com/ordo-one/package-benchmark", .upToNextMajor(from: "1.29.0")))
-    package.platforms = [.macOS(.v13), .iOS(.v16), .watchOS(.v9), .tvOS(.v16)]
-    // Benchmark of FileSystemBenchmark
-    package.targets += [
-        .executableTarget(
-            name: "FileSystemBenchmark",
-            dependencies: [
-                .product(name: "Benchmark", package: "package-benchmark"),
-                "SwiftFileSystem"
-            ],
-            path: "Benchmarks/FileSystemBenchmark",
-            swiftSettings: [
-                .enableExperimentalFeature("Lifetimes"),
-                .enableExperimentalFeature("NonescapableTypes"),
-            ],
-            plugins: [
-                .plugin(name: "BenchmarkPlugin", package: "package-benchmark")
-            ],
-        ),
-    ]
-}
-#endif 
