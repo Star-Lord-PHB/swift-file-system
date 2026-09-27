@@ -129,9 +129,7 @@ extension RecursiveSequenceAPITests.TraversalTests {
         )
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
         let contents = try recursiveContents(from: elements)
 
         expectRecursiveDirContents(
@@ -172,9 +170,7 @@ extension RecursiveSequenceAPITests.TraversalTests {
         )
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
 
         let subdir = try #require(firstIndex(ofEntryAt: "subdir", in: elements))
         let nested = try #require(firstIndex(ofEntryAt: "subdir/nested", in: elements))
@@ -208,9 +204,7 @@ extension RecursiveSequenceAPITests.TraversalTests {
         )
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path, options: .includeDotEntries)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
         let contents = try recursiveContents(from: elements)
 
         expectRecursiveDirContents(
@@ -247,9 +241,7 @@ extension RecursiveSequenceAPITests.TraversalTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: link)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
         let contents = try recursiveContents(from: elements)
 
         expectRecursiveDirContents(
@@ -273,9 +265,7 @@ extension RecursiveSequenceAPITests.TraversalTests {
         let path = try workspace.makeDirectory(at: "empty")
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
 
         #expect(elements.isEmpty)
 

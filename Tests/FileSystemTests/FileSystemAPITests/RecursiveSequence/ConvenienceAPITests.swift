@@ -52,8 +52,8 @@ extension RecursiveSequenceAPITests.ConvenienceAPITests {
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
 
         var paths = [FilePath]()
-        try sequence.forEach { result in
-            paths.append(try result.get().path)
+        try sequence.forEach { e in
+            paths.append(e.path)
         }
 
         #expect(paths.count == sampleDirectoryElementPaths.count)
@@ -68,8 +68,8 @@ extension RecursiveSequenceAPITests.ConvenienceAPITests {
         let path = try createSampleDirectory()
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
 
-        let names = try sequence.map { result in
-            try result.get().name
+        let names = try sequence.map { e in
+            e.name
         }
 
         #expect(names.count == sampleDirectoryElementPaths.count)
@@ -84,8 +84,8 @@ extension RecursiveSequenceAPITests.ConvenienceAPITests {
         let path = try createSampleDirectory()
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
 
-        let regularFilePaths = try sequence.compactMap { result in
-            if case .entry(let entry) = try result.get(), entry.type == .regular {
+        let regularFilePaths = try sequence.compactMap { e in
+            if case .entry(let entry) = e, entry.type == .regular {
                 entry.path
             } else {
                 nil as FilePath?
@@ -103,8 +103,8 @@ extension RecursiveSequenceAPITests.ConvenienceAPITests {
         let path = try createSampleDirectory()
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
 
-        let paths = try sequence.reduce([FilePath]()) { partialResult, result in
-            partialResult + [try result.get().path]
+        let paths = try sequence.reduce([FilePath]()) { partialResult, e in
+            partialResult + CollectionOfOne(e.path)
         }
 
         #expect(paths.count == sampleDirectoryElementPaths.count)
@@ -120,8 +120,8 @@ extension RecursiveSequenceAPITests.ConvenienceAPITests {
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
 
         var paths = [FilePath]()
-        try sequence.reduce(into: &paths) { partialResult, result in
-            partialResult.append(try result.get().path)
+        try sequence.reduce(into: &paths) { partialResult, e in
+            partialResult.append(e.path)
         }
 
         #expect(paths.count == sampleDirectoryElementPaths.count)

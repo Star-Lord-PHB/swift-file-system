@@ -154,9 +154,7 @@ extension AsyncRecursiveSequenceAPITests.TraversalTests {
             element.path
         }
 
-        let syncPaths = try DirectoryEntryRecursiveSequence(dirAt: path).map { result in
-            try result.get().path
-        }
+        let syncPaths = try DirectoryEntryRecursiveSequence(dirAt: path).map(\.path)
         try #require(syncPaths.count > batchCount)
         #expect(sequence.batchCount == batchCount)
         #expect(asyncPaths == syncPaths)

@@ -60,8 +60,8 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
 
         try LeakChecker.expectNoLeak {
             let handle = try DirectoryHandle(forDirAt: root)
-            try handle.entrySequence().forEach { result in
-                _ = try result.get()
+            try handle.entrySequence().forEach { e in
+                _ = e
             }
         }
 
@@ -77,7 +77,7 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
             let handle = try DirectoryHandle(forDirAt: root)
             let sequence = handle.entrySequence()
             var iterator = sequence.makeIterator()
-            let first = iterator.next()
+            let first = try iterator.next()
             #expect(first != nil)
         }
 
@@ -89,8 +89,8 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
 
         try LeakChecker.expectNoLeak {
             let sequence = DirectoryEntryRecursiveSequence(dirAt: root)
-            try sequence.forEach { result in
-                _ = try result.get()
+            try sequence.forEach { e in
+                _ = e
             }
         }
 
@@ -105,8 +105,8 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
         try LeakChecker.expectNoLeak {
             var iterator = DirectoryEntryRecursiveSequence(dirAt: root).makeIterator()
             var reachedDeepestEntry = false
-            while let result = iterator.next() {
-                if case .entry(let entry) = try result.get(),
+            while let e = try iterator.next() {
+                if case .entry(let entry) = e,
                     entry.path.lastComponent == "file-c.txt" {
                     reachedDeepestEntry = true
                     break
@@ -127,9 +127,8 @@ extension ResourceLifetimeTests.EnumerationLeakTests {
         try LeakChecker.expectNoLeak {
             for path in [filePath, missing] {
                 var iterator = DirectoryEntryRecursiveSequence(dirAt: path).makeIterator()
-                let first = iterator.next()
                 #expect(throws: PlatformError.self) {
-                    _ = try first?.get()
+                    _ = try iterator.next()
                 }
             }
         }

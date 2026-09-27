@@ -63,9 +63,7 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
         let handle = try DirectoryHandle(forDirAt: path)
 
         let sequence = handle.entrySequence()
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try sequence.map(\.self)
 
         expectEntries(
             entries,
@@ -92,9 +90,7 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
         let handle = try DirectoryHandle(forDirAt: path)
 
         let sequence = handle.entrySequence(options: .includeDotEntries)
-        let entries = try sequence.map { result in
-            try result.get()
-        }
+        let entries = try sequence.map(\.self)
 
         expectEntries(
             entries,
@@ -124,12 +120,8 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
         let handle = try DirectoryHandle(forDirAt: path)
 
         let sequence = handle.entrySequence()
-        let first = try sequence.map { result in
-            try result.get()
-        }
-        let second = try sequence.map { result in
-            try result.get()
-        }
+        let first = try sequence.map(\.self)
+        let second = try sequence.map(\.self)
 
         expectEntries(
             first,
@@ -161,17 +153,17 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests {
         var first = sequence.makeIterator()
         var second = sequence.makeIterator()
 
-        let head = first.next()
-        let headEntry = try #require(head).get()
+        let head = try first.next()
+        let headEntry = try #require(head)
 
         var secondEntries = [DirectoryEntry]()
-        while let result = second.next() {
-            secondEntries.append(try result.get())
+        while let result = try second.next() {
+            secondEntries.append(result)
         }
 
         var firstRemainder = [DirectoryEntry]()
-        while let result = first.next() {
-            firstRemainder.append(try result.get())
+        while let result = try first.next() {
+            firstRemainder.append(result)
         }
 
         let expected: Set<DirectoryEntry> = [

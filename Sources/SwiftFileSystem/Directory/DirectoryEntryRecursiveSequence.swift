@@ -6,7 +6,7 @@ import FileSystemCore
 /// A sequence for recursively traversing a directory and its subdirectories, yielding ``DirectoryEntryRecursiveSequenceElement`` values.
 public struct DirectoryEntryRecursiveSequence: Sendable {
 
-    public typealias Element = Result<DirectoryEntryRecursiveSequenceElement, PlatformError>
+    public typealias Element = DirectoryEntryRecursiveSequenceElement
 
     /// The path of the directory to traverse.
     public let path: FilePath
@@ -67,44 +67,36 @@ extension DirectoryEntryRecursiveSequence {
 
 
         /// Emit the next element.
-        public mutating func next() -> Element? {
+        public mutating func next() throws(PlatformError) -> Element? {
 
             defer { 
                 skipDescendantsRequested = false
                 skipCurrentDirRequested = false
             }
 
-            do {
+            return try catchLowLevelError(operation: .readDirectory(rootPath)) { () throws(LowLevelError) in
 
-                return try catchLowLevelError(operation: .readDirectory(rootPath)) { () throws(LowLevelError) in
+                return try enumerator.next(
+                    skipCurrentDir: skipCurrentDirRequested, 
+                    skipDescendants: skipDescendantsRequested
+                )
+                .map { element in
 
-                    return try enumerator.next(
-                        skipCurrentDir: skipCurrentDirRequested, 
-                        skipDescendants: skipDescendantsRequested
-                    )
-                    .map { element in
-
-                        let element = switch element {
-                            case .entry(let entry): 
-                                .entry(entry)
-                            case .entryError(let path, let error): 
-                                .entryError(path, .init(lowLevelError: error, operation: .readDirectory(path.removingLastComponent())))
-                            case .subTreeError(let path, let error): 
-                                .subTreeError(path, .init(lowLevelError: error, operation: .readDirectory(path)))
-                            case .leavingDir(let path, .some(let error)): 
-                                .leavingDir(path, .init(lowLevelError: error, operation: .readDirectory(path)))
-                            case .leavingDir(let path, .none):
-                                .leavingDir(path, nil)
-                        } as DirectoryEntryRecursiveSequenceElement
-
-                        return .success(element)
-
+                    return switch element {
+                        case .entry(let entry): 
+                            .entry(entry)
+                        case .entryError(let path, let error): 
+                            .entryError(path, .init(lowLevelError: error, operation: .readDirectory(path.removingLastComponent())))
+                        case .subTreeError(let path, let error): 
+                            .subTreeError(path, .init(lowLevelError: error, operation: .readDirectory(path)))
+                        case .leavingDir(let path, .some(let error)): 
+                            .leavingDir(path, .init(lowLevelError: error, operation: .readDirectory(path)))
+                        case .leavingDir(let path, .none):
+                            .leavingDir(path, nil)
                     }
 
                 }
 
-            } catch {
-                return .failure(error)
             }
 
         }
@@ -117,22 +109,22 @@ extension DirectoryEntryRecursiveSequence {
 
 extension DirectoryEntryRecursiveSequence {
 
-    public func forEach<E: Error>(_ body: (Element) throws(E) -> Void) throws(E) {
+    public func forEach<E: Error>(_ body: (Element) throws(E) -> Void) throws {
 
         var iterator = makeIterator()
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             try body(entryResult)
         }
 
     }
 
 
-    public func map<T, E: Error>(_ transform: (Element) throws(E) -> T) throws(E) -> [T] {
+    public func map<T, E: Error>(_ transform: (Element) throws(E) -> T) throws -> [T] {
 
         var results = [T]()
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             results.append(try transform(entryResult))
         }
 
@@ -141,12 +133,12 @@ extension DirectoryEntryRecursiveSequence {
     }
 
 
-    public func compactMap<T, E: Error>(_ transform: (Element) throws(E) -> T?) throws(E) -> [T] {
+    public func compactMap<T, E: Error>(_ transform: (Element) throws(E) -> T?) throws -> [T] {
 
         var results = [T]()
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             if let transformed = try transform(entryResult) {
                 results.append(transformed)
             }
@@ -160,12 +152,12 @@ extension DirectoryEntryRecursiveSequence {
     public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T, 
         _ nextPartialResult: (consuming T, Element) throws(E) -> T
-    ) throws(E) -> T {
+    ) throws -> T {
 
         var result = initialResult
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             result = try nextPartialResult(result, entryResult)
         }
 
@@ -177,11 +169,11 @@ extension DirectoryEntryRecursiveSequence {
     public func reduce<T: ~Copyable, E: Error>(
         into initialResult: inout T, 
         _ nextPartialResult: (inout T, Element) throws(E) -> Void
-    ) throws(E) {
+    ) throws {
 
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             try nextPartialResult(&initialResult, entryResult)
         }
 

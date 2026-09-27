@@ -59,8 +59,7 @@ public struct AsyncDirectoryHandle
 
     @concurrent
     public func entries(options: FileOperationOptions.DirectoryTraversalOption = []) async throws(PlatformError) -> [DirectoryEntry] {
-        let sequence = self.entrySequence(options: options)
-        var iterator = sequence.makeAsyncIterator()
+        var iterator = self.entrySequence(options: options).makeAsyncIterator()
         var results = [DirectoryEntry]()
         while let entryResult = try await iterator.next() {
             results.append(entryResult)
@@ -121,7 +120,7 @@ extension AsyncDirectoryHandle {
         }
 
 
-        @_lifetime(borrow self)
+        @_lifetime(copy self)
         public func makeAsyncIterator() -> AsyncEntryIterator {
             return .init(
                 syncIterator: syncSequence.makeIterator(),
@@ -180,16 +179,14 @@ extension AsyncDirectoryHandle {
             if let pendingErr = pendingErr.take() { throw pendingErr }
 
             try await executor.runCancellable {
-                for _ in 0 ..< batchCount {
-                    switch syncIterator.next() {
-                        case .none: 
-                            return
-                        case .failure(let err):
-                            pendingErr = err
-                            return
-                        case .success(let entry):
-                            batch.append(entry)
+                do throws(PlatformError) {
+                    for _ in 0 ..< batchCount {
+                        guard let entry = try syncIterator.next() else { return }
+                        batch.append(entry)
                     }
+                } catch {
+                    pendingErr = error
+                    return
                 }
             }
             .get(mappingCancellation: PlatformError.taskCancelled(operation: .readDirectory(rootPath)))

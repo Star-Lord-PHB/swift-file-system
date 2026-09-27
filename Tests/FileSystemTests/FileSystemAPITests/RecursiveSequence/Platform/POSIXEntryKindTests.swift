@@ -37,9 +37,7 @@ extension RecursiveSequenceAPITests.POSIXEntryKindTests {
         try #require(mkfifo(fifoPath.string, 0o644) == 0)
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
 
         try #require(elements.count == 1)
         guard case .entry(let entry) = elements[0] else {

@@ -68,12 +68,11 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests {
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
         var iterator = sequence.makeIterator()
 
-        let first = iterator.next()
         let error = #expect(throws: PlatformError.self) {
-            try first?.get()
+            _ = try iterator.next()
         }
         #expect(error?.kind == .notFound)
-        #expect(iterator.next() == nil)
+        #expect(try iterator.next() == nil)
 
     }
 
@@ -86,12 +85,11 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests {
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
         var iterator = sequence.makeIterator()
 
-        let first = iterator.next()
         let error = #expect(throws: PlatformError.self) {
-            try first?.get()
+            _ = try iterator.next()
         }
         #expect(error?.kind == .notADirectory)
-        #expect(iterator.next() == nil)
+        #expect(try iterator.next() == nil)
 
     }
 
@@ -104,9 +102,8 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests {
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
         var iterator = sequence.makeIterator()
 
-        let first = iterator.next()
         let error = #expect(throws: PlatformError.self) {
-            try first?.get()
+            _ = try iterator.next()
         }
         #if canImport(WinSDK)
         // NOTE: FindFirstFile reports ERROR_DIRECTORY for a dangling symlink root, the same native
@@ -117,7 +114,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests {
         #else
         #expect(error?.kind == .notFound)
         #endif
-        #expect(iterator.next() == nil)
+        #expect(try iterator.next() == nil)
 
     }
 

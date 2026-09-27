@@ -104,8 +104,8 @@ extension AsyncRecursiveSequenceAPITests {
         var elements = [ElementShape]()
 
         apply(before, to: &iterator)
-        while let result = iterator.next() {
-            let element = ElementShape(try result.get())
+        while let e = try iterator.next() {
+            let element = ElementShape(e)
             elements.append(element)
             for trigger in triggers where trigger.after == element {
                 apply(trigger.actions, to: &iterator)

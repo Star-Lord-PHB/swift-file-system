@@ -102,9 +102,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTest
         try requireListingDenied(at: lockedPath)
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
-        let elements = try sequence.map { result in
-            try result.get()
-        }
+        let elements = try sequence.map(\.self)
         let log = TraversalLog(elements: elements)
 
         #expect(log.entries.map(\.path).contains("a-file"))
@@ -132,12 +130,11 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.WindowsTraversalErrorTest
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
         var iterator = sequence.makeIterator()
 
-        let first = iterator.next()
         let error = #expect(throws: PlatformError.self) {
-            try first?.get()
+            _ = try iterator.next()
         }
         #expect(error?.kind == .permissionDenied)
-        #expect(iterator.next() == nil)
+        #expect(try iterator.next() == nil)
 
     }
 

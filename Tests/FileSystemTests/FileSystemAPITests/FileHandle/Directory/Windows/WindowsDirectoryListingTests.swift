@@ -129,12 +129,11 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
 
         let sequence = handle.entrySequence()
         var iterator = sequence.makeIterator()
-        let first = iterator.next()
         let firstError = #expect(throws: PlatformError.self) {
-            try first?.get()
+            _ = try iterator.next()
         }
         #expect(firstError?.kind == .permissionDenied)
-        #expect(iterator.next() == nil)
+        #expect(try iterator.next() == nil)
         #expect(iterator.ended == true)
 
     }

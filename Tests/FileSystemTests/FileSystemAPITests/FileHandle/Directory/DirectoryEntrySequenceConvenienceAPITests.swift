@@ -49,8 +49,8 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITes
         let sequence = handle.entrySequence()
 
         var paths = [FilePath]()
-        try sequence.forEach { result in
-            paths.append(try result.get().path)
+        try sequence.forEach { entry in
+            paths.append(entry.path)
         }
 
         #expect(paths.count == sampleDirectoryEntryPaths.count)
@@ -66,8 +66,8 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITes
         let handle = try DirectoryHandle(forDirAt: path)
         let sequence = handle.entrySequence()
 
-        let names = try sequence.map { result in
-            try result.get().name.string
+        let names = try sequence.map { entry in
+            entry.name.string
         }
 
         #expect(names.count == sampleDirectoryEntryPaths.count)
@@ -83,8 +83,7 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITes
         let handle = try DirectoryHandle(forDirAt: path)
         let sequence = handle.entrySequence()
 
-        let regularFilePaths = try sequence.compactMap { result in
-            let entry = try result.get()
+        let regularFilePaths = try sequence.compactMap { entry in
             return entry.type == .regular ? entry.path : nil
         }
 
@@ -100,8 +99,8 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITes
         let handle = try DirectoryHandle(forDirAt: path)
         let sequence = handle.entrySequence()
 
-        let paths = try sequence.reduce([FilePath]()) { partialResult, result in
-            partialResult + [try result.get().path]
+        let paths = try sequence.reduce([FilePath]()) { partialResult, entry in
+            partialResult + [entry.path]
         }
 
         #expect(paths.count == sampleDirectoryEntryPaths.count)
@@ -118,8 +117,8 @@ extension FileHandleAPITests.DirectoryTests.EntrySequenceTests.ConvenienceAPITes
         let sequence = handle.entrySequence()
 
         var paths = Set<FilePath>()
-        try sequence.reduce(into: &paths) { partialResult, result in
-            partialResult.insert(try result.get().path)
+        try sequence.reduce(into: &paths) { partialResult, entry in
+            partialResult.insert(entry.path)
         }
 
         #expect(paths == sampleDirectoryEntryPaths)

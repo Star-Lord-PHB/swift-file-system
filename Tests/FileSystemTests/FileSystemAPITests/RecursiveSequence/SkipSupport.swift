@@ -168,14 +168,14 @@ extension RecursiveSequenceAPITests {
         var traversal = Traversal()
 
         apply(before, to: &iterator)
-        while let result = iterator.next() {
-            let element = ElementShape(try result.get())
+        while let result = try iterator.next() {
+            let element = ElementShape(result)
             traversal.elements.append(element)
             for trigger in triggers where trigger.after == element {
                 apply(trigger.actions, to: &iterator)
             }
         }
-        #expect(iterator.next() == nil, sourceLocation: sourceLocation)
+        #expect(try iterator.next() == nil, sourceLocation: sourceLocation)
 
         return traversal
 

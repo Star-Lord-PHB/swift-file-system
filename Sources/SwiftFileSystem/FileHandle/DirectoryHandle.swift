@@ -55,10 +55,12 @@ extension DirectoryHandle {
 
 
     public func entries(options: FileOperationOptions.DirectoryTraversalOption = []) throws(PlatformError) -> [DirectoryEntry] {
-        try EntrySequence(unsafeSystemHandle: context.systemHandle, path: path, options: options)
-            .map { entry throws(PlatformError) in
-                try entry.get()
-            }
+        var iterator = self.entrySequence(options: options).makeIterator()
+        var results = [DirectoryEntry]()
+        while let entryResult = try iterator.next() {
+            results.append(entryResult)
+        }
+        return results
     }
 
 
@@ -97,7 +99,7 @@ extension DirectoryHandle {
     /// A sequence for enumerating the direct entries of a directory.
     public struct EntrySequence: ~Escapable, ~Copyable {
 
-        public typealias Element = Result<DirectoryEntry, PlatformError>
+        public typealias Element = DirectoryEntry
 
         private let handle: UnsafeUnownedSystemHandle
         /// The path of the directory being enumerated.
@@ -118,12 +120,9 @@ extension DirectoryHandle {
         }
 
 
-        @_lifetime(borrow self)
+        @_lifetime(copy self)
         public func makeIterator() -> EntryIterator {
-            return _overrideLifetime(
-                .init(unsafeSystemHandle: handle, path: path, options: options), 
-                copying: self
-            )
+            return .init(unsafeSystemHandle: handle, path: path, options: options)
         }
 
     }
@@ -204,11 +203,9 @@ extension DirectoryHandle {
 
 
         /// Emit the next entry.
-        public mutating func next() -> EntrySequence.Element? {
-            do {
-                return try state.next().map { .success($0) }
-            } catch {
-                return .failure(.init(lowLevelError: error, operation: .readDirectory(rootPath)))
+        public mutating func next() throws(PlatformError) -> EntrySequence.Element? {
+            return try catchLowLevelError(operation: .readDirectory(rootPath)) { () throws(LowLevelError) in
+                try state.next()
             }
         }
 
@@ -220,22 +217,22 @@ extension DirectoryHandle {
 
 extension DirectoryHandle.EntrySequence {
 
-    public func forEach<E: Error>(_ body: (Element) throws(E) -> Void) throws(E) {
+    public func forEach<E: Error>(_ body: (Element) throws(E) -> Void) throws {
 
         var iterator = makeIterator()
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             try body(entryResult)
         }
 
     }
 
 
-    public func map<T, E: Error>(_ transform: (Element) throws(E) -> T) throws(E) -> [T] {
+    public func map<T, E: Error>(_ transform: (Element) throws(E) -> T) throws -> [T] {
 
         var results = [T]()
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             results.append(try transform(entryResult))
         }
 
@@ -244,12 +241,12 @@ extension DirectoryHandle.EntrySequence {
     }
 
 
-    public func compactMap<T, E: Error>(_ transform: (Element) throws(E) -> T?) throws(E) -> [T] {
+    public func compactMap<T, E: Error>(_ transform: (Element) throws(E) -> T?) throws -> [T] {
 
         var results = [T]()
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             if let transformed = try transform(entryResult) {
                 results.append(transformed)
             }
@@ -263,12 +260,12 @@ extension DirectoryHandle.EntrySequence {
     public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T, 
         _ nextPartialResult: (consuming T, Element) throws(E) -> T
-    ) throws(E) -> T {
+    ) throws -> T {
 
         var result = initialResult
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             result = try nextPartialResult(result, entryResult)
         }
 
@@ -280,11 +277,11 @@ extension DirectoryHandle.EntrySequence {
     public func reduce<T: ~Copyable, E: Error>(
         into initialResult: inout T, 
         _ nextPartialResult: (inout T, Element) throws(E) -> Void
-    ) throws(E) {
+    ) throws {
 
         var iterator = makeIterator()
 
-        while let entryResult = iterator.next() {
+        while let entryResult = try iterator.next() {
             try nextPartialResult(&initialResult, entryResult)
         }
 

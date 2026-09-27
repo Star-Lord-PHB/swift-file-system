@@ -65,7 +65,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
         /// The executor for executing the IO operations
         public let executor: AsyncFileSystemExecutor
 
-        private var batch: Deque<DirectoryEntryRecursiveSequenceElement> = .init()
+        private var batch: Deque<Element> = .init()
 
         private var prevEmittedElementIsDir: Bool = false
         private var prevEmittedElementPathLength: Int = 0
@@ -112,7 +112,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
 
         /// Emit the next element.
         @concurrent
-        public mutating func next() async throws(PlatformError) -> DirectoryEntryRecursiveSequenceElement? {
+        public mutating func next() async throws(PlatformError) -> Element? {
 
             defer { skipRequest = .none }
 
@@ -166,34 +166,30 @@ extension AsyncDirectoryEntryRecursiveSequence {
                     iteratorPopLoop: while true {
                         poppedCount += 1
                         syncIterator.skipCurrentDir()
-                        switch syncIterator.next() {
+                        // here the batch must be empty, so we can throw the error directly without using pendingErr
+                        switch try syncIterator.next() {
                             case .none: 
                                 return
-                            case .failure(let err):
-                                // here the batch must be empty, so we can throw the error directly without using pendingErr
-                                throw err
-                            case .success(.entry), .success(.entryError):
+                            case .entry, .entryError:
                                 preconditionFailure("Expected to skip a directory and and should not emit an entry element")
-                            case .success(let element) where element.path.components.count == iteratorPopTargetLength:
+                            case .some(let element) where element.path.components.count == iteratorPopTargetLength:
                                 if skipRequest == .skipCurrentDir {
                                     batch.append(element)
                                 }
                                 break iteratorPopLoop
-                            case .success(.leavingDir), .success(.subTreeError):
+                            case .leavingDir, .subTreeError:
                                 continue
                         }
                     }
                 }
-                for _ in 0 ..< max(batchCount - poppedCount, 1) {
-                    switch syncIterator.next() {
-                        case .none: 
-                            return
-                        case .failure(let err):
-                            pendingErr = err
-                            return
-                        case .success(let entry):
-                            batch.append(entry)
+                do throws(PlatformError) {
+                    for _ in 0 ..< max(batchCount - poppedCount, 1) {
+                        guard let entry = try syncIterator.next() else { return }
+                        batch.append(entry)
                     }
+                } catch {
+                    pendingErr = error
+                    return
                 }
             }
             .get(mappingCancellation: PlatformError.taskCancelled(operation: .readDirectory(rootPath)))
@@ -214,7 +210,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
         }
 
 
-        private mutating func recordEmittedElement(_ element: DirectoryEntryRecursiveSequenceElement) {
+        private mutating func recordEmittedElement(_ element: Element) {
             prevEmittedElementIsDir = switch element {
                 case .entry(let entry): entry.type == .directory && entry.path.lastComponent?.kind == .regular
                 default: false
@@ -231,7 +227,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
 extension AsyncDirectoryEntryRecursiveSequence {
 
     @concurrent
-    public func forEach<E: Error>(_ body: @concurrent (DirectoryEntryRecursiveSequenceElement) async throws(E) -> Void) async throws {
+    public func forEach<E: Error>(_ body: @concurrent (Element) async throws(E) -> Void) async throws {
         var iterator = makeAsyncIterator()
         while let entryResult = try await iterator.next() {
             try await body(entryResult)
@@ -240,7 +236,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
 
 
     @concurrent
-    public func map<T, E: Error>(_ transform: @concurrent (DirectoryEntryRecursiveSequenceElement) async throws(E) -> T) async throws -> [T] {
+    public func map<T, E: Error>(_ transform: @concurrent (Element) async throws(E) -> T) async throws -> [T] {
 
         var results = [T]()
         var iterator = makeAsyncIterator()
@@ -255,7 +251,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
 
 
     @concurrent
-    public func compactMap<T, E: Error>(_ transform: @concurrent (DirectoryEntryRecursiveSequenceElement) async throws(E) -> T?) async throws -> [T] {
+    public func compactMap<T, E: Error>(_ transform: @concurrent (Element) async throws(E) -> T?) async throws -> [T] {
 
         var results = [T]()
         var iterator = makeAsyncIterator()
@@ -274,7 +270,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
     @concurrent
     public func reduce<T: ~Copyable, E: Error>(
         _ initialResult: consuming T, 
-        _ nextPartialResult: @concurrent (consuming T, DirectoryEntryRecursiveSequenceElement) async throws(E) -> T
+        _ nextPartialResult: @concurrent (consuming T, Element) async throws(E) -> T
     ) async throws -> T {
 
         var result = initialResult
@@ -292,7 +288,7 @@ extension AsyncDirectoryEntryRecursiveSequence {
     @concurrent
     public func reduce<T: ~Copyable, E: Error>(
         into initialResult: inout T, 
-        _ nextPartialResult: @concurrent (inout T, DirectoryEntryRecursiveSequenceElement) async throws(E) -> Void
+        _ nextPartialResult: @concurrent (inout T, Element) async throws(E) -> Void
     ) async throws {
 
         var iterator = makeAsyncIterator()
