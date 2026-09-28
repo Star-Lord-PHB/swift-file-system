@@ -29,7 +29,7 @@ extension FileSystemTestSupport {
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
         var descriptor = try FileSystem()
-            .getSecurityInfo(forItemAt: path, querying: .dacl, followSymlink: false)
+            .securityInfo(ofItemAt: path, querying: .dacl, followSymlink: false)
             .makeAbsolute()
         descriptor.dacl.addEntries([entry])
         guard let dacl = descriptor.dacl.take(leaving: .absent) else {

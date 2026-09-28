@@ -273,7 +273,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - followSymlink: Whether to follow symbolic links. If `false`, the inode flags of the symbolic link
     ///                    itself will be retrieved instead of the target.
     @concurrent
-    func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> LinuxInodeFlags
+    func inodeFlags(ofItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> LinuxInodeFlags
 
     /// Updates the inode flags of the item at the specified path.
     /// - Parameters:
@@ -306,9 +306,9 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///                   symbolic link itself will be retrieved instead of the target.
     #if canImport(WinSDK)
     @concurrent
-    func getSecurityInfo(
-        forItemAt path: FilePath,
-        querying: FileOperationOptions.WindowsSecurityInfoMembers,
+    func securityInfo(
+        ofItemAt path: FilePath,
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
     ) async throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
 
@@ -341,7 +341,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - followSymlink: Whether to follow symbolic links. If `false`, the permissions of the symbolic link
     ///                    itself will be retrieved instead of the target.
     @concurrent
-    func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> FilePermissions
+    func posixPermissions(ofItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> FilePermissions
 
     /// Updates the POSIX permissions of the item at the specified path.
     /// - Parameters:
@@ -359,7 +359,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - followSymlink: Whether to follow symbolic links. If `false`, the owner and group of the symbolic 
     ///                    link itself will be retrieved instead of the target.
     @concurrent
-    func getOwner(forItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity)
+    func owner(ofItemAt path: FilePath, followSymlink: Bool) async throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity)
 
     /// Updates the owner and group of the item at the specified path.
     /// - Parameters:

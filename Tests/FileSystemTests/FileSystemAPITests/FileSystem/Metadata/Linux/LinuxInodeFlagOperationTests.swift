@@ -37,7 +37,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         preparedFlags.insert(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: path)
 
-        let actual = try fileSystem.getInodeFlags(forItemAt: path)
+        let actual = try fileSystem.inodeFlags(ofItemAt: path)
         let expected = try Support.captureNativeInodeFlags(at: path)
 
         #expect(actual == expected)
@@ -54,7 +54,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         preparedFlags.insert(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: path)
 
-        let actual = try fileSystem.getInodeFlags(forItemAt: path)
+        let actual = try fileSystem.inodeFlags(ofItemAt: path)
         let expected = try Support.captureNativeInodeFlags(at: path)
 
         #expect(actual == expected)
@@ -72,7 +72,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         preparedFlags.insert(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: target)
 
-        let actual = try fileSystem.getInodeFlags(forItemAt: link)
+        let actual = try fileSystem.inodeFlags(ofItemAt: link)
         let expected = try Support.captureNativeInodeFlags(at: target)
 
         #expect(actual == expected)
@@ -87,8 +87,8 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getInodeFlags(
-                forItemAt: link,
+            try fileSystem.inodeFlags(
+                ofItemAt: link,
                 followSymlink: false
             )
         }
@@ -104,7 +104,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getInodeFlags(forItemAt: link)
+            try fileSystem.inodeFlags(ofItemAt: link)
         }
 
         #expect(error?.kind == .notFound)
@@ -118,8 +118,8 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getInodeFlags(
-                forItemAt: link,
+            try fileSystem.inodeFlags(
+                ofItemAt: link,
                 followSymlink: false
             )
         }
@@ -135,7 +135,7 @@ extension FileSystemAPITests.MetadataTests.LinuxInodeFlagTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getInodeFlags(forItemAt: path)
+            try fileSystem.inodeFlags(ofItemAt: path)
         }
 
         #expect(error?.kind == .notFound)

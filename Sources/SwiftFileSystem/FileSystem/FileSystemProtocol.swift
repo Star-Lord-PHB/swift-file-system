@@ -252,7 +252,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - path: The path to the item to get the inode flags for.
     ///   - followSymlink: Whether to follow symbolic links. If `false`, the inode flags of the symbolic link
     ///                    itself will be retrieved instead of the target.
-    func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> LinuxInodeFlags
+    func inodeFlags(ofItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> LinuxInodeFlags
 
     /// Updates the inode flags of the item at the specified path.
     /// - Parameters:
@@ -280,11 +280,11 @@ public protocol FileSystemProtocol: Sendable {
     /// - Parameters: 
     ///   - path: The path to the item for which to retrieve the security descriptor.
     ///   - members: The members of the security descriptor to retrieve.
-    ///  - followSymlink: Whether to follow symbolic links. If `false`, the security descriptor of the
-    ///                   symbolic link itself will be retrieved instead of the target.
-    func getSecurityInfo(
-        forItemAt path: FilePath, 
-        querying: FileOperationOptions.WindowsSecurityInfoMembers,
+    ///   - followSymlink: Whether to follow symbolic links. If `false`, the security descriptor of the
+    ///                    symbolic link itself will be retrieved instead of the target.
+    func securityInfo(
+        ofItemAt path: FilePath, 
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers,
         followSymlink: Bool
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor
     
@@ -315,7 +315,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - path: The path to the item for which to retrieve the permissions.
     ///   - followSymlink: Whether to follow symbolic links. If `false`, the permissions of the symbolic link
     ///                    itself will be retrieved instead of the target.
-    func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> FilePermissions
+    func posixPermissions(ofItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> FilePermissions
     
     /// Updates the POSIX permissions of the item at the specified path.
     /// - Parameters:
@@ -331,7 +331,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - path: The path to the item for which to retrieve the owner and group.
     ///   - followSymlink: Whether to follow symbolic links. If `false`, the owner and group of the symbolic 
     ///                    link itself will be retrieved instead of the target.
-    func getOwner(forItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity)
+    func owner(ofItemAt path: FilePath, followSymlink: Bool) throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity)
     
     /// Updates the owner and group of the item at the specified path.
     /// - Parameters:

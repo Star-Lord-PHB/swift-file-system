@@ -30,14 +30,14 @@ extension AsyncFileSystemAPITests {
 extension AsyncFileSystemAPITests.LinuxInodeFlagForwardingTests {
 
     @Test
-    func `getInodeFlags matches ioctl`() async throws {
+    func `inodeFlags matches ioctl`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         var preparedFlags = try Support.captureNativeInodeFlags(at: path)
         preparedFlags.insert(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: path)
 
-        let flags = try await asyncFileSystem.getInodeFlags(forItemAt: path)
+        let flags = try await asyncFileSystem.inodeFlags(ofItemAt: path)
 
         #expect(try flags == Support.captureNativeInodeFlags(at: path))
         #expect(flags.contains(.noDump))
@@ -60,13 +60,13 @@ extension AsyncFileSystemAPITests.LinuxInodeFlagForwardingTests {
 
 
     @Test
-    func `Pre-cancelled getInodeFlags reports cancellation`() async throws {
+    func `Pre-cancelled inodeFlags reports cancellation`() async throws {
 
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
         await Support.expectPreCancelled {
-            try await asyncFileSystem.getInodeFlags(forItemAt: path)
+            try await asyncFileSystem.inodeFlags(ofItemAt: path)
         }
 
     }

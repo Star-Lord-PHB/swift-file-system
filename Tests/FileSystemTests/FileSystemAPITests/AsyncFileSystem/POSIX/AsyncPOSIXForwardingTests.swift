@@ -91,12 +91,12 @@ extension AsyncFileSystemAPITests.POSIXForwardingTests {
 
 
     @Test
-    func `getPosixPermissions matches stat`() async throws {
+    func `posixPermissions matches stat`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         try setFoundationPermissions(FilePermissions(rawValue: 0o640), at: path)
 
-        let permissions = try await asyncFileSystem.getPosixPermissions(forItemAt: path)
+        let permissions = try await asyncFileSystem.posixPermissions(ofItemAt: path)
 
         #expect(try permissions == capturePermissions(at: path))
         #expect(permissions == FilePermissions(rawValue: 0o640))
@@ -156,13 +156,13 @@ extension AsyncFileSystemAPITests.POSIXForwardingTests {
 
 
     @Test
-    func `Pre-cancelled getPosixPermissions reports cancellation`() async throws {
+    func `Pre-cancelled posixPermissions reports cancellation`() async throws {
 
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
         await Support.expectPreCancelled {
-            try await asyncFileSystem.getPosixPermissions(forItemAt: path)
+            try await asyncFileSystem.posixPermissions(ofItemAt: path)
         }
 
     }

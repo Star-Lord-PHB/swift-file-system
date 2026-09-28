@@ -68,7 +68,7 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
         let members = .owner as FileOperationOptions.WindowsSecurityInfoMembers
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
-        let descriptor = try await handle.securityInfo(members)
+        let descriptor = try await handle.securityInfo(querying: members)
 
         // expectWindowsSecurity asserts the members outside `comparing:` are nil, so a
         // dropped members forward (falling back to allExceptSacl) fails here.

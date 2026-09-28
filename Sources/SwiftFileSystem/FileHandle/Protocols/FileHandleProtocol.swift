@@ -178,7 +178,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     /// - Parameter members: The members of the security descriptor to retrieve. 
     ///                      Defaults to all members except the SACL.
     public func securityInfo(
-        _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         var access = [.windows.readControl] as FileOperationOptions.MetadataHandleAccess
         if members.contains(.sacl) {
@@ -263,7 +263,7 @@ extension FileHandleProtocol where Self: ~Copyable & ~Escapable, Self: SystemHan
     
     
     /// Gets the owner and group of the item referred by this handle.
-    public func owner() throws(PlatformError) -> (owner: PlatformIdentity?, group: PlatformIdentity?) {
+    public func owner() throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
         try withUnsafeSystemHandleForMetadata(
             requiringAccess: .windows.readControl,
             operation: .fetchMeta(path)

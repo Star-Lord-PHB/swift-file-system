@@ -17,8 +17,8 @@ extension FileSystem {
     
     #if canImport(WinSDK)
     
-    public func getSecurityInfo(
-        forItemAt path: FilePath,
+    public func securityInfo(
+        ofItemAt path: FilePath,
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
         followSymlink: Bool = true
     ) throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
@@ -68,7 +68,7 @@ extension FileSystem {
     
     #else
     
-    public func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> FilePermissions {
+    public func posixPermissions(ofItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> FilePermissions {
         try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
             try InternalFS.getPosixPermissions(forItemAt: path, followSymlink: followSymlink)
         }
@@ -84,8 +84,8 @@ extension FileSystem {
     #endif
     
     
-    public func getOwner(
-        forItemAt path: FilePath,
+    public func owner(
+        ofItemAt path: FilePath,
         followSymlink: Bool = true
     ) throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
         try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in

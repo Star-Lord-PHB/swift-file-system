@@ -10,7 +10,7 @@ private var byNameFileInfoAvailable: Bool { getGetFileInformationByNameFuncPtr()
 
 extension FileSystemAPITests.MetadataTests {
 
-    /// Pins the `getSecurityInfo` → `WindowsAccessChecker` pipeline against the kernel's
+    /// Pins the `securityInfo` → `WindowsAccessChecker` pipeline against the kernel's
     /// own evaluation of the caller's effective access (`FILE_STAT_INFORMATION`'s
     /// `EffectiveAccess`, the only oracle that is independent of the Authz machinery).
     /// This also polices the token-based context of `effectiveAccessMaskForCurrentProcess`:
@@ -62,7 +62,7 @@ extension FileSystemAPITests.MetadataTests.WindowsEffectiveAccessTests {
 
         let path = try workspace.makeFile(at: "file")
 
-        let sd = try fileSystem.getSecurityInfo(forItemAt: path)
+        let sd = try fileSystem.securityInfo(ofItemAt: path)
         let checkerMask = try WindowsAccessChecker().effectiveAccessMaskForCurrentProcess(whenAccessing: sd)
 
         let kernelMask = try kernelEffectiveAccessMask(forItemAt: path)
@@ -84,7 +84,7 @@ extension FileSystemAPITests.MetadataTests.WindowsEffectiveAccessTests {
         ])
         try Support.setProtectedNativeWindowsDacl(restrictiveDacl, at: path, followSymlink: true)
 
-        let sd = try fileSystem.getSecurityInfo(forItemAt: path)
+        let sd = try fileSystem.securityInfo(ofItemAt: path)
         let checkerMask = try WindowsAccessChecker().effectiveAccessMaskForCurrentProcess(whenAccessing: sd)
 
         let kernelMask = try kernelEffectiveAccessMask(forItemAt: path)

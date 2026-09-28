@@ -25,13 +25,13 @@ extension AsyncFileSystem {
     #if canImport(WinSDK)
 
     @concurrent
-    public func getSecurityInfo(
-        forItemAt path: FilePath,
+    public func securityInfo(
+        ofItemAt path: FilePath,
         querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl,
         followSymlink: Bool = true
     ) async throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.getSecurityInfo(forItemAt: path, querying: members, followSymlink: followSymlink)
+            try fileSystem.securityInfo(ofItemAt: path, querying: members, followSymlink: followSymlink)
         }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
@@ -60,9 +60,9 @@ extension AsyncFileSystem {
     #else
 
     @concurrent
-    public func getPosixPermissions(forItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> FilePermissions {
+    public func posixPermissions(ofItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> FilePermissions {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.getPosixPermissions(forItemAt: path, followSymlink: followSymlink)
+            try fileSystem.posixPermissions(ofItemAt: path, followSymlink: followSymlink)
         }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 
@@ -78,12 +78,12 @@ extension AsyncFileSystem {
 
 
     @concurrent
-    public func getOwner(
-        forItemAt path: FilePath,
+    public func owner(
+        ofItemAt path: FilePath,
         followSymlink: Bool = true
     ) async throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.getOwner(forItemAt: path, followSymlink: followSymlink)
+            try fileSystem.owner(ofItemAt: path, followSymlink: followSymlink)
         }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 

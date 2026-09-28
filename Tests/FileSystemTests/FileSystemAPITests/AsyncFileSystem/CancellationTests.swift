@@ -207,13 +207,13 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
 
     @Test
-    func `Pre-cancelled getOwner reports cancellation`() async throws {
+    func `Pre-cancelled owner reports cancellation`() async throws {
 
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
         await Support.expectPreCancelled {
-            try await asyncFileSystem.getOwner(forItemAt: path)
+            try await asyncFileSystem.owner(ofItemAt: path)
         }
 
     }

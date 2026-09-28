@@ -108,7 +108,7 @@ extension FileHandleAPITests.MetadataTests.WindowsSecurityInfoTests {
         let members = .dacl as FileOperationOptions.WindowsSecurityInfoMembers
         let handle = try ReadFileHandle(forFileAt: path)
 
-        let descriptor = try handle.securityInfo(members)
+        let descriptor = try handle.securityInfo(querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try Support.captureWindowsSecuritySnapshot(
             at: path,

@@ -12,7 +12,7 @@ extension AsyncFileSystemAPITests {
     /// The Windows-only shells plus the security-descriptor value flow that is unique to the
     /// async surface: the `Sendable` owned descriptors crossing into the four `@concurrent`
     /// borrowing convenience overloads (which derive and forward the view) and the owned
-    /// descriptor coming back from `getSecurityInfo`.
+    /// descriptor coming back from `securityInfo`.
     @Suite("Windows security forwarding")
     struct WindowsSecurityForwardingTests {
 
@@ -133,11 +133,11 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
 
 
     @Test
-    func `getSecurityInfo matches Win32`() async throws {
+    func `securityInfo matches Win32`() async throws {
 
         let path = try workspace.makeFile(at: "file")
 
-        let descriptor = try await asyncFileSystem.getSecurityInfo(forItemAt: path)
+        let descriptor = try await asyncFileSystem.securityInfo(ofItemAt: path)
 
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try Support.captureWindowsSecuritySnapshot(at: path)
@@ -147,12 +147,12 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
 
 
     @Test
-    func `getSecurityInfo forwards the queried members`() async throws {
+    func `securityInfo forwards the queried members`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let members = .owner as FileOperationOptions.WindowsSecurityInfoMembers
 
-        let descriptor = try await asyncFileSystem.getSecurityInfo(forItemAt: path, querying: members)
+        let descriptor = try await asyncFileSystem.securityInfo(ofItemAt: path, querying: members)
 
         // expectWindowsSecurity asserts the members outside `comparing:` are nil, so a
         // dropped `querying` forward (falling back to allExceptSacl) fails here.
@@ -223,13 +223,13 @@ extension AsyncFileSystemAPITests.WindowsSecurityForwardingTests {
 
 
     @Test
-    func `Pre-cancelled getSecurityInfo reports cancellation`() async throws {
+    func `Pre-cancelled securityInfo reports cancellation`() async throws {
 
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
         await Support.expectPreCancelled {
-            _ = try await asyncFileSystem.getSecurityInfo(forItemAt: path)
+            _ = try await asyncFileSystem.securityInfo(ofItemAt: path)
         }
 
     }

@@ -40,7 +40,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
 
-        let actual = try fileSystem.getOwner(forItemAt: path)
+        let actual = try fileSystem.owner(ofItemAt: path)
         let expected = try captureOwnership(at: path)
 
         #expect(actual.owner == expected.owner)
@@ -54,7 +54,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeDirectory(at: "directory")
 
-        let actual = try fileSystem.getOwner(forItemAt: path)
+        let actual = try fileSystem.owner(ofItemAt: path)
         let expected = try captureOwnership(at: path)
 
         #expect(actual.owner == expected.owner)
@@ -69,7 +69,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let actual = try fileSystem.getOwner(forItemAt: link)
+        let actual = try fileSystem.owner(ofItemAt: link)
         let expected = try captureOwnership(at: target)
 
         #expect(actual.owner == expected.owner)
@@ -84,8 +84,8 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let actual = try fileSystem.getOwner(
-            forItemAt: link,
+        let actual = try fileSystem.owner(
+            ofItemAt: link,
             followSymlink: false
         )
         let expected = try captureOwnership(at: link)
@@ -101,8 +101,8 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
-        let actual = try fileSystem.getOwner(
-            forItemAt: link,
+        let actual = try fileSystem.owner(
+            ofItemAt: link,
             followSymlink: false
         )
         let expected = try captureOwnership(at: link)
@@ -119,7 +119,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getOwner(forItemAt: link)
+            try fileSystem.owner(ofItemAt: link)
         }
 
         #expect(error?.kind == .notFound)
@@ -133,7 +133,7 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getOwner(forItemAt: path)
+            try fileSystem.owner(ofItemAt: path)
         }
 
         #expect(error?.kind == .notFound)

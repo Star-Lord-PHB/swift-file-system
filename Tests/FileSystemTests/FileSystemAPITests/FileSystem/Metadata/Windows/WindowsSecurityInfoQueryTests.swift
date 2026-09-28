@@ -84,7 +84,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeFile(at: "file")
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: path)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: path)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(at: path)
 
@@ -98,7 +98,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let path = try workspace.makeDirectory(at: "directory")
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: path)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: path)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(at: path)
 
@@ -113,7 +113,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = try workspace.makeFile(at: "file")
         let members = .dacl as FileOperationOptions.WindowsSecurityInfoMembers
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: path, querying: members)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: path, querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(
             at: path,
@@ -131,7 +131,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = try workspace.makeFile(at: "file")
         let members = .owner as FileOperationOptions.WindowsSecurityInfoMembers
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: path, querying: members)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: path, querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(
             at: path,
@@ -149,7 +149,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = try workspace.makeFile(at: "file")
         let members = .group as FileOperationOptions.WindowsSecurityInfoMembers
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: path, querying: members)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: path, querying: members)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(
             at: path,
@@ -171,7 +171,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         try Support.setProtectedNativeWindowsDacl(targetDacl, at: target, followSymlink: true)
         try Support.setProtectedNativeWindowsDacl(linkDacl, at: link, followSymlink: false)
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: link)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: link)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(at: target)
         let linkSecurity = try captureSecuritySnapshot(at: link)
@@ -192,7 +192,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         try Support.setProtectedNativeWindowsDacl(targetDacl, at: target, followSymlink: true)
         try Support.setProtectedNativeWindowsDacl(linkDacl, at: link, followSymlink: false)
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: link, followSymlink: false)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: link, followSymlink: false)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(at: link)
         let targetSecurity = try captureSecuritySnapshot(at: target)
@@ -208,7 +208,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
-        let descriptor = try fileSystem.getSecurityInfo(forItemAt: link, followSymlink: false)
+        let descriptor = try fileSystem.securityInfo(ofItemAt: link, followSymlink: false)
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try captureSecuritySnapshot(at: link)
 
@@ -223,7 +223,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            _ = try fileSystem.getSecurityInfo(forItemAt: link)
+            _ = try fileSystem.securityInfo(ofItemAt: link)
         }
 
         #expect(error?.kind == .notFound)
@@ -237,7 +237,7 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            _ = try fileSystem.getSecurityInfo(forItemAt: path)
+            _ = try fileSystem.securityInfo(ofItemAt: path)
         }
 
         #expect(error?.kind == .notFound)

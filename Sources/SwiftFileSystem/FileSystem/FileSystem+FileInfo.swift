@@ -42,7 +42,7 @@ extension FileSystem {
 
 
     #if os(Linux) || os(Android)
-    public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> LinuxInodeFlags {
+    public func inodeFlags(ofItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> LinuxInodeFlags {
         try catchLowLevelError(operation: .fetchMeta(path)) { () throws(LowLevelError) in
             try InternalFS.readInodeFlags(forItemAt: path, followSymlink: followSymlink)
         }

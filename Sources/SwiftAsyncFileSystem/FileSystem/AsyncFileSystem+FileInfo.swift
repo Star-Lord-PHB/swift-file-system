@@ -53,9 +53,9 @@ extension AsyncFileSystem {
     #if os(Linux) || os(Android)
 
     @concurrent
-    public func getInodeFlags(forItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> LinuxInodeFlags {
+    public func inodeFlags(ofItemAt path: FilePath, followSymlink: Bool = true) async throws(PlatformError) -> LinuxInodeFlags {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.getInodeFlags(forItemAt: path, followSymlink: followSymlink)
+            try fileSystem.inodeFlags(ofItemAt: path, followSymlink: followSymlink)
         }.getThrowingPlatformError(operation: .fetchMeta(path))
     }
 

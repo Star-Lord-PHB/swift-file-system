@@ -121,13 +121,13 @@ extension AsyncFileSystemAPITests.MetadataForwardingTests {
 
 
     @Test
-    func `getOwner matches the synchronous result`() async throws {
+    func `owner matches the synchronous result`() async throws {
 
         let path = try workspace.makeFile(at: "file")
 
-        let ownership = try await asyncFileSystem.getOwner(forItemAt: path)
+        let ownership = try await asyncFileSystem.owner(ofItemAt: path)
 
-        let expectedOwnership = try fileSystem.getOwner(forItemAt: path)
+        let expectedOwnership = try fileSystem.owner(ofItemAt: path)
         #expect(ownership.owner == expectedOwnership.owner)
         #expect(ownership.group == expectedOwnership.group)
 

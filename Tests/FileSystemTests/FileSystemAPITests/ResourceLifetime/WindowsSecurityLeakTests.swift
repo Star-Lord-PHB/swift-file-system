@@ -38,8 +38,8 @@ extension ResourceLifetimeTests.WindowsSecurityLeakTests {
         let path = try workspace.makeFile(at: "file.txt", contents: "contents")
 
         try LeakChecker.expectNoLeak {
-            _ = try fileSystem.getSecurityInfo(forItemAt: path)
-            _ = try fileSystem.getSecurityInfo(forItemAt: path, querying: .allExceptSacl)
+            _ = try fileSystem.securityInfo(ofItemAt: path)
+            _ = try fileSystem.securityInfo(ofItemAt: path, querying: .allExceptSacl)
         }
 
     }

@@ -53,7 +53,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let path = try workspace.makeFile(at: "file")
         try setFoundationPermissions(expected, at: path)
 
-        let actual = try fileSystem.getPosixPermissions(forItemAt: path)
+        let actual = try fileSystem.posixPermissions(ofItemAt: path)
         let nativeValue = try capturePermissions(at: path)
 
         #expect(actual == nativeValue)
@@ -68,7 +68,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let path = try workspace.makeDirectory(at: "directory")
         try setFoundationPermissions(expected, at: path)
 
-        let actual = try fileSystem.getPosixPermissions(forItemAt: path)
+        let actual = try fileSystem.posixPermissions(ofItemAt: path)
         let nativeValue = try capturePermissions(at: path)
 
         #expect(actual == nativeValue)
@@ -83,7 +83,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         try setFoundationPermissions(.init(rawValue: 0o640), at: target)
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let actual = try fileSystem.getPosixPermissions(forItemAt: link)
+        let actual = try fileSystem.posixPermissions(ofItemAt: link)
         let expected = try capturePermissions(at: target)
 
         #expect(actual == expected)
@@ -97,8 +97,8 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let actual = try fileSystem.getPosixPermissions(
-            forItemAt: link,
+        let actual = try fileSystem.posixPermissions(
+            ofItemAt: link,
             followSymlink: false
         )
         let expected = try capturePermissions(at: link)
@@ -113,8 +113,8 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
-        let actual = try fileSystem.getPosixPermissions(
-            forItemAt: link,
+        let actual = try fileSystem.posixPermissions(
+            ofItemAt: link,
             followSymlink: false
         )
         let expected = try capturePermissions(at: link)
@@ -130,7 +130,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getPosixPermissions(forItemAt: link)
+            try fileSystem.posixPermissions(ofItemAt: link)
         }
 
         #expect(error?.kind == .notFound)
@@ -144,7 +144,7 @@ extension FileSystemAPITests.MetadataTests.POSIXPermissionTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.getPosixPermissions(forItemAt: path)
+            try fileSystem.posixPermissions(ofItemAt: path)
         }
 
         #expect(error?.kind == .notFound)

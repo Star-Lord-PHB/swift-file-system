@@ -221,10 +221,10 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
     ///                      Defaults to all members except the SACL.
     @concurrent
     public func securityInfo(
-        _ members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
+        querying members: FileOperationOptions.WindowsSecurityInfoMembers = .allExceptSacl
     ) async throws(PlatformError) -> WindowsSelfRelativeSecurityDescriptor {
         return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
-            try adapter.securityInfo(members)
+            try adapter.securityInfo(querying: members)
         }
         .getThrowingPlatformError(operation: .fetchMeta(path))
     }
@@ -279,7 +279,7 @@ extension AsyncFileHandleProtocol where Self: ~Copyable & ~Escapable & AutoSynth
 
     /// Gets the owner and group of the item referred by this handle.
     @concurrent
-    public func owner() async throws(PlatformError) -> (owner: PlatformIdentity?, group: PlatformIdentity?) {
+    public func owner() async throws(PlatformError) -> (owner: PlatformIdentity, group: PlatformIdentity) {
         return try await withSyncHandleAdapterInExecutor { (adapter) throws(PlatformError) in
             try adapter.owner()
         }
