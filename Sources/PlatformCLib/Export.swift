@@ -26,6 +26,12 @@ package var UTIME_OMIT: Int32 {
 package var UTIME_NOW: Int32 {
     Int32(_UTIME_NOW)
 }
+package var FS_IOC_GETFLAGS: UInt {
+    _FS_IOC_GETFLAGS
+}
+package var FS_IOC_SETFLAGS: UInt {
+    _FS_IOC_SETFLAGS
+}
 
 package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
     return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)

@@ -1,6 +1,8 @@
 #ifdef __linux__
 
+#if __has_include(<linux/fs.h>)
 #include <linux/fs.h>
+#endif
 
 extern const unsigned long _FS_IOC_GETFLAGS;
 extern const unsigned long _FS_IOC_SETFLAGS;

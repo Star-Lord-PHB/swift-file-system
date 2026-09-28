@@ -19,7 +19,7 @@ extension FileSystemTestSupport {
         defer { close(descriptor) }
 
         var rawFlags: PlatformInteropTypes.PosixInodeFlags = 0
-        let result = ioctl(descriptor, _FS_IOC_GETFLAGS, &rawFlags)
+        let result = ioctl(descriptor, FS_IOC_GETFLAGS, &rawFlags)
         try #require(result == 0, sourceLocation: sourceLocation)
         return .init(rawValue: rawFlags)
     }
@@ -37,7 +37,7 @@ extension FileSystemTestSupport {
         defer { close(descriptor) }
 
         var rawFlags = flags.rawValue
-        let result = ioctl(descriptor, _FS_IOC_SETFLAGS, &rawFlags)
+        let result = ioctl(descriptor, FS_IOC_SETFLAGS, &rawFlags)
         try #require(result == 0, sourceLocation: sourceLocation)
     }
 

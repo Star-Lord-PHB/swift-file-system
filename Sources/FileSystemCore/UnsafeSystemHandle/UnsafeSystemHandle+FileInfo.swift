@@ -267,7 +267,7 @@ extension UnsafeSystemHandle {
     package func inodeFlags() throws(LowLevelError) -> LinuxInodeFlags {
         var flags: PlatformInteropTypes.PosixInodeFlags = 0
         try execThrowingCFunction {
-            ioctl(unsafeRawHandle, _FS_IOC_GETFLAGS, &flags)
+            ioctl(unsafeRawHandle, FS_IOC_GETFLAGS, &flags)
         } onError: { () throws(LowLevelError) in
             // Filesystems without this ioctl report ENOTTY. Classify it here, retaining
             // the native code and leaving the general POSIX error mapping unchanged.
@@ -281,7 +281,7 @@ extension UnsafeSystemHandle {
     package func setInodeFlags(_ flags: LinuxInodeFlags) throws(LowLevelError) {
         var flags = flags.rawValue
         try execThrowingCFunction {
-            return ioctl(unsafeRawHandle, _FS_IOC_SETFLAGS, &flags)
+            return ioctl(unsafeRawHandle, FS_IOC_SETFLAGS, &flags)
         } onError: { () throws(LowLevelError) in
             let error = LowLevelError.fromLastError() ?? .unknown
             throw error.systemCode?.rawValue == ENOTTY ? error.overridingKind(.unsupported) : error
