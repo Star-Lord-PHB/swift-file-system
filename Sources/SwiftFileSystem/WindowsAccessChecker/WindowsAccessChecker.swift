@@ -24,7 +24,11 @@ extension WindowsAccessChecker {
     ///              actual process token instead of the SID of the current account.
     /// 
     /// - Attention: The security descriptor must carry an owner. Evaluating one without it fails with
-    ///              an invalid-parameter error
+    ///              an invalid-parameter error.
+    ///
+    /// - Note: If the security descriptor grants no access at all, an empty mask is returned rather
+    ///         than an access-denied error, unlike `AuthzAccessCheck`, which reports
+    ///         `ERROR_ACCESS_DENIED` for a `MAXIMUM_ALLOWED` request that grants nothing.
     public func effectiveAccessMask(
         for identity: PlatformIdentity,
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
@@ -43,7 +47,11 @@ extension WindowsAccessChecker {
     /// the access for the current process.
     /// 
     /// - Attention: The security descriptor must carry an owner. Evaluating one without it fails with
-    ///              an invalid-parameter error
+    ///              an invalid-parameter error.
+    ///
+    /// - Note: If the security descriptor grants no access at all, an empty mask is returned rather
+    ///         than an access-denied error, unlike `AuthzAccessCheck`, which reports
+    ///         `ERROR_ACCESS_DENIED` for a `MAXIMUM_ALLOWED` request that grants nothing.
     public func effectiveAccessMaskForCurrentProcess(
         whenAccessing securityDescriptor: borrowing WindowsSelfRelativeSecurityDescriptor
     ) throws(PlatformError) -> WindowsAccessMask {

@@ -23,7 +23,7 @@ public protocol FileSystemProtocol: Sendable {
     ///                  ignored if there is an existing file.
     ///   - contents: The content to write to the new file, or `nil` for an empty file.
     /// 
-    /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
+    /// The default permissions being used when `permissions` is not specified are `0o644` for Posix
     /// and inheriting from parent directory for Windows.
     /// 
     /// - Attention: Windows does not support Posix style permissions directly, so this API will try to map
@@ -38,7 +38,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - permissions: The permissions for the new directory, or `nil` to use the default permissions,
     ///                  ignored if there is an existing directory.
     /// 
-    /// The default permissions being used when `creationPermissions` is not specified are `0o755` for Posix
+    /// The default permissions being used when `permissions` is not specified are `0o755` for Posix
     /// and inheriting from parent directory for Windows.
     /// 
     /// - Attention: the permission will only be applied to the leaf directory, not the intermediate 
@@ -162,7 +162,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - dstPath: The destination path to move the item to.
     ///   - targetExistOption: The behavior when the destination already exists.
     /// 
-    /// When the `existingTargetOption` is set to ``FileOperationOptions/CopyTargetExistOption/overwrite``,
+    /// When the `targetExistOption` is set to ``FileOperationOptions/CopyTargetExistOption/overwrite``,
     /// the behavior may vary depending on the type of the source and destination items:
     /// 
     /// | Source Type | Destination Type | Behavior |
@@ -183,7 +183,7 @@ public protocol FileSystemProtocol: Sendable {
     /// Creates a symbolic link at the specified path pointing to the specified destination path.
     /// - Parameters:
     ///   - path: The path for creating the symbolic link.
-    ///   - destPath: The path that the symbolic link points to. Does not required to be a path to an 
+    ///   - destPath: The path that the symbolic link points to. Is not required to be a path to an 
     ///     existing item. If relative, it should be relative to the symbolic link itself.
     func createSymlink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError)
 

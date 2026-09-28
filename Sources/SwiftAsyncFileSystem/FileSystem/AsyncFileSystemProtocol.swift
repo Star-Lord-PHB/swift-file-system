@@ -30,7 +30,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///                  ignored if there is an existing file.
     ///   - contents: The content to write to the new file, or `nil` for an empty file.
     /// 
-    /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
+    /// The default permissions being used when `permissions` is not specified are `0o644` for Posix
     /// and inheriting from parent directory for Windows.
     /// 
     /// - Attention: Windows does not support Posix style permissions directly, so this API will try to map
@@ -46,7 +46,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - permissions: The permissions for the new directory, or `nil` to use the default permissions,
     ///                  ignored if there is an existing directory.
     /// 
-    /// The default permissions being used when `creationPermissions` is not specified are `0o755` for Posix
+    /// The default permissions being used when `permissions` is not specified are `0o755` for Posix
     /// and inheriting from parent directory for Windows.
     /// 
     /// - Attention: the permission will only be applied to the leaf directory, not the intermediate 
@@ -175,7 +175,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - dstPath: The destination path to move the item to.
     ///   - targetExistOption: The behavior when the destination already exists.
     /// 
-    /// When the `existingTargetOption` is set to ``FileOperationOptions/CopyTargetExistOption/overwrite``,
+    /// When the `targetExistOption` is set to ``FileOperationOptions/CopyTargetExistOption/overwrite``,
     /// the behavior may vary depending on the type of the source and destination items:
     /// 
     /// | Source Type | Destination Type | Behavior |
@@ -198,7 +198,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     /// Creates a symbolic link at the specified path pointing to the specified destination path.
     /// - Parameters:
     ///   - path: The path for creating the symbolic link.
-    ///   - destPath: The path that the symbolic link points to. Does not required to be a path to an 
+    ///   - destPath: The path that the symbolic link points to. Is not required to be a path to an 
     ///     existing item. If relative, it should be relative to the symbolic link itself.
     @concurrent
     func createSymlink(at path: FilePath, pointingTo destPath: FilePath) async throws(PlatformError)
@@ -219,8 +219,8 @@ public protocol AsyncFileSystemProtocol: Sendable {
     /// This method has completely different semantics depending on the `recursive` parameter:
     /// * if `false`: Only the direct target stored in the link is read, and the specified path must be a 
     ///   symbolic link
-    /// * If `true`, the specified path will be resolved recursively until reaching a absolute path without 
-    ///   any symbolic link components, and the specified path can be arbitraty type.
+    /// * If `true`, the specified path will be resolved recursively until reaching an absolute path without 
+    ///   any symbolic link components, and the specified path can be of arbitrary type.
     @concurrent
     func destinationOfSymlink(at path: FilePath, recursive: Bool) async throws(PlatformError) -> FilePath
 
@@ -298,13 +298,13 @@ public protocol AsyncFileSystemProtocol: Sendable {
     @concurrent
     func canAccess(itemAt path: FilePath, for accessMode: FileOperationOptions.FileAccessMode, followSymlink: Bool) async throws(PlatformError) -> Bool
 
+    #if canImport(WinSDK)
     /// Gets the Windows security descriptor of the item at the specified path.
     /// - Parameters: 
     ///   - path: The path to the item for which to retrieve the security descriptor.
     ///   - members: The members of the security descriptor to retrieve.
-    ///  - followSymlink: Whether to follow symbolic links. If `false`, the security descriptor of the
-    ///                   symbolic link itself will be retrieved instead of the target.
-    #if canImport(WinSDK)
+    ///   - followSymlink: Whether to follow symbolic links. If `false`, the security descriptor of the
+    ///                    symbolic link itself will be retrieved instead of the target.
     @concurrent
     func securityInfo(
         ofItemAt path: FilePath,

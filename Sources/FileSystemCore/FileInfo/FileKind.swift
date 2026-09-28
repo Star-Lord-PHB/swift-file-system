@@ -76,8 +76,8 @@ extension FileKind {
 
     /// Create the file kind from the Windows native file attributes and reparse tag.
     ///
-    /// Symlinks are map to ``FileKind/symlink`` while any other name-surrogate reparse point (junctions and 
-    /// volume mount points) is maps to ``FileKind/unknown``. Non-surrogate reparse points fall through to 
+    /// Symlinks are mapped to ``FileKind/symlink``, while any other name-surrogate reparse point (junctions and
+    /// volume mount points) is mapped to ``FileKind/unknown``. Non-surrogate reparse points fall through to
     /// their underlying kind.
     @inlinable
     public init(windowsFileAttributes attributes: DWORD, reparseTag: DWORD) {

@@ -40,7 +40,7 @@ extension UnsafeSystemHandle {
     /// anyone can read the file except the owner. However, on Windows, the owner will also have read access.
     /// 
     /// Beside the difference in permission semantics, the default value behavior (when `creationPermissions` 
-    /// paramater is set to `nil`) is also different, as described in the table below:
+    /// parameter is set to `nil`) is also different, as described in the table below:
     /// 
     /// | Platform | Default Creation Permissions |
     /// | -- | -- |
@@ -298,6 +298,8 @@ extension UnsafeSystemHandle {
     /// Reads data from the file handle at the current file pointer position into the provided buffer.
     /// - Parameter buffer: The buffer to receive the data read from the file handle.
     /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func read(into buffer: UnsafeMutableRawBufferPointer) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = buffer.count
@@ -329,6 +331,8 @@ extension UnsafeSystemHandle {
     /// Reads data from the file handle at the current file pointer position into the provided buffer.
     /// - Parameter buffer: The buffer to receive the data read from the file handle.
     /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func read(into buffer: UnsafeMutableRawBufferPointer.SubSequence) throws(LowLevelError) -> Int64 {
         return try self.read(into: .init(rebasing: buffer))
     }
@@ -337,6 +341,8 @@ extension UnsafeSystemHandle {
     /// Reads data from the file handle at the current file pointer position into the provided buffer.
     /// - Parameter buffer: The buffer to receive the data read from the file handle.
     /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func read(into buffer: inout MutableRawSpan) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
             try self.read(into: ptr)
@@ -347,6 +353,8 @@ extension UnsafeSystemHandle {
     /// Reads data from the file handle at the current file pointer position into the provided buffer.
     /// - Parameter buffer: The buffer to receive the data read from the file handle.
     /// - Returns: Number of bytes read into the buffer.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func read(into buffer: consuming MutableRawSpan) throws(LowLevelError) -> Int64 {
         return try self.read(into: &buffer)
     }
@@ -358,7 +366,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to read from.
     /// - Returns: Number of bytes read into the buffer.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` at or beyond the EOF will read nothing and return 0 on Posix, but will throw
+    ///         `.handleEOF` on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func pread(into buffer: UnsafeMutableRawBufferPointer, from offset: Int64) throws(LowLevelError) -> Int64 {
 
         let lengthToRead = buffer.count
@@ -397,7 +411,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to read from.
     /// - Returns: Number of bytes read into the buffer.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` at or beyond the EOF will read nothing and return 0 on Posix, but will throw
+    ///         `.handleEOF` on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func pread(into buffer: UnsafeMutableRawBufferPointer.SubSequence, from offset: Int64) throws(LowLevelError) -> Int64 {
         return try self.pread(into: .init(rebasing: buffer), from: offset)
     }
@@ -409,7 +429,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to read from.
     /// - Returns: Number of bytes read into the buffer.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` at or beyond the EOF will read nothing and return 0 on Posix, but will throw
+    ///         `.handleEOF` on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func pread(into buffer: inout MutableRawSpan, from offset: Int64) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeMutableBytes { ptr throws(LowLevelError) in
             try self.pread(into: ptr, from: offset)
@@ -423,7 +449,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to read from.
     /// - Returns: Number of bytes read into the buffer.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` at or beyond the EOF will read nothing and return 0 on Posix, but will throw
+    ///         `.handleEOF` on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     public func pread(into buffer: consuming MutableRawSpan, from offset: Int64) throws(LowLevelError) -> Int64 {
         return try self.pread(into: &buffer, from: offset)
     }
@@ -432,6 +464,8 @@ extension UnsafeSystemHandle {
     /// Write data from the provided buffer to the file handle at the current file pointer position.
     /// - Parameter buffer: The buffer containing the data to write to the file handle.
     /// - Returns: Number of bytes written to the file handle.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     @discardableResult
     public func write(contentsOf buffer: UnsafeRawBufferPointer) throws(LowLevelError) -> Int64 {
 
@@ -462,6 +496,8 @@ extension UnsafeSystemHandle {
     /// Write data from the provided buffer to the file handle at the current file pointer position.
     /// - Parameter buffer: The buffer containing the data to write to the file handle.
     /// - Returns: Number of bytes written to the file handle.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     @discardableResult
     public func write(contentsOf buffer: UnsafeRawBufferPointer.SubSequence) throws(LowLevelError) -> Int64 {
         return try self.write(contentsOf: .init(rebasing: buffer))
@@ -471,6 +507,8 @@ extension UnsafeSystemHandle {
     /// Write data from the provided buffer to the file handle at the current file pointer position.
     /// - Parameter buffer: The buffer containing the data to write to the file handle.
     /// - Returns: Number of bytes written to the file handle.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     @discardableResult
     public func write(contentsOf buffer: RawSpan) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeBytes { ptr throws(LowLevelError) in
@@ -485,7 +523,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to write to.
     /// - Returns: Number of bytes written to the file handle.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` to -1 throws `.invalidArgument` on Posix, but will be 
+    ///         accepted and append content to the file end on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     @discardableResult
     public func pwrite(contentsOf buffer: UnsafeRawBufferPointer, to offset: Int64) throws(LowLevelError) -> Int64 {
 
@@ -520,7 +564,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to write to.
     /// - Returns: Number of bytes written to the file handle.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` to -1 throws `.invalidArgument` on Posix, but will be 
+    ///         accepted and append content to the file end on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     @discardableResult
     public func pwrite(contentsOf buffer: UnsafeRawBufferPointer.SubSequence, to offset: Int64) throws(LowLevelError) -> Int64 {
         return try self.pwrite(contentsOf: .init(rebasing: buffer), to: offset)
@@ -533,7 +583,13 @@ extension UnsafeSystemHandle {
     ///   - offset: The offset relative to the beginning of the file to write to.
     /// - Returns: Number of bytes written to the file handle.
     /// 
-    /// - Note: This method does not change the position of the file pointer
+    /// - Note: This method does not change the position of the file pointer on Posix, but will change that 
+    ///         on Windows
+    /// 
+    /// - Note: Setting `offset` to -1 throws `.invalidArgument` on Posix, but will be 
+    ///         accepted and append content to the file end on Windows.
+    /// 
+    /// - Warning: This method requires the handle to be opened without OVERLAPPED on Windows
     @discardableResult
     public func pwrite(contentsOf buffer: RawSpan, to offset: Int64) throws(LowLevelError) -> Int64 {
         return try buffer.withUnsafeBytes { ptr throws(LowLevelError) in

@@ -547,7 +547,7 @@ extension AsyncFileSystemExecutor {
     /// | ``AsyncFileSystemExecutor/label`` | fs-io |
     /// | ``AsyncFileSystemExecutor/minimumThreadCount`` | 0 |
     /// | ``AsyncFileSystemExecutor/maximumThreadCount`` | ``AsyncFileSystemExecutor/defaultMaximumThreadCount`` |
-    /// | ``AsyncFileSystemExecutor/idleTimeoutNano`` | 10 milliseconds |
+    /// | ``AsyncFileSystemExecutor/idleTimeoutNano`` | 10 seconds |
     public static let defaultExecutor: AsyncFileSystemExecutor = .init(
         label: "fs-io",
         maximumThreadCount: defaultMaximumThreadCount
