@@ -66,7 +66,7 @@ extension FileInfoAPITests.QueryTests {
             contents: "file contents"
         )
 
-        let info = try FileInfo(fileAt: path)
+        let info = try FileInfo(forItemAt: path)
         let expected = try Support.ItemMetadata.capture(at: path)
 
         #expect(info.type == .regular)
@@ -82,7 +82,7 @@ extension FileInfoAPITests.QueryTests {
 
         let path = try workspace.makeDirectory(at: "directory")
 
-        let info = try FileInfo(fileAt: path)
+        let info = try FileInfo(forItemAt: path)
         let expected = try Support.ItemMetadata.capture(at: path)
 
         #expect(info.type == .directory)
@@ -98,7 +98,7 @@ extension FileInfoAPITests.QueryTests {
         let target = try workspace.makeFile(at: "target", contents: "target contents")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let info = try FileInfo(fileAt: link)
+        let info = try FileInfo(forItemAt: link)
         let expected = try Support.ItemMetadata.capture(at: target)
 
         #expect(info.type == .regular)
@@ -115,7 +115,7 @@ extension FileInfoAPITests.QueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let info = try FileInfo(fileAt: link, followSymlink: false)
+        let info = try FileInfo(forItemAt: link, followSymlink: false)
 
         #expect(info.type == .symlink)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))
@@ -128,7 +128,7 @@ extension FileInfoAPITests.QueryTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
-        let info = try FileInfo(fileAt: link, followSymlink: false)
+        let info = try FileInfo(forItemAt: link, followSymlink: false)
 
         #expect(info.type == .symlink)
         #expect(info.attributes.isSubset(of: info.supportedAttributes))
@@ -142,7 +142,7 @@ extension FileInfoAPITests.QueryTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let error = #expect(throws: PlatformError.self) {
-            try FileInfo(fileAt: link)
+            try FileInfo(forItemAt: link)
         }
 
         #expect(error?.kind == .notFound)
@@ -156,7 +156,7 @@ extension FileInfoAPITests.QueryTests {
         let path = workspace.path("missing")
 
         let error = #expect(throws: PlatformError.self) {
-            try FileInfo(fileAt: path)
+            try FileInfo(forItemAt: path)
         }
 
         #expect(error?.kind == .notFound)

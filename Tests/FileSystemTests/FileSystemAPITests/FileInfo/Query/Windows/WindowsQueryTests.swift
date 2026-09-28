@@ -34,7 +34,7 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
 
         let path = try workspace.makeFile(at: "file")
 
-        let info = try FileInfo(fileAt: path)
+        let info = try FileInfo(forItemAt: path)
         let expectedIdentifier = try Support.ItemMetadata.captureIdentifier(at: path)
         let expectedAttributes = try Support.ItemMetadata.captureAttributes(at: path)
 
@@ -51,7 +51,7 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
 
         let path = try workspace.makeDirectory(at: "directory")
 
-        let info = try FileInfo(fileAt: path)
+        let info = try FileInfo(forItemAt: path)
         let expectedIdentifier = try Support.ItemMetadata.captureIdentifier(at: path)
         let expectedAttributes = try Support.ItemMetadata.captureAttributes(at: path)
 
@@ -69,8 +69,8 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let followedInfo = try FileInfo(fileAt: link, followSymlink: true)
-        let directInfo = try FileInfo(fileAt: link, followSymlink: false)
+        let followedInfo = try FileInfo(forItemAt: link, followSymlink: true)
+        let directInfo = try FileInfo(forItemAt: link, followSymlink: false)
         let followedExpectedIdentifier = try Support.ItemMetadata.captureIdentifier(at: target)
         let directExpectedIdentifier = try Support.ItemMetadata.captureIdentifier(at: link)
         let followedExpectedAttributes = try Support.ItemMetadata.captureAttributes(at: target)
@@ -97,11 +97,11 @@ extension FileInfoAPITests.QueryTests.WindowsQueryTests {
         try Support.makeWindowsJunction(at: junction, pointingTo: target)
 
         // A name-surrogate reparse point that is not a symlink is deliberately not modeled.
-        let directInfo = try FileInfo(fileAt: junction, followSymlink: false)
+        let directInfo = try FileInfo(forItemAt: junction, followSymlink: false)
         #expect(directInfo.type == .unknown)
 
         // Following resolves the junction like a symlink and reports the target.
-        let followedInfo = try FileInfo(fileAt: junction, followSymlink: true)
+        let followedInfo = try FileInfo(forItemAt: junction, followSymlink: true)
         #expect(followedInfo.type == .directory)
         let targetIdentifier = try Support.ItemMetadata.captureIdentifier(at: target)
         #expect(followedInfo.fileIdentifier == targetIdentifier)

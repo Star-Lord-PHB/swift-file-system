@@ -53,7 +53,7 @@ extension FileSystemAPITests.CreationTests {
         let path = workspace.path("file")
         let content = ByteBuffer("Hello, Swift!".utf8)
 
-        try fileSystem.createFile(at: path, content: content)
+        try fileSystem.createFile(at: path, contents: content)
 
         let metadata = try Support.ItemMetadata.capture(at: path)
         #expect(metadata.type == .typeRegular)
@@ -72,7 +72,7 @@ extension FileSystemAPITests.CreationTests {
         try fileSystem.createFile(
             at: path,
             replaceExisting: true,
-            content: content
+            contents: content
         )
 
         let metadata = try Support.ItemMetadata.capture(at: path)
@@ -104,7 +104,7 @@ extension FileSystemAPITests.CreationTests {
         let path = try workspace.makeFile(at: "file", contents: "old content")
         let newContent = ByteBuffer("new content".utf8)
 
-        try fileSystem.createFile(at: path, replaceExisting: true, content: newContent)
+        try fileSystem.createFile(at: path, replaceExisting: true, contents: newContent)
 
         let metadata = try Support.ItemMetadata.capture(at: path)
         #expect(metadata.type == .typeRegular)
@@ -129,7 +129,7 @@ extension FileSystemAPITests.CreationTests {
             try fileSystem.createFile(
                 at: directory,
                 replaceExisting: true,
-                content: ByteBuffer("replacement content".utf8)
+                contents: ByteBuffer("replacement content".utf8)
             )
         }
 
@@ -149,7 +149,7 @@ extension FileSystemAPITests.CreationTests {
         let error = #expect(throws: PlatformError.self) {
             try fileSystem.createFile(
                 at: path,
-                content: ByteBuffer("replacement content".utf8)
+                contents: ByteBuffer("replacement content".utf8)
             )
         }
 

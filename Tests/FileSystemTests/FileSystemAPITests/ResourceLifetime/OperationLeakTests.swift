@@ -50,7 +50,7 @@ extension ResourceLifetimeTests.OperationLeakTests {
         try LeakChecker.expectNoLeak {
             try fileSystem.createDirectory(at: directory)
             try fileSystem.createFile(at: directory.appending("file.txt"))
-            try fileSystem.createSymLink(at: directory.appending("link"), pointingTo: "file.txt")
+            try fileSystem.createSymlink(at: directory.appending("link"), pointingTo: "file.txt")
             try fileSystem.createHardLink(
                 at: directory.appending("hard-link"),
                 for: directory.appending("file.txt")

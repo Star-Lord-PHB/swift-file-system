@@ -26,7 +26,7 @@ extension PlatformAccountSystem {
         forAccountName name: String,
         resolvePreference: PlatformIdentity.AccountNameResolvePreference = .preferUser
     ) throws(PlatformError) -> PlatformIdentity? {
-        return try catchLowLevelError(operation: .queryIdentityfromName) { () throws(LowLevelError) in
+        return try catchLowLevelError(operation: .queryIdentityFromName) { () throws(LowLevelError) in
             try InternalPlatformAPI.identity(forAccountName: name, resolvePreference: resolvePreference)
         }
     }

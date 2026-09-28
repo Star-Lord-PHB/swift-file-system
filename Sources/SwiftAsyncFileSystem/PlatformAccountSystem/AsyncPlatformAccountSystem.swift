@@ -40,7 +40,7 @@ extension AsyncPlatformAccountSystem {
         return try await executor.runCancellable { () throws(PlatformError) in
             try self.syncAccountSystem.identity(forAccountName: name, resolvePreference: resolvePreference)
         }
-        .getThrowingPlatformError(operation: .queryIdentityfromName)
+        .getThrowingPlatformError(operation: .queryIdentityFromName)
     }
 
 

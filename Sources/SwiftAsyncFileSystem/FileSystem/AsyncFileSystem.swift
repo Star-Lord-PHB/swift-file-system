@@ -47,10 +47,10 @@ extension AsyncFileSystem {
         at path: FilePath,
         replaceExisting: Bool = false,
         permissions: FilePermissions? = nil,
-        content: ByteBuffer? = nil
+        contents: ByteBuffer? = nil
     ) async throws(PlatformError) {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.createFile(at: path, replaceExisting: replaceExisting, permissions: permissions, content: content)
+            try fileSystem.createFile(at: path, replaceExisting: replaceExisting, permissions: permissions, contents: contents)
         }.getThrowingPlatformError(operation: .createFile(path))
     }
 
@@ -74,10 +74,10 @@ extension AsyncFileSystem {
         at path: FilePath,
         replaceExisting: Bool = false,
         permissions: WindowsSecurityDescriptorView,
-        content: ByteBuffer? = nil
+        contents: ByteBuffer? = nil
     ) async throws(PlatformError) {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.createFile(at: path, replaceExisting: replaceExisting, permissions: permissions, content: content)
+            try fileSystem.createFile(at: path, replaceExisting: replaceExisting, permissions: permissions, contents: contents)
         }.getThrowingPlatformError(operation: .createFile(path))
     }
 
@@ -120,9 +120,9 @@ extension AsyncFileSystem {
 
 
     @concurrent
-    public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) async throws(PlatformError) {
+    public func createSymlink(at path: FilePath, pointingTo destPath: FilePath) async throws(PlatformError) {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.createSymLink(at: path, pointingTo: destPath)
+            try fileSystem.createSymlink(at: path, pointingTo: destPath)
         }.getThrowingPlatformError(operation: .createSymlink(linkPath: path, dstPath: destPath))
     }
 
@@ -136,9 +136,9 @@ extension AsyncFileSystem {
 
 
     @concurrent
-    public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) async throws(PlatformError) -> FilePath {
+    public func destinationOfSymlink(at path: FilePath, recursive: Bool = true) async throws(PlatformError) -> FilePath {
         return try await executor.runCancellable { () throws(PlatformError) in
-            try fileSystem.destinationOfSymLink(at: path, recursive: recursive)
+            try fileSystem.destinationOfSymlink(at: path, recursive: recursive)
         }.getThrowingPlatformError(operation: recursive ? .recursiveResolveSymlink(path) : .readSymlink(path))
     }
 

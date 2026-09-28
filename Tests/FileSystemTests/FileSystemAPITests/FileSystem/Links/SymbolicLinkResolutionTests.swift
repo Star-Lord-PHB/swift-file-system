@@ -51,7 +51,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
             pointingTo: storedTarget
         )
 
-        let destination = try fileSystem.destinationOfSymLink(
+        let destination = try fileSystem.destinationOfSymlink(
             at: link,
             recursive: false
         )
@@ -70,7 +70,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
             pointingTo: storedTarget
         )
 
-        let destination = try fileSystem.destinationOfSymLink(
+        let destination = try fileSystem.destinationOfSymlink(
             at: link,
             recursive: false
         )
@@ -90,7 +90,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
         )
         let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
 
-        let resolvedPath = try fileSystem.destinationOfSymLink(at: link)
+        let resolvedPath = try fileSystem.destinationOfSymlink(at: link)
 
         try expectRecursiveResolution(resolvedPath, matches: targetSnapshot)
 
@@ -117,7 +117,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
         let path = workspace.path("fixture/a-link/b-link/target-link")
         let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
 
-        let resolvedPath = try fileSystem.destinationOfSymLink(at: path, recursive: true)
+        let resolvedPath = try fileSystem.destinationOfSymlink(at: path, recursive: true)
 
         try expectRecursiveResolution(resolvedPath, matches: targetSnapshot)
 
@@ -133,7 +133,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
         )
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.destinationOfSymLink(at: link, recursive: true)
+            try fileSystem.destinationOfSymlink(at: link, recursive: true)
         }
 
         #expect(error?.kind == .notFound)
@@ -147,7 +147,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
         let path = try workspace.makeFile(at: "file")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.destinationOfSymLink(at: path, recursive: false)
+            try fileSystem.destinationOfSymlink(at: path, recursive: false)
         }
 
         #expect(error?.kind == .notASymlink)
@@ -168,7 +168,7 @@ extension FileSystemAPITests.SymbolicLinkResolutionTests {
         )
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.destinationOfSymLink(at: first, recursive: true)
+            try fileSystem.destinationOfSymlink(at: first, recursive: true)
         }
 
         #expect(error?.kind == .pathResolutionFailed)

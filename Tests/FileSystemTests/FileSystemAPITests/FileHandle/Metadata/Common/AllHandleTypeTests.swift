@@ -71,7 +71,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -84,7 +84,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try WriteFileHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -97,7 +97,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadWriteFileHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -110,7 +110,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try AppendHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -123,7 +123,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try DirectoryHandle(forDirAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
         #expect(try handle.type() == .directory)
 
         try handle.close()
@@ -137,7 +137,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingReadHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -150,7 +150,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingWriteHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -163,7 +163,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingReadWriteHandle(forFileAt: path)
 
-        #expect(try handle.info() == FileInfo(fileAt: path))
+        #expect(try handle.info() == FileInfo(forItemAt: path))
 
         try handle.close()
 
@@ -177,7 +177,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try ReadFileHandle(forFileAt: path)
         let reader = handle.sequentialReader()
 
-        #expect(try reader.info() == FileInfo(fileAt: path))
+        #expect(try reader.info() == FileInfo(forItemAt: path))
 
     }
 
@@ -189,7 +189,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try WriteFileHandle(forFileAt: path)
         let writer = handle.sequentialWriter()
 
-        #expect(try writer.info() == FileInfo(fileAt: path))
+        #expect(try writer.info() == FileInfo(forItemAt: path))
 
     }
 
@@ -201,7 +201,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
         let handle = try ReadWriteFileHandle(forFileAt: path)
         let accessor = handle.sequentialAccessor()
 
-        #expect(try accessor.info() == FileInfo(fileAt: path))
+        #expect(try accessor.info() == FileInfo(forItemAt: path))
 
     }
 

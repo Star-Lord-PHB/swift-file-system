@@ -32,7 +32,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
         let handle = try ReadFileHandle(forFileAt: path)
 
         let actual = try handle.info()
-        let expected = try FileInfo(fileAt: path)
+        let expected = try FileInfo(forItemAt: path)
 
         #expect(actual == expected)
 

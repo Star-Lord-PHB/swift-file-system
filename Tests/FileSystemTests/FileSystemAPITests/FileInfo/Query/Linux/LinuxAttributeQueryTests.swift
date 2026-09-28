@@ -35,7 +35,7 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
 
         let path = try workspace.makeFile(at: "file")
 
-        let info = try FileInfo(fileAt: path)
+        let info = try FileInfo(forItemAt: path)
         let expected = try Support.ItemMetadata.captureAttributes(at: path)
 
         #expect(info.attributes == expected.values)
@@ -50,7 +50,7 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
 
         let path = try workspace.makeDirectory(at: "directory")
 
-        let info = try FileInfo(fileAt: path)
+        let info = try FileInfo(forItemAt: path)
         let expected = try Support.ItemMetadata.captureAttributes(at: path)
 
         #expect(info.attributes == expected.values)
@@ -66,7 +66,7 @@ extension FileInfoAPITests.QueryTests.LinuxAttributeQueryTests {
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
-        let info = try FileInfo(fileAt: link, followSymlink: false)
+        let info = try FileInfo(forItemAt: link, followSymlink: false)
         let expected = try Support.ItemMetadata.captureAttributes(at: link)
 
         #expect(info.attributes == expected.values)

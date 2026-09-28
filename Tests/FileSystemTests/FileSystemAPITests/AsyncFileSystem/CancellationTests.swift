@@ -110,14 +110,14 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
 
     @Test
-    func `Pre-cancelled createSymLink reports cancellation before creating`() async throws {
+    func `Pre-cancelled createSymlink reports cancellation before creating`() async throws {
 
         let link = workspace.path("link")
         let target = workspace.path("target")
         let asyncFileSystem = self.asyncFileSystem
 
         await Support.expectPreCancelled {
-            try await asyncFileSystem.createSymLink(at: link, pointingTo: target)
+            try await asyncFileSystem.createSymlink(at: link, pointingTo: target)
         }
 
         try Support.expectItemNotExistNoFollow(at: link)
@@ -142,13 +142,13 @@ extension AsyncFileSystemAPITests.CancellationTests {
 
 
     @Test
-    func `Pre-cancelled destinationOfSymLink reports cancellation`() async throws {
+    func `Pre-cancelled destinationOfSymlink reports cancellation`() async throws {
 
         let path = workspace.path("missing")
         let asyncFileSystem = self.asyncFileSystem
 
         await Support.expectPreCancelled {
-            try await asyncFileSystem.destinationOfSymLink(at: path)
+            try await asyncFileSystem.destinationOfSymlink(at: path)
         }
 
     }

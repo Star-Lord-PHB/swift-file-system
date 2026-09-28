@@ -59,7 +59,7 @@ extension AsyncFileSystemAPITests.BasicForwardingTests {
         let path = try workspace.makeFile(at: "file", contents: "old content")
         let newContent = ByteBuffer("new content".utf8)
 
-        try await asyncFileSystem.createFile(at: path, replaceExisting: true, content: newContent)
+        try await asyncFileSystem.createFile(at: path, replaceExisting: true, contents: newContent)
 
         #expect(try Data(contentsOf: URL(filePath: path.string)) == Data("new content".utf8))
 
@@ -150,14 +150,14 @@ extension AsyncFileSystemAPITests.BasicForwardingTests {
 
 
     @Test
-    func `createSymLink forwards link and destination paths`() async throws {
+    func `createSymlink forwards link and destination paths`() async throws {
 
         let storedTarget = workspace.path("missing-target")
         let link = workspace.path("link")
 
-        try await asyncFileSystem.createSymLink(at: link, pointingTo: storedTarget)
+        try await asyncFileSystem.createSymlink(at: link, pointingTo: storedTarget)
 
-        #expect(try fileSystem.destinationOfSymLink(at: link, recursive: false) == storedTarget)
+        #expect(try fileSystem.destinationOfSymlink(at: link, recursive: false) == storedTarget)
 
     }
 
@@ -178,18 +178,18 @@ extension AsyncFileSystemAPITests.BasicForwardingTests {
 
 
     @Test
-    func `destinationOfSymLink forwards the recursive option`() async throws {
+    func `destinationOfSymlink forwards the recursive option`() async throws {
 
         let target = try workspace.makeFile(at: "target")
         let intermediate = try workspace.makeSymlink(at: "intermediate", pointingTo: target)
         let link = try workspace.makeSymlink(at: "link", pointingTo: intermediate)
 
         let directDestination = try await asyncFileSystem
-            .destinationOfSymLink(at: link, recursive: false)
+            .destinationOfSymlink(at: link, recursive: false)
         let resolvedDestination = try await asyncFileSystem
-            .destinationOfSymLink(at: link, recursive: true)
+            .destinationOfSymlink(at: link, recursive: true)
 
-        let expectedResolution = try fileSystem.destinationOfSymLink(at: link, recursive: true)
+        let expectedResolution = try fileSystem.destinationOfSymlink(at: link, recursive: true)
         #expect(directDestination == intermediate)
         #expect(resolvedDestination == expectedResolution)
 

@@ -88,15 +88,15 @@ extension ResourceLifetimeTests.QueryLeakTests {
 
 
     @Test
-    func `destinationOfSymLink does not leak resources`() throws {
+    func `destinationOfSymlink does not leak resources`() throws {
 
         let path = try workspace.makeFile(at: "file.txt", contents: "contents")
         let link = try workspace.makeSymlink(at: "link", pointingTo: "file.txt")
 
         try LeakChecker.expectNoLeak {
-            _ = try fileSystem.destinationOfSymLink(at: link)
+            _ = try fileSystem.destinationOfSymlink(at: link)
             #expect(throws: PlatformError.self) {
-                try fileSystem.destinationOfSymLink(at: path, recursive: false)
+                try fileSystem.destinationOfSymlink(at: path, recursive: false)
             }
         }
 

@@ -32,7 +32,7 @@ extension FileSystemAPITests.MetadataTests.InfoTests {
         let path = try workspace.makeFile(at: "file", contents: "file contents")
 
         let actual = try fileSystem.info(ofItemAt: path)
-        let expected = try FileInfo(fileAt: path)
+        let expected = try FileInfo(forItemAt: path)
 
         #expect(actual == expected)
 
@@ -45,7 +45,7 @@ extension FileSystemAPITests.MetadataTests.InfoTests {
         let path = try workspace.makeDirectory(at: "directory")
 
         let actual = try fileSystem.info(ofItemAt: path)
-        let expected = try FileInfo(fileAt: path)
+        let expected = try FileInfo(forItemAt: path)
 
         #expect(actual == expected)
 
@@ -59,7 +59,7 @@ extension FileSystemAPITests.MetadataTests.InfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let actual = try fileSystem.info(ofItemAt: link)
-        let expected = try FileInfo(fileAt: link, followSymlink: true)
+        let expected = try FileInfo(forItemAt: link, followSymlink: true)
 
         #expect(actual == expected)
 
@@ -73,7 +73,7 @@ extension FileSystemAPITests.MetadataTests.InfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
 
         let actual = try fileSystem.info(ofItemAt: link, followSymlink: false)
-        let expected = try FileInfo(fileAt: link, followSymlink: false)
+        let expected = try FileInfo(forItemAt: link, followSymlink: false)
 
         #expect(actual == expected)
 
@@ -86,7 +86,7 @@ extension FileSystemAPITests.MetadataTests.InfoTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
 
         let actual = try fileSystem.info(ofItemAt: link, followSymlink: false)
-        let expected = try FileInfo(fileAt: link, followSymlink: false)
+        let expected = try FileInfo(forItemAt: link, followSymlink: false)
 
         #expect(actual == expected)
 

@@ -51,7 +51,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         let actual = try await handle.info()
-        let expected = try FileInfo(fileAt: path)
+        let expected = try FileInfo(forItemAt: path)
 
         #expect(actual == expected)
 

@@ -28,7 +28,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The permissions for the new file, or `nil` to use the default permissions, 
     ///                  ignored if there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     /// 
     /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
     /// and inheriting from parent directory for Windows.
@@ -37,7 +37,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///              the Posix permissions to Windows DACL with best effort. If more fine-grained control is 
     ///              required, use the overloads that accept Windows security descriptors.
     @concurrent
-    func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, content: ByteBuffer?) async throws(PlatformError)
+    func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, contents: ByteBuffer?) async throws(PlatformError)
 
     /// Creates a new directory at the specified path.
     /// - Parameters:
@@ -65,9 +65,9 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The security descriptor specifying the permissions for the new file, ignored if
     ///                  there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     @concurrent
-    func createFile(at path: FilePath, replaceExisting: Bool, permissions: WindowsSecurityDescriptorView, content: ByteBuffer?) async throws(PlatformError)
+    func createFile(at path: FilePath, replaceExisting: Bool, permissions: WindowsSecurityDescriptorView, contents: ByteBuffer?) async throws(PlatformError)
 
     /// Creates a new directory at the specified path.
     /// - Parameters:
@@ -201,7 +201,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     ///   - destPath: The path that the symbolic link points to. Does not required to be a path to an 
     ///     existing item. If relative, it should be relative to the symbolic link itself.
     @concurrent
-    func createSymLink(at path: FilePath, pointingTo destPath: FilePath) async throws(PlatformError)
+    func createSymlink(at path: FilePath, pointingTo destPath: FilePath) async throws(PlatformError)
 
     /// Creates a hard link at the specified path for an existing item.
     /// - Parameters:
@@ -222,7 +222,7 @@ public protocol AsyncFileSystemProtocol: Sendable {
     /// * If `true`, the specified path will be resolved recursively until reaching a absolute path without 
     ///   any symbolic link components, and the specified path can be arbitraty type.
     @concurrent
-    func destinationOfSymLink(at path: FilePath, recursive: Bool) async throws(PlatformError) -> FilePath
+    func destinationOfSymlink(at path: FilePath, recursive: Bool) async throws(PlatformError) -> FilePath
 
 
     // MARK: File Information Operations
@@ -407,15 +407,15 @@ extension AsyncFileSystemProtocol {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The security descriptor specifying the permissions for the new file, ignored if
     ///                  there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     @concurrent
     public func createFile(
         at path: FilePath,
         replaceExisting: Bool = false,
         permissions: borrowing WindowsAbsoluteSecurityDescriptor,
-        content: ByteBuffer? = nil
+        contents: ByteBuffer? = nil
     ) async throws(PlatformError) {
-        try await createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
+        try await createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, contents: contents)
     }
 
     /// Creates a new file at the specified path.
@@ -424,15 +424,15 @@ extension AsyncFileSystemProtocol {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The security descriptor specifying the permissions for the new file, ignored if
     ///                  there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     @concurrent
     public func createFile(
         at path: FilePath,
         replaceExisting: Bool = false,
         permissions: borrowing WindowsSelfRelativeSecurityDescriptor,
-        content: ByteBuffer? = nil
+        contents: ByteBuffer? = nil
     ) async throws(PlatformError) {
-        try await createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
+        try await createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, contents: contents)
     }
 
 

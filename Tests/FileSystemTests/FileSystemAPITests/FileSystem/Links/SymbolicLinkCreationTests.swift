@@ -52,7 +52,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
         let link = workspace.path("link")
 
-        try fileSystem.createSymLink(at: link, pointingTo: target)
+        try fileSystem.createSymlink(at: link, pointingTo: target)
 
         try expectSymbolicLink(at: link, stores: target)
         try Support.expectItem(
@@ -78,7 +78,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         let storedTarget = FilePath("target")
         let link = workspace.path("container/link")
 
-        try fileSystem.createSymLink(at: link, pointingTo: storedTarget)
+        try fileSystem.createSymlink(at: link, pointingTo: storedTarget)
 
         try expectSymbolicLink(at: link, stores: storedTarget)
         try Support.expectItem(
@@ -102,7 +102,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         let targetSnapshot = try Support.ItemSnapshot.capture(at: target)
         let link = workspace.path("link")
 
-        try fileSystem.createSymLink(at: link, pointingTo: targetLink)
+        try fileSystem.createSymlink(at: link, pointingTo: targetLink)
 
         try expectSymbolicLink(at: link, stores: targetLink)
         try Support.expectItem(
@@ -121,7 +121,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         let missingTarget = workspace.path("missing-target")
         let link = workspace.path("link")
 
-        try fileSystem.createSymLink(at: link, pointingTo: missingTarget)
+        try fileSystem.createSymlink(at: link, pointingTo: missingTarget)
 
         try expectSymbolicLink(at: link, stores: missingTarget)
 
@@ -136,7 +136,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         let occupiedSnapshot = try Support.ItemSnapshot.capture(at: occupiedPath)
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.createSymLink(at: occupiedPath, pointingTo: target)
+            try fileSystem.createSymlink(at: occupiedPath, pointingTo: target)
         }
 
         #expect(error?.kind == .alreadyExists)
@@ -153,7 +153,7 @@ extension FileSystemAPITests.SymbolicLinkCreationTests {
         let link = workspace.path("missing-parent/link")
 
         let error = #expect(throws: PlatformError.self) {
-            try fileSystem.createSymLink(at: link, pointingTo: "../target")
+            try fileSystem.createSymlink(at: link, pointingTo: "../target")
         }
 
         #expect(error?.kind == .notFound)

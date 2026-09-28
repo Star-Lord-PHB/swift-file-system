@@ -136,7 +136,7 @@ extension FileSystemAPITests.CreationTests.WindowsSecurityTests {
         try fileSystem.createFile(
             at: path,
             permissions: security,
-            content: ByteBuffer("content".utf8)
+            contents: ByteBuffer("content".utf8)
         )
 
         try expectSampleTargetSecurity(at: path)

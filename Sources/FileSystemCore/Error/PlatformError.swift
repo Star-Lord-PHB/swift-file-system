@@ -291,7 +291,7 @@ extension PlatformError.Operation {
 
         // FS irrelevant operations
         case queryAccountNameFromIdentity
-        case queryIdentityfromName
+        case queryIdentityFromName
         case queryCurrentIdentity 
         case queryEffectiveAccessMask
 
@@ -329,7 +329,7 @@ extension PlatformError.Operation {
                 case .queryTempDir: "queryTemporaryDirectory"
 
                 case .queryAccountNameFromIdentity: "queryAccountName"
-                case .queryIdentityfromName: "queryIdentity"
+                case .queryIdentityFromName: "queryIdentity"
                 case .queryCurrentIdentity: "queryCurrentIdentity"
                 case .queryEffectiveAccessMask: "queryEffectiveAccessMask"
                 
@@ -403,7 +403,7 @@ extension PlatformError.Operation {
     /// Operation of getting the account name from an identity
     public static var queryAccountNameFromIdentity: Self { .init(.queryAccountNameFromIdentity) }
     /// Operation of getting the identity from an account name
-    public static var queryIdentityfromName: Self { .init(.queryIdentityfromName) }
+    public static var queryIdentityFromName: Self { .init(.queryIdentityFromName) }
     /// Operation of getting the current identity
     public static var queryCurrentIdentity: Self { .init(.queryCurrentIdentity) }
     /// Operation of getting the effective access mask for the current process

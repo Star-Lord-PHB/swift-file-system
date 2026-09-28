@@ -21,7 +21,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The permissions for the new file, or `nil` to use the default permissions, 
     ///                  ignored if there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     /// 
     /// The default permissions being used when `creationPermissions` is not specified are `0o644` for Posix
     /// and inheriting from parent directory for Windows.
@@ -29,7 +29,7 @@ public protocol FileSystemProtocol: Sendable {
     /// - Attention: Windows does not support Posix style permissions directly, so this API will try to map
     ///              the Posix permissions to Windows DACL with best effort. If more fine-grained control is 
     ///              required, use the overloads that accept Windows security descriptors.
-    func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, content: ByteBuffer?) throws(PlatformError)
+    func createFile(at path: FilePath, replaceExisting: Bool, permissions: FilePermissions?, contents: ByteBuffer?) throws(PlatformError)
 
     /// Creates a new directory at the specified path.
     /// - Parameters:
@@ -56,8 +56,8 @@ public protocol FileSystemProtocol: Sendable {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The security descriptor specifying the permissions for the new file, ignored if
     ///                  there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
-    func createFile(at path: FilePath, replaceExisting: Bool, permissions: WindowsSecurityDescriptorView, content: ByteBuffer?) throws(PlatformError)
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
+    func createFile(at path: FilePath, replaceExisting: Bool, permissions: WindowsSecurityDescriptorView, contents: ByteBuffer?) throws(PlatformError)
 
     /// Creates a new directory at the specified path.
     /// - Parameters:
@@ -185,7 +185,7 @@ public protocol FileSystemProtocol: Sendable {
     ///   - path: The path for creating the symbolic link.
     ///   - destPath: The path that the symbolic link points to. Does not required to be a path to an 
     ///     existing item. If relative, it should be relative to the symbolic link itself.
-    func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError)
+    func createSymlink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError)
 
     /// Creates a hard link at the specified path for an existing item.
     /// - Parameters:
@@ -202,9 +202,9 @@ public protocol FileSystemProtocol: Sendable {
     /// This method has completely different semantics depending on the `recursive` parameter:
     /// * if `false`: Only the direct target stored in the link is read, and the specified path must be a 
     ///   symbolic link
-    /// * If `true`, the specified path will be resolved recursively until reaching a absolute path without 
-    ///   any symbolic link components, and the specified path can be arbitraty type.
-    func destinationOfSymLink(at path: FilePath, recursive: Bool) throws(PlatformError) -> FilePath
+    /// * If `true`, the specified path will be resolved recursively until reaching an absolute path without 
+    ///   any symbolic link components, and the specified path can be of arbitrary type.
+    func destinationOfSymlink(at path: FilePath, recursive: Bool) throws(PlatformError) -> FilePath
 
 
     // MARK: File Information Operations
@@ -373,14 +373,14 @@ extension FileSystemProtocol {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The security descriptor specifying the permissions for the new file, ignored if
     ///                  there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     public func createFile(
         at path: FilePath, 
         replaceExisting: Bool = false, 
         permissions: borrowing WindowsAbsoluteSecurityDescriptor, 
-        content: ByteBuffer? = nil
+        contents: ByteBuffer? = nil
     ) throws(PlatformError) {
-        try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
+        try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, contents: contents)
     }
 
 
@@ -390,14 +390,14 @@ extension FileSystemProtocol {
     ///   - replaceExisting: Whether to replace the existing file if there is one.
     ///   - permissions: The security descriptor specifying the permissions for the new file, ignored if
     ///                  there is an existing file.
-    ///   - content: The content to write to the new file, or `nil` for an empty file.
+    ///   - contents: The content to write to the new file, or `nil` for an empty file.
     public func createFile(
         at path: FilePath, 
         replaceExisting: Bool = false, 
         permissions: borrowing WindowsSelfRelativeSecurityDescriptor, 
-        content: ByteBuffer? = nil
+        contents: ByteBuffer? = nil
     ) throws(PlatformError) {
-        try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, content: content)
+        try createFile(at: path, replaceExisting: replaceExisting, permissions: permissions.view, contents: contents)
     }
 
 

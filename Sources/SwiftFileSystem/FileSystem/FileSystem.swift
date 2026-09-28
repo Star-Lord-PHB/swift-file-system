@@ -39,7 +39,7 @@ extension FileSystem {
     }
 
 
-    public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: FilePermissions? = nil, content: ByteBuffer? = nil) throws(PlatformError) {
+    public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: FilePermissions? = nil, contents: ByteBuffer? = nil) throws(PlatformError) {
 
         let handle = try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
             try UnsafeSystemHandle.open(
@@ -57,8 +57,8 @@ extension FileSystem {
         }
 
         do {
-            if let content {
-                try content.withUnsafeBytes { (ptr) throws(LowLevelError) in 
+            if let contents {
+                try contents.withUnsafeBytes { (ptr) throws(LowLevelError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }
@@ -111,7 +111,7 @@ extension FileSystem {
 
     #if canImport(WinSDK)
 
-    public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: WindowsSecurityDescriptorView, content: ByteBuffer? = nil) throws(PlatformError) {
+    public func createFile(at path: FilePath, replaceExisting: Bool = false, permissions: WindowsSecurityDescriptorView, contents: ByteBuffer? = nil) throws(PlatformError) {
 
         let handle = try catchLowLevelError(operation: .createFile(path)) { () throws(LowLevelError) in 
             try UnsafeSystemHandle.open(
@@ -127,8 +127,8 @@ extension FileSystem {
         }
 
         do {
-            if let content {
-                try content.withUnsafeBytes { (ptr) throws(LowLevelError) in 
+            if let contents {
+                try contents.withUnsafeBytes { (ptr) throws(LowLevelError) in 
                     _ = try handle.write(contentsOf: ptr)
                 }
             }
@@ -204,7 +204,7 @@ extension FileSystem {
     }
 
 
-    public func createSymLink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError) {
+    public func createSymlink(at path: FilePath, pointingTo destPath: FilePath) throws(PlatformError) {
         try catchLowLevelError(operation: .createSymlink(linkPath: path, dstPath: destPath)) { () throws(LowLevelError) in
             try InternalFS.symlink(dstPath: destPath, linkPath: path)
         }
@@ -218,7 +218,7 @@ extension FileSystem {
     }
 
 
-    public func destinationOfSymLink(at path: FilePath, recursive: Bool = true) throws(PlatformError) -> FilePath {
+    public func destinationOfSymlink(at path: FilePath, recursive: Bool = true) throws(PlatformError) -> FilePath {
         if recursive {
             try catchLowLevelError(operation: .recursiveResolveSymlink(path)) { () throws(LowLevelError) in
                 try InternalFS.realpath(of: path)

@@ -5,7 +5,7 @@ import FileSystemCore
 extension FileSystem {
 
     public func info(ofItemAt path: FilePath, followSymlink: Bool = true) throws(PlatformError) -> FileInfo {
-        return try .init(fileAt: path, followSymlink: followSymlink)
+        return try .init(forItemAt: path, followSymlink: followSymlink)
     }
 
 
