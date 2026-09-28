@@ -15,14 +15,50 @@
 #endif
 
 
-// _GNU_SOURCE-gated in glibc; the value is kernel ABI.
-#ifndef AT_STATX_SYNC_TYPE
-#define AT_STATX_SYNC_TYPE 0x6000
+#ifdef SYS_statx
+#define HAS_STATX_SYSCALL 1
 #endif
 
 
-#if defined(SYS_statx) && defined(STATX_BASIC_STATS)
-#define HAS_STATX_SYSCALL 1
+// Copied from <sys/stat.h> of musl 1.2.5, which declares them only under _GNU_SOURCE
+#if defined(HAS_STATX_SYSCALL) && !defined(STATX_BASIC_STATS)
+#define STATX_BASIC_STATS 0x7ffU
+#define STATX_BTIME 0x800U
+
+struct statx_timestamp {
+    int64_t tv_sec;
+    uint32_t tv_nsec, __pad;
+};
+
+struct statx {
+    uint32_t stx_mask;
+    uint32_t stx_blksize;
+    uint64_t stx_attributes;
+    uint32_t stx_nlink;
+    uint32_t stx_uid;
+    uint32_t stx_gid;
+    uint16_t stx_mode;
+    uint16_t __pad0[1];
+    uint64_t stx_ino;
+    uint64_t stx_size;
+    uint64_t stx_blocks;
+    uint64_t stx_attributes_mask;
+    struct statx_timestamp stx_atime;
+    struct statx_timestamp stx_btime;
+    struct statx_timestamp stx_ctime;
+    struct statx_timestamp stx_mtime;
+    uint32_t stx_rdev_major;
+    uint32_t stx_rdev_minor;
+    uint32_t stx_dev_major;
+    uint32_t stx_dev_minor;
+    uint64_t __pad1[14];
+};
+#endif
+
+
+// _GNU_SOURCE-gated in glibc; the value is kernel ABI.
+#ifndef AT_STATX_SYNC_TYPE
+#define AT_STATX_SYNC_TYPE 0x6000
 #endif
 
 
