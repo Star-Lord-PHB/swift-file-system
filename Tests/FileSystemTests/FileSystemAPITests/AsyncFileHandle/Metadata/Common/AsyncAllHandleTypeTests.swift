@@ -67,7 +67,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncReadFileHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncReadFileHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -80,7 +80,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncWriteFileHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncWriteFileHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
@@ -93,7 +93,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncReadWriteFileHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncReadWriteFileHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadWriteFileHandle(forFileAt: path)
@@ -106,7 +106,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncAppendHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncAppendHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncAppendHandle(forFileAt: path)
@@ -119,7 +119,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncStreamingReadHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncStreamingReadHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncStreamingReadHandle(forFileAt: path)
@@ -132,7 +132,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncStreamingWriteHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncStreamingWriteHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncStreamingWriteHandle(forFileAt: path)
@@ -145,7 +145,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncStreamingReadWriteHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncStreamingReadWriteHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncStreamingReadWriteHandle(forFileAt: path)
@@ -158,7 +158,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AsyncDirectoryHandle fileInfo matches path-based FileInfo`() async throws {
+    func `AsyncDirectoryHandle info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try await AsyncDirectoryHandle(forDirAt: path)
@@ -171,7 +171,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `SequentialReader fileInfo matches path-based FileInfo`() async throws {
+    func `SequentialReader info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -183,7 +183,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `SequentialWriter fileInfo matches path-based FileInfo`() async throws {
+    func `SequentialWriter info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncWriteFileHandle(forFileAt: path)
@@ -195,7 +195,7 @@ extension AsyncFileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `SequentialAccessor fileInfo matches path-based FileInfo`() async throws {
+    func `SequentialAccessor info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadWriteFileHandle(forFileAt: path)

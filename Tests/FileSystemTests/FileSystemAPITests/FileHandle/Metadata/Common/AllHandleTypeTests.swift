@@ -66,7 +66,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `ReadFileHandle fileInfo matches path-based FileInfo`() throws {
+    func `ReadFileHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)
@@ -79,7 +79,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `WriteFileHandle fileInfo matches path-based FileInfo`() throws {
+    func `WriteFileHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try WriteFileHandle(forFileAt: path)
@@ -92,7 +92,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `ReadWriteFileHandle fileInfo matches path-based FileInfo`() throws {
+    func `ReadWriteFileHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadWriteFileHandle(forFileAt: path)
@@ -105,7 +105,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `AppendHandle fileInfo matches path-based FileInfo`() throws {
+    func `AppendHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try AppendHandle(forFileAt: path)
@@ -118,7 +118,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `DirectoryHandle fileInfo matches path-based FileInfo`() throws {
+    func `DirectoryHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeDirectory(at: "directory")
         let handle = try DirectoryHandle(forDirAt: path)
@@ -132,7 +132,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `StreamingReadHandle fileInfo matches path-based FileInfo`() throws {
+    func `StreamingReadHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingReadHandle(forFileAt: path)
@@ -145,7 +145,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `StreamingWriteHandle fileInfo matches path-based FileInfo`() throws {
+    func `StreamingWriteHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingWriteHandle(forFileAt: path)
@@ -158,7 +158,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `StreamingReadWriteHandle fileInfo matches path-based FileInfo`() throws {
+    func `StreamingReadWriteHandle info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try StreamingReadWriteHandle(forFileAt: path)
@@ -171,7 +171,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `SequentialReader fileInfo matches path-based FileInfo`() throws {
+    func `SequentialReader info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)
@@ -183,7 +183,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `SequentialWriter fileInfo matches path-based FileInfo`() throws {
+    func `SequentialWriter info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try WriteFileHandle(forFileAt: path)
@@ -195,7 +195,7 @@ extension FileHandleAPITests.MetadataTests.AllHandleTypeTests {
 
 
     @Test
-    func `SequentialAccessor fileInfo matches path-based FileInfo`() throws {
+    func `SequentialAccessor info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadWriteFileHandle(forFileAt: path)

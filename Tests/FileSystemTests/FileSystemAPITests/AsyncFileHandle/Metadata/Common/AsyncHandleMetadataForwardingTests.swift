@@ -45,7 +45,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `fileInfo matches path-based FileInfo`() async throws {
+    func `info matches path-based FileInfo`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -74,7 +74,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `fileTimes matches independently captured times`() async throws {
+    func `times matches independently captured times`() async throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -134,7 +134,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `fileAttributes matches captured attributes`() async throws {
+    func `attributes matches captured attributes`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -203,7 +203,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
     @Test
-    func `Pre-cancelled fileInfo reports cancellation`() async throws {
+    func `Pre-cancelled info reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -229,7 +229,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `Pre-cancelled fileTimes reports cancellation`() async throws {
+    func `Pre-cancelled times reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)
@@ -256,7 +256,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
 
 
     @Test
-    func `Pre-cancelled fileAttributes reports cancellation`() async throws {
+    func `Pre-cancelled attributes reports cancellation`() async throws {
 
         let path = try workspace.makeFile(at: "file")
         let handle = try await AsyncReadFileHandle(forFileAt: path)

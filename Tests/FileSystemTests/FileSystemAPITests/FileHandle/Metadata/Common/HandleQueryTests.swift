@@ -26,7 +26,7 @@ extension FileHandleAPITests.MetadataTests {
 extension FileHandleAPITests.MetadataTests.QueryTests {
 
     @Test
-    func `fileInfo matches path-based FileInfo`() throws {
+    func `info matches path-based FileInfo`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)
@@ -55,7 +55,7 @@ extension FileHandleAPITests.MetadataTests.QueryTests {
 
 
     @Test
-    func `fileTimes matches independently captured times`() throws {
+    func `times matches independently captured times`() throws {
 
         let path = try workspace.makeFile(at: "file", contents: "file contents")
         let handle = try ReadFileHandle(forFileAt: path)

@@ -4,10 +4,6 @@ import SystemPackage
 import Testing
 import SwiftFileSystem
 
-#if canImport(WinSDK)
-import PlatformCLib
-#endif
-
 
 
 extension FileSystemAPITests.CopyTests {

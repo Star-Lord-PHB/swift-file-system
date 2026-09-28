@@ -1,11 +1,6 @@
 import Testing
 import SwiftFileSystem
-
-#if canImport(WinSDK)
 import PlatformCLib
-#else
-import PlatformCLib
-#endif
 
 
 
@@ -18,8 +13,9 @@ import PlatformCLib
 /// execution) still counts as released.
 ///
 /// Sendable by declaration: the probe is an immutable snapshot and never dereferences the
-/// raw value, but on Windows that value is a pointer, which blocks the implicit conformance
-/// the async handle tests rely on when a probe is captured on the executor.
+/// raw value, so it is safe to share across concurrency domains (the async handle tests
+/// return it from the `@concurrent` body of `withUnsafeSystemHandle`), but on Windows that
+/// value is a pointer, which blocks the implicit conformance.
 extension FileSystemTestSupport {
 
     struct SystemHandleProbe: @unchecked Sendable {

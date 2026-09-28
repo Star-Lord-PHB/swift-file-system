@@ -1,6 +1,5 @@
 import Foundation
 import Testing
-import SwiftFileSystem
 import SwiftAsyncFileSystem
 
 
@@ -113,7 +112,7 @@ extension AsyncFileSystemExecutorTests.RunCancellableTests {
 
 
     @Test(.timeLimit(.minutes(1)))
-    func `the operation overload produces the standard cancellation error`() async {
+    func `getThrowingPlatformError produces the standard cancellation error`() async {
         let executor = AsyncFileSystemExecutor(label: "cxlOp", threadCount: 1)
 
         let bodyRan = SharedBox(false)

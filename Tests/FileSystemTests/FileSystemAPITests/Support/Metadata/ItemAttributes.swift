@@ -3,10 +3,6 @@ import SystemPackage
 import Testing
 import SwiftFileSystem
 
-#if canImport(WinSDK)
-import PlatformCLib
-#endif
-
 
 
 extension FileSystemTestSupport.ItemMetadata {

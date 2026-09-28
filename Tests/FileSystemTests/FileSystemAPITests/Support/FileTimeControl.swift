@@ -3,10 +3,6 @@ import PlatformCLib
 import SystemPackage
 import Testing
 
-#if canImport(WinSDK)
-import PlatformCLib
-#endif
-
 /// Fixture-side file-time manipulation, independent of the library under test.
 extension FileSystemTestSupport {
 

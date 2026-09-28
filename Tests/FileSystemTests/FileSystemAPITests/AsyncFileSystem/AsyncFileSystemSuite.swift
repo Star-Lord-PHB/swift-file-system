@@ -2,10 +2,11 @@ import Testing
 import SwiftAsyncFileSystem
 
 
-/// Contract tests for `AsyncFileSystem`, whose every method except `copyItem` is a thin shell
-/// dispatching the fully tested synchronous `FileSystem` through
-/// `AsyncFileSystemExecutor.runCancellable` (`copyItem` drives the copy session itself and
-/// has its own group, `CopyTests`).
+/// Contract tests for `AsyncFileSystem`, whose methods are thin shells dispatching the fully
+/// tested synchronous `FileSystem` through `AsyncFileSystemExecutor.runCancellable`. The
+/// exceptions: `itemExists` goes through the non-cancellable `run` instead, while `copyItem`
+/// and `removeItem` drive their sessions in time slices themselves and have their own groups,
+/// `CopyTests` and `RemovalTests`.
 /// File-system semantics are deliberately not re-tested here; the synchronous test groups
 /// remain their single source of truth. Each async method gets:
 ///
@@ -15,7 +16,7 @@ import SwiftAsyncFileSystem
 ///   discriminated on representatives (`itemExists`, `info`) rather than per method.
 /// - a pre-cancelled test: the method observes Swift task cancellation before doing any
 ///   work and surfaces the standard cancellation error, per the `AsyncFileSystemProtocol`
-///   contract.
+///   contract (`itemExists`, which cannot report cancellation, is shown to still answer).
 ///
 /// The cancellation mechanics themselves (two checkpoints, lazy error construction, a
 /// started body always running to completion) are pinned by `AsyncFileSystemExecutorTests`
