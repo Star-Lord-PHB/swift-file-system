@@ -7,6 +7,54 @@ inline DWORD makeLanguageIdentifier(USHORT primary, USHORT sub) {
 }
 
 
+// Copied from <minwinbase.h> and <winnt.h> of Windows SDK 10.0.26100, which declare them only for
+// NTDDI_VERSION >= NTDDI_WIN11_ZN
+#if !defined(NTDDI_WIN11_ZN) || NTDDI_VERSION < NTDDI_WIN11_ZN
+typedef enum _FILE_INFO_BY_NAME_CLASS {
+    FileStatByNameInfo,
+    FileStatLxByNameInfo,
+    FileCaseSensitiveByNameInfo,
+    FileStatBasicByNameInfo,
+    MaximumFileInfoByNameClass
+} FILE_INFO_BY_NAME_CLASS, *PFILE_INFO_BY_NAME_CLASS;
+
+typedef struct _FILE_STAT_BASIC_INFORMATION {
+    LARGE_INTEGER FileId;
+    LARGE_INTEGER CreationTime;
+    LARGE_INTEGER LastAccessTime;
+    LARGE_INTEGER LastWriteTime;
+    LARGE_INTEGER ChangeTime;
+    LARGE_INTEGER AllocationSize;
+    LARGE_INTEGER EndOfFile;
+    DWORD FileAttributes;
+    DWORD ReparseTag;
+    DWORD NumberOfLinks;
+    DWORD DeviceType;
+    DWORD DeviceCharacteristics;
+    DWORD Reserved;
+    LARGE_INTEGER VolumeSerialNumber;
+    FILE_ID_128 FileId128;
+} FILE_STAT_BASIC_INFORMATION, *PFILE_STAT_BASIC_INFORMATION;
+#endif
+
+// Copied from <winnt.h> of Windows SDK 10.0.26100, which declares it regardless of NTDDI_VERSION
+#ifndef NTDDI_WIN11_ZN
+typedef struct _FILE_STAT_INFORMATION {
+    LARGE_INTEGER FileId;
+    LARGE_INTEGER CreationTime;
+    LARGE_INTEGER LastAccessTime;
+    LARGE_INTEGER LastWriteTime;
+    LARGE_INTEGER ChangeTime;
+    LARGE_INTEGER AllocationSize;
+    LARGE_INTEGER EndOfFile;
+    DWORD FileAttributes;
+    DWORD ReparseTag;
+    DWORD NumberOfLinks;
+    ACCESS_MASK EffectiveAccess;
+} FILE_STAT_INFORMATION, *PFILE_STAT_INFORMATION;
+#endif
+
+
 typedef BOOL(WINAPI* GetFileInformationByNameFuncPtrType)(
     PCWSTR FileName,
     FILE_INFO_BY_NAME_CLASS FileInformationClass,
