@@ -514,7 +514,7 @@ extension UnsafeSystemHandle {
 
             return switch access {
                 #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
-                case .none:      __O_PATH
+                case .none:      O_PATH
                 #else
                 case .none:      O_RDONLY
                 #endif
@@ -584,7 +584,7 @@ extension UnsafeSystemHandle {
             if closeOnExec { flags |= O_CLOEXEC }
 
             #if !(canImport(Darwin) || os(OpenBSD))
-            let mask = ~(O_ACCMODE | __O_PATH | O_CREAT | O_EXCL)
+            let mask = ~(O_ACCMODE | O_PATH | O_CREAT | O_EXCL)
             #else
             let mask = ~(O_ACCMODE | O_CREAT | O_EXCL)
             #endif

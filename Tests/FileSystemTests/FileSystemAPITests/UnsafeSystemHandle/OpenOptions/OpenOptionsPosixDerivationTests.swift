@@ -82,7 +82,7 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
     func `No access derives the path flag where available`() {
 
         #if !(canImport(Darwin) || os(OpenBSD))
-        #expect(Options(access: .none).accessModeFlags == __O_PATH)
+        #expect(Options(access: .none).accessModeFlags == O_PATH)
         #else
         #expect(Options(access: .none).accessModeFlags == O_RDONLY)
         #endif
@@ -111,7 +111,7 @@ extension UnsafeSystemHandleAPITests.OpenOptionsTests.PosixDerivationTests {
 
         options.platformOpenFlagsDiff.insert(O_RDWR | O_CREAT | O_EXCL)
         #if !(canImport(Darwin) || os(OpenBSD))
-        options.platformOpenFlagsDiff.insert(__O_PATH)
+        options.platformOpenFlagsDiff.insert(O_PATH)
         #endif
 
         #expect(options.openFlags == 0)

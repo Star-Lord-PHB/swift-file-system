@@ -33,6 +33,17 @@ package var FS_IOC_SETFLAGS: UInt {
     _FS_IOC_SETFLAGS
 }
 
+#if canImport(Glibc)
+package var O_PATH: CInt {
+    __O_PATH
+}
+#elseif canImport(Musl)
+// Copied from <fcntl.h> of musl 1.2.5
+package var O_ACCMODE: CInt {
+    0o3 | O_SEARCH
+}
+#endif
+
 package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
     return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)
 }
