@@ -220,10 +220,10 @@ extension InternalFS {
         let sd = try getSecurityInfo(forItemAt: path, members: [.owner, .group], followSymlink: followSymlink)
 
         guard let owner = sd.owner?.sid.detach() else {
-            fatalError("Fail to get the owner SID from SECURITY_DESCRIPTOR")
+            throw .init(kind: .unsupported)
         }
         guard let group = sd.group?.sid.detach() else {
-            fatalError("Fail to get the group SID from SECURITY_DESCRIPTOR")
+            throw .init(kind: .unsupported)
         }
         
         return (
