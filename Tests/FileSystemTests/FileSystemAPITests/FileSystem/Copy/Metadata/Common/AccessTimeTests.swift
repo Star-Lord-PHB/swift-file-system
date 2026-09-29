@@ -59,11 +59,13 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
 
     #if !canImport(WinSDK)
     @Test
-    func `Copy pushes the source access time by default`() throws {
+    func `Copy does not restore the source access time by default`() throws {
 
         // NOTE: This is POSIX-only; on Windows `CopyFileEx` leaves the source access
         // time unchanged (see the Windows counterpart of this test).
+        #if canImport(Darwin)
         try requireAccessTimeUpdates()
+        #endif
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
         let before = try ageAccessTimeAndCapture(at: src)
@@ -71,7 +73,17 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
         try fileSystem.copyItem(at: src, to: workspace.path("dst.txt"))
 
         let after = try Times.capture(at: src)
+
+        #if canImport(Darwin)
         #expect(after.access > before.access)
+        #else
+        // An in-kernel copy may leave the access time untouched even where plain reads push it
+        // (as in the CI's Docker containers), which `requireAccessTimeUpdates()` cannot detect
+        // since it probes with a plain read. Restoring the src access time is therefore ruled
+        // out through the status-change time it would push instead.
+        #expect(after.access >= before.access)
+        #expect(after.statusChange == before.statusChange)
+        #endif
         #expect(after.modification == before.modification)
 
     }
@@ -84,8 +96,8 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
 
         // NOTE: `CopyFileEx` restores the source access time on its own, even though
         // plain reads on the same volume push it (the probe above proves the volume
-        // maintains access times). POSIX reads the source through a regular handle and
-        // does push it — see the POSIX counterpart of this test.
+        // maintains access times). On POSIX, whether the copy pushes it is up to the
+        // kernel — see the POSIX counterpart of this test.
         try requireAccessTimeUpdates()
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
