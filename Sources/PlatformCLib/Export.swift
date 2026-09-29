@@ -32,6 +32,9 @@ package var FS_IOC_GETFLAGS: UInt {
 package var FS_IOC_SETFLAGS: UInt {
     _FS_IOC_SETFLAGS
 }
+package var RENAME_NOREPLACE: UInt32 {
+    _RENAME_NOREPLACE
+}
 
 #if canImport(Glibc)
 package var O_PATH: CInt {
