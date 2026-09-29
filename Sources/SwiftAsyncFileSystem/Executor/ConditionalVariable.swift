@@ -116,28 +116,26 @@ final class ConditionalVariable: @unchecked Sendable {
     /// included). Either way the caller re-checks its predicate: a `false` return says
     /// nothing about the predicate, and a `true` return does not guarantee progress.
     func wait(until deadline: MonotonicInstant) -> Bool {
-        #if canImport(WinSDK)
-        // SleepConditionVariableSRW only takes relative milliseconds, so the deadline cannot
-        // pass through absolutely: loop and re-wait the remainder whenever a timeout fires
-        // before the actual deadline (a scheduler tick can end waits early, and waits longer
-        // than the DWORD range get clamped below INFINITE, which would sleep forever). The
-        // millisecond conversion rounds up, clamping before the round-up so it cannot
-        // overflow.
-        while true {
-            let remaining = deadline - .now()
-            guard remaining > .zero else { return false }
-            let cappedNanoseconds = min(remaining.nanoseconds, 0xFFFF_FFFE * 1_000_000)
-            let milliseconds = DWORD((cappedNanoseconds + 999_999) / 1_000_000)
-            let result = SleepConditionVariableSRW(conditionStorage, lockStorage, milliseconds, 0)
-            if result { return true }
-            let code = GetLastError()
-            precondition(code == ERROR_TIMEOUT, "SleepConditionVariableSRW failed with error \(code)")
-        }
-        #else
+
         let remaining = deadline - .now()
         guard remaining > .zero else { return false }
 
-        #if canImport(Darwin)
+        #if canImport(WinSDK)
+
+        // SleepConditionVariableSRW only takes relative milliseconds: round up, clamping first so
+        // the round-up cannot overflow and waits beyond the DWORD range stay below INFINITE.
+        // A timeout before the actual deadline (a scheduler tick can end waits early, and so does
+        // the clamp) is reported as a spurious wakeup rather than re-waited, because a signal
+        // sent while the lock was released may have missed this waiter.
+        let cappedNanoseconds = min(remaining.nanoseconds, 0xFFFF_FFFE * 1_000_000)
+        let milliseconds = DWORD((cappedNanoseconds + 999_999) / 1_000_000)
+        if SleepConditionVariableSRW(conditionStorage, lockStorage, milliseconds, 0) { return true }
+        let code = GetLastError()
+        precondition(code == ERROR_TIMEOUT, "SleepConditionVariableSRW failed with error \(code)")
+        return MonotonicInstant.now() < deadline
+
+        #elseif canImport(Darwin)
+
         var timeout = timespec(
             tv_sec: Int(remaining.nanoseconds / 1_000_000_000),
             tv_nsec: Int(remaining.nanoseconds % 1_000_000_000)
@@ -145,7 +143,9 @@ final class ConditionalVariable: @unchecked Sendable {
         let code = pthread_cond_timedwait_relative_np(conditionStorage, lockStorage, &timeout)
         precondition(code == 0 || code == ETIMEDOUT, "pthread_cond_timedwait_relative_np failed with error \(code)")
         return code == 0
+
         #else
+
         // The condvar is bound to CLOCK_MONOTONIC (see init), the clock MonotonicInstant
         // reads, so the deadline passes through absolutely and re-waits never reset it.
         var absoluteDeadline = timespec(
@@ -155,8 +155,9 @@ final class ConditionalVariable: @unchecked Sendable {
         let code = pthread_cond_timedwait(conditionStorage, lockStorage, &absoluteDeadline)
         precondition(code == 0 || code == ETIMEDOUT, "pthread_cond_timedwait failed with error \(code)")
         return code == 0
+
         #endif
-        #endif
+
     }
 
 
