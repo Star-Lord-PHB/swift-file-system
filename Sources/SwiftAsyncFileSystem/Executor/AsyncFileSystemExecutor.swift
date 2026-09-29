@@ -11,6 +11,14 @@ import class FileSystemCore.CancellationToken
 
 
 /// An elastic thread-pool-based executor for executing IO operations asynchronously.
+/// 
+/// The underlying thread-pool always maintains at least ``minimumThreadCount`` of persistent threads alive, 
+/// and will spawn new elastic threads when needed, up to ``maximumThreadCount``. The elastic threads will 
+/// be terminated when they stay idle for longer than ``idleTimeoutNano`` nanoseconds.
+/// 
+/// Elastic threads spawning can happen when submitting a new task. If the number of queued tasks (including
+/// the newly submitted one) exceeds the number of idle threads and the number of alive threads has not 
+/// reached the limit, a new thread will be spawned.
 public final class AsyncFileSystemExecutor: Sendable {
     
     /// A type representing a task submitted into the executor, guaranteed to be executed at most once.
@@ -246,7 +254,10 @@ public final class AsyncFileSystemExecutor: Sendable {
 
             storage.tasks.append(task.take()!)
 
-            if storage.idleThreadCount == 0 && storage.aliveThreadCount < maximumThreadCount {
+            // A submitted task signals a waiting thread, but `idleThreadCount` is not decreased until that 
+            // thread reacquires the lock, so spawn a thread whenever queued tasks outnumber the idle waiters 
+            // rather than only at zero.
+            if storage.tasks.count > storage.idleThreadCount && storage.aliveThreadCount < maximumThreadCount {
                 let threadName = Self.makeThreadName(label: label, id: storage.spawnedThreadCount)
                 let thread = Thread(name: threadName) { [atomicStorage = self.storage, idleTimeout] in
                     Self.elasticThreadTask(atomicStorage, idleTimeout)
