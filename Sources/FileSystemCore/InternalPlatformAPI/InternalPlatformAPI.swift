@@ -66,9 +66,9 @@ package enum InternalPlatformAPI {
 
                 }
 
-                if result == nil { return nil }
+                guard result != nil, let name = pwd.pw_name else { return nil }
                 
-                return pwd.pw_name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
+                return name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
                     String(decodingCString: pointer, as: UTF8.self)
                 }
 
@@ -100,9 +100,9 @@ package enum InternalPlatformAPI {
 
                 }
 
-                if result == nil { return nil }
+                guard result != nil, let name = grp.gr_name else { return nil }
 
-                return grp.gr_name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
+                return name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
                     String(decodingCString: pointer, as: UTF8.self)
                 }
 

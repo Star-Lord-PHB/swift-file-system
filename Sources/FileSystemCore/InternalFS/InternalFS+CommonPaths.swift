@@ -193,9 +193,9 @@ extension InternalFS {
 
         }
 
-        if result == nil { throw .unknown }
+        guard result != nil, let homeDirectory = pwd.pw_dir else { throw .unknown }
 
-        return .init(platformString: pwd.pw_dir)
+        return .init(platformString: homeDirectory)
         
         #endif 
 
