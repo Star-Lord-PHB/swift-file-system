@@ -148,6 +148,8 @@ extension ByteBufferTest.Initialization {
     }
 
 
+    // swift-testing has no exit tests on Android.
+    #if !os(Android)
     @Test
     func `Negative initializer arguments trap`() async {
 
@@ -164,5 +166,6 @@ extension ByteBufferTest.Initialization {
         }
 
     }
+    #endif
 
 }

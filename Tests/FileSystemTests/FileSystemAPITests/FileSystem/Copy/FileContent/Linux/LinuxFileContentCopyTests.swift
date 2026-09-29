@@ -1,6 +1,7 @@
 #if os(Linux) || os(Android)
 
 import Foundation
+import PlatformCLib
 import SystemPackage
 import Testing
 import FileSystemCore

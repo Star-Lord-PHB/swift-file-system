@@ -123,7 +123,7 @@ extension FileSystemAPITests.CommonPathsTests {
         let expected = if let home = ProcessInfo.processInfo.environment["HOME"], home.hasPrefix("/") {
             home
         } else {
-            String(cString: try #require(getpwuid(getuid())).pointee.pw_dir)
+            String(cString: try #require(getpwuid(getuid())?.pointee.pw_dir))
         }
 
         try expectEquivalentPath(path, expected: expected)
