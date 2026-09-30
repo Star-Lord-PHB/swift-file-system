@@ -122,7 +122,7 @@ static void fillStatCompatFromStat(struct StatCompat *const out, const struct st
 #ifdef HAS_STATX_SYSCALL
 static int statxIsAllowed(void) {
 #ifdef __ANDROID__
-    // The app seccomp filter of Android 9 and 10 kills the process on statx instead of failing the call, so the
+    // The app seccomp filter of Android 8 to 10 kills the process on statx instead of failing the call, so the
     // syscall is only tried from Android 11 on.
     return android_get_device_api_level() >= 30;
 #else
