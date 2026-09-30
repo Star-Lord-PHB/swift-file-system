@@ -64,6 +64,7 @@ extension FileSystemAPITests.MoveTests.RegularFileMoveTests {
 
         let src = try workspace.makeFile(at: "link-a", contents: "shared contents")
         let sibling = workspace.path("link-b")
+        try Support.requireHardLinkCreationAvailable(at: sibling, for: src)
         // Foundation's `linkItem` creates a symlink on Windows; the library API is
         // independently covered by the Links group.
         try fileSystem.createHardLink(at: sibling, for: src)

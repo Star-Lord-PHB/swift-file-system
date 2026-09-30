@@ -115,7 +115,12 @@ extension InternalFS {
         } else if let tmpDir = getenv("TEMPDIR") {
             return .init(platformString: tmpDir)
         } else {
+            #if os(Android)
+            // Android has no /tmp; like Foundation, fall back to the directory Bionic uses.
+            return .init("/data/local/tmp")
+            #else
             return .init("/tmp")
+            #endif
         }
 
         #endif 
@@ -150,7 +155,23 @@ extension InternalFS {
 
         return .init(platformString: pathBuffer)
 
-        #else 
+        #else
+
+        #if canImport(Darwin)
+        // As with Foundation, CFFIXED_USER_HOME relocates the home ahead of the account database
+        // (except in setuid/setgid processes), and HOME is not consulted.
+        if issetugid() == 0, let fixedHome = getenv("CFFIXED_USER_HOME") {
+            let path = FilePath(platformString: fixedHome)
+            if path.isAbsolute { return path }
+        }
+        #else
+        // As with most Unix tools and the XDG base directories, HOME takes precedence over the
+        // account database.
+        if let home = getenv("HOME") {
+            let path = FilePath(platformString: home)
+            if path.isAbsolute { return path }
+        }
+        #endif
 
         let currUid = getuid()
 
@@ -177,9 +198,9 @@ extension InternalFS {
 
         }
 
-        if result == nil { throw .unknown }
+        guard result != nil, let homeDirectory = pwd.pw_dir else { throw .unknown }
 
-        return .init(platformString: pwd.pw_dir)
+        return .init(platformString: homeDirectory)
         
         #endif 
 
@@ -284,11 +305,12 @@ extension InternalFS {
 
         #else 
 
+        // The XDG Base Directory Specification requires a relative XDG_CACHE_HOME to be ignored.
         if let xdgCache = getenv("XDG_CACHE_HOME") {
-            return .init(platformString: xdgCache)
-        } else {
-            return try homeDirectoryPath().appending(".cache")
+            let path = FilePath(platformString: xdgCache)
+            if path.isAbsolute { return path }
         }
+        return try homeDirectoryPath().appending(".cache")
 
         #endif
 

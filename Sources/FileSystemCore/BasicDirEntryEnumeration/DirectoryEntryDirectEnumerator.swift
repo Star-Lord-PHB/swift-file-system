@@ -62,7 +62,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
         #if canImport(WinSDK)
         let includeDotEntries = options.contains(.includeDotEntries)
         while let entry = try dirStream?.next() {
-            lazy var path = Self.extractPath(from: entry)
+            let path = Self.extractPath(from: entry)
             let type = Self.extractType(from: entry)
             if !includeDotEntries && path.lastComponent?.kind != .regular { continue }
             return .init(path: path, type: type)
@@ -70,7 +70,7 @@ package struct DirectoryEntryDirectEnumerator: ~Copyable {
         return nil
         #else
         while let entry = try dirStream?.next() {
-            lazy var path = Self.extractPath(from: entry)
+            let path = Self.extractPath(from: entry)
             var type = Self.extractType(from: entry)
             if type == .unknown, let dirfd = dirStream?.fileDescriptor {
                 type = (try? Self.type(ofItemAt: path, relativeTo: dirfd)) ?? .unknown

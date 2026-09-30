@@ -46,6 +46,12 @@ extension ResourceLifetimeTests.OperationLeakTests {
     func `Item creation and removal does not leak resources`() throws {
 
         let directory = workspace.path("directory")
+        // Checked on scratch items outside the measurement.
+        let probeExisting = try workspace.makeFile(at: "hard-link-probe")
+        try Support.requireHardLinkCreationAvailable(
+            at: workspace.path("hard-link-probe-link"),
+            for: probeExisting
+        )
 
         try LeakChecker.expectNoLeak {
             try fileSystem.createDirectory(at: directory)
@@ -94,6 +100,7 @@ extension ResourceLifetimeTests.OperationLeakTests {
     func `Copy collecting unsupported entries does not leak resources`() throws {
 
         let src = try workspace.makeFixture(at: "src", sampleTreeFixture)
+        try Support.requireFifoCreationAvailable(at: src.appending("fifo"))
         try #require(mkfifo(src.appending("fifo").string, 0o644) == 0)
         let dst = workspace.path("dst")
 

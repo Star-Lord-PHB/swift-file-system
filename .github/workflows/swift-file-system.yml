@@ -1,0 +1,29 @@
+name: Swift FileSystem
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.15
+    with:
+      linux_swift_versions: '["6.2", "6.3", "6.4"]'
+      windows_swift_versions: '["6.2", "6.3", "6.4"]'
+      enable_linux_static_sdk_build: true
+      linux_static_sdk_versions: '["6.4"]'
+      enable_android_sdk_build: true
+      enable_android_sdk_checks: true
+      android_sdk_versions: '["6.4"]'
+      android_ndk_versions: '["r30"]'

@@ -26,6 +26,26 @@ package var UTIME_OMIT: Int32 {
 package var UTIME_NOW: Int32 {
     Int32(_UTIME_NOW)
 }
+package var FS_IOC_GETFLAGS: UInt {
+    _FS_IOC_GETFLAGS
+}
+package var FS_IOC_SETFLAGS: UInt {
+    _FS_IOC_SETFLAGS
+}
+package var RENAME_NOREPLACE: UInt32 {
+    _RENAME_NOREPLACE
+}
+
+#if canImport(Glibc)
+package var O_PATH: CInt {
+    __O_PATH
+}
+#elseif canImport(Musl)
+// Copied from <fcntl.h> of musl 1.2.5
+package var O_ACCMODE: CInt {
+    0o3 | O_SEARCH
+}
+#endif
 
 package func renameat2(_ olddirfd: CInt, _ oldpath: UnsafePointer<CChar>, _ newdirfd: CInt, _ newpath: UnsafePointer<CChar>, _ flags: UInt32) -> CInt {
     return _renameat2(olddirfd, oldpath, newdirfd, newpath, flags)

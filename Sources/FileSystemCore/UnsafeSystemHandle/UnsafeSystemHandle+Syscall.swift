@@ -393,7 +393,11 @@ extension UnsafeSystemHandle {
 
         #else 
 
-        let bytesRead = PlatformCLib.pread(self.unsafeRawHandle, buffer.baseAddress, lengthToRead, off_t(offset))
+        // Bionic declares the buffer non-null, so an empty buffer passes a placeholder byte instead of nil.
+        var placeholder = 0 as UInt8
+        let bytesRead = withUnsafeMutableBytes(of: &placeholder) { placeholder in
+            PlatformCLib.pread(self.unsafeRawHandle, buffer.baseAddress ?? placeholder.baseAddress!, lengthToRead, off_t(offset))
+        }
         guard bytesRead >= 0 else {
             try LowLevelError.assertError()
         }
@@ -546,7 +550,11 @@ extension UnsafeSystemHandle {
 
         #else
 
-        let bytesWritten = PlatformCLib.pwrite(self.unsafeRawHandle, buffer.baseAddress, buffer.count, off_t(offset))
+        // Bionic declares the buffer non-null, so an empty buffer passes a placeholder byte instead of nil.
+        var placeholder = 0 as UInt8
+        let bytesWritten = withUnsafeBytes(of: &placeholder) { placeholder in
+            PlatformCLib.pwrite(self.unsafeRawHandle, buffer.baseAddress ?? placeholder.baseAddress!, buffer.count, off_t(offset))
+        }
         guard bytesWritten >= 0 else {
             try LowLevelError.assertError()
         }
@@ -745,7 +753,7 @@ extension UnsafeSystemHandle {
         
         let (result, readFd, writeFd) = withUnsafeTemporaryAllocation(of: CInt.self, capacity: 2) { ptr in
             ptr.initialize(repeating: 0)
-            return (PlatformCLib.pipe(ptr.baseAddress), ptr[0], ptr[1])
+            return (PlatformCLib.pipe(ptr.baseAddress!), ptr[0], ptr[1])
         }
         guard result == 0 else {
             try LowLevelError.assertError()

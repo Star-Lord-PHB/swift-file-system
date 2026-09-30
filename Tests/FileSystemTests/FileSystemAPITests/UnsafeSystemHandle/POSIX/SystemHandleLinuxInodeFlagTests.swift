@@ -8,6 +8,26 @@ import SwiftFileSystem
 
 extension UnsafeSystemHandleAPITests.PosixTests {
 
+    /// Opens an unconnected Unix domain stream socket.
+    private func makeUnixSocket(
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> UnsafeSystemHandle {
+        #if canImport(Glibc)
+        let socketType = Int32(SOCK_STREAM.rawValue)
+        #else
+        // Musl and Bionic define SOCK_STREAM as a plain integer macro.
+        let socketType = SOCK_STREAM
+        #endif
+        let descriptor = socket(AF_UNIX, socketType, 0)
+        try #require(
+            descriptor >= 0,
+            "socket failed with errno \(errno)",
+            sourceLocation: sourceLocation
+        )
+        return UnsafeSystemHandle(owningRawHandle: descriptor)
+    }
+
+
     @Test
     func `Inode flag query on a pipe reports unsupported`() throws {
 
@@ -24,14 +44,17 @@ extension UnsafeSystemHandleAPITests.PosixTests {
 
 
     @Test
-    func `Inode flag set on a pipe reports unsupported`() throws {
+    func `Inode flag set on a socket reports unsupported`() throws {
 
-        // An owned anonymous pipe cannot carry inode flags. This exercises the setter's
-        // ENOTTY path without attempting to change metadata on an external filesystem.
-        let handles = try UnsafeSystemHandle.pipe()
+        // An owned socket cannot carry inode flags. This exercises the setter's ENOTTY path
+        // without attempting to change metadata on an external filesystem. A pipe does not work
+        // on Android: the kernel checks the SELinux setattr permission for FS_IOC_SETFLAGS before
+        // the ioctl reaches the file, and Android's policy grants it on a process's own sockets
+        // but never on its own pipes.
+        let handle = try makeUnixSocket()
 
         let error = #expect(throws: LowLevelError.self) {
-            try handles.writeHandle.setInodeFlags([.noDump])
+            try handle.setInodeFlags([.noDump])
         }
 
         #expect(error?.kind == .unsupported)

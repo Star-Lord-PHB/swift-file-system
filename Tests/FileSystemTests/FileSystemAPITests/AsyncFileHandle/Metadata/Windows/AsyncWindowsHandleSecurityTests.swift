@@ -70,8 +70,8 @@ extension AsyncFileHandleAPITests.MetadataTests.WindowsSecurityTests {
 
         let descriptor = try await handle.securityInfo(querying: members)
 
-        // expectWindowsSecurity asserts the members outside `comparing:` are nil, so a
-        // dropped members forward (falling back to allExceptSacl) fails here.
+        // The system answers an owner-only query without group or DACL, so a dropped
+        // members forward (falling back to allExceptSacl) fails expectWindowsSecurity here.
         let actual = try Support.parseWindowsSecurityDescriptor(descriptor)
         let expected = try Support.captureWindowsSecuritySnapshot(at: path, querying: members)
         Support.expectWindowsSecurity(actual, matches: expected, comparing: members)

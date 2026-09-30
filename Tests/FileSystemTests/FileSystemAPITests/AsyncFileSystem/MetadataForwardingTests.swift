@@ -99,6 +99,7 @@ extension AsyncFileSystemAPITests.MetadataForwardingTests {
         let requestedAttributes = [.bsd.noDump] as PlatformFileAttributes
         let expectedAttribute = PlatformFileAttributes.bsd.noDump
         #endif
+        try Support.requireAttributeQueryAvailable(for: expectedAttribute, at: path)
 
         try await asyncFileSystem.setAttributes(forItemAt: path, attributes: requestedAttributes)
 

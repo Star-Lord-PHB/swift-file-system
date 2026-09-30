@@ -7,6 +7,9 @@
 #include <errno.h>
 
 
+const unsigned int _RENAME_NOREPLACE = RENAME_NOREPLACE;
+
+
 // The raw syscall (Linux 3.15) rather than the libc function: glibc gates renameat2 behind _GNU_SOURCE, musl has
 // no wrapper for it at all and Bionic requires API 30. Errors are reported through errno as the syscall does.
 int _renameat2(int olddirfd, const char *oldpath, int newdirfd, const char *newpath, unsigned int flags) {

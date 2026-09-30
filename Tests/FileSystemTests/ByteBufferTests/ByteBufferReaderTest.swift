@@ -226,6 +226,8 @@ extension ByteBufferTest.Reader {
     }
 
 
+    // swift-testing has no exit tests on Android.
+    #if !os(Android)
     @Test
     func `Negative skip traps`() async {
 
@@ -235,5 +237,6 @@ extension ByteBufferTest.Reader {
         }
 
     }
+    #endif
 
 }

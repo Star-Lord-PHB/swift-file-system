@@ -1,4 +1,5 @@
 import Foundation
+import PlatformCLib
 import SystemPackage
 import Testing
 import SwiftFileSystem
@@ -102,6 +103,7 @@ extension FileSystemAPITests.CommonPathsTests {
     }
 
 
+    #if canImport(Darwin) || canImport(WinSDK)
     @Test
     func `Home dir matches Foundation`() throws {
 
@@ -111,6 +113,23 @@ extension FileSystemAPITests.CommonPathsTests {
         try expectEquivalentPath(path, expected: expected)
 
     }
+    #else
+    @Test
+    func `Home dir matches Unix convention`() throws {
+
+        // The Unix convention takes HOME when it is an absolute path and falls back to the
+        // passwd entry; Foundation consults HOME only when the passwd lookup fails.
+        let path = try fileSystem.homeDirectoryPath()
+        let expected = if let home = ProcessInfo.processInfo.environment["HOME"], home.hasPrefix("/") {
+            home
+        } else {
+            String(cString: try #require(getpwuid(getuid())?.pointee.pw_dir))
+        }
+
+        try expectEquivalentPath(path, expected: expected)
+
+    }
+    #endif
 
 
     @Test

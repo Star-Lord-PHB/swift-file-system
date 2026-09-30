@@ -1,5 +1,9 @@
 import Foundation
 import SystemPackage
+#if canImport(WinSDK)
+import PlatformCLib
+import Testing
+#endif
 
 /// A declarative fixture used to create a file or an entire directory tree.
 extension FileSystemTestSupport {
@@ -81,12 +85,36 @@ extension FileSystemTestSupport.Workspace {
     ) throws -> FilePath {
         let absolutePath = path(itemPath)
         try createParentDirectory(for: absolutePath)
+        #if canImport(WinSDK)
+        try Self.createWindowsSymlink(at: absolutePath, pointingTo: target)
+        #else
         try FileManager.default.createSymbolicLink(
             atPath: absolutePath.string,
             withDestinationPath: target.string
         )
+        #endif
         return absolutePath
     }
+
+    #if canImport(WinSDK)
+    /// Foundation (Swift 6.4 and later) stores absolute targets with a `\\?\` prefix, so the
+    /// link is created with native APIs to keep `target` verbatim, with the flags Foundation passes.
+    private static func createWindowsSymlink(at link: FilePath, pointingTo target: FilePath) throws {
+        let resolvedTarget = target.isAbsolute ? target : link.removingLastComponent().pushing(target)
+        let attributes = resolvedTarget.withPlatformString { GetFileAttributesW($0) }
+        let targetIsDirectory = attributes != INVALID_FILE_ATTRIBUTES
+            && attributes & DWORD(FILE_ATTRIBUTE_DIRECTORY) != 0
+        let flags = DWORD(SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE)
+            | (targetIsDirectory ? DWORD(SYMBOLIC_LINK_FLAG_DIRECTORY) : 0)
+        let created = link.withPlatformString { linkPointer in
+            target.withPlatformString { targetPointer in
+                CreateSymbolicLinkW(linkPointer, targetPointer, flags)
+            }
+        }
+        let error = GetLastError()
+        try #require(created != 0, "CreateSymbolicLinkW failed with \(error)")
+    }
+    #endif
 
     @discardableResult
     func makeSymlink(

@@ -38,7 +38,7 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
         guard descriptor >= 0 else { return false }
         defer { close(descriptor) }
         var rawFlags = flags.rawValue
-        return ioctl(descriptor, _FS_IOC_SETFLAGS, &rawFlags) == 0
+        return ioctl(descriptor, FS_IOC_SETFLAGS, &rawFlags) == 0
     }
 
 
@@ -68,11 +68,11 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
         guard descriptor >= 0 else { return }
         defer { close(descriptor) }
         var rawFlags: PlatformInteropTypes.PosixInodeFlags = 0
-        guard ioctl(descriptor, _FS_IOC_GETFLAGS, &rawFlags) == 0 else { return }
+        guard ioctl(descriptor, FS_IOC_GETFLAGS, &rawFlags) == 0 else { return }
         var flags = LinuxInodeFlags(rawValue: rawFlags)
         flags.remove(.immutable)
         rawFlags = flags.rawValue
-        _ = ioctl(descriptor, _FS_IOC_SETFLAGS, &rawFlags)
+        _ = ioctl(descriptor, FS_IOC_SETFLAGS, &rawFlags)
     }
 
 
@@ -163,7 +163,7 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
         defer { close(descriptor) }
 
         var flags: PlatformInteropTypes.PosixInodeFlags = 0
-        let queryResult = ioctl(descriptor, _FS_IOC_GETFLAGS, &flags)
+        let queryResult = ioctl(descriptor, FS_IOC_GETFLAGS, &flags)
         let queryError = errno
         try #require(queryResult == -1)
         try #require(queryError == ENOTTY)

@@ -482,8 +482,11 @@ extension CopyItemHandler {
                     context.srcHandle.unsafeRawHandle, &context.srcOffset, context.dstHandle.unsafeRawHandle, &context.dstOffset,
                     8 * 1024 * 1024, 0
                 )
-                let handsOver = byteCopied < 0 && context.srcOffset == 0
+                let unsupported = byteCopied < 0
                     && (errno == ENOSYS || errno == EOPNOTSUPP || errno == EXDEV || errno == EINVAL)
+                // A 0 before anything was copied hands over as well: for procfs and sysfs files, which report a size
+                // of 0, Linux 5.3 to 5.18 return 0 from a cross-filesystem copy instead of reporting it unsupported.
+                let handsOver = context.srcOffset == 0 && (unsupported || byteCopied == 0)
                 if handsOver {
                     #if os(Linux) || os(Android)
                     context.mechanism = .sendfile

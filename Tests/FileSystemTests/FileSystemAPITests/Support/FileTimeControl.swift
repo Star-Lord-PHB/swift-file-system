@@ -158,8 +158,42 @@ extension FileSystemTestSupport {
 #if canImport(WinSDK)
 extension FileSystemTestSupport {
 
+    /// Sets the creation time of the item at `path` to `target` while keeping its
+    /// other times.
+    ///
+    /// Windows writes the creation time directly, without the lower-only restriction
+    /// of the Darwin and FreeBSD birth time, so `target` may be any value.
+    static func ageCreationTime(
+        at path: FilePath,
+        to target: ItemMetadata.Timestamp,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        try writeTimes(
+            creation: target,
+            access: nil,
+            at: path,
+            sourceLocation: sourceLocation
+        )
+    }
+
+
     fileprivate static func writeAccessTime(
         _ access: ItemMetadata.Timestamp,
+        at path: FilePath,
+        sourceLocation: SourceLocation
+    ) throws {
+        try writeTimes(
+            creation: nil,
+            access: access,
+            at: path,
+            sourceLocation: sourceLocation
+        )
+    }
+
+
+    private static func writeTimes(
+        creation: ItemMetadata.Timestamp?,
+        access: ItemMetadata.Timestamp?,
         at path: FilePath,
         sourceLocation: SourceLocation
     ) throws {
@@ -178,16 +212,25 @@ extension FileSystemTestSupport {
         defer { CloseHandle(handle) }
 
         // `fileTimeSpec` already expresses the value relative to the 1601 epoch.
-        let spec = access.fileTimeSpec
-        let ticks = Int64(spec.seconds) * 10_000_000 + Int64(spec.nanoseconds) / 100
-        var fileTime = FILETIME(
-            dwLowDateTime: DWORD(truncatingIfNeeded: ticks),
-            dwHighDateTime: DWORD(truncatingIfNeeded: ticks >> 32)
-        )
-        try #require(
-            SetFileTime(handle, nil, &fileTime, nil),
-            sourceLocation: sourceLocation
-        )
+        func fileTime(_ timestamp: ItemMetadata.Timestamp?) -> FILETIME {
+            guard let spec = timestamp?.fileTimeSpec else { return FILETIME() }
+            let ticks = Int64(spec.seconds) * 10_000_000 + Int64(spec.nanoseconds) / 100
+            return FILETIME(
+                dwLowDateTime: DWORD(truncatingIfNeeded: ticks),
+                dwHighDateTime: DWORD(truncatingIfNeeded: ticks >> 32)
+            )
+        }
+        let succeeded = withUnsafePointer(to: fileTime(creation)) { creationPointer in
+            withUnsafePointer(to: fileTime(access)) { accessPointer in
+                SetFileTime(
+                    handle,
+                    creation == nil ? nil : creationPointer,
+                    access == nil ? nil : accessPointer,
+                    nil
+                )
+            }
+        }
+        try #require(succeeded, sourceLocation: sourceLocation)
     }
 
 

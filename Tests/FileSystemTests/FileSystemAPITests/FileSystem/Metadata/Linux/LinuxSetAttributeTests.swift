@@ -33,6 +33,7 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
     func `Sets file noDump attribute`() throws {
 
         let path = try workspace.makeFile(at: "file")
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: path)
 
         try fileSystem.setAttributes(
             forItemAt: path,
@@ -51,6 +52,7 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
     func `Sets dir noDump attribute`() throws {
 
         let path = try workspace.makeDirectory(at: "directory")
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: path)
 
         try fileSystem.setAttributes(
             forItemAt: path,
@@ -69,6 +71,7 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
     func `Clearing noDump preserves other attributes`() throws {
 
         let path = try workspace.makeFile(at: "file")
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: path)
         let flagsBeforeSet = try Support.captureNativeInodeFlags(at: path)
         try Support.setNativeInodeFlags(flagsBeforeSet.union(.noDump), at: path)
         var requestedAttributes = try Support.ItemMetadata.captureAttributes(
@@ -94,6 +97,7 @@ extension FileSystemAPITests.MetadataTests.LinuxSetAttributeTests {
 
         let target = try workspace.makeFile(at: "target")
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: target)
 
         try fileSystem.setAttributes(
             forItemAt: link,

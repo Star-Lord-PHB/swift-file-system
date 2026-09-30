@@ -36,6 +36,7 @@ extension AsyncFileHandleAPITests.StreamingWriteTests.POSIXFifoTests {
     func `Opening a FIFO with no reader reports peerUnavailable`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let error = await #expect(throws: PlatformError.self) {
@@ -52,6 +53,7 @@ extension AsyncFileHandleAPITests.StreamingWriteTests.POSIXFifoTests {
     func `Writes reach a FIFO reader`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let readerDescriptor = PlatformCLib.open(path.string, O_RDONLY | O_NONBLOCK)
@@ -80,6 +82,7 @@ extension AsyncFileHandleAPITests.StreamingWriteTests.POSIXFifoTests {
     func `Writing to a FIFO after the reader closes reports brokenPipe`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let readerDescriptor = PlatformCLib.open(path.string, O_RDONLY | O_NONBLOCK)

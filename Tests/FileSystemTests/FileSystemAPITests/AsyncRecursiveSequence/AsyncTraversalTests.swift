@@ -214,6 +214,8 @@ extension AsyncRecursiveSequenceAPITests.TraversalTests {
     }
 
 
+    // swift-testing has no exit tests on Android.
+    #if !os(Android)
     // The same precondition guards the entry sequence of the directory handle; the recursive
     // sequence is constructed without any I/O, so it is the representative.
     @Test
@@ -224,5 +226,6 @@ extension AsyncRecursiveSequenceAPITests.TraversalTests {
         }
 
     }
+    #endif
 
 }

@@ -54,6 +54,7 @@ extension FileHandleAPITests.DirectoryTests.POSIXListingTests {
 
         let path = try workspace.makeDirectory(at: "directory")
         let fifoPath = path.appending("fifo")
+        try Support.requireFifoCreationAvailable(at: fifoPath)
         try #require(mkfifo(fifoPath.string, 0o644) == 0)
         let handle = try DirectoryHandle(forDirAt: path)
 

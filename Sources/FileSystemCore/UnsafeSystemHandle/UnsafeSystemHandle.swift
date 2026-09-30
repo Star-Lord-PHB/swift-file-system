@@ -451,6 +451,10 @@ extension UnsafeSystemHandle {
         /// > through ``platformOpenFlagsDiff``. 
         /// >
         /// > Windows has no native equivalent, so callers open the link itself and check the type on the returned handle.
+        ///
+        /// > Attention:
+        /// > On Linux and Android, a data-access open of a symlink with `followSymlink == false` and `.posix.directory`
+        /// > fails with `ELOOP` on kernels before 4.7 and with `ENOTDIR` from 4.7 on, where the directory check comes first.
         public var followSymlink: Bool
         /// Whether to close the file handle when executing a new program
         public var closeOnExec: Bool
@@ -514,7 +518,7 @@ extension UnsafeSystemHandle {
 
             return switch access {
                 #if !(canImport(Darwin) || os(OpenBSD))      // O_PATH is not available on OpenBSD or macOS
-                case .none:      __O_PATH
+                case .none:      O_PATH
                 #else
                 case .none:      O_RDONLY
                 #endif
@@ -584,7 +588,7 @@ extension UnsafeSystemHandle {
             if closeOnExec { flags |= O_CLOEXEC }
 
             #if !(canImport(Darwin) || os(OpenBSD))
-            let mask = ~(O_ACCMODE | __O_PATH | O_CREAT | O_EXCL)
+            let mask = ~(O_ACCMODE | O_PATH | O_CREAT | O_EXCL)
             #else
             let mask = ~(O_ACCMODE | O_CREAT | O_EXCL)
             #endif

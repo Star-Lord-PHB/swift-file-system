@@ -47,7 +47,7 @@ extension ByteBuffer {
         init(repeating value: Byte, count: Int) {
             assertValidCapacity(count)
             if count > 0 {
-                buffer = .init(start: malloc(count).initializeMemory(as: Byte.self, repeating: value, count: count), count: count)
+                buffer = .init(start: malloc(count)!.initializeMemory(as: Byte.self, repeating: value, count: count), count: count)
             }
         }
 

@@ -32,6 +32,7 @@ extension FileHandleAPITests.StreamingReadTests.POSIXFifoTests {
     func `Opening a FIFO with no writer does not wait`() throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try StreamingReadHandle(forFileAt: path)
@@ -51,6 +52,7 @@ extension FileHandleAPITests.StreamingReadTests.POSIXFifoTests {
     func `Open restores blocking mode`() throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try StreamingReadHandle(forFileAt: path)
@@ -72,6 +74,7 @@ extension FileHandleAPITests.StreamingReadTests.POSIXFifoTests {
     func `Reads drain a FIFO and see EOF after the writer closes`() throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try StreamingReadHandle(forFileAt: path)

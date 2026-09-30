@@ -41,6 +41,7 @@ extension FileSystemAPITests.RemovalTests.RemovalPOSIXTests {
                 "file": .file(contents: "contents")
             ]
         )
+        try Support.requireFifoCreationAvailable(at: root.appending("fifo"))
         try #require(mkfifo(root.appending("fifo").string, 0o644) == 0)
 
         try fileSystem.removeItem(at: root)

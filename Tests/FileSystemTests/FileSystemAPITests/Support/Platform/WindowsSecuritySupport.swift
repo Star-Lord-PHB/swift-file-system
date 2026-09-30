@@ -172,6 +172,10 @@ extension FileSystemTestSupport {
 
 extension FileSystemTestSupport {
 
+    /// Windows may return members that were not requested (a DACL-only query also carries
+    /// the owner and group when the DACL is not auto-inherited), so every member is compared
+    /// with `expected`, which callers capture through the same query. A queried owner, group
+    /// or DACL must also be present; a queried SACL may be absent, as most files have none.
     static func expectWindowsSecurity(
         _ actual: WindowsSecuritySnapshot,
         matches expected: WindowsSecuritySnapshot,
@@ -181,47 +185,38 @@ extension FileSystemTestSupport {
         #expect(actual.revision == expected.revision, sourceLocation: sourceLocation)
         #expect(actual.control == expected.control, sourceLocation: sourceLocation)
 
+        #expect(actual.owner == expected.owner, sourceLocation: sourceLocation)
+        #expect(
+            actual.ownerDefaulted == expected.ownerDefaulted,
+            sourceLocation: sourceLocation
+        )
         if members.contains(.owner) {
-            #expect(actual.owner == expected.owner, sourceLocation: sourceLocation)
-            #expect(
-                actual.ownerDefaulted == expected.ownerDefaulted,
-                sourceLocation: sourceLocation
-            )
             #expect(actual.owner != nil, sourceLocation: sourceLocation)
-        } else {
-            #expect(actual.owner == nil, sourceLocation: sourceLocation)
-            #expect(actual.ownerDefaulted == nil, sourceLocation: sourceLocation)
         }
+
+        #expect(actual.group == expected.group, sourceLocation: sourceLocation)
+        #expect(
+            actual.groupDefaulted == expected.groupDefaulted,
+            sourceLocation: sourceLocation
+        )
         if members.contains(.group) {
-            #expect(actual.group == expected.group, sourceLocation: sourceLocation)
-            #expect(
-                actual.groupDefaulted == expected.groupDefaulted,
-                sourceLocation: sourceLocation
-            )
             #expect(actual.group != nil, sourceLocation: sourceLocation)
-        } else {
-            #expect(actual.group == nil, sourceLocation: sourceLocation)
-            #expect(actual.groupDefaulted == nil, sourceLocation: sourceLocation)
         }
+
+        expectWindowsAcl(
+            actual.dacl,
+            matches: expected.dacl,
+            sourceLocation: sourceLocation
+        )
         if members.contains(.dacl) {
-            expectWindowsAcl(
-                actual.dacl,
-                matches: expected.dacl,
-                sourceLocation: sourceLocation
-            )
             #expect(actual.dacl.state != .absent, sourceLocation: sourceLocation)
-        } else {
-            #expect(actual.dacl.state == .absent, sourceLocation: sourceLocation)
         }
-        if members.contains(.sacl) {
-            expectWindowsAcl(
-                actual.sacl,
-                matches: expected.sacl,
-                sourceLocation: sourceLocation
-            )
-        } else {
-            #expect(actual.sacl.state == .absent, sourceLocation: sourceLocation)
-        }
+
+        expectWindowsAcl(
+            actual.sacl,
+            matches: expected.sacl,
+            sourceLocation: sourceLocation
+        )
     }
 
 

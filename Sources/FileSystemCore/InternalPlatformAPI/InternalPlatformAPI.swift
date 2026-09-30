@@ -55,6 +55,8 @@ package enum InternalPlatformAPI {
                     let error = getpwuid_r(identity.rawId, &pwd, buffer, size, &result)
 
                     if error == 0 { break }
+                    // Some libcs (Bionic for groups) report a missing entry as ENOENT instead of 0 with a NULL result.
+                    if error == ENOENT { return nil }
                     if error == ERANGE {
                         size *= 2
                         buffer.deallocate()
@@ -66,9 +68,9 @@ package enum InternalPlatformAPI {
 
                 }
 
-                if result == nil { return nil }
+                guard result != nil, let name = pwd.pw_name else { return nil }
                 
-                return pwd.pw_name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
+                return name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
                     String(decodingCString: pointer, as: UTF8.self)
                 }
 
@@ -89,6 +91,7 @@ package enum InternalPlatformAPI {
                     let error = getgrgid_r(identity.rawId, &grp, buffer, size, &result)
 
                     if error == 0 { break }
+                    if error == ENOENT { return nil }
                     if error == ERANGE {
                         size *= 2
                         buffer.deallocate()
@@ -100,9 +103,9 @@ package enum InternalPlatformAPI {
 
                 }
 
-                if result == nil { return nil }
+                guard result != nil, let name = grp.gr_name else { return nil }
 
-                return grp.gr_name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
+                return name.withMemoryRebound(to: UTF8.CodeUnit.self, capacity: 1) { pointer in
                     String(decodingCString: pointer, as: UTF8.self)
                 }
 
@@ -177,6 +180,8 @@ package enum InternalPlatformAPI {
                 let error = getpwnam_r(name, &pwd, buffer, size, &result)
                 
                 if error == 0 { break }
+                // Some libcs (Bionic for groups) report a missing entry as ENOENT instead of 0 with a NULL result.
+                if error == ENOENT { return nil }
                 if error == ERANGE {
                     size *= 2
                     buffer.deallocate()
@@ -209,6 +214,7 @@ package enum InternalPlatformAPI {
                 let error = getgrnam_r(name, &grp, buffer, size, &result)
                 
                 if error == 0 { break }
+                if error == ENOENT { return nil }
                 if error == ERANGE {
                     size *= 2
                     buffer.deallocate()

@@ -82,10 +82,8 @@ final class Thread: @unchecked Sendable {
 
         #else
 
-        #if canImport(Darwin)
+        #if canImport(Darwin) || canImport(Musl) || os(FreeBSD) || os(OpenBSD)
         var handle: pthread_t? = nil
-        #elseif canImport(Musl) || os(FreeBSD) || os(OpenBSD)
-        var handle: pthread_t = nil
         #else
         var handle = pthread_t()
         #endif
@@ -96,7 +94,7 @@ final class Thread: @unchecked Sendable {
             return Int64(code)
         }
 
-        #if canImport(Darwin)
+        #if canImport(Darwin) || canImport(Musl) || os(FreeBSD) || os(OpenBSD)
         state = .started(handle!)
         #else
         state = .started(handle)

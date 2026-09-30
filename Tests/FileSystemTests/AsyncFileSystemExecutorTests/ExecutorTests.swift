@@ -69,7 +69,9 @@ extension AsyncFileSystemExecutorTests.ExecutorTests {
 
 
     // The (1, 2) case is the regression guard for idle pre-seeding: growth must also
-    // happen while every persistent thread is blocked inside a task.
+    // happen while every persistent thread is blocked inside a task. It also covers a
+    // signaled waiter that has not woken yet still counting as idle, but only on runs
+    // where the persistent thread parks before the first submit.
     @Test(
         .timeLimit(.minutes(1)),
         arguments: [

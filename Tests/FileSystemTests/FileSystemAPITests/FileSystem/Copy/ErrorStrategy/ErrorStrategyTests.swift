@@ -307,6 +307,7 @@ extension FileSystemAPITests.CopyTests.ErrorStrategyTests {
                 "ok.txt": .file(contents: "src ok")
             ]
         )
+        try Support.requireFifoCreationAvailable(at: src.appending("fifo"))
         try #require(mkfifo(src.appending("fifo").string, 0o644) == 0)
         let dst = workspace.path("dst")
         let srcSnapshot = try Support.TreeSnapshot.capture(at: src)

@@ -45,6 +45,8 @@ extension FileSystemAPITests.CopyTests.WindowsCreationTimeCopyTests {
         )
         let srcTimes = try Times.capture(at: src)
         let srcCreation = try #require(srcTimes.creation)
+        // Items created in quick succession can share a creation time.
+        try Support.ageCreationTime(at: dst, to: srcCreation.adding(seconds: -86_400))
         let dstCreationBefore = try #require(try Times.capture(at: dst).creation)
         try #require(dstCreationBefore < srcCreation)
 

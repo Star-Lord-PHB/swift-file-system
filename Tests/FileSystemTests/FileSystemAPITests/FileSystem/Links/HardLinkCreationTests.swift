@@ -30,8 +30,9 @@ extension FileSystemAPITests.HardLinkCreationTests {
     func `Creates a hard link to a regular file`() throws {
 
         let existing = try workspace.makeFile(at: "existing", contents: "contents")
-        let existingSnapshot = try Support.ItemSnapshot.capture(at: existing)
         let link = workspace.path("link")
+        try Support.requireHardLinkCreationAvailable(at: link, for: existing)
+        let existingSnapshot = try Support.ItemSnapshot.capture(at: existing)
 
         try fileSystem.createHardLink(at: link, for: existing)
 
@@ -51,8 +52,9 @@ extension FileSystemAPITests.HardLinkCreationTests {
             at: "existing",
             pointingTo: workspace.path("missing-target")
         )
-        let existingSnapshot = try Support.ItemSnapshot.capture(at: existing)
         let link = workspace.path("link")
+        try Support.requireHardLinkCreationAvailable(at: link, for: existing)
+        let existingSnapshot = try Support.ItemSnapshot.capture(at: existing)
 
         try fileSystem.createHardLink(at: link, for: existing)
 

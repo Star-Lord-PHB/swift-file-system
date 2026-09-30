@@ -164,6 +164,7 @@ extension AsyncFileHandleAPITests.MetadataTests.ForwardingTests {
         let requestedAttributes = [.bsd.noDump] as PlatformFileAttributes
         let expectedAttribute = PlatformFileAttributes.bsd.noDump
         #endif
+        try Support.requireAttributeQueryAvailable(for: expectedAttribute, at: path)
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setAttributes(requestedAttributes)
