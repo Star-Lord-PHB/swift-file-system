@@ -115,7 +115,12 @@ extension InternalFS {
         } else if let tmpDir = getenv("TEMPDIR") {
             return .init(platformString: tmpDir)
         } else {
+            #if os(Android)
+            // Android has no /tmp; like Foundation, fall back to the directory Bionic uses.
+            return .init("/data/local/tmp")
+            #else
             return .init("/tmp")
+            #endif
         }
 
         #endif 
