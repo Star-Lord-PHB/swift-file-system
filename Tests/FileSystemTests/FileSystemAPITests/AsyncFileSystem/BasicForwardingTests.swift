@@ -167,6 +167,7 @@ extension AsyncFileSystemAPITests.BasicForwardingTests {
 
         let existing = try workspace.makeFile(at: "existing", contents: "hard-link contents")
         let link = workspace.path("link")
+        try Support.requireHardLinkCreationAvailable(at: link, for: existing)
 
         try await asyncFileSystem.createHardLink(at: link, for: existing)
 

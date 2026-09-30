@@ -35,6 +35,7 @@ extension FileHandleAPITests.StreamingReadWriteTests.POSIXFifoTests {
     func `Opens a FIFO with no peer and stays usable across writers`() throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try StreamingReadWriteHandle(forFileAt: path)

@@ -36,6 +36,7 @@ extension AsyncFileHandleAPITests.StreamingReadTests.POSIXFifoTests {
     func `Opening a FIFO with no writer does not wait`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try await AsyncStreamingReadHandle(forFileAt: path)
@@ -52,6 +53,7 @@ extension AsyncFileHandleAPITests.StreamingReadTests.POSIXFifoTests {
     func `Reads drain a FIFO and see EOF after the writer closes`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try await AsyncStreamingReadHandle(forFileAt: path)
@@ -79,6 +81,7 @@ extension AsyncFileHandleAPITests.StreamingReadTests.POSIXFifoTests {
     func `A read waiting for data is completed by another task's write`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let reader = try await AsyncStreamingReadHandle(forFileAt: path)

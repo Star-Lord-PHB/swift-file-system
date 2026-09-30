@@ -31,6 +31,7 @@ extension FileHandleAPITests.MetadataTests.LinuxAttributeTests {
     func `Attribute query matches native flags`() throws {
 
         let path = try workspace.makeFile(at: "file")
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: path)
         let preparedFlags = try Support.captureNativeInodeFlags(at: path).union(.noDump)
         try Support.setNativeInodeFlags(preparedFlags, at: path)
         let handle = try ReadFileHandle(forFileAt: path)
@@ -50,6 +51,7 @@ extension FileHandleAPITests.MetadataTests.LinuxAttributeTests {
     func `Sets noDump attribute`() throws {
 
         let path = try workspace.makeFile(at: "file")
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: path)
         let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setAttributes([.linux.noDump])
@@ -65,6 +67,7 @@ extension FileHandleAPITests.MetadataTests.LinuxAttributeTests {
     func `Clearing noDump preserves other attributes`() throws {
 
         let path = try workspace.makeFile(at: "file")
+        try Support.requireAttributeQueryAvailable(for: .linux.noDump, at: path)
         let flagsBeforeSet = try Support.captureNativeInodeFlags(at: path)
         try Support.setNativeInodeFlags(flagsBeforeSet.union(.noDump), at: path)
         var requestedAttributes = try Support.ItemMetadata.captureAttributes(at: path).values

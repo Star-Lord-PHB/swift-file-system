@@ -35,6 +35,7 @@ extension AsyncFileHandleAPITests.StreamingReadWriteTests.POSIXFifoTests {
     func `Opens a FIFO with no peer and stays usable across writers`() async throws {
 
         let path = workspace.path("fifo")
+        try Support.requireFifoCreationAvailable(at: path)
         try #require(mkfifo(path.string, 0o644) == 0)
 
         let handle = try await AsyncStreamingReadWriteHandle(forFileAt: path)

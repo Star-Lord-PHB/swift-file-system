@@ -85,6 +85,7 @@ extension FileSystemAPITests.CopyTests.RootErrorTests {
         try Support.makeWindowsJunction(at: src, pointingTo: junctionTarget)
         #else
         let src = workspace.path("src-fifo")
+        try Support.requireFifoCreationAvailable(at: src)
         try #require(mkfifo(src.string, 0o644) == 0)
         #endif
         let dstAbort = workspace.path("dst-abort")

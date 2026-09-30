@@ -34,6 +34,7 @@ extension RecursiveSequenceAPITests.POSIXEntryKindTests {
 
         let path = try workspace.makeDirectory(at: "directory")
         let fifoPath = path.appending("fifo")
+        try Support.requireFifoCreationAvailable(at: fifoPath)
         try #require(mkfifo(fifoPath.string, 0o644) == 0)
 
         let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
