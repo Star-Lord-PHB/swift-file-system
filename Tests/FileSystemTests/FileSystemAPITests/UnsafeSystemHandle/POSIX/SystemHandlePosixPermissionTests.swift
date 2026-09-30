@@ -117,9 +117,7 @@ extension UnsafeSystemHandleAPITests.PosixTests {
     @Test
     func `A file created with empty permissions rejects reopen`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = workspace.path("file")
 

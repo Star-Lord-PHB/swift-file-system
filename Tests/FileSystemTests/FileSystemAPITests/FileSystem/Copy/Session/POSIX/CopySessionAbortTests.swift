@@ -36,20 +36,6 @@ extension FileSystemAPITests.CopyTests {
 
 extension FileSystemAPITests.CopyTests.CopySessionAbortTests {
 
-    /// Cancels when the volume does not push access times on reads: proving that a pushed
-    /// access time was restored needs the push.
-    private func requireAccessTimeUpdates(
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws {
-        if try !Support.volumeUpdatesAccessTimeOnRead(in: workspace, sourceLocation: sourceLocation) {
-            try Test.cancel(
-                "The volume does not update access times on read",
-                sourceLocation: sourceLocation
-            )
-        }
-    }
-
-
     /// Replaces the file at `path` with a non-empty directory, so that renaming the staged copy
     /// onto it fails inside the file step, and returns snapshots of the two new items.
     private func replaceWithDirectory(
@@ -116,7 +102,7 @@ extension FileSystemAPITests.CopyTests.CopySessionAbortTests {
     @Test
     func `An abort from the file step restores the source directory access time`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFixture(
             at: "src",

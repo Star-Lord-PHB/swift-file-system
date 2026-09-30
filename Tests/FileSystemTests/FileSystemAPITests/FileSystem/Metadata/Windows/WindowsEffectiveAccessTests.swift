@@ -5,9 +5,6 @@ import Testing
 import SwiftFileSystem
 
 
-private var byNameFileInfoAvailable: Bool { getGetFileInformationByNameFuncPtr() != nil }
-
-
 extension FileSystemAPITests.MetadataTests {
 
     /// Pins the `securityInfo` → `WindowsAccessChecker` pipeline against the kernel's
@@ -57,8 +54,10 @@ extension FileSystemAPITests.MetadataTests.WindowsEffectiveAccessTests {
     }
 
 
-    @Test(.enabled(if: byNameFileInfoAvailable))
+    @Test
     func `Checker matches kernel evaluation for a default file`() throws {
+
+        try Support.requireFileInformationByNameAvailable()
 
         let path = try workspace.makeFile(at: "file")
 
@@ -71,8 +70,10 @@ extension FileSystemAPITests.MetadataTests.WindowsEffectiveAccessTests {
     }
 
 
-    @Test(.enabled(if: byNameFileInfoAvailable))
+    @Test
     func `Checker matches kernel evaluation under a restrictive protected DACL`() throws {
+
+        try Support.requireFileInformationByNameAvailable()
 
         let grantedAccess = [
             .readData, .readAttributes, .synchronize, .delete, .readControl, .writeDAC,

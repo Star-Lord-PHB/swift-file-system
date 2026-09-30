@@ -29,20 +29,6 @@ extension FileSystemAPITests.CopyTests {
 
 extension FileSystemAPITests.CopyTests.AccessTimeTests {
 
-    /// Cancels when the volume does not push access times on reads: the tests here
-    /// observe that push or prove it was undone, and neither works without it.
-    private func requireAccessTimeUpdates(
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws {
-        if try !Support.volumeUpdatesAccessTimeOnRead(in: workspace, sourceLocation: sourceLocation) {
-            try Test.cancel(
-                "The volume does not update access times on read",
-                sourceLocation: sourceLocation
-            )
-        }
-    }
-
-
     /// Ages the item's access time and captures the resulting times.
     ///
     /// Nothing may read the item's contents (or enumerate it, for a directory) between
@@ -64,7 +50,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
         // NOTE: This is POSIX-only; on Windows `CopyFileEx` leaves the source access
         // time unchanged (see the Windows counterpart of this test).
         #if canImport(Darwin)
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
         #endif
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
@@ -78,9 +64,9 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
         #expect(after.access > before.access)
         #else
         // An in-kernel copy may leave the access time untouched even where plain reads push it
-        // (as in the CI's Docker containers), which `requireAccessTimeUpdates()` cannot detect
-        // since it probes with a plain read. Restoring the src access time is therefore ruled
-        // out through the status-change time it would push instead.
+        // (as in the CI's Docker containers), which `requireAccessTimeUpdatesOnRead(in:)` cannot
+        // detect since it probes with a plain read. Restoring the src access time is therefore
+        // ruled out through the status-change time it would push instead.
         #expect(after.access >= before.access)
         #expect(after.statusChange == before.statusChange)
         #endif
@@ -98,7 +84,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
         // plain reads on the same volume push it (the probe above proves the volume
         // maintains access times). On POSIX, whether the copy pushes it is up to the
         // kernel — see the POSIX counterpart of this test.
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
         let before = try ageAccessTimeAndCapture(at: src)
@@ -134,7 +120,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
     @Test
     func `preserveSrcAccessTime restores the source file access time`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
         let before = try ageAccessTimeAndCapture(at: src)
@@ -159,7 +145,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
         // NOTE: APFS does not dirty the status-change time when an access time is
         // written back; on Linux the same restore pushes it (see the Linux-only
         // counterpart of this test).
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
         let before = try ageAccessTimeAndCapture(at: src)
@@ -186,7 +172,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
         // written back; macOS/APFS leaves it untouched (see the Darwin-only
         // counterpart of this test). Source-side "unchanged" assertions after a
         // preserving copy must therefore not include the status-change time on Linux.
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
         let before = try ageAccessTimeAndCapture(at: src)
@@ -208,7 +194,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
     @Test
     func `preserveSrcAccessTime restores directory access times across a tree`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFixture(
             at: "src",
@@ -247,7 +233,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
     @Test
     func `Skip merge restores each skipped directory's own access time`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFixture(
             at: "src",
@@ -286,7 +272,7 @@ extension FileSystemAPITests.CopyTests.AccessTimeTests {
     @Test
     func `Abort restores source directory access times and skips destination times`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFixture(
             at: "src",

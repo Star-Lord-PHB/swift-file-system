@@ -62,26 +62,6 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
         )
     }
 
-
-    /// Cancels the test when the current token can still list the directory despite the deny ACE
-    /// (for example a token with enabled backup privileges).
-    private func requireListingDenied(
-        at path: FilePath,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws {
-        var findData = WIN32_FIND_DATAW()
-        let handle = path.appending("*").withPlatformString { pattern in
-            FindFirstFileW(pattern, &findData)
-        }
-        if let handle, handle != INVALID_HANDLE_VALUE {
-            FindClose(handle)
-            try Test.cancel(
-                "The current token is not subject to the installed deny ACE",
-                sourceLocation: sourceLocation
-            )
-        }
-    }
-
 }
 
 
@@ -94,7 +74,7 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
         let path = try workspace.makeDirectory(at: "locked")
         try denyListing(at: path)
         defer { restoreFullAccess(at: path) }
-        try requireListingDenied(at: path)
+        try Support.requireListingDenied(at: path)
 
         let error = #expect(throws: PlatformError.self) {
             _ = try DirectoryHandle(forDirAt: path)
@@ -117,7 +97,7 @@ extension FileHandleAPITests.DirectoryTests.WindowsListingTests {
         let handle = try DirectoryHandle(forDirAt: path)
         try denyListing(at: path)
         defer { restoreFullAccess(at: path) }
-        try requireListingDenied(at: path)
+        try Support.requireListingDenied(at: path)
 
         // Each listing reopens the directory through the handle (`ReOpenHandle`), which runs a fresh
         // access check, so a deny ACE installed after open is observed even though the handle

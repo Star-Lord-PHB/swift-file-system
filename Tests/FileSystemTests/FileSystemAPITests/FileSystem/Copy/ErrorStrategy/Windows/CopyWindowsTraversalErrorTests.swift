@@ -64,26 +64,6 @@ extension FileSystemAPITests.CopyTests.WindowsTraversalErrorTests {
     }
 
 
-    /// Cancels the test when the current token can still list the directory despite the deny ACE
-    /// (for example a token with enabled backup privileges).
-    private func requireListingDenied(
-        at path: FilePath,
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws {
-        var findData = WIN32_FIND_DATAW()
-        let handle = path.appending("*").withPlatformString { pattern in
-            FindFirstFileW(pattern, &findData)
-        }
-        if let handle, handle != INVALID_HANDLE_VALUE {
-            FindClose(handle)
-            try Test.cancel(
-                "The current token is not subject to the installed deny ACE",
-                sourceLocation: sourceLocation
-            )
-        }
-    }
-
-
     @Test
     func `List-denied subdirectory reports one error and the rest is copied`() throws {
 
@@ -102,7 +82,7 @@ extension FileSystemAPITests.CopyTests.WindowsTraversalErrorTests {
         let lockedPath = src.appending("locked")
         try denyListing(at: lockedPath)
         defer { restoreFullAccess(at: lockedPath) }
-        try requireListingDenied(at: lockedPath)
+        try Support.requireListingDenied(at: lockedPath)
 
         let report = fileSystem.copyItem(at: src, to: dst, errorStrategy: .collectAndReturn).makeItemErrorReport()
 

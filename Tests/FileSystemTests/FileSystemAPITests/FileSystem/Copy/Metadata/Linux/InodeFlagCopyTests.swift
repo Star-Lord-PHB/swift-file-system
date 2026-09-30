@@ -31,33 +31,14 @@ extension FileSystemAPITests.CopyTests {
 
 extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
 
-    /// Sets the flags without recording an issue on failure, for capability probing
-    /// and non-throwing cleanup.
-    private func trySetNativeInodeFlags(_ flags: LinuxInodeFlags, at path: FilePath) -> Bool {
-        let descriptor = path.withPlatformString { open($0, O_RDONLY | O_CLOEXEC) }
-        guard descriptor >= 0 else { return false }
-        defer { close(descriptor) }
-        var rawFlags = flags.rawValue
-        return ioctl(descriptor, FS_IOC_SETFLAGS, &rawFlags) == 0
-    }
-
-
-    /// Inserts `flag` into the item's current flags, cancelling the test when the
-    /// filesystem does not support inode flags or the process lacks the capability
-    /// (the copy treats flags as best effort, so unsupported is not a failure).
-    private func insertFlagOrCancel(
+    /// Inserts `flag` into the item's current flags.
+    private func insertFlag(
         _ flag: LinuxInodeFlags,
         at path: FilePath,
         sourceLocation: SourceLocation = #_sourceLocation
     ) throws {
-        var flags = try Support.captureNativeInodeFlags(at: path, sourceLocation: sourceLocation)
-        flags.insert(flag)
-        if !trySetNativeInodeFlags(flags, at: path) {
-            try Test.cancel(
-                "Cannot set the inode flag on this filesystem",
-                sourceLocation: sourceLocation
-            )
-        }
+        let flags = try Support.captureNativeInodeFlags(at: path, sourceLocation: sourceLocation)
+        try Support.setNativeInodeFlags(flags.union(flag), at: path, sourceLocation: sourceLocation)
     }
 
 
@@ -80,7 +61,8 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
     func `Preserves the noDump flag of a file`() throws {
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
-        try insertFlagOrCancel(.noDump, at: src)
+        try Support.requireInodeFlagSettable(.noDump, at: src)
+        try insertFlag(.noDump, at: src)
         let dst = workspace.path("dst.txt")
 
         try fileSystem.copyItem(at: src, to: dst)
@@ -99,7 +81,8 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
                 "file.txt": .file(contents: "contents")
             ]
         )
-        try insertFlagOrCancel(.noDump, at: src)
+        try Support.requireInodeFlagSettable(.noDump, at: src)
+        try insertFlag(.noDump, at: src)
         let dst = workspace.path("dst")
 
         try fileSystem.copyItem(at: src, to: dst)
@@ -120,7 +103,8 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
             clearImmutableFlag(at: src)
             clearImmutableFlag(at: dst)
         }
-        try insertFlagOrCancel(.immutable, at: src)
+        try Support.requireInodeFlagSettable(.immutable, at: src)
+        try insertFlag(.immutable, at: src)
 
         try fileSystem.copyItem(at: src, to: dst)
 
@@ -155,10 +139,8 @@ extension FileSystemAPITests.CopyTests.InodeFlagCopyTests {
         // /proc/version has stable contents and is only read. All destination writes stay
         // in the workspace, and source access-time restoration is explicitly disabled.
         let src: FilePath = "/proc/version"
+        try Support.requireProcfsFileReadable(at: src)
         let descriptor = src.withPlatformString { open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
-        if descriptor < 0 && (errno == ENOENT || errno == EACCES) {
-            try Test.cancel("A readable /proc/version is unavailable")
-        }
         try #require(descriptor >= 0)
         defer { close(descriptor) }
 

@@ -49,9 +49,7 @@ extension FileSystemAPITests.CopyTests.POSIXTraversalErrorTests {
     @Test
     func `Unreadable subdirectory reports errors and the rest is copied`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
         #if !(canImport(Darwin) || os(Linux))
         try Test.cancel("Unverified platform behavior")
         #endif
@@ -116,9 +114,7 @@ extension FileSystemAPITests.CopyTests.POSIXTraversalErrorTests {
     @Test
     func `No-execute directory reports each child and copies the rest`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let src = try workspace.makeFixture(
             at: "src",

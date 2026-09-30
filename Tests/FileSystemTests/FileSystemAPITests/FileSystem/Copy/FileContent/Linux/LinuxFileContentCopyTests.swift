@@ -147,12 +147,7 @@ extension FileSystemAPITests.CopyTests.LinuxFileContentCopyTests {
         // procfs files report a size of 0, so whichever mechanism takes them must read until the
         // end instead of trusting the size. The source is only read.
         let src: FilePath = "/proc/self/status"
-        let descriptor = src.withPlatformString { open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
-        if descriptor < 0 && (errno == ENOENT || errno == EACCES) {
-            try Test.cancel("A readable /proc/self/status is unavailable")
-        }
-        try #require(descriptor >= 0)
-        close(descriptor)
+        try Support.requireProcfsFileReadable(at: src)
         let expectedMechanism = try probeContentMechanism(for: src)
         let dst = workspace.path("status.txt")
         var handler = CopyItemHandler(

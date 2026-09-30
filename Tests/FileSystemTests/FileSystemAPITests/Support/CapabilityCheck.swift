@@ -5,9 +5,10 @@ import SwiftFileSystem
 
 /// Environment capability checks that cancel the test when a capability it needs is absent.
 ///
-/// Each check exercises the capability natively, independent of the library under test, right
-/// where the test is about to use it, so it sees the same file system and access policy as the
-/// test itself. A failure that does not mean "absent" fails the test instead.
+/// Where it can, a check exercises the capability natively, independent of the library under
+/// test, right where the test is about to use it, so it sees the same file system and access
+/// policy as the test itself; the others look up the process identity, the identities available
+/// to it, or an API's presence. A failure that does not mean "absent" fails the test instead.
 extension FileSystemTestSupport {
 
     #if !canImport(WinSDK)
@@ -121,5 +122,173 @@ extension FileSystemTestSupport {
             )
         }
     }
+
+
+    /// Cancels the test when reads on `workspace`'s volume do not push access times forward (a
+    /// `noatime` mount, or NTFS with last-access updates disabled), so the test could neither
+    /// observe that push nor prove it was undone.
+    ///
+    /// The probe file sits at a fixed path in the workspace, so call this at most once per
+    /// workspace.
+    static func requireAccessTimeUpdatesOnRead(
+        in workspace: Workspace,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        if try !volumeUpdatesAccessTimeOnRead(in: workspace, sourceLocation: sourceLocation) {
+            try Test.cancel(
+                "The volume does not update access times on read",
+                sourceLocation: sourceLocation
+            )
+        }
+    }
+
+
+    /// Returns a group other than `excludedGroup` that the current process may give an item,
+    /// cancelling the test when there is none.
+    static func requireReplacementGroup(
+        excluding excludedGroup: PlatformIdentity.RawID,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> PlatformIdentity {
+        if let group = try replacementGroup(excluding: excludedGroup, sourceLocation: sourceLocation) {
+            return group
+        }
+        #if canImport(WinSDK)
+        try Test.cancel(
+            "The current token has no alternate enabled group",
+            sourceLocation: sourceLocation
+        )
+        #else
+        try Test.cancel(
+            "No alternate group is available to the current process",
+            sourceLocation: sourceLocation
+        )
+        #endif
+    }
+
+
+    #if canImport(WinSDK)
+    /// Returns an owner other than `excludedOwner` that the current token may assign, cancelling
+    /// the test when there is none.
+    static func requireReplacementOwner(
+        excluding excludedOwner: WindowsSid,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws -> PlatformIdentity {
+        if let owner = try replacementOwner(excluding: excludedOwner, sourceLocation: sourceLocation) {
+            return owner
+        }
+        try Test.cancel(
+            "The current token has no alternate assignable owner",
+            sourceLocation: sourceLocation
+        )
+    }
+
+
+    /// Cancels the test when the current token can still list the directory at `path` despite the
+    /// deny ACE installed on it (for example a token with enabled backup privileges).
+    static func requireListingDenied(
+        at path: FilePath,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        var findData = WIN32_FIND_DATAW()
+        let handle = path.appending("*").withPlatformString { pattern in
+            FindFirstFileW(pattern, &findData)
+        }
+        if let handle, handle != INVALID_HANDLE_VALUE {
+            FindClose(handle)
+            try Test.cancel(
+                "The current token is not subject to the installed deny ACE",
+                sourceLocation: sourceLocation
+            )
+        }
+    }
+
+
+    /// Cancels the test when `GetFileInformationByName` is unavailable; it arrived with
+    /// Windows 11 24H2 and Windows Server 2025.
+    static func requireFileInformationByNameAvailable(
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        if getGetFileInformationByNameFuncPtr() == nil {
+            try Test.cancel(
+                "GetFileInformationByName is unavailable on this system",
+                sourceLocation: sourceLocation
+            )
+        }
+    }
+    #else
+    /// Cancels the test when the process is not subject to POSIX permission checks, so a denial
+    /// the test sets up would not take effect: root bypasses the permission bits.
+    static func requirePermissionChecksEnforced(
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        if geteuid() == 0 {
+            try Test.cancel(
+                "Root is not subject to POSIX permission checks",
+                sourceLocation: sourceLocation
+            )
+        }
+    }
+    #endif
+
+
+    #if os(Linux) || os(Android)
+    /// Cancels the test when `flag` cannot be set on the item at `path`: its file system has no
+    /// inode flags or not this one, or the process may not set it (the immutable and append-only
+    /// flags need CAP_LINUX_IMMUTABLE, which even root in a container usually lacks).
+    ///
+    /// The check sets the flag and restores the previous flags, which moves the item's ctime, so
+    /// it goes before any snapshot of the item.
+    static func requireInodeFlagSettable(
+        _ flag: LinuxInodeFlags,
+        at path: FilePath,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let descriptor = path.withPlatformString { open($0, O_RDONLY | O_CLOEXEC) }
+        try #require(descriptor >= 0, "open failed with errno \(errno)", sourceLocation: sourceLocation)
+        defer { close(descriptor) }
+        var previousFlags = 0 as PlatformInteropTypes.PosixInodeFlags
+        if ioctl(descriptor, FS_IOC_GETFLAGS, &previousFlags) == 0 {
+            var probeFlags = LinuxInodeFlags(rawValue: previousFlags).union(flag).rawValue
+            if ioctl(descriptor, FS_IOC_SETFLAGS, &probeFlags) == 0 {
+                try #require(
+                    ioctl(descriptor, FS_IOC_SETFLAGS, &previousFlags) == 0,
+                    "Restoring the inode flags failed with errno \(errno)",
+                    sourceLocation: sourceLocation
+                )
+                return
+            }
+        }
+        // ENOTTY and EOPNOTSUPP: no inode flags or not this one; EPERM and EACCES: not permitted.
+        try #require(
+            errno == ENOTTY || errno == EOPNOTSUPP || errno == EPERM || errno == EACCES,
+            "Setting the inode flag failed with errno \(errno)",
+            sourceLocation: sourceLocation
+        )
+        try Test.cancel(
+            "The inode flag cannot be set here (errno \(errno))",
+            sourceLocation: sourceLocation
+        )
+    }
+
+
+    /// Cancels the test when the procfs file at `path` is missing or unreadable, as when procfs is
+    /// not mounted or its policy hides the file from the process.
+    static func requireProcfsFileReadable(
+        at path: FilePath,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let descriptor = path.withPlatformString { open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW) }
+        if descriptor >= 0 {
+            close(descriptor)
+            return
+        }
+        try #require(
+            errno == ENOENT || errno == EACCES,
+            "open failed with errno \(errno)",
+            sourceLocation: sourceLocation
+        )
+        try Test.cancel("\(path) is not readable here (errno \(errno))", sourceLocation: sourceLocation)
+    }
+    #endif
 
 }

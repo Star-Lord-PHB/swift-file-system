@@ -448,9 +448,7 @@ extension FileSystemAPITests.CopyTests.DaclCopyTests {
     @Test
     func `DACL write does not push the destination access time`() throws {
 
-        if try !Support.volumeUpdatesAccessTimeOnRead(in: workspace) {
-            try Test.cancel("The volume does not update access times on read")
-        }
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         // A protected source guarantees the destination commit writes a DACL, and the
         // DACL is written last — after the times. A propagating ACL API would push the

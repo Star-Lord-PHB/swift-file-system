@@ -124,13 +124,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         // granted implicitly; grant it explicitly so the test does not depend on an elevated token.
         try prepareProtectedDacl(at: path, secondaryPermission: .writeOwner)
         let securityBeforeSet = try captureSecurity(at: path)
-        guard 
-            let replacementOwner = try Support.replacementOwner(
-                excluding: securityBeforeSet.owner.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate assignable owner")
-        }
+        let replacementOwner = try Support.requireReplacementOwner(
+            excluding: securityBeforeSet.owner.rawId
+        )
 
         try fileSystem.setSecurityInfo(forItemAt: path, owner: replacementOwner)
 
@@ -153,13 +149,9 @@ extension FileSystemAPITests.MetadataTests.WindowsSecurityInfoTests {
         // never granted implicitly; grant it explicitly so the test does not depend on an elevated token.
         try prepareProtectedDacl(at: path, secondaryPermission: .writeOwner)
         let securityBeforeSet = try captureSecurity(at: path)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: securityBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: securityBeforeSet.group.rawId
+        )
 
         try fileSystem.setSecurityInfo(forItemAt: path, group: replacementGroup)
 

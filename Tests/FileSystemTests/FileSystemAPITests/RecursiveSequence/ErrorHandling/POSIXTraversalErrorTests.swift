@@ -53,9 +53,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
     @Test
     func `Unreadable subdirectory reports a sub-tree error and siblings are still visited`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",
@@ -92,9 +90,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
     @Test
     func `Entries of a readable no-search directory are listed with their directory-entry kinds`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",
@@ -125,9 +121,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
     @Test
     func `Recursive sequence reports an unreadable root and ends`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeDirectory(at: "locked-root")
         try setPermissions(0o000, at: path)
@@ -151,9 +145,7 @@ extension RecursiveSequenceAPITests.ErrorHandlingTests.POSIXTraversalErrorTests 
     @Test
     func `Skipping descendants of an unreadable directory reports no sub-tree error`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",

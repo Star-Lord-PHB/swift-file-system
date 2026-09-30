@@ -31,24 +31,9 @@ extension FileSystemAPITests.RemovalTests {
         let listingProbeDirectory = try workspace.makeDirectory(at: "obstruction-probe/listing")
         try denyListing(of: listingProbeDirectory, sourceLocation: sourceLocation)
         defer { restoreListing(of: listingProbeDirectory) }
-        var findData = WIN32_FIND_DATAW()
-        let handle = listingProbeDirectory.appending("*").withPlatformString { pattern in
-            FindFirstFileW(pattern, &findData)
-        }
-        if let handle, handle != INVALID_HANDLE_VALUE {
-            FindClose(handle)
-            try Test.cancel(
-                "The current token can list a directory that denies it",
-                sourceLocation: sourceLocation
-            )
-        }
+        try Support.requireListingDenied(at: listingProbeDirectory, sourceLocation: sourceLocation)
         #else
-        if geteuid() == 0 {
-            try Test.cancel(
-                "Root is not subject to POSIX permission checks",
-                sourceLocation: sourceLocation
-            )
-        }
+        try Support.requirePermissionChecksEnforced(sourceLocation: sourceLocation)
         #endif
     }
 

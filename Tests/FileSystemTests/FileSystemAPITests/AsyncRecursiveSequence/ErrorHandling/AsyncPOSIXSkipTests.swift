@@ -53,9 +53,7 @@ extension AsyncRecursiveSequenceAPITests.ErrorHandlingTests.POSIXSkipTests {
         batchCount: Int
     ) async throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",
@@ -93,9 +91,7 @@ extension AsyncRecursiveSequenceAPITests.ErrorHandlingTests.POSIXSkipTests {
         batchCount: Int
     ) async throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",

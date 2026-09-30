@@ -54,9 +54,7 @@ extension AsyncFileHandleAPITests.DirectoryTests.POSIXListingTests {
     @Test
     func `Listing a directory made unreadable after open fails once and ends`() async throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",

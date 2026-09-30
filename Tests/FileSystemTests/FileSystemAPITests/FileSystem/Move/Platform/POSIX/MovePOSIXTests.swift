@@ -48,9 +48,7 @@ extension FileSystemAPITests.MoveTests.MovePOSIXTests {
     @Test
     func `Read-only source parent denies the move`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let src = try workspace.makeFile(at: "src-parent/src.txt", contents: "contents")
         let srcParent = workspace.path("src-parent")
@@ -72,9 +70,7 @@ extension FileSystemAPITests.MoveTests.MovePOSIXTests {
     @Test
     func `Read-only destination parent denies the move`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let src = try workspace.makeFile(at: "src.txt", contents: "contents")
         let dstParent = try workspace.makeDirectory(at: "dst-parent")

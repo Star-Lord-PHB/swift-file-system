@@ -88,13 +88,9 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard
-            let replacementOwner = try Support.replacementOwner(
-                excluding: ownershipBeforeSet.owner.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate assignable owner")
-        }
+        let replacementOwner = try Support.requireReplacementOwner(
+            excluding: ownershipBeforeSet.owner.rawId
+        )
         let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: replacementOwner, group: nil)
@@ -113,13 +109,9 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
         let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: nil, group: replacementGroup)
@@ -140,13 +132,9 @@ extension FileHandleAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
         let handle = try ReadFileHandle(forFileAt: path)
         try installProtectedDaclWithoutWriteOwner(at: path)
 

@@ -122,13 +122,9 @@ extension AsyncFileSystemAPITests.POSIXForwardingTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try Support.ItemMetadata.captureSecurity(at: path).ownership
-        guard
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
 
         try await asyncFileSystem.setOwner(forItemAt: path, owner: nil, group: replacementGroup)
 
@@ -142,9 +138,7 @@ extension AsyncFileSystemAPITests.POSIXForwardingTests {
     @Test
     func `canAccess forwards the access mode`() async throws {
 
-        guard geteuid() != 0 else {
-            try Test.cancel("Root bypasses ordinary POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFile(at: "file")
         try setFoundationPermissions(FilePermissions(rawValue: 0o400), at: path)

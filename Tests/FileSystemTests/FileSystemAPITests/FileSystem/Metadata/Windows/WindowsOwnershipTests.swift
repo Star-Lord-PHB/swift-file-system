@@ -155,13 +155,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard 
-            let replacementOwner = try Support.replacementOwner(
-                excluding: ownershipBeforeSet.owner.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate assignable owner")
-        }
+        let replacementOwner = try Support.requireReplacementOwner(
+            excluding: ownershipBeforeSet.owner.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: path,
@@ -181,13 +177,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: path,
@@ -207,13 +199,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let path = try workspace.makeDirectory(at: "directory")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: path,
@@ -250,13 +238,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         let targetOwnershipBeforeSet = try captureOwnership(at: target)
         let linkOwnershipBeforeSet = try captureOwnership(at: link)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: targetOwnershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: targetOwnershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: link,
@@ -281,13 +265,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         let targetOwnershipBeforeSet = try captureOwnership(at: target)
         let linkOwnershipBeforeSet = try captureOwnership(at: link)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: linkOwnershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: linkOwnershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: link,
@@ -311,13 +291,9 @@ extension FileSystemAPITests.MetadataTests.WindowsOwnershipTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
         let linkOwnershipBeforeSet = try captureOwnership(at: link)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: linkOwnershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("The current token has no alternate enabled group")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: linkOwnershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: link,

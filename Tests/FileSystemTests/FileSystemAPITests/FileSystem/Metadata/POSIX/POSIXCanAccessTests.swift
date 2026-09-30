@@ -45,9 +45,7 @@ extension FileSystemAPITests.MetadataTests.POSIXCanAccessTests {
     @Test
     func `Default access check requires read and write`() throws {
 
-        guard geteuid() != 0 else {
-            try Test.cancel("Root bypasses ordinary POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let readOnlyPath = try workspace.makeFile(at: "read-only")
         try setPermissions(.init(rawValue: 0o400), at: readOnlyPath)
@@ -101,9 +99,7 @@ extension FileSystemAPITests.MetadataTests.POSIXCanAccessTests {
     @Test
     func `Denied permissions return false`() throws {
 
-        guard geteuid() != 0 else {
-            try Test.cancel("Root bypasses ordinary POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFile(at: "file")
         try setPermissions(.init(rawValue: 0o000), at: path)
@@ -118,9 +114,7 @@ extension FileSystemAPITests.MetadataTests.POSIXCanAccessTests {
     @Test
     func `Access check follows symlinks by default`() throws {
 
-        guard geteuid() != 0 else {
-            try Test.cancel("Root bypasses ordinary POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let target = try workspace.makeFile(at: "target")
         try setPermissions(.init(rawValue: 0o000), at: target)
@@ -134,9 +128,7 @@ extension FileSystemAPITests.MetadataTests.POSIXCanAccessTests {
     @Test
     func `No-follow access check handles symlink itself`() throws {
 
-        guard geteuid() != 0 else {
-            try Test.cancel("Root bypasses ordinary POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let target = try workspace.makeFile(at: "target")
         try setPermissions(.init(rawValue: 0o000), at: target)

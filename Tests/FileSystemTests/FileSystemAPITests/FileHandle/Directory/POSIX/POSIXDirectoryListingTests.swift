@@ -72,9 +72,7 @@ extension FileHandleAPITests.DirectoryTests.POSIXListingTests {
     @Test
     func `Unreadable directory open fails`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeDirectory(at: "locked")
         try setPermissions(0o000, at: path)
@@ -92,9 +90,7 @@ extension FileHandleAPITests.DirectoryTests.POSIXListingTests {
     @Test
     func `Listing a directory made unreadable after open fails once and ends`() throws {
 
-        if geteuid() == 0 {
-            try Test.cancel("Root is not subject to POSIX permission checks")
-        }
+        try Support.requirePermissionChecksEnforced()
 
         let path = try workspace.makeFixture(
             at: "directory",

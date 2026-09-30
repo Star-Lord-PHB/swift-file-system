@@ -156,13 +156,9 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(forItemAt: path, owner: nil, group: replacementGroup)
 
@@ -180,13 +176,9 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         let targetOwnershipBeforeSet = try captureOwnership(at: target)
         let linkOwnershipBeforeSet = try captureOwnership(at: link)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: targetOwnershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: targetOwnershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(forItemAt: link, owner: nil, group: replacementGroup)
 
@@ -207,13 +199,9 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
         let link = try workspace.makeSymlink(at: "link", pointingTo: target)
         let targetOwnershipBeforeSet = try captureOwnership(at: target)
         let linkOwnershipBeforeSet = try captureOwnership(at: link)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: linkOwnershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: linkOwnershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: link,
@@ -237,13 +225,9 @@ extension FileSystemAPITests.MetadataTests.POSIXOwnershipTests {
 
         let link = try workspace.makeSymlink(at: "link", pointingTo: "missing-target")
         let linkOwnershipBeforeSet = try captureOwnership(at: link)
-        guard 
-            let replacementGroup = try Support.replacementGroup(
-                excluding: linkOwnershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: linkOwnershipBeforeSet.group.rawId
+        )
 
         try fileSystem.setOwner(
             forItemAt: link,

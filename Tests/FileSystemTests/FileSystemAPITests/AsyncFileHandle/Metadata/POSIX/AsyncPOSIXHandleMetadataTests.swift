@@ -85,13 +85,9 @@ extension AsyncFileHandleAPITests.MetadataTests.POSIXForwardingTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try Support.ItemMetadata.captureSecurity(at: path).ownership
-        guard
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
         let handle = try await AsyncReadFileHandle(forFileAt: path)
 
         try await handle.setOwner(owner: nil, group: replacementGroup)

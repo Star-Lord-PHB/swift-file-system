@@ -34,20 +34,6 @@ extension FileSystemAPITests.CopyTests {
 
 extension FileSystemAPITests.CopyTests.CopySessionCancellationTests {
 
-    /// Cancels when the volume does not push access times on reads: proving that a pushed
-    /// access time was restored needs the push.
-    private func requireAccessTimeUpdates(
-        sourceLocation: SourceLocation = #_sourceLocation
-    ) throws {
-        if try !Support.volumeUpdatesAccessTimeOnRead(in: workspace, sourceLocation: sourceLocation) {
-            try Test.cancel(
-                "The volume does not update access times on read",
-                sourceLocation: sourceLocation
-            )
-        }
-    }
-
-
     private func entryCount(of directory: FilePath) throws -> Int {
         try FileManager.default.contentsOfDirectory(atPath: directory.string).count
     }
@@ -131,7 +117,7 @@ extension FileSystemAPITests.CopyTests.CopySessionCancellationTests {
     @Test
     func `Cancelling with a file in progress restores the source directory access time`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFixture(
             at: "src",
@@ -248,7 +234,7 @@ extension FileSystemAPITests.CopyTests.CopySessionCancellationTests {
     @Test
     func `Cancelling with a directory on the stack restores its source access time`() throws {
 
-        try requireAccessTimeUpdates()
+        try Support.requireAccessTimeUpdatesOnRead(in: workspace)
 
         let src = try workspace.makeFixture(
             at: "src",

@@ -65,13 +65,9 @@ extension FileHandleAPITests.MetadataTests.POSIXOwnershipTests {
 
         let path = try workspace.makeFile(at: "file")
         let ownershipBeforeSet = try captureOwnership(at: path)
-        guard
-            let replacementGroup = try Support.replacementGroup(
-                excluding: ownershipBeforeSet.group.rawId
-            )
-        else {
-            try Test.cancel("No alternate group is available to the current process")
-        }
+        let replacementGroup = try Support.requireReplacementGroup(
+            excluding: ownershipBeforeSet.group.rawId
+        )
         let handle = try ReadFileHandle(forFileAt: path)
 
         try handle.setOwner(owner: nil, group: replacementGroup)
