@@ -63,8 +63,17 @@ extension InternalFS {
         if accessMode.contains(.write) { mode |= W_OK }
         if accessMode.contains(.execute) { mode |= X_OK }
         
+        #if os(Linux) || os(Android)
+        // Bionic rejects AT_SYMLINK_NOFOLLOW and musl needs faccessat2 (Linux 5.8) for it. A symlink's own
+        // permissions are fixed and never checked, and anything else has no trailing symlink to follow.
+        if !followSymlink, (try? type(ofItemAt: path)) == .symlink { return true }
+        let flags = 0 as Int32
+        #else
+        let flags = followSymlink ? 0 : AT_SYMLINK_NOFOLLOW
+        #endif
+
         let response = path.withPlatformStringTypedThrow { pathPtr in
-            PlatformCLib.faccessat(AT_FDCWD, pathPtr, mode, followSymlink ? 0 : AT_SYMLINK_NOFOLLOW)
+            PlatformCLib.faccessat(AT_FDCWD, pathPtr, mode, flags)
         }
         
         if response == 0 { return true }
