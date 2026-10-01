@@ -1,5 +1,7 @@
 # Swift FileSystem
 
+[![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FStar-Lord-PHB%2Fswift-file-system%2Fbadge%3Ftype%3Dswift-versions)](https://swiftpackageindex.com/Star-Lord-PHB/swift-file-system) [![](https://img.shields.io/endpoint?url=https%3A%2F%2Fswiftpackageindex.com%2Fapi%2Fpackages%2FStar-Lord-PHB%2Fswift-file-system%2Fbadge%3Ftype%3Dplatforms)](https://swiftpackageindex.com/Star-Lord-PHB/swift-file-system)
+
 A cross-platform Swift package that provides both synchronous and asynchronous APIs for filesystem operations.
 
 
