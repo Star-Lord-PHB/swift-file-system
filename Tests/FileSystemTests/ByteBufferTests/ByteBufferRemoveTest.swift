@@ -106,8 +106,8 @@ extension ByteBufferTest.Removal {
     }
 
 
-    // swift-testing has no exit tests on Android.
-    #if !os(Android)
+    // swift-testing has no exit tests on iOS, tvOS, watchOS, visionOS, Android or WASI.
+    #if !(os(iOS) || os(tvOS) || os(watchOS) || os(visionOS) || os(Android) || os(WASI))
     @Test
     func `Invalid removals trap`() async {
 

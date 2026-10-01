@@ -20,12 +20,20 @@ extension FileSystemTestSupport {
                 }
                 return Int64(count)
 
-            #elseif canImport(Darwin)
+            #elseif os(macOS)
                 let byteCount = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nil, 0)
                 guard byteCount >= 0 else {
                     throw CountError.unableToReadOpenResourceCount
                 }
                 return Int64(byteCount / Int32(MemoryLayout<proc_fdinfo>.size))
+
+            #elseif canImport(Darwin)
+                // libproc is macOS-only and there is no /proc, so probe every descriptor slot.
+                var count = Int64(0)
+                for fd in 0 ..< getdtablesize() where fcntl(fd, F_GETFD) != -1 {
+                    count += 1
+                }
+                return count
 
             #else
                 guard let directory = opendir("/proc/self/fd") else {

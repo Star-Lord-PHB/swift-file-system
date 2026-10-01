@@ -108,7 +108,12 @@ extension FileSystemAPITests.CommonPathsTests {
     func `Home dir matches Foundation`() throws {
 
         let path = try fileSystem.homeDirectoryPath()
+        #if os(macOS) || canImport(WinSDK)
         let expected = FileManager.default.homeDirectoryForCurrentUser
+        #else
+        // `homeDirectoryForCurrentUser` is macOS-only among the Darwin platforms.
+        let expected = NSHomeDirectory()
+        #endif
 
         try expectEquivalentPath(path, expected: expected)
 

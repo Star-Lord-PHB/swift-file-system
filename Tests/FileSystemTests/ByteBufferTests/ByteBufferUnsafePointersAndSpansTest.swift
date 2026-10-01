@@ -82,8 +82,8 @@ extension ByteBufferTest.UnsafePointersAndSpans {
     }
 
 
-    // swift-testing has no exit tests on Android.
-    #if !os(Android)
+    // swift-testing has no exit tests on iOS, tvOS, watchOS, visionOS, Android or WASI.
+    #if !(os(iOS) || os(tvOS) || os(watchOS) || os(visionOS) || os(Android) || os(WASI))
     @Test
     func `Unsafe scoped mutable pointer mutates unique slice-backed buffers`() async {
 
@@ -243,8 +243,8 @@ extension ByteBufferTest.UnsafePointersAndSpans {
     }
 
 
-    // swift-testing has no exit tests on Android.
-    #if !os(Android)
+    // swift-testing has no exit tests on iOS, tvOS, watchOS, visionOS, Android or WASI.
+    #if !(os(iOS) || os(tvOS) || os(watchOS) || os(visionOS) || os(Android) || os(WASI))
     @Test
     func `Negative OutputSpan initializer capacity traps`() async {
 

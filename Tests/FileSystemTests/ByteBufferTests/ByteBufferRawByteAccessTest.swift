@@ -113,8 +113,8 @@ extension ByteBufferTest.RawByteAccess {
     }
 
 
-    // swift-testing has no exit tests on Android.
-    #if !os(Android)
+    // swift-testing has no exit tests on iOS, tvOS, watchOS, visionOS, Android or WASI.
+    #if !(os(iOS) || os(tvOS) || os(watchOS) || os(visionOS) || os(Android) || os(WASI))
     @Test
     func `Invalid raw byte offsets trap`() async {
 
@@ -203,8 +203,8 @@ extension ByteBufferTest.RawByteAccess {
     }
 
 
-    // swift-testing has no exit tests on Android.
-    #if !os(Android)
+    // swift-testing has no exit tests on iOS, tvOS, watchOS, visionOS, Android or WASI.
+    #if !(os(iOS) || os(tvOS) || os(watchOS) || os(visionOS) || os(Android) || os(WASI))
     @Test
     func `Storing empty non-contiguous bytes into an empty buffer is a no-op`() async {
 
