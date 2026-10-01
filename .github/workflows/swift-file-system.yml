@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   tests:
-    name: Tests
+    name: Tests (excluding Darwin)
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.15
     with:
       linux_swift_versions: '["6.2", "6.3", "6.4"]'
@@ -27,3 +27,80 @@ jobs:
       enable_android_sdk_checks: true
       android_sdk_versions: '["6.4"]'
       android_ndk_versions: '["r30"]'
+
+  # The Apple-platform jobs of the reusable workflow only run on swiftlang's self-hosted runners,
+  # so these run on GitHub-hosted ones instead.
+  macos:
+    name: macOS (Swift ${{ matrix.swift_version }} - Xcode ${{ matrix.xcode_version }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - swift_version: "6.2"
+            xcode_version: "26.3"
+            runner: macos-26
+          - swift_version: "6.3"
+            xcode_version: "26.6"
+            runner: macos-26
+          - swift_version: "6.4"
+            xcode_version: "27.0"
+            runner: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode_version }}.app/Contents/Developer
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Swift version
+        run: xcrun swift --version
+      - name: Test
+        run: xcrun swift test
+
+  apple-platforms:
+    name: Apple Platforms (Build Only, Xcode 27.0)
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Swift version
+        run: |
+          "$(xcrun -f swift)" --version
+      - name: Build for iOS
+        run: |
+          "$(xcrun -f swift)" build --build-tests --sdk "$(xcrun --sdk iphoneos --show-sdk-path)" --triple arm64-apple-ios
+      - name: Build for tvOS
+        if: ${{ !cancelled() }}
+        run: |
+          "$(xcrun -f swift)" build --build-tests --sdk "$(xcrun --sdk appletvos --show-sdk-path)" --triple arm64-apple-tvos
+      - name: Build for watchOS
+        if: ${{ !cancelled() }}
+        run: |
+          "$(xcrun -f swift)" build --build-tests --sdk "$(xcrun --sdk watchos --show-sdk-path)" --triple arm64_32-apple-watchos
+      - name: Build for visionOS
+        if: ${{ !cancelled() }}
+        run: |
+          "$(xcrun -f swift)" build --build-tests --sdk "$(xcrun --sdk xros --show-sdk-path)" --triple arm64-apple-xros
+      - name: Build for macOS (x86_64)
+        if: ${{ !cancelled() }}
+        run: |
+          "$(xcrun -f swift)" build --build-tests --triple x86_64-apple-macosx
+
+  ios-simulator:
+    name: iOS Simulator (Xcode 27.0)
+    runs-on: xcode-27
+    timeout-minutes: 60
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.0.app/Contents/Developer
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+      - name: Test
+        run: >-
+          xcodebuild test
+          -scheme swift-file-system-Package
+          -destination "platform=iOS Simulator,name=iPhone 17,OS=latest"
+          -skipPackagePluginValidation
