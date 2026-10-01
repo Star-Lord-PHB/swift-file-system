@@ -44,7 +44,7 @@ Where behavior can be made consistent across platforms, it is, but where it cann
 **Requirements:**
 - Swift 6.2+
 - macOS 10.15+, iOS 13+, tvOS 13+, watchOS 6+
-- Supported Non-Apple platforms: Linux and Windows
+- Supported Non-Apple platforms: Linux, Windows and Android
 
 Add this package to the dependencies of your SPM project:
 
