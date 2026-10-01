@@ -120,7 +120,9 @@ extension ByteBufferTest.Reader {
         buffer.append(rawBytesOf: 10 as UInt64)
         buffer.append(rawBytesOf: 1.25 as Float)
         buffer.append(rawBytesOf: 2.5 as Double)
+        #if !((os(macOS) || targetEnvironment(macCatalyst)) && arch(x86_64))
         buffer.append(rawBytesOf: Float16(3.5))
+        #endif
         buffer.append(rawBytesOf: true)
         buffer.append(0xFF)
 
@@ -138,7 +140,9 @@ extension ByteBufferTest.Reader {
         #expect(reader.readUInt64() == 10)
         #expect(reader.readFloat() == 1.25)
         #expect(reader.readDouble() == 2.5)
+        #if !((os(macOS) || targetEnvironment(macCatalyst)) && arch(x86_64))
         #expect(reader.readFloat16() == Float16(3.5))
+        #endif
         #expect(reader.readBool() == true)
 
         let offsetBeforeIncompleteRead = reader.readOffset

@@ -204,10 +204,15 @@ extension ByteBuffer.Reader {
         return self.read(as: Double.self)
     }
 
+    // Float16 does not exist on x86_64 macOS / Mac Catalyst, and needs macOS 11, iOS 14, tvOS 14
+    // or watchOS 7 on the other Apple targets.
+    #if !((os(macOS) || targetEnvironment(macCatalyst)) && arch(x86_64))
+    @available(macOS 11.0, iOS 14.0, tvOS 14.0, watchOS 7.0, *)
     @inlinable
     public mutating func readFloat16() -> Float16? {
         return self.read(as: Float16.self)
     }
+    #endif
 
     @inlinable
     public mutating func readBool() -> Bool? {
