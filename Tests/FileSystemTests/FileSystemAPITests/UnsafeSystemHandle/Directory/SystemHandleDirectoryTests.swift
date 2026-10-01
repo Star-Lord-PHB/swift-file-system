@@ -57,6 +57,29 @@ extension UnsafeSystemHandleAPITests.DirectoryTests {
     }
 
 
+    // The sibling carries the name a lossy `String` conversion would produce, so opening it
+    // instead shows up as a different identity.
+    @Test
+    func `openDir opens a directory whose name is not valid Unicode`() throws {
+
+        try Support.requireNonUnicodeNamesAvailable(in: workspace.root)
+        let name = Support.nonUnicodeName("dir")
+        let siblingName = Support.nameAfterLossyStringConversion(of: name)
+        let sibling = try workspace.makeDirectory(at: FilePath(root: nil, [siblingName]))
+        try workspace.makeDirectory(at: "staging")
+        let path = try workspace.renameNatively("staging", to: name)
+
+        let handle = try UnsafeSystemHandle.openDir(at: path)
+
+        let identifier = try handle.info().fileIdentifier
+        #expect(try Support.ItemMetadata.captureIdentifier(at: path) == identifier)
+        #expect(try Support.ItemMetadata.captureIdentifier(at: sibling) != identifier)
+
+        try handle.close()
+
+    }
+
+
     @Test
     func `openDir follows a symlink to a directory`() throws {
 

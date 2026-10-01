@@ -195,6 +195,37 @@ extension FileSystemAPITests.RemovalTests {
     }
 
 
+    // The sibling carries the name a lossy `String` conversion would produce: the removal must
+    // descend into the named directory and leave the sibling alone.
+    @Test
+    func `Recursively removes a directory whose name is not valid Unicode`() throws {
+
+        try Support.requireNonUnicodeNamesAvailable(in: workspace.root)
+        let name = Support.nonUnicodeName("directory")
+        let sibling = try workspace.makeFixture(
+            at: FilePath(root: nil, [Support.nameAfterLossyStringConversion(of: name)]),
+            ["file": .file(contents: "sibling contents")] as Support.Fixture
+        )
+        try workspace.makeFixture(
+            at: "staging",
+            [
+                "file": .file(contents: "root contents"),
+                "nested": [
+                    "file": .file(contents: "nested contents")
+                ]
+            ] as Support.Fixture
+        )
+        let path = try workspace.renameNatively("staging", to: name)
+        let siblingSnapshot = try Support.TreeSnapshot.capture(at: sibling)
+
+        try fileSystem.removeItem(at: path)
+
+        try Support.expectItemNotExistNoFollow(at: path)
+        try Support.expectTree(at: sibling, matches: siblingSnapshot, using: .unchanged)
+
+    }
+
+
     @Test
     func `Removes a tree of empty directories`() throws {
 

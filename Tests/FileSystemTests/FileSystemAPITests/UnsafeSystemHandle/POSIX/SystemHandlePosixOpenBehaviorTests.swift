@@ -29,6 +29,23 @@ extension UnsafeSystemHandleAPITests.PosixTests {
     }
 
 
+    @Test
+    func `openDir sets FD_CLOEXEC`() throws {
+
+        let path = try workspace.makeDirectory(at: "dir")
+
+        let handle = try UnsafeSystemHandle.openDir(at: path)
+
+        let descriptorFlags = fcntl(handle.unsafeRawHandle, F_GETFD)
+
+        try #require(descriptorFlags >= 0)
+        #expect((descriptorFlags & FD_CLOEXEC) != 0)
+
+        try handle.close()
+
+    }
+
+
     #if canImport(Darwin)
 
     // NOTE: `followSymlink: false` derives O_SYMLINK on Darwin: the symlink itself opens instead of

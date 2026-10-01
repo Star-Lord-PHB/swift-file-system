@@ -240,7 +240,9 @@ extension UnsafeSystemHandle {
 
         #else
 
-        let handle = PlatformCLib.open(path.string, O_RDONLY | O_DIRECTORY)
+        let handle = path.withPlatformString { cStr in
+            PlatformCLib.open(cStr, O_RDONLY | O_DIRECTORY | O_CLOEXEC)
+        }
         guard handle >= 0 else {
             try LowLevelError.assertError()
         }

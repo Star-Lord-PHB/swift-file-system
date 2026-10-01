@@ -72,6 +72,37 @@ extension FileSystemAPITests.CopyTests.RegularFileExistingTargetTests {
     }
 
 
+    // The replacement goes through a temporary file next to the target, whose path is built from
+    // the container's name. The container is renamed back to a plain name before checking it,
+    // since the snapshot helpers and Foundation take `String` paths.
+    @Test
+    func `Overwrite replaces a file in a directory whose name is not valid Unicode`() throws {
+
+        try Support.requireNonUnicodeNamesAvailable(in: workspace.root)
+        let src = try workspace.makeFile(at: "src.txt", contents: "new contents")
+        try workspace.makeFile(at: "container/dst", contents: "existing contents")
+        let name = Support.nonUnicodeName("container")
+        let container = try workspace.renameNatively("container", to: name)
+        let srcSnapshot = try Support.ItemSnapshot.capture(at: src)
+
+        try fileSystem.copyItem(
+            at: src,
+            to: container.appending("dst"),
+            options: .init(existingTarget: .overwrite)
+        )
+
+        try workspace.renameNatively(container, to: "container")
+        let dst = workspace.path("container/dst")
+        try Support.expectItem(at: dst, matches: srcSnapshot, using: .copiedItem)
+        // The temporary file used for the replacement must not survive.
+        let containerEntries = try FileManager.default.contentsOfDirectory(
+            atPath: workspace.path("container").string
+        )
+        #expect(containerEntries == ["dst"])
+
+    }
+
+
     @Test
     func `Overwrite replaces an existing symlink and preserves target`() throws {
 

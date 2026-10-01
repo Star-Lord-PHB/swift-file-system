@@ -103,6 +103,57 @@ extension FileSystemTestSupport {
     }
 
 
+    /// Cancels the test when the file system at `directory` rejects names that are not valid
+    /// Unicode (see ``nonUnicodeName(_:)``).
+    ///
+    /// The check creates a directory with such a name in `directory` and removes it again. APFS
+    /// rejects these names with EILSEQ; NTFS and byte-oriented file systems such as ext4 store them.
+    static func requireNonUnicodeNamesAvailable(
+        in directory: FilePath,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let probe = directory.appending(nonUnicodeName("non-unicode-probe"))
+        #if canImport(WinSDK)
+        if probe.withPlatformString({ CreateDirectoryW($0, nil) }) {
+            try #require(
+                probe.withPlatformString { RemoveDirectoryW($0) },
+                "Removing the probe directory failed with error \(GetLastError())",
+                sourceLocation: sourceLocation
+            )
+            return
+        }
+        let error = GetLastError()
+        try #require(
+            error == DWORD(ERROR_INVALID_NAME),
+            "CreateDirectoryW failed with error \(error)",
+            sourceLocation: sourceLocation
+        )
+        try Test.cancel(
+            "The file system rejects names that are not valid Unicode (error \(error))",
+            sourceLocation: sourceLocation
+        )
+        #else
+        if probe.withPlatformString({ mkdir($0, 0o755) }) == 0 {
+            try #require(
+                probe.withPlatformString { rmdir($0) } == 0,
+                "Removing the probe directory failed with errno \(errno)",
+                sourceLocation: sourceLocation
+            )
+            return
+        }
+        try #require(
+            errno == EILSEQ,
+            "mkdir failed with errno \(errno)",
+            sourceLocation: sourceLocation
+        )
+        try Test.cancel(
+            "The file system rejects names that are not valid Unicode (errno \(errno))",
+            sourceLocation: sourceLocation
+        )
+        #endif
+    }
+
+
     /// Cancels the test when the attribute query of the item at `path` does not report
     /// `attributes` as supported, so the test could not observe them there.
     ///

@@ -97,6 +97,38 @@ extension FileSystemAPITests.CopyTests.DirectoryCopyTests {
     }
 
 
+    // The sibling carries the name a lossy `String` conversion would produce, so copying its
+    // contents instead cannot go unnoticed. The snapshot is taken under the plain name the
+    // snapshot helpers can reach, before the rename, so only logical contents are compared.
+    @Test
+    func `Copies a directory whose name is not valid Unicode`() throws {
+
+        try Support.requireNonUnicodeNamesAvailable(in: workspace.root)
+        let name = Support.nonUnicodeName("src")
+        try workspace.makeFixture(
+            at: FilePath(root: nil, [Support.nameAfterLossyStringConversion(of: name)]),
+            ["other.txt": .file(contents: "other contents")]
+        )
+        let staging = try workspace.makeFixture(
+            at: "staging",
+            [
+                "file.txt": .file(contents: "file contents"),
+                "sub": [
+                    "nested.txt": .file(contents: "nested contents")
+                ],
+            ]
+        )
+        let srcSnapshot = try Support.TreeSnapshot.capture(at: staging)
+        let src = try workspace.renameNatively("staging", to: name)
+        let dst = workspace.path("dst")
+
+        try fileSystem.copyItem(at: src, to: dst)
+
+        try Support.expectTree(at: dst, matches: srcSnapshot, using: .logicalContents)
+
+    }
+
+
     @Test(arguments: [.overwrite, .skip, .error] as [FileOperationOptions.CopyTargetExistOption])
     func `Copies to a missing destination regardless of existing-target option`(
         option: FileOperationOptions.CopyTargetExistOption

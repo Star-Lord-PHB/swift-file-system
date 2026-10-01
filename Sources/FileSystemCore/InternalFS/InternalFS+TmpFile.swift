@@ -12,8 +12,24 @@ extension InternalFS {
         #else 
         let pid = getpid()
         #endif
-        let lastComponent = FilePath.Component("\(prefix).tmp-\(pid)-\(String(UInt64.random(in: 0 ... .max), radix: 16))")!
-        return dirPath.appending(lastComponent)
+        // ASCII only: every character is a single code unit in both UTF-8 and UTF-16
+        let suffix = ".tmp-\(pid)-\(String(UInt64.random(in: 0 ... .max), radix: 16))"
+
+        #if canImport(WinSDK)
+        let path = dirPath.appending(prefix)
+        let pathCount = path.length
+        let suffixBytes = suffix.utf8Span.span
+        return withUnsafeTemporaryAllocation(of: WCHAR.self, capacity: pathCount + suffixBytes.count + 1) { buffer in
+            path.withPlatformString { buffer.baseAddress!.initialize(from: $0, count: pathCount) }
+            for i in suffixBytes.indices {
+                buffer.initializeElement(at: pathCount + i, to: WCHAR(suffixBytes[i]))
+            }
+            buffer.initializeElement(at: pathCount + suffixBytes.count, to: 0)
+            return FilePath(platformString: buffer.baseAddress!)
+        }
+        #else
+        return withCString(dirPath.appending(prefix), appending: suffix) { FilePath(platformString: $0) }
+        #endif
 
     }
 
@@ -58,17 +74,14 @@ extension InternalFS {
 
         #else
 
-        var pathBuffer = (dirPath.string + "/\(prefix).tmp-XXXXXX").utf8CString
-
-        let fd = pathBuffer.withUnsafeMutableBufferPointer { strPtr in 
-            mkstemp(strPtr.baseAddress!)
+        let (fd, tmpPath) = withCString(dirPath.appending(prefix), appending: ".tmp-XXXXXX") { template in
+            let fd = mkstemp(template)
+            return (fd, fd >= 0 ? FilePath(platformString: template) : nil)
         }
 
-        guard fd >= 0 else {
+        guard fd >= 0, let tmpPath else {
             try LowLevelError.assertError()
         }
-
-        let tmpPath = pathBuffer.withUnsafeBufferPointer { FilePath(platformString: $0.baseAddress!) }
 
         return .init(path: tmpPath, handle: .init(owningRawHandle: fd))
 
@@ -83,5 +96,26 @@ extension InternalFS {
         return try makeTmpFile(in: path.removingLastComponent(), prefix: path.lastComponent!)
 
     }
+
+
+    #if !canImport(WinSDK)
+    /// Calls `body` with a temporary, mutable C string made of the bytes of `path` copied as-is (keeping
+    /// names that are not valid UTF-8 intact), followed by `suffix`.
+    private static func withCString<R>(
+        _ path: FilePath, 
+        appending suffix: String, 
+        _ body: (UnsafeMutablePointer<CChar>) -> R
+    ) -> R {
+        let pathCount = path.length
+        let suffixCount = suffix.utf8.count
+        return withUnsafeTemporaryAllocation(of: CChar.self, capacity: pathCount + suffixCount + 1) { buffer in
+            let str = buffer.baseAddress!
+            path.withPlatformString { str.initialize(from: $0, count: pathCount) }
+            // the suffix is copied together with its null terminator
+            suffix.withCString { (str + pathCount).initialize(from: $0, count: suffixCount + 1) }
+            return body(str)
+        }
+    }
+    #endif
 
 }

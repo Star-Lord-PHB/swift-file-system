@@ -271,4 +271,44 @@ extension RecursiveSequenceAPITests.TraversalTests {
 
     }
 
+
+    // The sibling carries the name a lossy `String` conversion would produce, so descending into
+    // it instead of the named directory cannot go unnoticed.
+    @Test
+    func `Enters a directory whose name is not valid Unicode`() throws {
+
+        try Support.requireNonUnicodeNamesAvailable(in: workspace.root)
+        let name = Support.nonUnicodeName("subdir")
+        let sibling = Support.nameAfterLossyStringConversion(of: name)
+        let path = try workspace.makeFixture(
+            at: "directory",
+            [
+                "staging": ["nested": .file(contents: "nested contents")],
+                sibling: ["other": .file(contents: "other contents")],
+            ]
+        )
+        try workspace.renameNatively("directory/staging", to: name)
+
+        let sequence = DirectoryEntryRecursiveSequence(dirAt: path)
+        let elements = try sequence.map(\.self)
+        let contents = try recursiveContents(from: elements)
+
+        let directory = FilePath(root: nil, [name])
+        let siblingDirectory = FilePath(root: nil, [sibling])
+        expectRecursiveDirContents(
+            contents,
+            entries: [
+                try entry(directory, type: .directory),
+                try entry(directory.appending("nested"), type: .regular),
+                try entry(siblingDirectory, type: .directory),
+                try entry(siblingDirectory.appending("other"), type: .regular)
+            ],
+            leavingDirectories: [
+                directory,
+                siblingDirectory
+            ]
+        )
+
+    }
+
 }
