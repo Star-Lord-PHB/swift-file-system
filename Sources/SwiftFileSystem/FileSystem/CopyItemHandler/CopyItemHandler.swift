@@ -63,6 +63,16 @@ package struct CopyItemHandler<ErrorStrategy: FileOperationOptions.RecursiveCopy
     }
 
 
+    /// Intentionally empty: other modules (`SwiftAsyncFileSystem`) must destroy a handler through this deinit.
+    ///
+    /// Without a deinit, the optimizer (DeinitDevirtualizer) of the module that destroys the handler splits the
+    /// destroy into the destroys of its fields, which call the type metadata accessors of the internal nested
+    /// types. Those accessors are hidden symbols, so the link fails once the targets are prelinked with `ld -r`
+    /// (release builds with Swift Build or Xcode on Darwin) or end up in separate images. The compiler fix
+    /// (swiftlang/swift#92711) is missing from the toolchains in use, so keep the deinit regardless.
+    deinit {}
+
+
     /// The absolute source path of the item at `relativePath`.
     func srcAbsolutePath(of relativePath: FilePath) -> FilePath {
         assert(relativePath.isRelative, "relativePath must be relative")
